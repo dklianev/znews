@@ -22,8 +22,21 @@ import {
 } from '@aws-sdk/client-s3';
 import { randomUUID, createHash } from 'crypto';
 
-// Fix DNS for MongoDB Atlas SRV lookups
-dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+// Some networks have broken SRV resolution for MongoDB Atlas.
+// In managed platforms (e.g. Azure App Service), overriding DNS can break SRV lookups,
+// so we only override in non-production unless explicitly configured.
+const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+const mongoDnsServersEnv = process.env.MONGODB_DNS_SERVERS;
+if (mongoDnsServersEnv && mongoDnsServersEnv.trim()) {
+  try {
+    const servers = mongoDnsServersEnv.split(',').map(s => s.trim()).filter(Boolean);
+    if (servers.length) dns.setServers(servers);
+  } catch (e) {
+    console.warn(`⚠ Failed to apply MONGODB_DNS_SERVERS: ${e?.message || e}`);
+  }
+} else if (nodeEnv !== 'production') {
+  dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+}
 
 import {
   Article, Author, Category, Ad, Breaking, User,
