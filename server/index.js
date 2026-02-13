@@ -48,6 +48,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 dotenv.config({ path: path.join(__dirname, '.env'), override: true });
 
+// ─── Bundled font setup for Sharp/librsvg Cyrillic rendering ───
+// On Azure/Linux, system fonts often lack Cyrillic glyphs.
+// We bundle Noto Sans and tell fontconfig to find it.
+(() => {
+  const fontsDir = path.join(__dirname, 'fonts');
+  const fontsConf = path.join(fontsDir, 'fonts.conf');
+  if (fs.existsSync(fontsConf)) {
+    // Patch <dir> placeholder with the real absolute path to our fonts folder
+    const confContent = fs.readFileSync(fontsConf, 'utf8');
+    if (confContent.includes('FONTDIR_PLACEHOLDER')) {
+      fs.writeFileSync(fontsConf, confContent.replace('FONTDIR_PLACEHOLDER', fontsDir.replace(/\\/g, '/')), 'utf8');
+    }
+    // Set FONTCONFIG_PATH so librsvg (used by sharp) picks up our config
+    if (!process.env.FONTCONFIG_PATH) {
+      process.env.FONTCONFIG_PATH = fontsDir;
+    }
+    // Also add to FONTCONFIG_FILE for some librsvg builds
+    if (!process.env.FONTCONFIG_FILE) {
+      process.env.FONTCONFIG_FILE = fontsConf;
+    }
+    console.log(`✓ Bundled fonts configured from ${fontsDir}`);
+  }
+})();
+
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 const rawJwtSecret = process.env.JWT_SECRET;
@@ -440,8 +464,8 @@ const shareCardHeight = 630;
 
 // Note: librsvg (used by sharp for SVG rendering) often does not do per-glyph font fallback reliably.
 // Use a font stack that includes Cyrillic-capable fonts first so Bulgarian text renders on minimal servers.
-const shareCardFontStackDisplay = "DejaVu Sans Condensed, DejaVu Sans, Noto Sans, Liberation Sans, Segoe UI, Arial, sans-serif";
-const shareCardFontStackBody = "DejaVu Sans, Noto Sans, Liberation Sans, Segoe UI, Arial, sans-serif";
+const shareCardFontStackDisplay = "Noto Sans, DejaVu Sans Condensed, DejaVu Sans, Liberation Sans, Segoe UI, Arial, sans-serif";
+const shareCardFontStackBody = "Noto Sans, DejaVu Sans, Liberation Sans, Segoe UI, Arial, sans-serif";
 
 function toPosixRelativePath(value) {
   return String(value || '')
