@@ -50,17 +50,28 @@ dotenv.config({ path: path.join(__dirname, '.env'), override: true });
 
 // ─── Bundled font for Sharp/librsvg Cyrillic rendering ───
 // On Azure/Linux servers there are no Cyrillic system fonts.
-// We embed Noto Sans as base64 directly inside the SVG so librsvg
-// renders Bulgarian text without any fontconfig dependency.
-let embeddedFontBase64 = '';
+// librsvg uses Pango+fontconfig, so we register our bundled Noto Sans
+// via a dynamically generated fonts.conf BEFORE sharp is ever loaded.
 (() => {
-  const fontPath = path.join(__dirname, 'fonts', 'NotoSans.ttf');
-  if (fs.existsSync(fontPath)) {
-    embeddedFontBase64 = fs.readFileSync(fontPath).toString('base64');
-    console.log(`✓ Bundled Noto Sans font loaded (${Math.round(embeddedFontBase64.length / 1024)}KB base64)`);
-  } else {
+  const fontsDir = path.join(__dirname, 'fonts');
+  const fontFile = path.join(fontsDir, 'NotoSans.ttf');
+  if (!fs.existsSync(fontFile)) {
     console.warn('⚠ server/fonts/NotoSans.ttf not found — share card Cyrillic may not render on minimal servers.');
+    return;
   }
+  // Generate fonts.conf at runtime with the correct absolute path
+  const fontsDirPosix = fontsDir.replace(/\\/g, '/');
+  const cacheDir = path.join(fontsDir, 'cache').replace(/\\/g, '/');
+  if (!fs.existsSync(path.join(fontsDir, 'cache'))) {
+    fs.mkdirSync(path.join(fontsDir, 'cache'), { recursive: true });
+  }
+  const fontsConf = `<?xml version="1.0"?>\n<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">\n<fontconfig>\n  <dir>${fontsDirPosix}</dir>\n  <cachedir>${cacheDir}</cachedir>\n  <match target="pattern">\n    <test name="family"><string>sans-serif</string></test>\n    <edit name="family" mode="prepend" binding="strong"><string>Noto Sans</string></edit>\n  </match>\n  <match target="pattern">\n    <test name="family"><string>Arial</string></test>\n    <edit name="family" mode="prepend" binding="strong"><string>Noto Sans</string></edit>\n  </match>\n  <match target="pattern">\n    <test name="family"><string>Segoe UI</string></test>\n    <edit name="family" mode="prepend" binding="strong"><string>Noto Sans</string></edit>\n  </match>\n  <match target="pattern">\n    <test name="family"><string>DejaVu Sans</string></test>\n    <edit name="family" mode="prepend" binding="strong"><string>Noto Sans</string></edit>\n  </match>\n</fontconfig>`;
+  const confPath = path.join(fontsDir, 'fonts.conf');
+  fs.writeFileSync(confPath, fontsConf, 'utf8');
+  // Must set BEFORE sharp/librsvg is loaded for the first time
+  process.env.FONTCONFIG_FILE = confPath;
+  process.env.FONTCONFIG_PATH = fontsDir;
+  console.log(`✓ Fontconfig configured: ${confPath}`);
 })();
 
 const app = express();
@@ -453,10 +464,9 @@ if (!isRemoteStorage && !fs.existsSync(shareCardsDir)) fs.mkdirSync(shareCardsDi
 const shareCardWidth = 1200;
 const shareCardHeight = 630;
 
-// The embedded font family name used in SVG @font-face
-const shareCardFontFamily = 'NotoSans';
-const shareCardFontStackDisplay = `${shareCardFontFamily}, sans-serif`;
-const shareCardFontStackBody = `${shareCardFontFamily}, sans-serif`;
+// Font stack for SVG text elements — fontconfig maps these to bundled Noto Sans
+const shareCardFontStackDisplay = "Noto Sans, sans-serif";
+const shareCardFontStackBody = "Noto Sans, sans-serif";
 
 function toPosixRelativePath(value) {
   return String(value || '')
@@ -1444,22 +1454,9 @@ function buildShareCardOverlaySvg(model) {
     .map(({ line, fit }, index) => `<tspan x="96" dy="${index === 0 ? 0 : model.subtitleLineHeight}"${fit ? ` textLength="${model.subtitleTextLength}" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeHtml(line)}</tspan>`)
     .join('');
 
-  // Build @font-face block that embeds the font directly in the SVG
-  const fontFaceBlock = embeddedFontBase64
-    ? `<style>
-      @font-face {
-        font-family: '${shareCardFontFamily}';
-        src: url('data:font/ttf;base64,${embeddedFontBase64}') format('truetype');
-        font-weight: 100 900;
-        font-style: normal;
-      }
-    </style>`
-    : '';
-
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${shareCardWidth}" height="${shareCardHeight}" viewBox="0 0 ${shareCardWidth} ${shareCardHeight}">
   <defs>
-    ${fontFaceBlock}
     <linearGradient id="overlayFade" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#120d20" stop-opacity="0.15" />
       <stop offset="45%" stop-color="#120e21" stop-opacity="0.64" />
@@ -1591,7 +1588,7 @@ async function ensureArticleShareCard(article, { categoryLabel = '' } = {}) {
   const imageSource = getShareSourceUrl(normalized);
   const signature = createHash('sha1')
     .update(JSON.stringify({
-      v: 'share-card-v20-embedded-font',
+      v: 'share-card-v21-fontconfig',
       id: normalized.id,
       title: normalized.title,
       excerpt: normalized.excerpt,
