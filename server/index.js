@@ -1,0 +1,3227 @@
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import compression from 'compression';
+import dns from 'dns';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import multer from 'multer';
+import { randomUUID, createHash } from 'crypto';
+
+// Fix DNS for MongoDB Atlas SRV lookups
+dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
+
+import {
+  Article, Author, Category, Ad, Breaking, User,
+  Wanted, Job, Court, Event, Poll, Comment, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog,
+} from './models.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, '.env'), override: true });
+
+const app = express();
+const isProd = process.env.NODE_ENV === 'production';
+const rawJwtSecret = process.env.JWT_SECRET;
+const rawRefreshSecret = process.env.REFRESH_TOKEN_SECRET || rawJwtSecret;
+
+if (isProd && (!rawJwtSecret || rawJwtSecret.length < 32 || rawJwtSecret.toLowerCase().includes('change-me'))) {
+  console.error('✗ JWT_SECRET is missing or too weak for production.');
+  process.exit(1);
+}
+if (isProd && (!rawRefreshSecret || rawRefreshSecret.length < 32 || rawRefreshSecret.toLowerCase().includes('change-me'))) {
+  console.error('✗ REFRESH_TOKEN_SECRET is missing or too weak for production.');
+  process.exit(1);
+}
+
+const JWT_SECRET = rawJwtSecret || 'dev-secret-change-this-before-production';
+const REFRESH_TOKEN_SECRET = rawRefreshSecret || 'dev-refresh-secret-change-this-before-production';
+const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || '15m';
+const REFRESH_TOKEN_TTL_DAYS = Math.max(
+  1,
+  Number.parseInt(process.env.REFRESH_TOKEN_TTL_DAYS || '', 10) || 14
+);
+const REFRESH_COOKIE_NAME = process.env.REFRESH_COOKIE_NAME || 'zn_refresh';
+const REFRESH_COOKIE_PATH = '/api/auth';
+const refreshTokenMaxAgeMs = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
+
+function parseDurationToMs(value, fallbackMs) {
+  const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!raw) return fallbackMs;
+  if (/^\d+$/.test(raw)) {
+    const numeric = Number.parseInt(raw, 10);
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : fallbackMs;
+  }
+  const match = raw.match(/^(\d+)\s*(ms|s|m|h|d)$/);
+  if (!match) return fallbackMs;
+  const amount = Number.parseInt(match[1], 10);
+  if (!Number.isFinite(amount) || amount <= 0) return fallbackMs;
+  const unit = match[2];
+  const map = {
+    ms: 1,
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+  };
+  return amount * (map[unit] || 1);
+}
+
+const accessTokenMaxAgeMs = parseDurationToMs(ACCESS_TOKEN_EXPIRES_IN, 15 * 60 * 1000);
+function getPublishedFilter(now = new Date()) {
+  return {
+    $and: [
+      { $or: [{ status: 'published' }, { status: { $exists: false } }] },
+      { $or: [{ publishAt: { $exists: false } }, { publishAt: null }, { publishAt: { $lte: now } }] },
+    ],
+  };
+}
+const DEFAULT_HERO_SETTINGS = Object.freeze({
+  headline: 'ТАЙНИ СРЕЩИ НА ПЛАЖА\nИ ПАРКА!',
+  shockLabel: 'ШОК!',
+  ctaLabel: 'РАЗКРИЙ ВСИЧКО ТУК!',
+  headlineBoardText: 'ШОК И СЕНЗАЦИЯ!',
+  captions: ['В КОЛАТА НА ПОЛИЦАЯ!', 'ГОРЕЩА ПРЕГРЪДКА!', 'ТАЙНА СРЕЩА В ПАРКА!'],
+  mainPhotoArticleId: null,
+  photoArticleIds: [],
+});
+
+const DEFAULT_SITE_SETTINGS = Object.freeze({
+  navbarLinks: [
+    { to: '/', label: 'Начало' },
+    { to: '/category/crime', label: 'Криминални', hot: true },
+    { to: '/category/underground', label: 'Подземен свят', hot: true },
+    { to: '/category/emergency', label: 'Полиция' },
+    { to: '/category/reportage', label: 'Репортажи' },
+    { to: '/category/politics', label: 'Политика' },
+    { to: '/category/business', label: 'Бизнес' },
+    { to: '/category/society', label: 'Общество' },
+    { to: '/jobs', label: 'Работа' },
+    { to: '/court', label: 'Съд' },
+    { to: '/events', label: 'Събития' },
+    { to: '/gallery', label: 'Галерия' },
+  ],
+  spotlightLinks: [
+    { to: '/category/crime', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-2deg' },
+    { to: '/category/underground', label: 'Скандали', icon: 'Megaphone', hot: true, tilt: '1.5deg' },
+    { to: '/category/society', label: 'Слухове', icon: 'Bell', hot: false, tilt: '-1deg' },
+  ],
+  footerPills: [
+    { label: 'Горещо', to: '/category/crime', hot: true, tilt: '-1.5deg' },
+    { label: 'Скандали', to: '/category/underground', hot: true, tilt: '1deg' },
+    { label: 'Слухове', to: '/category/society', hot: false, tilt: '-0.8deg' },
+    { label: 'Криминални', to: '/category/crime', hot: false, tilt: '0.8deg' },
+    { label: 'Бизнес', to: '/category/business', hot: false, tilt: '-1deg' },
+  ],
+  footerQuickLinks: [
+    { label: 'Криминални', to: '/category/crime' },
+    { label: 'Подземен свят', to: '/category/underground' },
+    { label: 'Полиция', to: '/category/emergency' },
+    { label: 'Политика', to: '/category/politics' },
+    { label: 'Бизнес', to: '/category/business' },
+    { label: 'Общество', to: '/category/society' },
+  ],
+  footerInfoLinks: [
+    { label: 'За нас', to: '/about' },
+    { label: 'Работа', to: '/jobs' },
+    { label: 'Съдебна хроника', to: '/court' },
+    { label: 'Събития', to: '/events' },
+    { label: 'Галерия', to: '/gallery' },
+  ],
+  contact: {
+    address: 'Vinewood Blvd 42, Los Santos',
+    phone: '+381 11 123 4567',
+    email: 'redakciq@znews.live',
+  },
+  about: {
+    heroText: 'Независим новинарски портал за града Los Santos. Доставяме ви новини, репортажи и разследвания 24 часа в денонощието, 7 дни в седмицата.',
+    missionTitle: 'Нашата мисия',
+    missionParagraph1: 'zNews е създаден с целта да предостави на гражданите на Los Santos честна, навременна и безпристрастна информация за случващото се в града. Ние вярваме в силата на журналистиката да информира, образова и вдъхновява промяна.',
+    missionParagraph2: 'Нашият екип от опитни журналисти работи денонощно, за да покрива всички аспекти на живота в Los Santos — от криминалните хроники до обществените събития, от бизнес новините до спортните триумфи.',
+    adIntro: 'Искаш да рекламираш своя бизнес в Los Santos? zNews предлага разнообразни рекламни формати:',
+    adPlans: [
+      { name: 'Банер (горен)', price: '$500/месец', desc: 'Хоризонтален банер в горната част' },
+      { name: 'Банер (страничен)', price: '$300/месец', desc: 'Странично каре в sidebar' },
+      { name: 'Банер (в статия)', price: '$400/месец', desc: 'Вграден в съдържанието' },
+    ],
+  },
+  layoutPresets: {
+    homeFeatured: 'default',
+    homeCrime: 'default',
+    homeReportage: 'default',
+    homeEmergency: 'default',
+    articleRelated: 'default',
+    categoryListing: 'default',
+    searchListing: 'default',
+  },
+});
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+  : ['http://localhost:3000', 'http://localhost:3001'];
+
+if (isProd && allowedOrigins.length === 0) {
+  console.error('✗ ALLOWED_ORIGINS must be configured in production.');
+  process.exit(1);
+}
+
+const blockedCommentTerms = (process.env.BLOCKED_COMMENT_TERMS || 'http://,https://,<script,</script')
+  .split(',')
+  .map(s => s.trim().toLowerCase())
+  .filter(Boolean);
+
+const allowedImageMimeTypes = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+]);
+
+const imageMimeToExt = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+};
+const allowedImageExtensions = new Set(Object.values(imageMimeToExt));
+const imagePipelineWidths = [320, 640, 960, 1280];
+let sharpLoaderPromise = null;
+let sharpMissingWarned = false;
+const pollVoteWindowMs = Math.max(
+  5 * 60 * 1000,
+  Number.parseInt(process.env.POLL_VOTE_WINDOW_MS || '', 10) || (24 * 60 * 60 * 1000)
+);
+const articleViewWindowMs = Math.max(
+  60 * 1000,
+  Number.parseInt(process.env.ARTICLE_VIEW_WINDOW_MS || '', 10) || (6 * 60 * 60 * 1000)
+);
+
+app.set('trust proxy', 1);
+
+// ─── Security & Performance Middleware ───
+app.use(compression());
+app.use(helmet({
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      fontSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+}));
+
+app.use(cors({
+  origin(origin, cb) {
+    // Non-browser clients don't send Origin.
+    if (!origin) return cb(null, true);
+    if (!isProd) return cb(null, true);
+    return cb(null, allowedOrigins.includes(origin));
+  },
+  credentials: true,
+}));
+
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+});
+app.use('/api/', generalLimiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many login attempts, please try again later.' },
+  skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+});
+
+const pollVoteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  message: { error: 'Too many poll votes from this IP. Please try again later.' },
+  skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+});
+
+app.use(express.json({ limit: '1mb' }));
+
+// ─── File Uploads ───
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+const uploadVariantsDir = path.join(uploadsDir, '_variants');
+if (!fs.existsSync(uploadVariantsDir)) fs.mkdirSync(uploadVariantsDir, { recursive: true });
+const shareCardsDir = path.join(uploadsDir, '_share');
+if (!fs.existsSync(shareCardsDir)) fs.mkdirSync(shareCardsDir, { recursive: true });
+const shareCardWidth = 1200;
+const shareCardHeight = 630;
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const ext = imageMimeToExt[file.mimetype] || '.jpg';
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (allowedImageMimeTypes.has(file.mimetype)) cb(null, true);
+    else cb(new Error('Only JPEG, PNG, GIF, and WebP files are allowed'));
+  },
+});
+
+app.use('/uploads', express.static(uploadsDir, {
+  maxAge: isProd ? '30d' : '1d',
+  setHeaders: (res) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  },
+}));
+
+function isSafeUploadFilename(name) {
+  return /^[a-zA-Z0-9._-]+$/.test(name || '');
+}
+
+function isOriginalUploadFileName(name) {
+  if (!isSafeUploadFilename(name)) return false;
+  if (name.startsWith('_')) return false;
+  return !name.includes('-w') && !name.includes('-avif') && !name.includes('-webp');
+}
+
+function getVariantsRelativeDir(fileName) {
+  return path.posix.join('_variants', path.parse(fileName).name);
+}
+
+function getVariantsAbsoluteDir(fileName) {
+  return path.join(uploadsDir, ...getVariantsRelativeDir(fileName).split('/'));
+}
+
+function toUploadsUrlFromRelative(relativePath) {
+  return `/uploads/${relativePath.split(path.sep).join('/')}`;
+}
+
+function getManifestAbsolutePath(fileName) {
+  return path.join(getVariantsAbsoluteDir(fileName), 'manifest.json');
+}
+
+async function loadSharp() {
+  if (sharpLoaderPromise) return sharpLoaderPromise;
+  sharpLoaderPromise = import('sharp')
+    .then(mod => mod.default || mod)
+    .catch(() => {
+      if (!sharpMissingWarned) {
+        sharpMissingWarned = true;
+        console.warn('⚠ Image pipeline is disabled because optional dependency "sharp" is not available.');
+      }
+      return null;
+    });
+  return sharpLoaderPromise;
+}
+
+async function readImageManifest(fileName) {
+  try {
+    const raw = await fs.promises.readFile(getManifestAbsolutePath(fileName), 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writeImageManifest(fileName, manifest) {
+  const dir = getVariantsAbsoluteDir(fileName);
+  await fs.promises.mkdir(dir, { recursive: true });
+  await fs.promises.writeFile(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+}
+
+async function generateImagePipeline(fileName) {
+  const sharp = await loadSharp();
+  if (!sharp) return null;
+
+  const sourcePath = path.join(uploadsDir, fileName);
+  const variantsDir = getVariantsAbsoluteDir(fileName);
+  await fs.promises.mkdir(variantsDir, { recursive: true });
+
+  const source = sharp(sourcePath, { failOn: 'none' }).rotate();
+  const meta = await source.metadata();
+  const sourceWidth = Number(meta.width) || null;
+  const sourceHeight = Number(meta.height) || null;
+
+  const widths = [...new Set(
+    imagePipelineWidths
+      .map(width => sourceWidth ? Math.min(width, sourceWidth) : width)
+      .filter(width => Number.isFinite(width) && width > 0)
+  )].sort((a, b) => a - b);
+
+  const variants = [];
+  for (const width of widths) {
+    const webpName = `w${width}.webp`;
+    const avifName = `w${width}.avif`;
+    const webpPath = path.join(variantsDir, webpName);
+    const avifPath = path.join(variantsDir, avifName);
+
+    await sharp(sourcePath).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 74 }).toFile(webpPath);
+    await sharp(sourcePath).rotate().resize({ width, withoutEnlargement: true }).avif({ quality: 52 }).toFile(avifPath);
+
+    variants.push({
+      width,
+      webp: toUploadsUrlFromRelative(path.posix.join(getVariantsRelativeDir(fileName), webpName)),
+      avif: toUploadsUrlFromRelative(path.posix.join(getVariantsRelativeDir(fileName), avifName)),
+    });
+  }
+
+  const blurName = 'blur.webp';
+  await sharp(sourcePath).rotate().resize({ width: 32, withoutEnlargement: true }).blur(2).webp({ quality: 48 }).toFile(path.join(variantsDir, blurName));
+
+  const manifest = {
+    generatedAt: new Date().toISOString(),
+    original: {
+      url: `/uploads/${encodeURIComponent(fileName)}`,
+      width: sourceWidth,
+      height: sourceHeight,
+      format: meta.format || '',
+    },
+    placeholder: toUploadsUrlFromRelative(path.posix.join(getVariantsRelativeDir(fileName), blurName)),
+    variants,
+  };
+
+  await writeImageManifest(fileName, manifest);
+  return manifest;
+}
+
+async function ensureImagePipeline(fileName) {
+  const existing = await readImageManifest(fileName);
+  if (existing) return existing;
+  try {
+    return await generateImagePipeline(fileName);
+  } catch {
+    return null;
+  }
+}
+
+function toImageMetaFromManifest(manifest) {
+  if (!manifest || !Array.isArray(manifest.variants) || manifest.variants.length === 0) return null;
+  return {
+    width: Number(manifest.original?.width) || null,
+    height: Number(manifest.original?.height) || null,
+    placeholder: typeof manifest.placeholder === 'string' ? manifest.placeholder : '',
+    webp: manifest.variants
+      .filter(item => Number.isFinite(item.width) && typeof item.webp === 'string')
+      .map(item => ({ width: item.width, url: item.webp })),
+    avif: manifest.variants
+      .filter(item => Number.isFinite(item.width) && typeof item.avif === 'string')
+      .map(item => ({ width: item.width, url: item.avif })),
+  };
+}
+
+function getUploadFilenameFromUrl(mediaUrl) {
+  if (typeof mediaUrl !== 'string' || !mediaUrl.startsWith('/uploads/')) return null;
+  let raw = '';
+  try {
+    raw = decodeURIComponent(mediaUrl.slice('/uploads/'.length));
+  } catch {
+    return null;
+  }
+  if (!raw || raw.includes('/') || raw.includes('\\')) return null;
+  const fileName = path.basename(raw);
+  if (!isOriginalUploadFileName(fileName)) return null;
+  return fileName;
+}
+
+async function resolveImageMetaFromUrl(mediaUrl) {
+  const fileName = getUploadFilenameFromUrl(mediaUrl);
+  if (!fileName) return null;
+  const manifest = await ensureImagePipeline(fileName);
+  return toImageMetaFromManifest(manifest);
+}
+
+async function listOriginalUploadEntries() {
+  const entries = await fs.promises.readdir(uploadsDir, { withFileTypes: true });
+  return entries.filter((entry) => {
+    if (!entry.isFile()) return false;
+    const ext = path.extname(entry.name).toLowerCase();
+    if (!allowedImageExtensions.has(ext)) return false;
+    return isOriginalUploadFileName(entry.name);
+  });
+}
+
+async function getPipelineEngineName() {
+  const sharp = await loadSharp();
+  return sharp ? 'sharp' : 'disabled';
+}
+
+async function getImagePipelineStatus() {
+  const entries = await listOriginalUploadEntries();
+  const checks = await Promise.all(entries.map(async (entry) => {
+    const manifest = await readImageManifest(entry.name);
+    return Boolean(manifest);
+  }));
+  const ready = checks.filter(Boolean).length;
+  const total = entries.length;
+  return {
+    total,
+    ready,
+    pending: Math.max(total - ready, 0),
+    engine: await getPipelineEngineName(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function backfillImagePipeline({ force = false, limit = 0 } = {}) {
+  const entries = await listOriginalUploadEntries();
+  const scopedEntries = Number.isInteger(limit) && limit > 0
+    ? entries.slice(0, limit)
+    : entries;
+  const engine = await getPipelineEngineName();
+  const summary = {
+    engine,
+    force: Boolean(force),
+    scanned: entries.length,
+    total: scopedEntries.length,
+    generated: 0,
+    regenerated: 0,
+    skipped: 0,
+    failed: 0,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+  };
+
+  if (engine === 'disabled') {
+    summary.finishedAt = new Date().toISOString();
+    return summary;
+  }
+
+  for (const entry of scopedEntries) {
+    try {
+      const before = await readImageManifest(entry.name);
+      if (before && !force) {
+        summary.skipped += 1;
+        continue;
+      }
+
+      const manifest = force
+        ? await generateImagePipeline(entry.name)
+        : await ensureImagePipeline(entry.name);
+
+      if (manifest) {
+        if (before) summary.regenerated += 1;
+        else summary.generated += 1;
+      } else {
+        summary.failed += 1;
+      }
+    } catch {
+      summary.failed += 1;
+    }
+  }
+
+  summary.finishedAt = new Date().toISOString();
+  return summary;
+}
+
+async function listMediaFiles() {
+  const entries = await listOriginalUploadEntries();
+  const engine = await getPipelineEngineName();
+  const files = await Promise.all(entries
+    .map(async (entry) => {
+      const fullPath = path.join(uploadsDir, entry.name);
+      const stats = await fs.promises.stat(fullPath);
+      const manifest = await ensureImagePipeline(entry.name);
+      return {
+        id: entry.name,
+        name: entry.name,
+        url: `/uploads/${encodeURIComponent(entry.name)}`,
+        size: stats.size,
+        updatedAt: stats.mtime.toISOString(),
+        imageMeta: toImageMetaFromManifest(manifest),
+        pipelineReady: Boolean(manifest),
+        pipelineEngine: engine,
+      };
+    }));
+
+  return files
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+}
+
+const transparentPng1x1 = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAHC8IYQAAAABJRU5ErkJggg==',
+  'base64'
+);
+
+const shareAccentPalettes = Object.freeze({
+  red: { primary: '#ef1f1f', secondary: '#ff8a2a', ink: '#25162f' },
+  orange: { primary: '#ff4d00', secondary: '#ffb22b', ink: '#25162f' },
+  yellow: { primary: '#ffd548', secondary: '#ff8d22', ink: '#25162f' },
+  purple: { primary: '#6d26ff', secondary: '#ff4b45', ink: '#25162f' },
+  blue: { primary: '#185dff', secondary: '#28b0ff', ink: '#25162f' },
+  emerald: { primary: '#00a872', secondary: '#6fd430', ink: '#25162f' },
+});
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function stripHtmlToText(value) {
+  if (typeof value !== 'string') return '';
+  return value
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function clampText(value, maxLen) {
+  const text = normalizeText(value, maxLen + 10);
+  if (text.length <= maxLen) return text;
+  return `${text.slice(0, Math.max(0, maxLen - 1)).trim()}...`;
+}
+
+function appendEllipsis(value, maxLen) {
+  const text = String(value || '').trim();
+  if (!text) return '...';
+  if (text.endsWith('...')) return text;
+  if (text.length >= Math.max(1, maxLen - 3)) {
+    return `${text.slice(0, Math.max(1, maxLen - 3)).trim()}...`;
+  }
+  return `${text}...`;
+}
+
+function wrapTextLines(value, maxCharsPerLine, maxLines) {
+  const words = String(value || '').split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [];
+
+  const lines = [];
+  let current = '';
+  let truncated = false;
+
+  for (let i = 0; i < words.length; i += 1) {
+    const word = words[i];
+    if (word.length > maxCharsPerLine) {
+      if (current) lines.push(current);
+      current = '';
+      lines.push(clampText(word, maxCharsPerLine));
+      if (lines.length >= maxLines) {
+        truncated = i < words.length - 1;
+        break;
+      }
+      continue;
+    }
+
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxCharsPerLine) {
+      current = candidate;
+      continue;
+    }
+    if (current) lines.push(current);
+    current = word;
+    if (lines.length >= maxLines) {
+      truncated = true;
+      break;
+    }
+  }
+
+  if (current && lines.length < maxLines) {
+    lines.push(current);
+  }
+
+  if (lines.length > maxLines) {
+    lines.length = maxLines;
+    truncated = true;
+  }
+  if (truncated && lines.length > 0) {
+    lines[lines.length - 1] = appendEllipsis(lines[lines.length - 1], Math.max(4, maxCharsPerLine));
+  }
+  return lines;
+}
+
+function resolveAutoShareAccent(article) {
+  if (article.breaking) return 'red';
+  switch (article.category) {
+    case 'crime':
+    case 'underground':
+      return 'purple';
+    case 'emergency':
+      return 'red';
+    case 'reportage':
+    case 'business':
+      return 'orange';
+    case 'sports':
+      return 'blue';
+    case 'society':
+      return 'yellow';
+    default:
+      return 'orange';
+  }
+}
+
+function resolveSharePalette(article) {
+  const accent = sanitizeShareAccent(article.shareAccent);
+  const resolvedAccent = accent === 'auto' ? resolveAutoShareAccent(article) : accent;
+  return shareAccentPalettes[resolvedAccent] || shareAccentPalettes.orange;
+}
+
+function getShareSourceUrl(article) {
+  const shareImage = sanitizeMediaUrl(article?.shareImage);
+  if (shareImage && shareImage !== '#') return shareImage;
+  const image = sanitizeMediaUrl(article?.image);
+  if (image && image !== '#') return image;
+  return '';
+}
+
+async function resolveShareBackgroundInput(article) {
+  const sourceUrl = getShareSourceUrl(article);
+  if (!sourceUrl) return null;
+
+  const uploadFileName = getUploadFilenameFromUrl(sourceUrl);
+  if (uploadFileName) {
+    const fullPath = path.join(uploadsDir, uploadFileName);
+    try {
+      await fs.promises.access(fullPath, fs.constants.R_OK);
+      return fullPath;
+    } catch {
+      return null;
+    }
+  }
+
+  if (!/^https?:\/\//i.test(sourceUrl)) return null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4500);
+    const response = await fetch(sourceUrl, {
+      signal: controller.signal,
+      headers: { Accept: 'image/*' },
+    });
+    clearTimeout(timeout);
+    if (!response.ok) return null;
+    const contentType = normalizeText(response.headers.get('content-type') || '', 80).toLowerCase();
+    if (!contentType.startsWith('image/')) return null;
+    const arrayBuffer = await response.arrayBuffer();
+    if (!arrayBuffer || arrayBuffer.byteLength < 256) return null;
+    return Buffer.from(arrayBuffer);
+  } catch {
+    return null;
+  }
+}
+
+function buildShareCardModel(article, categoryLabel) {
+  const palette = resolveSharePalette(article);
+  const normalizedTitle = normalizeText(article.shareTitle || article.title, 140) || 'zNews.live';
+  const normalizedSubtitle = normalizeText(
+    article.shareSubtitle || stripHtmlToText(article.excerpt || article.content || ''),
+    130
+  ) || 'Ексклузивни новини от града.';
+  const normalizedBadge = normalizeText(
+    article.shareBadge || (article.breaking ? 'ИЗВЪНРЕДНО' : 'EXCLUSIVE'),
+    36
+  ).toUpperCase();
+  const titleLines = wrapTextLines(normalizedTitle.toUpperCase(), 18, 3);
+  const subtitleLines = wrapTextLines(normalizedSubtitle, 34, 2);
+  const category = normalizeText(categoryLabel || article.category || 'news', 40).replace(/[_-]+/g, ' ').toUpperCase();
+  const dateLabel = normalizeText(article.date, 20);
+  const maxTitleLen = titleLines.reduce((max, line) => Math.max(max, line.length), 0);
+  const titleBaseFontSize = titleLines.length <= 1 ? 100 : titleLines.length === 2 ? 86 : 72;
+  const titleFitRatio = Math.min(1, 18 / Math.max(10, maxTitleLen));
+  const titleFontSize = Math.max(58, Math.round(titleBaseFontSize * titleFitRatio));
+  const titleLineHeight = titleLines.length <= 1 ? 0 : Math.max(56, Math.round(titleFontSize * 0.93));
+
+  const maxSubtitleLen = subtitleLines.reduce((max, line) => Math.max(max, line.length), 0);
+  const subtitleBaseFontSize = subtitleLines.length > 1 ? 33 : 36;
+  const subtitleFitRatio = Math.min(1, 30 / Math.max(12, maxSubtitleLen));
+  const subtitleFontSize = Math.max(22, Math.round(subtitleBaseFontSize * subtitleFitRatio));
+  const subtitleLineHeight = subtitleLines.length > 1 ? Math.max(28, Math.round(subtitleFontSize * 1.12)) : 0;
+  const badgeFontSize = Math.max(36, Math.min(52, Math.round(560 / Math.max(8, normalizedBadge.length + 2))));
+  const badgeWidth = Math.max(246, Math.min(410, Math.round(74 + normalizedBadge.length * (badgeFontSize * 0.62))));
+  const badgeHeight = Math.max(62, Math.min(76, Math.round(badgeFontSize + 20)));
+  const badgeTextLength = Math.max(130, badgeWidth - 56);
+
+  const categoryText = category || 'NEWS';
+  const categoryFontSize = Math.max(34, Math.min(52, Math.round(620 / Math.max(8, categoryText.length + 3))));
+  const categoryChipWidth = Math.max(300, Math.min(460, Math.round(102 + categoryText.length * (categoryFontSize * 0.6))));
+  const categoryTextLength = Math.max(180, categoryChipWidth - 58);
+  const titleTextLength = 918;
+  const subtitleTextLength = 882;
+  const titleLineMeta = titleLines.map((line) => ({
+    line,
+    fit: line.length * titleFontSize * 0.62 > titleTextLength,
+  }));
+  const subtitleLineMeta = subtitleLines.map((line) => ({
+    line,
+    fit: line.length * subtitleFontSize * 0.55 > subtitleTextLength,
+  }));
+
+  return {
+    palette,
+    titleLines: titleLines.length > 0 ? titleLines : ['zNews.live'],
+    subtitleLines: subtitleLines.length > 0 ? subtitleLines : ['Горещи новини и репортажи от улицата.'],
+    titleLineMeta: titleLineMeta.length > 0 ? titleLineMeta : [{ line: 'zNews.live', fit: false }],
+    subtitleLineMeta: subtitleLineMeta.length > 0 ? subtitleLineMeta : [{ line: 'Горещи новини и репортажи от улицата.', fit: false }],
+    badge: normalizedBadge || 'EXCLUSIVE',
+    category: categoryText,
+    dateLabel,
+    titleFontSize,
+    titleLineHeight,
+    subtitleFontSize,
+    subtitleLineHeight,
+    badgeFontSize,
+    badgeWidth,
+    badgeHeight,
+    badgeTextLength,
+    categoryFontSize,
+    categoryChipWidth,
+    categoryTextLength,
+    titleTextLength,
+    subtitleTextLength,
+  };
+}
+
+function buildShareCardOverlaySvg(model) {
+  const { palette } = model;
+  const titleTspans = model.titleLineMeta
+    .map(({ line, fit }, index) => `<tspan x="94" dy="${index === 0 ? 0 : model.titleLineHeight}"${fit ? ` textLength="${model.titleTextLength}" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeHtml(line)}</tspan>`)
+    .join('');
+  const titleShadowTspans = model.titleLineMeta
+    .map(({ line, fit }, index) => `<tspan x="94" dy="${index === 0 ? 0 : model.titleLineHeight}"${fit ? ` textLength="${model.titleTextLength}" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeHtml(line)}</tspan>`)
+    .join('');
+  const subtitleTspans = model.subtitleLineMeta
+    .map(({ line, fit }, index) => `<tspan x="96" dy="${index === 0 ? 0 : model.subtitleLineHeight}"${fit ? ` textLength="${model.subtitleTextLength}" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeHtml(line)}</tspan>`)
+    .join('');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${shareCardWidth}" height="${shareCardHeight}" viewBox="0 0 ${shareCardWidth} ${shareCardHeight}">
+  <defs>
+    <linearGradient id="overlayFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#120d20" stop-opacity="0.15" />
+      <stop offset="45%" stop-color="#120e21" stop-opacity="0.64" />
+      <stop offset="100%" stop-color="#170f26" stop-opacity="0.96" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${palette.primary}" />
+      <stop offset="100%" stop-color="${palette.secondary}" />
+    </linearGradient>
+    <linearGradient id="footerMetal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#ece7f2" />
+    </linearGradient>
+    <linearGradient id="brandNews" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffe36c" />
+      <stop offset="55%" stop-color="#ffd13e" />
+      <stop offset="100%" stop-color="#ff9b25" />
+    </linearGradient>
+    <clipPath id="titleClip">
+      <rect x="88" y="152" width="${shareCardWidth - 176}" height="232" rx="8" />
+    </clipPath>
+    <clipPath id="subtitleClip">
+      <rect x="94" y="404" width="${shareCardWidth - 188}" height="86" rx="12" />
+    </clipPath>
+    <pattern id="dots" width="7" height="7" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.23)" />
+    </pattern>
+    <linearGradient id="panelGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="rgba(14,10,22,0.76)" />
+      <stop offset="100%" stop-color="rgba(19,14,30,0.90)" />
+    </linearGradient>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#090611" flood-opacity="0.48"/>
+    </filter>
+    <filter id="brandShadow" x="-40%" y="-50%" width="220%" height="260%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#0d0817" flood-opacity="0.45"/>
+      <feDropShadow dx="2" dy="3" stdDeviation="1.3" flood-color="#0d0817" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="${shareCardWidth}" height="${shareCardHeight}" fill="url(#overlayFade)" />
+  <rect x="0" y="0" width="${shareCardWidth}" height="${shareCardHeight}" fill="url(#dots)" opacity="0.12" />
+
+  <rect x="30" y="28" width="${shareCardWidth - 60}" height="${shareCardHeight - 56}" rx="26" fill="none" stroke="#211533" stroke-width="7" />
+
+  <g transform="rotate(-3 210 94)" filter="url(#softShadow)">
+    <rect x="72" y="54" width="${model.badgeWidth}" height="${model.badgeHeight}" rx="14" fill="url(#accent)" stroke="#241833" stroke-width="3" />
+    <text x="100" y="${54 + Math.round(model.badgeHeight * 0.74)}" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="${model.badgeFontSize}" fill="#ffffff" letter-spacing="1.1" textLength="${model.badgeTextLength}" lengthAdjust="spacingAndGlyphs">${escapeHtml(model.badge)}</text>
+  </g>
+
+  <rect x="56" y="130" width="${shareCardWidth - 112}" height="374" rx="26" fill="url(#panelGrad)" stroke="rgba(255,255,255,0.30)" stroke-width="2.4" />
+  <rect x="56" y="130" width="${shareCardWidth - 112}" height="12" rx="8" fill="url(#accent)" opacity="0.86" />
+
+  <polygon points="${shareCardWidth - 136},148 ${shareCardWidth - 92},148 ${shareCardWidth - 130},212 ${shareCardWidth - 174},212" fill="url(#accent)" opacity="0.70" />
+
+  <g clip-path="url(#titleClip)">
+    <g transform="translate(4 5)">
+      <text x="94" y="236" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="${model.titleFontSize}" fill="rgba(0,0,0,0.52)" letter-spacing="1.25">
+        ${titleShadowTspans}
+      </text>
+    </g>
+
+    <text x="94" y="236" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="${model.titleFontSize}" fill="#ffffff" stroke="rgba(22,14,34,0.35)" stroke-width="1.8" letter-spacing="1.25">
+      ${titleTspans}
+    </text>
+  </g>
+
+  <rect x="86" y="398" width="${shareCardWidth - 172}" height="96" rx="16" fill="rgba(255,255,255,0.10)" />
+  <g clip-path="url(#subtitleClip)">
+    <g transform="translate(0 1.2)">
+      <text x="96" y="434" font-family="Arial, Helvetica, sans-serif" font-size="${model.subtitleFontSize}" font-weight="600" letter-spacing="0.15" fill="rgba(13,10,20,0.48)">
+        ${subtitleTspans}
+      </text>
+    </g>
+    <text x="96" y="434" font-family="Arial, Helvetica, sans-serif" font-size="${model.subtitleFontSize}" font-weight="600" letter-spacing="0.15" fill="#f5f2fb">
+      ${subtitleTspans}
+    </text>
+  </g>
+
+  <rect x="56" y="522" width="${shareCardWidth - 112}" height="86" rx="20" fill="url(#footerMetal)" stroke="#2a1d3d" stroke-width="2.4" />
+  <g transform="rotate(-1 254 566)">
+    <rect x="78" y="540" width="${model.categoryChipWidth}" height="50" rx="12" fill="url(#accent)" stroke="#2b1c40" stroke-width="2.5" />
+    <text x="${78 + Math.round(model.categoryChipWidth / 2)}" y="565" text-anchor="middle" dominant-baseline="middle" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="${model.categoryFontSize}" fill="${palette.ink}" letter-spacing="0.9" textLength="${model.categoryTextLength}" lengthAdjust="spacingAndGlyphs">${escapeHtml(model.category)}</text>
+  </g>
+  <g transform="translate(${shareCardWidth - 384} 574) skewX(-8)" filter="url(#brandShadow)">
+    <text x="0" y="0" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="56" fill="#ffffff" stroke="rgba(25,14,40,0.42)" stroke-width="1.7" letter-spacing="-1.1">z</text>
+    <text x="22" y="2" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="56" fill="rgba(22,12,35,0.52)" letter-spacing="0.08">News<tspan dx="1.5" font-size="41" letter-spacing="0.03">.live</tspan></text>
+    <text x="22" y="0" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="56" fill="url(#brandNews)" stroke="rgba(23,12,35,0.34)" stroke-width="1.5" letter-spacing="0.08">News<tspan dx="1.5" font-size="41" letter-spacing="0.03">.live</tspan></text>
+  </g>
+  ${model.dateLabel ? `<text x="${shareCardWidth - 84}" y="598" text-anchor="end" font-family="Oswald, Arial, sans-serif" font-size="22" letter-spacing="0.8" fill="#3f2d56">${escapeHtml(model.dateLabel)}</text>` : ''}
+</svg>`;
+}
+
+async function cleanupOldShareCards(articleId, keepFileName) {
+  try {
+    const prefix = `article-${articleId}-`;
+    const entries = await fs.promises.readdir(shareCardsDir, { withFileTypes: true });
+    await Promise.all(entries
+      .filter((entry) => entry.isFile() && entry.name.startsWith(prefix) && entry.name !== keepFileName)
+      .map((entry) => fs.promises.unlink(path.join(shareCardsDir, entry.name)).catch(() => { })));
+  } catch {
+    // ignore cleanup errors
+  }
+}
+
+async function ensureArticleShareCard(article, { categoryLabel = '' } = {}) {
+  const sharp = await loadSharp();
+  if (!sharp || !article || !Number.isInteger(Number.parseInt(article.id, 10))) return null;
+
+  const normalized = {
+    ...buildArticleSnapshot(article),
+    id: Number.parseInt(article.id, 10),
+  };
+  const model = buildShareCardModel(normalized, categoryLabel);
+  const imageSource = getShareSourceUrl(normalized);
+  const signature = createHash('sha1')
+    .update(JSON.stringify({
+      v: 'share-card-v18',
+      id: normalized.id,
+      title: normalized.title,
+      excerpt: normalized.excerpt,
+      content: normalized.content,
+      category: normalized.category,
+      date: normalized.date,
+      breaking: normalized.breaking,
+      shareTitle: normalized.shareTitle,
+      shareSubtitle: normalized.shareSubtitle,
+      shareBadge: normalized.shareBadge,
+      shareAccent: normalized.shareAccent,
+      shareImage: normalized.shareImage,
+      image: normalized.image,
+      imageSource,
+      categoryLabel,
+    }))
+    .digest('hex')
+    .slice(0, 14);
+
+  const fileName = `article-${normalized.id}-${signature}.png`;
+  const absolutePath = path.join(shareCardsDir, fileName);
+  const url = `/uploads/_share/${encodeURIComponent(fileName)}`;
+
+  try {
+    await fs.promises.access(absolutePath, fs.constants.R_OK);
+    return { generated: true, fileName, absolutePath, url };
+  } catch {
+    // continue to generation
+  }
+
+  const backgroundInput = await resolveShareBackgroundInput(normalized);
+  const overlaySvg = Buffer.from(buildShareCardOverlaySvg(model), 'utf8');
+
+  let baseImage;
+  if (backgroundInput) {
+    baseImage = sharp(backgroundInput, { failOn: 'none' })
+      .rotate()
+      .resize(shareCardWidth, shareCardHeight, { fit: 'cover', position: 'centre' })
+      .modulate({ brightness: 0.8, saturation: 1.1 });
+  } else {
+    const bg = resolveSharePalette(normalized);
+    baseImage = sharp({
+      create: {
+        width: shareCardWidth,
+        height: shareCardHeight,
+        channels: 3,
+        background: bg.primary,
+      },
+    });
+  }
+
+  const output = await baseImage
+    .composite([{ input: overlaySvg }])
+    .png({ compressionLevel: 9, quality: 92 })
+    .toBuffer();
+
+  await fs.promises.writeFile(absolutePath, output);
+  await cleanupOldShareCards(normalized.id, fileName);
+  return { generated: true, fileName, absolutePath, url };
+}
+
+async function resolveShareFallbackSource(article) {
+  const sourceUrl = getShareSourceUrl(article);
+  if (!sourceUrl) return null;
+  const uploadFileName = getUploadFilenameFromUrl(sourceUrl);
+  if (uploadFileName) {
+    const fullPath = path.join(uploadsDir, uploadFileName);
+    try {
+      await fs.promises.access(fullPath, fs.constants.R_OK);
+      return { type: 'file', path: fullPath };
+    } catch {
+      return null;
+    }
+  }
+  if (/^https?:\/\//i.test(sourceUrl)) return { type: 'redirect', url: sourceUrl };
+  return null;
+}
+
+function getPublicBaseUrl(req) {
+  const configured = normalizeText(process.env.PUBLIC_BASE_URL, 240);
+  if (configured) return configured.replace(/\/+$/, '');
+  const forwardedProto = normalizeText(req.headers['x-forwarded-proto'], 16).toLowerCase();
+  const protocol = forwardedProto === 'https' ? 'https' : (req.protocol || 'http');
+  const host = normalizeText(req.get('host'), 180);
+  return host ? `${protocol}://${host}` : '';
+}
+
+// ─── Helpers ───
+function hasOwn(obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function normalizeText(value, maxLen = 255) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/\u0000/g, '').trim().slice(0, maxLen);
+}
+
+function sanitizeDate(value) {
+  const date = normalizeText(value, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : new Date().toISOString().slice(0, 10);
+}
+
+function sanitizeDateTime(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const raw = normalizeText(String(value), 40);
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function sanitizeMediaUrl(value) {
+  const url = normalizeText(value, 2048);
+  if (!url) return '';
+  if (url.startsWith('/')) return url;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
+  } catch { }
+  return '';
+}
+
+function sanitizeExternalUrl(value) {
+  const url = normalizeText(value, 2048);
+  if (!url) return '#';
+  if (url === '#') return '#';
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
+  } catch { }
+  return '#';
+}
+
+function sanitizeTags(value) {
+  const rawTags = Array.isArray(value)
+    ? value
+    : String(value || '').split(',');
+  return rawTags
+    .map(tag => normalizeText(String(tag), 32))
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+const ARTICLE_FIELD_ALLOWLIST = new Set([
+  'id',
+  'title',
+  'excerpt',
+  'content',
+  'category',
+  'authorId',
+  'date',
+  'readTime',
+  'image',
+  'imageMeta',
+  'featured',
+  'breaking',
+  'hero',
+  'views',
+  'tags',
+  'status',
+  'publishAt',
+  'shareTitle',
+  'shareSubtitle',
+  'shareBadge',
+  'shareAccent',
+  'shareImage',
+]);
+
+const ARTICLE_SECTION_FILTERS = Object.freeze({
+  homeFeatured: { featured: true },
+  homeCrime: { category: { $in: ['crime', 'underground'] } },
+  homeReportage: { category: 'reportage' },
+  homeEmergency: { category: 'emergency' },
+});
+
+function parsePositiveInt(value, fallback, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function buildArticleProjection(fieldsParam) {
+  if (typeof fieldsParam !== 'string' || !fieldsParam.trim()) return null;
+  const fields = fieldsParam
+    .split(',')
+    .map(field => normalizeText(field, 40))
+    .filter(Boolean)
+    .filter(field => ARTICLE_FIELD_ALLOWLIST.has(field));
+
+  if (fields.length === 0) return null;
+  if (!fields.includes('id')) fields.unshift('id');
+  return fields.reduce((acc, field) => {
+    acc[field] = 1;
+    return acc;
+  }, { _id: 0 });
+}
+
+function getArticleSectionFilter(section) {
+  const key = normalizeText(section, 40);
+  return ARTICLE_SECTION_FILTERS[key] || null;
+}
+
+function sanitizeSafeHtml(value) {
+  if (typeof value !== 'string') return '';
+  let html = value.replace(/\u0000/g, '').slice(0, 50000);
+
+  // Remove dangerous blocks and obvious inline JS vectors.
+  html = html.replace(/<!--[\s\S]*?-->/g, '');
+  html = html.replace(/<(script|style|iframe|object|embed|link|meta|base|form|input|button|textarea|select)[^>]*>[\s\S]*?<\/\1>/gi, '');
+  html = html.replace(/<(script|style|iframe|object|embed|link|meta|base|form|input|button|textarea|select)[^>]*\/?>/gi, '');
+  html = html.replace(/\son\w+\s*=\s*(['"]).*?\1/gi, '');
+  html = html.replace(/\son\w+\s*=\s*[^\s>]+/gi, '');
+  html = html.replace(/\sstyle\s*=\s*(['"]).*?\1/gi, '');
+  html = html.replace(/\sstyle\s*=\s*[^\s>]+/gi, '');
+
+  const allowedTags = new Set(['p', 'br', 'strong', 'em', 'u', 's', 'ul', 'ol', 'li', 'blockquote', 'h2', 'h3', 'h4', 'hr', 'a']);
+
+  html = html.replace(/<\/?([a-z0-9-]+)([^>]*)>/gi, (fullMatch, rawTagName, rawAttrs) => {
+    const tagName = rawTagName.toLowerCase();
+    const isClosing = fullMatch.startsWith('</');
+
+    if (!allowedTags.has(tagName)) return '';
+    if (isClosing) return `</${tagName}>`;
+    if (tagName === 'br' || tagName === 'hr') return `<${tagName}>`;
+    if (tagName !== 'a') return `<${tagName}>`;
+
+    let href = '';
+    const quotedHrefMatch = rawAttrs.match(/\shref\s*=\s*(['"])(.*?)\1/i);
+    const bareHrefMatch = rawAttrs.match(/\shref\s*=\s*([^\s>]+)/i);
+    if (quotedHrefMatch) href = quotedHrefMatch[2];
+    else if (bareHrefMatch) href = bareHrefMatch[1];
+
+    const safeHref = sanitizeExternalUrl(href);
+    if (safeHref === '#') return '<a>';
+
+    return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">`;
+  });
+
+  return html;
+}
+
+const allowedShareAccentValues = new Set(['auto', 'red', 'orange', 'yellow', 'purple', 'blue', 'emerald']);
+
+function sanitizeShareAccent(value) {
+  const accent = normalizeText(value, 20).toLowerCase();
+  return allowedShareAccentValues.has(accent) ? accent : 'auto';
+}
+
+function sanitizeArticlePayload(payload, { partial = false } = {}) {
+  const out = {};
+
+  if (!partial || hasOwn(payload, 'title')) out.title = normalizeText(payload.title, 180);
+  if (!partial || hasOwn(payload, 'excerpt')) out.excerpt = normalizeText(payload.excerpt, 450);
+  if (!partial || hasOwn(payload, 'content')) out.content = sanitizeSafeHtml(payload.content);
+  if (!partial || hasOwn(payload, 'category')) out.category = normalizeText(payload.category, 64);
+
+  if (!partial || hasOwn(payload, 'authorId')) {
+    const authorId = Number.parseInt(payload.authorId, 10);
+    if (Number.isInteger(authorId) && authorId > 0) out.authorId = authorId;
+    else if (!partial) out.authorId = 1;
+  }
+
+  if (!partial || hasOwn(payload, 'date')) out.date = sanitizeDate(payload.date);
+
+  if (!partial || hasOwn(payload, 'readTime')) {
+    const readTime = Number(payload.readTime);
+    out.readTime = Number.isFinite(readTime) ? Math.max(1, Math.min(120, Math.round(readTime))) : 3;
+  }
+
+  if (!partial || hasOwn(payload, 'image')) out.image = sanitizeMediaUrl(payload.image);
+  if (!partial || hasOwn(payload, 'featured')) out.featured = Boolean(payload.featured);
+  if (!partial || hasOwn(payload, 'breaking')) out.breaking = Boolean(payload.breaking);
+  if (!partial || hasOwn(payload, 'hero')) out.hero = Boolean(payload.hero);
+
+  if (!partial || hasOwn(payload, 'tags')) out.tags = sanitizeTags(payload.tags);
+
+  if (!partial || hasOwn(payload, 'status')) {
+    out.status = payload.status === 'draft' ? 'draft' : 'published';
+  }
+
+  if (!partial || hasOwn(payload, 'publishAt')) {
+    out.publishAt = sanitizeDateTime(payload.publishAt);
+  }
+
+  if (!partial || hasOwn(payload, 'views')) {
+    const views = Number(payload.views);
+    out.views = Number.isFinite(views) ? Math.max(0, Math.floor(views)) : 0;
+  }
+
+  if (!partial || hasOwn(payload, 'shareTitle')) {
+    out.shareTitle = normalizeText(payload?.shareTitle, 120);
+  }
+
+  if (!partial || hasOwn(payload, 'shareSubtitle')) {
+    out.shareSubtitle = normalizeText(payload?.shareSubtitle, 180);
+  }
+
+  if (!partial || hasOwn(payload, 'shareBadge')) {
+    out.shareBadge = normalizeText(payload?.shareBadge, 36);
+  }
+
+  if (!partial || hasOwn(payload, 'shareAccent')) {
+    out.shareAccent = sanitizeShareAccent(payload?.shareAccent);
+  }
+
+  if (!partial || hasOwn(payload, 'shareImage')) {
+    out.shareImage = sanitizeMediaUrl(payload?.shareImage);
+  }
+
+  return out;
+}
+
+function buildArticleSnapshot(articleLike) {
+  return {
+    title: normalizeText(articleLike?.title, 180),
+    excerpt: normalizeText(articleLike?.excerpt, 450),
+    content: sanitizeSafeHtml(articleLike?.content),
+    category: normalizeText(articleLike?.category, 64),
+    authorId: Number.isInteger(Number.parseInt(articleLike?.authorId, 10)) ? Number.parseInt(articleLike.authorId, 10) : 1,
+    date: sanitizeDate(articleLike?.date),
+    readTime: Number.isFinite(Number(articleLike?.readTime)) ? Math.max(1, Math.min(120, Math.round(Number(articleLike.readTime)))) : 3,
+    image: sanitizeMediaUrl(articleLike?.image),
+    imageMeta: articleLike?.imageMeta && typeof articleLike.imageMeta === 'object' ? articleLike.imageMeta : null,
+    featured: Boolean(articleLike?.featured),
+    breaking: Boolean(articleLike?.breaking),
+    hero: Boolean(articleLike?.hero),
+    views: Number.isFinite(Number(articleLike?.views)) ? Math.max(0, Math.floor(Number(articleLike.views))) : 0,
+    tags: sanitizeTags(articleLike?.tags),
+    status: articleLike?.status === 'draft' ? 'draft' : 'published',
+    publishAt: sanitizeDateTime(articleLike?.publishAt),
+    shareTitle: normalizeText(articleLike?.shareTitle, 120),
+    shareSubtitle: normalizeText(articleLike?.shareSubtitle, 180),
+    shareBadge: normalizeText(articleLike?.shareBadge, 36),
+    shareAccent: sanitizeShareAccent(articleLike?.shareAccent),
+    shareImage: sanitizeMediaUrl(articleLike?.shareImage),
+  };
+}
+
+async function enrichArticlePayloadWithImageMeta(payload, { partial = false } = {}) {
+  if (!payload || typeof payload !== 'object') return payload;
+  if (!partial || hasOwn(payload, 'image')) {
+    const resolvedMeta = await resolveImageMetaFromUrl(payload.image);
+    payload.imageMeta = resolvedMeta || null;
+  }
+  return payload;
+}
+
+function snapshotsEqual(left, right) {
+  try {
+    return JSON.stringify(left) === JSON.stringify(right);
+  } catch {
+    return false;
+  }
+}
+
+async function createArticleRevision(articleId, snapshot, { source = 'update', user = null } = {}) {
+  const normalizedSnapshot = buildArticleSnapshot(snapshot);
+  const latest = await ArticleRevision.findOne({ articleId }).sort({ version: -1 }).lean();
+  if (latest?.snapshot && snapshotsEqual(latest.snapshot, normalizedSnapshot)) {
+    return latest;
+  }
+
+  const nextVersion = (latest?.version || 0) + 1;
+  const revision = await ArticleRevision.create({
+    revisionId: randomUUID(),
+    articleId,
+    version: nextVersion,
+    source,
+    editorName: user?.name || '',
+    editorId: Number.isInteger(user?.userId) ? user.userId : null,
+    snapshot: normalizedSnapshot,
+    createdAt: new Date(),
+  });
+
+  const stale = await ArticleRevision.find({ articleId }).sort({ createdAt: -1 }).skip(80).select({ revisionId: 1, _id: 0 }).lean();
+  if (stale.length > 0) {
+    await ArticleRevision.deleteMany({ revisionId: { $in: stale.map(item => item.revisionId) } });
+  }
+
+  return revision.toJSON();
+}
+
+function sanitizeHeroSettingsPayload(payload) {
+  const inputCaptions = Array.isArray(payload?.captions) ? payload.captions : [];
+  const mainPhotoArticleIdRaw = Number.parseInt(payload?.mainPhotoArticleId, 10);
+  const mainPhotoArticleId = Number.isInteger(mainPhotoArticleIdRaw) && mainPhotoArticleIdRaw > 0
+    ? mainPhotoArticleIdRaw
+    : null;
+  const inputPhotoIds = Array.isArray(payload?.photoArticleIds) ? payload.photoArticleIds : [];
+  const captions = [
+    normalizeText(inputCaptions[0] ?? DEFAULT_HERO_SETTINGS.captions[0], 90) || DEFAULT_HERO_SETTINGS.captions[0],
+    normalizeText(inputCaptions[1] ?? DEFAULT_HERO_SETTINGS.captions[1], 90) || DEFAULT_HERO_SETTINGS.captions[1],
+    normalizeText(inputCaptions[2] ?? DEFAULT_HERO_SETTINGS.captions[2], 90) || DEFAULT_HERO_SETTINGS.captions[2],
+  ];
+  const photoArticleIds = [...new Set(
+    inputPhotoIds
+      .map(v => Number.parseInt(v, 10))
+      .filter(v => Number.isInteger(v) && v > 0)
+  )].slice(0, 2);
+
+  return {
+    headline: normalizeText(payload?.headline ?? DEFAULT_HERO_SETTINGS.headline, 160) || DEFAULT_HERO_SETTINGS.headline,
+    shockLabel: normalizeText(payload?.shockLabel ?? DEFAULT_HERO_SETTINGS.shockLabel, 32) || DEFAULT_HERO_SETTINGS.shockLabel,
+    ctaLabel: normalizeText(payload?.ctaLabel ?? DEFAULT_HERO_SETTINGS.ctaLabel, 90) || DEFAULT_HERO_SETTINGS.ctaLabel,
+    headlineBoardText: normalizeText(payload?.headlineBoardText ?? DEFAULT_HERO_SETTINGS.headlineBoardText, 90) || DEFAULT_HERO_SETTINGS.headlineBoardText,
+    captions,
+    mainPhotoArticleId,
+    photoArticleIds,
+  };
+}
+
+const allowedSpotlightIcons = new Set(['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'Newspaper', 'ShieldAlert']);
+const allowedLayoutPresets = new Set(['default', 'impact', 'noir', 'classic']);
+const layoutPresetSectionKeys = [
+  'homeFeatured',
+  'homeCrime',
+  'homeReportage',
+  'homeEmergency',
+  'articleRelated',
+  'categoryListing',
+  'searchListing',
+];
+
+function sanitizeInternalPath(value, fallback = '/') {
+  const route = normalizeText(value, 200);
+  if (!route || !route.startsWith('/')) return fallback;
+  return route;
+}
+
+function sanitizeTilt(value, fallback = '0deg') {
+  const tilt = normalizeText(value, 20);
+  return /^-?\d+(\.\d+)?deg$/i.test(tilt) ? tilt : fallback;
+}
+
+function sanitizeSiteSettingsPayload(payload) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+
+  const navbarLinksInput = Array.isArray(source.navbarLinks) ? source.navbarLinks : DEFAULT_SITE_SETTINGS.navbarLinks;
+  const navbarLinks = navbarLinksInput
+    .map((item) => ({
+      to: sanitizeInternalPath(item?.to, '/'),
+      label: normalizeText(item?.label, 50),
+      hot: Boolean(item?.hot),
+    }))
+    .filter((item) => item.label)
+    .slice(0, 16);
+
+  const spotlightLinksInput = Array.isArray(source.spotlightLinks) ? source.spotlightLinks : DEFAULT_SITE_SETTINGS.spotlightLinks;
+  const spotlightLinks = spotlightLinksInput
+    .map((item, idx) => {
+      const fallback = DEFAULT_SITE_SETTINGS.spotlightLinks[idx] || DEFAULT_SITE_SETTINGS.spotlightLinks[0];
+      const iconCandidate = normalizeText(item?.icon, 40) || fallback.icon;
+      return {
+        to: sanitizeInternalPath(item?.to, fallback.to),
+        label: normalizeText(item?.label, 40) || fallback.label,
+        icon: allowedSpotlightIcons.has(iconCandidate) ? iconCandidate : fallback.icon,
+        hot: Boolean(item?.hot),
+        tilt: sanitizeTilt(item?.tilt, fallback.tilt),
+      };
+    })
+    .filter((item) => item.label)
+    .slice(0, 8);
+
+  const footerPillsInput = Array.isArray(source.footerPills) ? source.footerPills : DEFAULT_SITE_SETTINGS.footerPills;
+  const footerPills = footerPillsInput
+    .map((item, idx) => {
+      const fallback = DEFAULT_SITE_SETTINGS.footerPills[idx] || DEFAULT_SITE_SETTINGS.footerPills[0];
+      return {
+        to: sanitizeInternalPath(item?.to, fallback.to),
+        label: normalizeText(item?.label, 40) || fallback.label,
+        hot: Boolean(item?.hot),
+        tilt: sanitizeTilt(item?.tilt, fallback.tilt),
+      };
+    })
+    .filter((item) => item.label)
+    .slice(0, 10);
+
+  const footerQuickLinksInput = Array.isArray(source.footerQuickLinks) ? source.footerQuickLinks : DEFAULT_SITE_SETTINGS.footerQuickLinks;
+  const footerQuickLinks = footerQuickLinksInput
+    .map((item, idx) => {
+      const fallback = DEFAULT_SITE_SETTINGS.footerQuickLinks[idx] || DEFAULT_SITE_SETTINGS.footerQuickLinks[0];
+      return {
+        to: sanitizeInternalPath(item?.to, fallback.to),
+        label: normalizeText(item?.label, 50) || fallback.label,
+      };
+    })
+    .filter((item) => item.label)
+    .slice(0, 20);
+
+  const footerInfoLinksInput = Array.isArray(source.footerInfoLinks) ? source.footerInfoLinks : DEFAULT_SITE_SETTINGS.footerInfoLinks;
+  const footerInfoLinks = footerInfoLinksInput
+    .map((item, idx) => {
+      const fallback = DEFAULT_SITE_SETTINGS.footerInfoLinks[idx] || DEFAULT_SITE_SETTINGS.footerInfoLinks[0];
+      return {
+        to: sanitizeInternalPath(item?.to, fallback.to),
+        label: normalizeText(item?.label, 50) || fallback.label,
+      };
+    })
+    .filter((item) => item.label)
+    .slice(0, 20);
+
+  const contactInput = source.contact && typeof source.contact === 'object' ? source.contact : {};
+  const contact = {
+    address: normalizeText(contactInput.address ?? DEFAULT_SITE_SETTINGS.contact.address, 120) || DEFAULT_SITE_SETTINGS.contact.address,
+    phone: normalizeText(contactInput.phone ?? DEFAULT_SITE_SETTINGS.contact.phone, 60) || DEFAULT_SITE_SETTINGS.contact.phone,
+    email: normalizeText(contactInput.email ?? DEFAULT_SITE_SETTINGS.contact.email, 120) || DEFAULT_SITE_SETTINGS.contact.email,
+  };
+
+  const aboutInput = source.about && typeof source.about === 'object' ? source.about : {};
+  const adPlansInput = Array.isArray(aboutInput.adPlans) ? aboutInput.adPlans : DEFAULT_SITE_SETTINGS.about.adPlans;
+  const about = {
+    heroText: normalizeText(aboutInput.heroText ?? DEFAULT_SITE_SETTINGS.about.heroText, 600) || DEFAULT_SITE_SETTINGS.about.heroText,
+    missionTitle: normalizeText(aboutInput.missionTitle ?? DEFAULT_SITE_SETTINGS.about.missionTitle, 70) || DEFAULT_SITE_SETTINGS.about.missionTitle,
+    missionParagraph1: normalizeText(aboutInput.missionParagraph1 ?? DEFAULT_SITE_SETTINGS.about.missionParagraph1, 1200) || DEFAULT_SITE_SETTINGS.about.missionParagraph1,
+    missionParagraph2: normalizeText(aboutInput.missionParagraph2 ?? DEFAULT_SITE_SETTINGS.about.missionParagraph2, 1200) || DEFAULT_SITE_SETTINGS.about.missionParagraph2,
+    adIntro: normalizeText(aboutInput.adIntro ?? DEFAULT_SITE_SETTINGS.about.adIntro, 600) || DEFAULT_SITE_SETTINGS.about.adIntro,
+    adPlans: adPlansInput
+      .map((plan, idx) => {
+        const fallback = DEFAULT_SITE_SETTINGS.about.adPlans[idx] || DEFAULT_SITE_SETTINGS.about.adPlans[0];
+        return {
+          name: normalizeText(plan?.name, 70) || fallback.name,
+          price: normalizeText(plan?.price, 40) || fallback.price,
+          desc: normalizeText(plan?.desc, 160) || fallback.desc,
+        };
+      })
+      .filter((plan) => plan.name)
+      .slice(0, 6),
+  };
+
+  const rawLayoutPresets = source.layoutPresets && typeof source.layoutPresets === 'object'
+    ? source.layoutPresets
+    : {};
+  const layoutPresets = layoutPresetSectionKeys.reduce((acc, sectionKey) => {
+    const fallbackPreset = DEFAULT_SITE_SETTINGS.layoutPresets?.[sectionKey] || 'default';
+    const candidate = normalizeText(rawLayoutPresets?.[sectionKey], 24) || fallbackPreset;
+    acc[sectionKey] = allowedLayoutPresets.has(candidate) ? candidate : fallbackPreset;
+    return acc;
+  }, {});
+
+  return {
+    navbarLinks: navbarLinks.length > 0 ? navbarLinks : DEFAULT_SITE_SETTINGS.navbarLinks,
+    spotlightLinks: spotlightLinks.length > 0 ? spotlightLinks : DEFAULT_SITE_SETTINGS.spotlightLinks,
+    footerPills: footerPills.length > 0 ? footerPills : DEFAULT_SITE_SETTINGS.footerPills,
+    footerQuickLinks: footerQuickLinks.length > 0 ? footerQuickLinks : DEFAULT_SITE_SETTINGS.footerQuickLinks,
+    footerInfoLinks: footerInfoLinks.length > 0 ? footerInfoLinks : DEFAULT_SITE_SETTINGS.footerInfoLinks,
+    contact,
+    about,
+    layoutPresets,
+  };
+}
+
+function serializeHeroSettings(doc) {
+  const source = doc && typeof doc === 'object' ? doc : DEFAULT_HERO_SETTINGS;
+  const mainPhotoArticleIdRaw = Number.parseInt(source.mainPhotoArticleId, 10);
+  const mainPhotoArticleId = Number.isInteger(mainPhotoArticleIdRaw) && mainPhotoArticleIdRaw > 0
+    ? mainPhotoArticleIdRaw
+    : null;
+  const photoArticleIds = Array.isArray(source.photoArticleIds)
+    ? [...new Set(source.photoArticleIds.map(v => Number.parseInt(v, 10)).filter(v => Number.isInteger(v) && v > 0))].slice(0, 2)
+    : [];
+
+  return {
+    headline: normalizeText(source.headline ?? DEFAULT_HERO_SETTINGS.headline, 160) || DEFAULT_HERO_SETTINGS.headline,
+    shockLabel: normalizeText(source.shockLabel ?? DEFAULT_HERO_SETTINGS.shockLabel, 32) || DEFAULT_HERO_SETTINGS.shockLabel,
+    ctaLabel: normalizeText(source.ctaLabel ?? DEFAULT_HERO_SETTINGS.ctaLabel, 90) || DEFAULT_HERO_SETTINGS.ctaLabel,
+    headlineBoardText: normalizeText(source.headlineBoardText ?? DEFAULT_HERO_SETTINGS.headlineBoardText, 90) || DEFAULT_HERO_SETTINGS.headlineBoardText,
+    captions: Array.isArray(source.captions) && source.captions.length === 3
+      ? source.captions.map((caption, idx) => normalizeText(caption, 90) || DEFAULT_HERO_SETTINGS.captions[idx])
+      : DEFAULT_HERO_SETTINGS.captions,
+    mainPhotoArticleId,
+    photoArticleIds,
+  };
+}
+
+function serializeSiteSettings(doc) {
+  return sanitizeSiteSettingsPayload(doc || DEFAULT_SITE_SETTINGS);
+}
+
+function serializeSettingsSnapshot(scope, snapshot) {
+  return scope === 'site'
+    ? serializeSiteSettings(snapshot)
+    : serializeHeroSettings(snapshot);
+}
+
+function formatSettingsRevisionList(revisions) {
+  return revisions.map((revision) => ({
+    revisionId: revision.revisionId,
+    scope: revision.scope,
+    version: revision.version,
+    source: revision.source,
+    editorName: revision.editorName || '',
+    createdAt: revision.createdAt,
+  }));
+}
+
+async function createSettingsRevision(scope, snapshot, { source = 'update', user = null } = {}) {
+  const normalizedScope = scope === 'site' ? 'site' : 'hero';
+  const normalizedSnapshot = serializeSettingsSnapshot(normalizedScope, snapshot);
+  const latest = await SettingsRevision.findOne({ scope: normalizedScope }).sort({ version: -1 }).lean();
+  if (latest?.snapshot && snapshotsEqual(latest.snapshot, normalizedSnapshot)) {
+    return latest;
+  }
+
+  const nextVersion = (latest?.version || 0) + 1;
+  const revision = await SettingsRevision.create({
+    revisionId: randomUUID(),
+    scope: normalizedScope,
+    version: nextVersion,
+    source,
+    editorName: user?.name || '',
+    editorId: Number.isInteger(user?.userId) ? user.userId : null,
+    snapshot: normalizedSnapshot,
+    createdAt: new Date(),
+  });
+
+  const stale = await SettingsRevision.find({ scope: normalizedScope })
+    .sort({ createdAt: -1 })
+    .skip(60)
+    .select({ revisionId: 1, _id: 0 })
+    .lean();
+  if (stale.length > 0) {
+    await SettingsRevision.deleteMany({ revisionId: { $in: stale.map(item => item.revisionId) } });
+  }
+
+  return revision.toJSON();
+}
+
+function decodeTokenFromRequest(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  try {
+    const decoded = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+    if (decoded?.type && decoded.type !== 'access') return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+function parseCookies(req) {
+  const raw = typeof req.headers.cookie === 'string' ? req.headers.cookie : '';
+  if (!raw) return {};
+  return raw
+    .split(';')
+    .map(item => item.trim())
+    .filter(Boolean)
+    .reduce((acc, part) => {
+      const eqIdx = part.indexOf('=');
+      if (eqIdx <= 0) return acc;
+      const key = part.slice(0, eqIdx).trim();
+      const valueRaw = part.slice(eqIdx + 1).trim();
+      try {
+        acc[key] = decodeURIComponent(valueRaw);
+      } catch {
+        acc[key] = valueRaw;
+      }
+      return acc;
+    }, {});
+}
+
+function serializeCookie(name, value, options = {}) {
+  const segments = [`${name}=${encodeURIComponent(value)}`];
+  if (options.maxAge !== undefined) segments.push(`Max-Age=${Math.max(0, Math.floor(options.maxAge))}`);
+  if (options.path) segments.push(`Path=${options.path}`);
+  if (options.httpOnly) segments.push('HttpOnly');
+  if (options.secure) segments.push('Secure');
+  if (options.sameSite) segments.push(`SameSite=${options.sameSite}`);
+  return segments.join('; ');
+}
+
+function clearCookieHeader(name, options = {}) {
+  return serializeCookie(name, '', {
+    ...options,
+    maxAge: 0,
+  });
+}
+
+function signAccessToken(user) {
+  return jwt.sign(
+    {
+      type: 'access',
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+    },
+    JWT_SECRET,
+    { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
+  );
+}
+
+function signRefreshToken({ userId, jti }) {
+  return jwt.sign(
+    {
+      type: 'refresh',
+      userId,
+      jti,
+    },
+    REFRESH_TOKEN_SECRET,
+    { expiresIn: `${REFRESH_TOKEN_TTL_DAYS}d` }
+  );
+}
+
+function decodeRefreshToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const decoded = jwt.verify(token, REFRESH_TOKEN_SECRET);
+    if (decoded?.type !== 'refresh') return null;
+    if (!Number.isInteger(Number.parseInt(decoded?.userId, 10))) return null;
+    if (typeof decoded?.jti !== 'string' || decoded.jti.length < 12) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+function setRefreshCookie(res, token) {
+  const cookie = serializeCookie(REFRESH_COOKIE_NAME, token, {
+    path: REFRESH_COOKIE_PATH,
+    maxAge: Math.floor(refreshTokenMaxAgeMs / 1000),
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'Lax',
+  });
+  res.setHeader('Set-Cookie', cookie);
+}
+
+function clearRefreshCookie(res) {
+  const cookie = clearCookieHeader(REFRESH_COOKIE_NAME, {
+    path: REFRESH_COOKIE_PATH,
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'Lax',
+  });
+  res.setHeader('Set-Cookie', cookie);
+}
+
+async function createRefreshSession(req, userId) {
+  const jti = randomUUID();
+  const expiresAt = new Date(Date.now() + refreshTokenMaxAgeMs);
+  const userAgent = getClientUserAgent(req);
+  const ipHash = createHash('sha256').update(getClientIp(req)).digest('hex');
+  await AuthSession.create({
+    jti,
+    userId,
+    userAgent,
+    ipHash,
+    expiresAt,
+  });
+  return {
+    jti,
+    expiresAt,
+  };
+}
+
+async function rotateTokensForUser(req, user, previousJti = null) {
+  if (previousJti) {
+    await AuthSession.deleteOne({ jti: previousJti, userId: user.id });
+  }
+  const refreshSession = await createRefreshSession(req, user.id);
+  const refreshToken = signRefreshToken({ userId: user.id, jti: refreshSession.jti });
+  const accessToken = signAccessToken(user);
+  return {
+    accessToken,
+    refreshToken,
+  };
+}
+
+function getClientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.ip || req.socket?.remoteAddress || 'unknown';
+}
+
+function getClientUserAgent(req) {
+  const ua = typeof req.headers['user-agent'] === 'string'
+    ? req.headers['user-agent']
+    : '';
+  return ua.trim().slice(0, 300) || 'unknown';
+}
+
+function hashClientFingerprint(req, scope = '') {
+  const ip = getClientIp(req);
+  const ua = getClientUserAgent(req);
+  return createHash('sha256')
+    .update(`${scope}|${ip}|${ua}`)
+    .digest('hex');
+}
+
+function getWindowKey(windowMs) {
+  return Math.floor(Date.now() / windowMs);
+}
+
+function isMongoDuplicateKeyError(error) {
+  return Number(error?.code) === 11000;
+}
+
+function commentContainsBlockedTerms(text) {
+  const normalized = normalizeText(text, 4000).toLowerCase();
+  return blockedCommentTerms.some(term => normalized.includes(term));
+}
+
+async function nextNumericId(Model) {
+  const last = await Model.findOne().sort({ id: -1 }).lean();
+  return (last?.id || 0) + 1;
+}
+
+async function hasPermissionForSection(user, section) {
+  if (!user?.role) return false;
+  if (user.role === 'admin') return true;
+  const rolePerm = await Permission.findOne({ role: user.role }).lean();
+  return Boolean(rolePerm?.permissions?.[section]);
+}
+
+// ─── Auth / Authorization Middleware ───
+function requireAuth(req, res, next) {
+  const decoded = decodeTokenFromRequest(req);
+  if (!decoded) return res.status(401).json({ error: 'Authentication required' });
+  req.user = decoded;
+  return next();
+}
+
+function requireAdmin(req, res, next) {
+  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+  return next();
+}
+
+function requirePermission(section) {
+  return async (req, res, next) => {
+    try {
+      if (await hasPermissionForSection(req.user, section)) return next();
+      return res.status(403).json({ error: `Missing permission: ${section}` });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  };
+}
+
+function requireAnyPermission(sections) {
+  return async (req, res, next) => {
+    try {
+      for (const section of sections) {
+        if (await hasPermissionForSection(req.user, section)) return next();
+      }
+      return res.status(403).json({ error: 'Missing permissions' });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  };
+}
+
+// ─── MongoDB Connection ───
+async function connectDB() {
+  const uri = process.env.MONGODB_URI;
+  const isPlaceholder = !uri || /YOUR_PASSWORD|xxxxx|user:password/i.test(uri);
+
+  if (isPlaceholder) {
+    if (isProd) {
+      throw new Error('MONGODB_URI must be configured for production.');
+    }
+
+    try {
+      const { MongoMemoryServer } = await import('mongodb-memory-server');
+      const mongod = await MongoMemoryServer.create();
+      const memUri = mongod.getUri();
+      await mongoose.connect(memUri);
+      console.log('✓ MongoDB in-memory (dev mode)');
+
+      const { seedAll } = await import('./seed.js');
+      await seedAll();
+      console.log('✓ Database seeded with defaults');
+      return;
+    } catch (memoryErr) {
+      const fallbackUri = process.env.DEV_MONGODB_FALLBACK_URI || 'mongodb://127.0.0.1:27017/zemun-news';
+      console.warn(`⚠ In-memory MongoDB failed: ${memoryErr.message}`);
+      console.warn(`⚠ Trying local MongoDB fallback: ${fallbackUri}`);
+      try {
+        await mongoose.connect(fallbackUri, { serverSelectionTimeoutMS: 3000 });
+        console.log('✓ MongoDB local fallback connected');
+        return;
+      } catch (fallbackErr) {
+        throw new Error(
+          `Mongo init failed. In-memory: ${memoryErr.message}. Local fallback: ${fallbackErr.message}. ` +
+          'Set a valid MONGODB_URI in .env.'
+        );
+      }
+    }
+  } else {
+    await mongoose.connect(uri);
+    console.log('✓ MongoDB connected');
+  }
+}
+
+function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, sensitiveFields = [], writePermission = null) {
+  const router = express.Router();
+  const writeGuards = writePermission
+    ? [requireAuth, requirePermission(writePermission)]
+    : [requireAuth, requireAdmin];
+
+  const sanitizeWritePayload = (payload) => {
+    const next = { ...(payload || {}) };
+    delete next.id;
+    delete next._id;
+    delete next.__v;
+    return next;
+  };
+
+  router.get('/', async (_req, res) => {
+    try {
+      const items = await Model.find().sort(defaultSort).lean();
+      items.forEach(i => {
+        delete i._id;
+        delete i.__v;
+        sensitiveFields.forEach(f => delete i[f]);
+      });
+      res.json(items);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  router.post('/', ...writeGuards, async (req, res) => {
+    try {
+      const id = await nextNumericId(Model);
+      const data = sanitizeWritePayload(req.body);
+      const item = await Model.create({ ...data, id });
+      const obj = item.toJSON();
+      AuditLog.create({
+        user: req.user.name,
+        userId: req.user.userId,
+        action: 'create',
+        resource: resourceName,
+        resourceId: id,
+        details: obj.title || obj.name || obj.question || '',
+      }).catch(() => { });
+      res.status(201).json(obj);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  router.put('/:id', ...writeGuards, async (req, res) => {
+    try {
+      const id = Number.parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+      const data = sanitizeWritePayload(req.body);
+      if (Object.keys(data).length === 0) {
+        return res.status(400).json({ error: 'No valid fields to update' });
+      }
+      const item = await Model.findOneAndUpdate({ id }, { $set: data }, { new: true, runValidators: true });
+      if (!item) return res.status(404).json({ error: 'Not found' });
+      AuditLog.create({
+        user: req.user.name,
+        userId: req.user.userId,
+        action: 'update',
+        resource: resourceName,
+        resourceId: id,
+        details: data.title || data.name || '',
+      }).catch(() => { });
+      res.json(item.toJSON());
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  router.delete('/:id', ...writeGuards, async (req, res) => {
+    try {
+      const id = Number.parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+      const result = await Model.deleteOne({ id });
+      if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+      AuditLog.create({
+        user: req.user.name,
+        userId: req.user.userId,
+        action: 'delete',
+        resource: resourceName,
+        resourceId: id,
+        details: '',
+      }).catch(() => { });
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  return router;
+}
+
+// ─── Articles ───
+const articlesRouter = express.Router();
+
+articlesRouter.get('/', async (req, res) => {
+  try {
+    const maybeUser = decodeTokenFromRequest(req);
+    const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
+    const filter = canSeeDrafts ? {} : getPublishedFilter();
+    const category = normalizeText(req.query.category, 64);
+    const sectionFilter = getArticleSectionFilter(req.query.section);
+    const fieldsProjection = buildArticleProjection(req.query.fields);
+    const shouldPaginate = hasOwn(req.query, 'page') || hasOwn(req.query, 'limit');
+    const page = parsePositiveInt(req.query.page, 1, { min: 1, max: 2000 });
+    const limit = parsePositiveInt(req.query.limit, 24, { min: 1, max: 120 });
+
+    if (category) filter.category = category;
+    if (sectionFilter) Object.assign(filter, sectionFilter);
+
+    let query = Article.find(filter)
+      .sort({ id: -1 });
+    if (fieldsProjection) {
+      query = query.select(fieldsProjection);
+    } else {
+      query = query.select({ _id: 0, __v: 0 });
+    }
+    if (shouldPaginate) {
+      query = query.skip((page - 1) * limit).limit(limit);
+    }
+
+    const items = await query.lean();
+    await Promise.all(items.map(async (item) => {
+      if (!item.imageMeta && item.image) {
+        const resolved = await resolveImageMetaFromUrl(item.image);
+        if (resolved) {
+          item.imageMeta = resolved;
+          Article.updateOne({ id: item.id }, { $set: { imageMeta: resolved } }).catch(() => { });
+        }
+      }
+      delete item._id;
+      delete item.__v;
+    }));
+
+    if (!shouldPaginate) {
+      return res.json(items);
+    }
+
+    const total = await Article.countDocuments(filter);
+    return res.json({
+      items,
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+articlesRouter.get('/:id(\\d+)', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const maybeUser = decodeTokenFromRequest(req);
+    const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
+    const filter = canSeeDrafts ? { id } : { id, ...getPublishedFilter() };
+    const fieldsProjection = buildArticleProjection(req.query.fields);
+
+    let query = Article.findOne(filter);
+    if (fieldsProjection) {
+      query = query.select(fieldsProjection);
+    } else {
+      query = query.select({ _id: 0, __v: 0 });
+    }
+
+    const item = await query.lean();
+    if (!item) return res.status(404).json({ error: 'Not found' });
+
+    if (!item.imageMeta && item.image) {
+      const resolved = await resolveImageMetaFromUrl(item.image);
+      if (resolved) {
+        item.imageMeta = resolved;
+        Article.updateOne({ id }, { $set: { imageMeta: resolved } }).catch(() => { });
+      }
+    }
+
+    delete item._id;
+    delete item.__v;
+    return res.json(item);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+articlesRouter.get('/:id/share.png', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const maybeUser = decodeTokenFromRequest(req);
+    const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
+    const filter = canSeeDrafts ? { id } : { id, ...getPublishedFilter() };
+    const article = await Article.findOne(filter).lean();
+    if (!article) return res.status(404).json({ error: 'Not found' });
+
+    const category = await Category.findOne({ id: article.category }).select({ _id: 0, name: 1 }).lean();
+    const card = await ensureArticleShareCard(article, { categoryLabel: category?.name || article.category || '' });
+    if (card?.generated && card.absolutePath) {
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.sendFile(card.absolutePath);
+    }
+
+    const fallback = await resolveShareFallbackSource(article);
+    if (fallback?.type === 'file' && fallback.path) {
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.sendFile(fallback.path);
+    }
+    if (fallback?.type === 'redirect' && fallback.url) {
+      return res.redirect(302, fallback.url);
+    }
+
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=120');
+    return res.send(transparentPng1x1);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+articlesRouter.post('/', requireAuth, requirePermission('articles'), async (req, res) => {
+  try {
+    const data = sanitizeArticlePayload(req.body, { partial: false });
+    await enrichArticlePayloadWithImageMeta(data, { partial: false });
+    if (!data.title || !data.excerpt || !data.content || !data.category) {
+      return res.status(400).json({ error: 'Missing required article fields' });
+    }
+    const id = await nextNumericId(Article);
+    const item = await Article.create({ ...data, id });
+    const obj = item.toJSON();
+    if (obj.hero) {
+      await Article.updateMany({ id: { $ne: id }, hero: true }, { $set: { hero: false } });
+    }
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'create',
+      resource: 'articles',
+      resourceId: id,
+      details: obj.title || '',
+    }).catch(() => { });
+    await createArticleRevision(id, obj, { source: 'create', user: req.user });
+    res.json(obj);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+articlesRouter.put('/:id', requireAuth, requirePermission('articles'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const data = sanitizeArticlePayload(req.body, { partial: true });
+    await enrichArticlePayloadWithImageMeta(data, { partial: true });
+    if (Object.keys(data).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+
+    const item = await Article.findOneAndUpdate({ id }, { $set: data }, { new: true });
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    if (item.hero) {
+      await Article.updateMany({ id: { $ne: id }, hero: true }, { $set: { hero: false } });
+    }
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'articles',
+      resourceId: id,
+      details: data.title || '',
+    }).catch(() => { });
+
+    const updated = item.toJSON();
+    await createArticleRevision(id, updated, { source: 'update', user: req.user });
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+articlesRouter.get('/:id/revisions', requireAuth, requirePermission('articles'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const revisions = await ArticleRevision.find({ articleId: id })
+      .sort({ createdAt: -1 })
+      .limit(80)
+      .lean();
+
+    const formatted = revisions.map((revision) => ({
+      revisionId: revision.revisionId,
+      articleId: revision.articleId,
+      version: revision.version,
+      source: revision.source,
+      editorName: revision.editorName || '',
+      createdAt: revision.createdAt,
+      title: revision.snapshot?.title || '',
+      excerpt: revision.snapshot?.excerpt || '',
+      status: revision.snapshot?.status || 'published',
+      publishAt: revision.snapshot?.publishAt || null,
+    }));
+
+    res.json(formatted);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+articlesRouter.get('/:id/revisions/:revisionId', requireAuth, requirePermission('articles'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const revisionId = normalizeText(req.params.revisionId, 80);
+    if (!revisionId) return res.status(400).json({ error: 'Invalid revisionId' });
+
+    const revision = await ArticleRevision.findOne({ articleId: id, revisionId }).lean();
+    if (!revision || !revision.snapshot) return res.status(404).json({ error: 'Revision not found' });
+
+    res.json({
+      revisionId: revision.revisionId,
+      articleId: revision.articleId,
+      version: revision.version,
+      source: revision.source,
+      editorName: revision.editorName || '',
+      createdAt: revision.createdAt,
+      snapshot: buildArticleSnapshot(revision.snapshot),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+articlesRouter.post('/:id/revisions/autosave', requireAuth, requirePermission('articles'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const existing = await Article.findOne({ id }).lean();
+    if (!existing) return res.status(404).json({ error: 'Article not found' });
+
+    const draftPatch = sanitizeArticlePayload(req.body, { partial: true });
+    await enrichArticlePayloadWithImageMeta(draftPatch, { partial: true });
+    const previewSnapshot = buildArticleSnapshot({ ...existing, ...draftPatch });
+    const revision = await createArticleRevision(id, previewSnapshot, { source: 'autosave', user: req.user });
+
+    res.json({
+      ok: true,
+      revision: revision
+        ? {
+          revisionId: revision.revisionId,
+          version: revision.version,
+          source: revision.source,
+          editorName: revision.editorName,
+          createdAt: revision.createdAt,
+        }
+        : null,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+articlesRouter.post('/:id/revisions/restore', requireAuth, requirePermission('articles'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const revisionId = normalizeText(req.body?.revisionId, 80);
+    if (!revisionId) return res.status(400).json({ error: 'revisionId is required' });
+
+    const revision = await ArticleRevision.findOne({ articleId: id, revisionId }).lean();
+    if (!revision || !revision.snapshot) return res.status(404).json({ error: 'Revision not found' });
+
+    const snapshot = buildArticleSnapshot(revision.snapshot);
+    await enrichArticlePayloadWithImageMeta(snapshot, { partial: false });
+    const restored = await Article.findOneAndUpdate({ id }, { $set: snapshot }, { new: true });
+    if (!restored) return res.status(404).json({ error: 'Article not found' });
+
+    if (restored.hero) {
+      await Article.updateMany({ id: { $ne: id }, hero: true }, { $set: { hero: false } });
+    }
+
+    const restoredObj = restored.toJSON();
+    await createArticleRevision(id, restoredObj, { source: 'restore', user: req.user });
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'articles',
+      resourceId: id,
+      details: `restore:${revisionId}`,
+    }).catch(() => { });
+
+    res.json(restoredObj);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+articlesRouter.delete('/:id', requireAuth, requirePermission('articles'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const result = await Article.deleteOne({ id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+    await ArticleRevision.deleteMany({ articleId: id });
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'delete',
+      resource: 'articles',
+      resourceId: id,
+      details: '',
+    }).catch(() => { });
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Public endpoint for view counter, avoids exposing write permissions.
+articlesRouter.post('/:id/view', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const filter = { id, ...getPublishedFilter() };
+    const existing = await Article.findOne(filter).lean();
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+
+    const viewerHash = hashClientFingerprint(req, `view:${id}`);
+    const windowKey = getWindowKey(articleViewWindowMs);
+    const expiresAt = new Date(Date.now() + articleViewWindowMs + (15 * 60 * 1000));
+
+    let deduped = false;
+    try {
+      await ArticleView.create({
+        articleId: id,
+        viewerHash,
+        windowKey,
+        expiresAt,
+      });
+    } catch (error) {
+      if (isMongoDuplicateKeyError(error)) deduped = true;
+      else throw error;
+    }
+
+    const item = deduped
+      ? existing
+      : await Article.findOneAndUpdate(filter, { $inc: { views: 1 } }, { new: true }).lean();
+
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    delete item._id;
+    delete item.__v;
+    res.json({ ...item, deduped });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.use('/api/articles', articlesRouter);
+
+// ─── Users ───
+const usersRouter = express.Router();
+
+usersRouter.get('/', requireAuth, requirePermission('profiles'), async (_req, res) => {
+  try {
+    const items = await User.find().sort({ id: -1 }).lean();
+    items.forEach(i => {
+      delete i._id;
+      delete i.__v;
+      delete i.password;
+    });
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+usersRouter.post('/', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const username = normalizeText(req.body.username, 40).toLowerCase();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
+    if (!username || password.length < 8) {
+      return res.status(400).json({ error: 'Username and password (min 8 chars) are required' });
+    }
+    const existing = await User.findOne({ username }).lean();
+    if (existing) return res.status(409).json({ error: 'Username already exists' });
+
+    const id = await nextNumericId(User);
+    const item = await User.create({
+      id,
+      username,
+      password: await bcrypt.hash(password, 10),
+      name: normalizeText(req.body.name, 80),
+      role: normalizeText(req.body.role, 32) || 'reporter',
+      profession: normalizeText(req.body.profession, 120),
+      avatar: normalizeText(req.body.avatar, 16) || '👤',
+      createdAt: sanitizeDate(req.body.createdAt),
+    });
+
+    const obj = item.toJSON();
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'create',
+      resource: 'users',
+      resourceId: id,
+      details: obj.name || '',
+    }).catch(() => { });
+    res.json(obj);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+usersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const data = {};
+
+    if (hasOwn(req.body, 'name')) data.name = normalizeText(req.body.name, 80);
+    if (hasOwn(req.body, 'profession')) data.profession = normalizeText(req.body.profession, 120);
+    if (hasOwn(req.body, 'avatar')) data.avatar = normalizeText(req.body.avatar, 16) || '👤';
+
+    if (hasOwn(req.body, 'username')) {
+      const username = normalizeText(req.body.username, 40).toLowerCase();
+      if (!username) return res.status(400).json({ error: 'Invalid username' });
+      const existing = await User.findOne({ username, id: { $ne: id } }).lean();
+      if (existing) return res.status(409).json({ error: 'Username already exists' });
+      data.username = username;
+    }
+
+    if (hasOwn(req.body, 'role')) {
+      const role = normalizeText(req.body.role, 32);
+      if (!role) return res.status(400).json({ error: 'Invalid role' });
+      if (id === 1 && role !== 'admin') {
+        return res.status(403).json({ error: 'Cannot downgrade main admin account' });
+      }
+      data.role = role;
+    }
+
+    if (hasOwn(req.body, 'password')) {
+      const password = typeof req.body.password === 'string' ? req.body.password : '';
+      if (password.length > 0 && password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters' });
+      }
+      if (password.length >= 8) {
+        data.password = await bcrypt.hash(password, 10);
+      }
+    }
+
+    if (Object.keys(data).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+
+    const item = await User.findOneAndUpdate({ id }, { $set: data }, { new: true });
+    if (!item) return res.status(404).json({ error: 'Not found' });
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'users',
+      resourceId: id,
+      details: data.name || '',
+    }).catch(() => { });
+
+    res.json(item.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+usersRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    if (id === 1) return res.status(403).json({ error: 'Cannot delete main admin' });
+
+    const result = await User.deleteOne({ id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'delete',
+      resource: 'users',
+      resourceId: id,
+      details: '',
+    }).catch(() => { });
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.use('/api/users', usersRouter);
+
+// ─── Standard CRUD Routes ───
+app.use('/api/authors', numericCrud(Author, 'authors', { id: -1 }, [], 'profiles'));
+app.use('/api/ads', numericCrud(Ad, 'ads', { id: -1 }, [], 'ads'));
+app.use('/api/wanted', numericCrud(Wanted, 'wanted', { id: -1 }, [], 'wanted'));
+app.use('/api/jobs', numericCrud(Job, 'jobs', { id: -1 }, [], 'jobs'));
+app.use('/api/court', numericCrud(Court, 'court', { id: -1 }, [], 'court'));
+app.use('/api/events', numericCrud(Event, 'events', { id: -1 }, [], 'events'));
+app.use('/api/polls', numericCrud(Poll, 'polls', { id: -1 }, [], 'polls'));
+app.use('/api/gallery', numericCrud(Gallery, 'gallery', { id: -1 }, [], 'gallery'));
+
+// ─── Comments (public submit + moderated updates) ───
+const commentsRouter = express.Router();
+
+commentsRouter.get('/', async (req, res) => {
+  try {
+    const maybeUser = decodeTokenFromRequest(req);
+    const canModerate = maybeUser ? await hasPermissionForSection(maybeUser, 'comments') : false;
+    const filter = canModerate ? {} : { approved: true };
+    const items = await Comment.find(filter).sort({ id: -1 }).lean();
+    items.forEach(i => { delete i._id; delete i.__v; });
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+commentsRouter.post('/', async (req, res) => {
+  try {
+    const articleId = Number.parseInt(req.body.articleId, 10);
+    const author = normalizeText(req.body.author, 50);
+    const text = normalizeText(req.body.text, 1200);
+
+    if (!Number.isInteger(articleId) || !author || !text) {
+      return res.status(400).json({ error: 'Invalid comment payload' });
+    }
+
+    if (commentContainsBlockedTerms(`${author} ${text}`)) {
+      return res.status(400).json({ error: 'Comment contains blocked terms' });
+    }
+
+    const articleExists = await Article.exists({ id: articleId, ...getPublishedFilter() });
+    if (!articleExists) return res.status(404).json({ error: 'Article not found' });
+
+    const id = await nextNumericId(Comment);
+    const item = await Comment.create({
+      id,
+      articleId,
+      author,
+      avatar: author.charAt(0).toUpperCase() || 'A',
+      text,
+      date: new Date().toISOString().slice(0, 10),
+      approved: false,
+    });
+
+    res.status(201).json(item.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+commentsRouter.put('/:id', requireAuth, requirePermission('comments'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const updates = {};
+    if (hasOwn(req.body, 'approved')) updates.approved = Boolean(req.body.approved);
+    if (hasOwn(req.body, 'text')) updates.text = normalizeText(req.body.text, 1200);
+
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+
+    const item = await Comment.findOneAndUpdate({ id }, { $set: updates }, { new: true });
+    if (!item) return res.status(404).json({ error: 'Not found' });
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'comments',
+      resourceId: id,
+      details: '',
+    }).catch(() => { });
+
+    res.json(item.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+commentsRouter.delete('/:id', requireAuth, requirePermission('comments'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const result = await Comment.deleteOne({ id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'delete',
+      resource: 'comments',
+      resourceId: id,
+      details: '',
+    }).catch(() => { });
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.use('/api/comments', commentsRouter);
+
+// ─── Permissions API ───
+app.get('/api/permissions', requireAuth, async (req, res) => {
+  try {
+    if (req.user.role === 'admin') {
+      const perms = await Permission.find().lean();
+      perms.forEach(p => { delete p._id; delete p.__v; });
+      return res.json(perms);
+    }
+
+    const own = await Permission.findOne({ role: req.user.role }).lean();
+    if (!own) return res.json([]);
+    delete own._id;
+    delete own.__v;
+    return res.json([own]);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/permissions/:role', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const perm = await Permission.findOneAndUpdate(
+      { role: req.params.role },
+      { $set: { permissions: req.body.permissions } },
+      { new: true, upsert: true }
+    );
+    res.json(perm.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Categories (string id) ───
+const catRouter = express.Router();
+
+catRouter.get('/', async (_req, res) => {
+  try {
+    const items = await Category.find().lean();
+    items.forEach(i => { delete i._id; delete i.__v; });
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+catRouter.post('/', requireAuth, requirePermission('categories'), async (req, res) => {
+  try {
+    const id = normalizeText(req.body.id, 64);
+    const name = normalizeText(req.body.name, 80);
+    const icon = normalizeText(req.body.icon, 16);
+    if (!id || !name) return res.status(400).json({ error: 'Invalid category payload' });
+    const item = await Category.create({ id, name, icon });
+    res.json(item.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+catRouter.put('/:id', requireAuth, requirePermission('categories'), async (req, res) => {
+  try {
+    const updates = {};
+    if (hasOwn(req.body, 'name')) updates.name = normalizeText(req.body.name, 80);
+    if (hasOwn(req.body, 'icon')) updates.icon = normalizeText(req.body.icon, 16);
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+
+    const item = await Category.findOneAndUpdate(
+      { id: req.params.id },
+      { $set: updates },
+      { new: true }
+    );
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    res.json(item.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+catRouter.delete('/:id', requireAuth, requirePermission('categories'), async (req, res) => {
+  try {
+    if (req.params.id === 'all') return res.json({ ok: false });
+    await Category.deleteOne({ id: req.params.id });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.use('/api/categories', catRouter);
+
+// ─── Breaking News (single doc with items array) ───
+app.get('/api/breaking', async (_req, res) => {
+  try {
+    const doc = await Breaking.findOne().lean();
+    res.json(doc?.items || []);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/breaking', requireAuth, requirePermission('breaking'), async (req, res) => {
+  try {
+    const items = Array.isArray(req.body)
+      ? req.body.map(i => normalizeText(i, 140)).filter(Boolean).slice(0, 20)
+      : [];
+    await Breaking.deleteMany({});
+    const doc = await Breaking.create({ items });
+    res.json(doc.items);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Hero Settings (single doc) ───
+app.get('/api/hero-settings', async (_req, res) => {
+  try {
+    const doc = await HeroSettings.findOne({ key: 'main' }).lean();
+    res.json(serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/hero-settings', requireAuth, requirePermission('articles'), async (req, res) => {
+  try {
+    const settings = sanitizeHeroSettingsPayload(req.body);
+    const updated = await HeroSettings.findOneAndUpdate(
+      { key: 'main' },
+      { $set: { key: 'main', ...settings } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    const serialized = serializeHeroSettings(updated);
+    await createSettingsRevision('hero', serialized, { source: 'update', user: req.user });
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'hero-settings',
+      resourceId: 1,
+      details: 'save',
+    }).catch(() => { });
+
+    res.json(serialized);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/hero-settings/revisions', requireAuth, requirePermission('articles'), async (_req, res) => {
+  try {
+    const revisions = await SettingsRevision.find({ scope: 'hero' })
+      .sort({ createdAt: -1 })
+      .limit(60)
+      .lean();
+    res.json(formatSettingsRevisionList(revisions));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/hero-settings/revisions/restore', requireAuth, requirePermission('articles'), async (req, res) => {
+  try {
+    const revisionId = normalizeText(req.body?.revisionId, 80);
+    if (!revisionId) return res.status(400).json({ error: 'revisionId is required' });
+
+    const revision = await SettingsRevision.findOne({ scope: 'hero', revisionId }).lean();
+    if (!revision || !revision.snapshot) return res.status(404).json({ error: 'Revision not found' });
+
+    const snapshot = serializeHeroSettings(revision.snapshot);
+    const updated = await HeroSettings.findOneAndUpdate(
+      { key: 'main' },
+      { $set: { key: 'main', ...snapshot } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    const serialized = serializeHeroSettings(updated);
+    await createSettingsRevision('hero', serialized, { source: 'restore', user: req.user });
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'hero-settings',
+      resourceId: 1,
+      details: `restore:${revisionId}`,
+    }).catch(() => { });
+
+    res.json(serialized);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/site-settings/revisions', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const revisions = await SettingsRevision.find({ scope: 'site' })
+      .sort({ createdAt: -1 })
+      .limit(60)
+      .lean();
+    res.json(formatSettingsRevisionList(revisions));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/site-settings/revisions/restore', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const revisionId = normalizeText(req.body?.revisionId, 80);
+    if (!revisionId) return res.status(400).json({ error: 'revisionId is required' });
+
+    const revision = await SettingsRevision.findOne({ scope: 'site', revisionId }).lean();
+    if (!revision || !revision.snapshot) return res.status(404).json({ error: 'Revision not found' });
+
+    const snapshot = serializeSiteSettings(revision.snapshot);
+    const updated = await SiteSettings.findOneAndUpdate(
+      { key: 'main' },
+      { $set: { key: 'main', ...snapshot } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    const serialized = serializeSiteSettings(updated);
+    await createSettingsRevision('site', serialized, { source: 'restore', user: req.user });
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'site-settings',
+      resourceId: 1,
+      details: `restore:${revisionId}`,
+    }).catch(() => { });
+
+    res.json(serialized);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Site Settings (single doc) ───
+app.get('/api/site-settings', async (_req, res) => {
+  try {
+    const doc = await SiteSettings.findOne({ key: 'main' }).lean();
+    res.json(serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/site-settings', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const settings = sanitizeSiteSettingsPayload(req.body);
+    const updated = await SiteSettings.findOneAndUpdate(
+      { key: 'main' },
+      { $set: { key: 'main', ...settings } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    ).lean();
+
+    const serialized = serializeSiteSettings(updated);
+    await createSettingsRevision('site', serialized, { source: 'update', user: req.user });
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'site-settings',
+      resourceId: 1,
+      details: 'save',
+    }).catch(() => { });
+
+    res.json(serialized);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Auth ───
+app.post('/api/auth/login', authLimiter, async (req, res) => {
+  try {
+    const username = normalizeText(req.body.username, 40).toLowerCase();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
+    if (!username || !password) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const user = await User.findOne({ username }).lean();
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const isBcryptHash = user.password && user.password.startsWith('$2');
+    let isMatch = false;
+    if (isBcryptHash) {
+      isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      isMatch = (password === user.password);
+      if (isMatch) {
+        const hashed = await bcrypt.hash(password, 10);
+        await User.updateOne({ id: user.id }, { $set: { password: hashed } });
+      }
+    }
+    if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
+
+    const { accessToken, refreshToken } = await rotateTokensForUser(req, user);
+    setRefreshCookie(res, refreshToken);
+
+    res.json({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+      token: accessToken,
+      accessTokenExpiresIn: Math.floor(accessTokenMaxAgeMs / 1000),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    const cookies = parseCookies(req);
+    const refreshToken = cookies[REFRESH_COOKIE_NAME];
+    const decoded = decodeRefreshToken(refreshToken);
+    if (!decoded) {
+      clearRefreshCookie(res);
+      return res.status(401).json({ error: 'Invalid refresh token' });
+    }
+
+    const userId = Number.parseInt(decoded.userId, 10);
+    const session = await AuthSession.findOne({
+      jti: decoded.jti,
+      userId,
+      expiresAt: { $gt: new Date() },
+    }).lean();
+    if (!session) {
+      clearRefreshCookie(res);
+      return res.status(401).json({ error: 'Refresh session expired' });
+    }
+
+    const user = await User.findOne({ id: userId }).lean();
+    if (!user) {
+      await AuthSession.deleteOne({ jti: decoded.jti });
+      clearRefreshCookie(res);
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    const { accessToken, refreshToken: nextRefreshToken } = await rotateTokensForUser(req, user, decoded.jti);
+    setRefreshCookie(res, nextRefreshToken);
+
+    return res.json({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+      token: accessToken,
+      accessTokenExpiresIn: Math.floor(accessTokenMaxAgeMs / 1000),
+    });
+  } catch (e) {
+    clearRefreshCookie(res);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const cookies = parseCookies(req);
+    const refreshToken = cookies[REFRESH_COOKIE_NAME];
+    const decoded = decodeRefreshToken(refreshToken);
+    if (decoded) {
+      const userId = Number.parseInt(decoded.userId, 10);
+      await AuthSession.deleteOne({ jti: decoded.jti, userId });
+    }
+    clearRefreshCookie(res);
+    return res.json({ ok: true });
+  } catch (e) {
+    clearRefreshCookie(res);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Poll Vote ───
+app.post('/api/polls/:id/vote', pollVoteLimiter, async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const optionIndex = Number.parseInt(req.body.optionIndex, 10);
+    if (!Number.isInteger(id) || !Number.isInteger(optionIndex)) {
+      return res.status(400).json({ error: 'Invalid vote payload' });
+    }
+
+    const poll = await Poll.findOne({ id }).lean();
+    if (!poll || !poll.options?.[optionIndex]) return res.status(404).json({ error: 'Not found' });
+
+    const voterHash = hashClientFingerprint(req, `poll:${id}`);
+    const windowKey = getWindowKey(pollVoteWindowMs);
+    const expiresAt = new Date(Date.now() + pollVoteWindowMs + (15 * 60 * 1000));
+
+    try {
+      await PollVote.create({
+        pollId: id,
+        voterHash,
+        windowKey,
+        optionIndex,
+        expiresAt,
+      });
+    } catch (error) {
+      if (isMongoDuplicateKeyError(error)) {
+        return res.status(429).json({ error: 'You already voted in this poll from this network' });
+      }
+      throw error;
+    }
+
+    const optionPath = `options.${optionIndex}.votes`;
+    const updated = await Poll.findOneAndUpdate(
+      { id, [`options.${optionIndex}`]: { $exists: true } },
+      { $inc: { [optionPath]: 1 } },
+      { new: true }
+    ).lean();
+
+    if (!updated) return res.status(404).json({ error: 'Not found' });
+    delete updated._id;
+    delete updated.__v;
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Audit / Backup / Reset ───
+app.get('/api/audit-log', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const logs = await AuditLog.find().sort({ timestamp: -1 }).limit(200).lean();
+    logs.forEach(l => { delete l._id; delete l.__v; });
+    res.json(logs);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/backup', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const clean = items => {
+      items.forEach(i => {
+        delete i._id;
+        delete i.__v;
+        delete i.password;
+      });
+      return items;
+    };
+    const cleanOne = (item) => {
+      if (!item) return null;
+      delete item._id;
+      delete item.__v;
+      return item;
+    };
+    const data = {
+      exportDate: new Date().toISOString(),
+      articles: clean(await Article.find().lean()),
+      articleRevisions: clean(await ArticleRevision.find().sort({ createdAt: -1 }).lean()),
+      settingsRevisions: clean(await SettingsRevision.find().sort({ createdAt: -1 }).lean()),
+      authors: clean(await Author.find().lean()),
+      categories: clean(await Category.find().lean()),
+      ads: clean(await Ad.find().lean()),
+      breaking: (await Breaking.findOne().lean())?.items || [],
+      users: clean(await User.find().lean()),
+      wanted: clean(await Wanted.find().lean()),
+      jobs: clean(await Job.find().lean()),
+      court: clean(await Court.find().lean()),
+      events: clean(await Event.find().lean()),
+      polls: clean(await Poll.find().lean()),
+      comments: clean(await Comment.find().lean()),
+      gallery: clean(await Gallery.find().lean()),
+      permissions: clean(await Permission.find().lean()),
+      heroSettings: cleanOne(await HeroSettings.findOne({ key: 'main' }).lean()) || { key: 'main', ...DEFAULT_HERO_SETTINGS },
+      siteSettings: cleanOne(await SiteSettings.findOne({ key: 'main' }).lean()) || { key: 'main', ...DEFAULT_SITE_SETTINGS },
+    };
+    res.setHeader('Content-Disposition', `attachment; filename=znews-backup-${Date.now()}.json`);
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const { seedAll } = await import('./seed.js');
+    await seedAll();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Image Upload Endpoint ───
+app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), (req, res) => {
+  upload.single('image')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+    const pipelineManifest = await ensureImagePipeline(req.file.filename);
+    const pipelineEngine = await getPipelineEngineName();
+    return res.json({
+      url: `/uploads/${req.file.filename}`,
+      imageMeta: toImageMetaFromManifest(pipelineManifest),
+      pipelineReady: Boolean(pipelineManifest),
+      pipelineEngine,
+    });
+  });
+});
+
+// ─── Media Library (uploads folder) ───
+app.get('/api/media', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (_req, res) => {
+  try {
+    const files = await listMediaFiles();
+    res.json(files);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/media/pipeline/status', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (_req, res) => {
+  try {
+    const status = await getImagePipelineStatus();
+    res.json(status);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/media/pipeline/backfill', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (req, res) => {
+  try {
+    const force = Boolean(req.body?.force);
+    const parsedLimit = Number.parseInt(req.body?.limit, 10);
+    const limit = Number.isInteger(parsedLimit) && parsedLimit > 0
+      ? Math.min(parsedLimit, 5000)
+      : 0;
+    const summary = await backfillImagePipeline({ force, limit });
+    res.json(summary);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/media/:fileName', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (req, res) => {
+  try {
+    const decoded = decodeURIComponent(req.params.fileName || '');
+    const fileName = path.basename(decoded);
+    if (!isOriginalUploadFileName(fileName)) return res.status(400).json({ error: 'Invalid filename' });
+    const mediaUrl = `/uploads/${fileName}`;
+
+    const [articleUse, adUse, galleryUse, eventUse] = await Promise.all([
+      Article.exists({ image: mediaUrl }),
+      Ad.exists({ image: mediaUrl }),
+      Gallery.exists({ image: mediaUrl }),
+      Event.exists({ image: mediaUrl }),
+    ]);
+
+    if (articleUse || adUse || galleryUse || eventUse) {
+      return res.status(409).json({ error: 'File is used in content and cannot be deleted' });
+    }
+
+    const fullPath = path.join(uploadsDir, fileName);
+    await fs.promises.unlink(fullPath);
+    const variantsDir = getVariantsAbsoluteDir(fileName);
+    await fs.promises.rm(variantsDir, { recursive: true, force: true });
+    res.json({ ok: true });
+  } catch (e) {
+    if (e?.code === 'ENOENT') return res.status(404).json({ error: 'File not found' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/share/article/:id(\\d+)', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).send('Invalid article id');
+
+    const article = await Article.findOne({ id, ...getPublishedFilter() }).lean();
+    if (!article) {
+      return res.status(404).send('Article not found');
+    }
+
+    const baseUrl = getPublicBaseUrl(req);
+    const articleUrl = `${baseUrl}/article/${id}`;
+    const shareUrl = `${baseUrl}/share/article/${id}`;
+    const shareImageUrl = `${baseUrl}/api/articles/${id}/share.png`;
+    const title = clampText(article.shareTitle || article.title || 'zNews.live', 140);
+    const description = clampText(
+      article.shareSubtitle || stripHtmlToText(article.excerpt || article.content || ''),
+      220
+    ) || 'Горещи новини от Los Santos.';
+
+    const safeTitle = escapeHtml(title);
+    const safeDescription = escapeHtml(description);
+    const safeArticleUrl = escapeHtml(articleUrl);
+    const safeShareUrl = escapeHtml(shareUrl);
+    const safeImageUrl = escapeHtml(shareImageUrl);
+    const safeRedirectUrl = escapeHtml(`/article/${id}`);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    return res.send(`<!doctype html>
+<html lang="bg">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${safeTitle}</title>
+    <meta name="description" content="${safeDescription}" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="zNews.live" />
+    <meta property="og:title" content="${safeTitle}" />
+    <meta property="og:description" content="${safeDescription}" />
+    <meta property="og:url" content="${safeShareUrl}" />
+    <meta property="og:image" content="${safeImageUrl}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="${shareCardWidth}" />
+    <meta property="og:image:height" content="${shareCardHeight}" />
+    <link rel="canonical" href="${safeArticleUrl}" />
+    <meta http-equiv="refresh" content="0;url=${safeRedirectUrl}" />
+  </head>
+  <body>
+    <p style="font-family: Arial, sans-serif; padding: 16px;">Пренасочване към статията...</p>
+    <script>window.location.replace(${JSON.stringify(`/article/${id}`)});</script>
+  </body>
+</html>`);
+  } catch (e) {
+    return res.status(500).send('Share page error');
+  }
+});
+
+// ─── Serve frontend in production ───
+const distPath = path.join(__dirname, '..', 'dist');
+app.use(express.static(distPath, {
+  maxAge: isProd ? '1y' : 0,
+  etag: true,
+}));
+
+app.get('*', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-cache');
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
+// ─── Start ───
+const PORT = Number(process.env.PORT) || 3001;
+
+async function startServer() {
+  try {
+    await connectDB();
+  } catch (err) {
+    console.error('✗ MongoDB error:', err.message);
+    process.exit(1);
+  }
+
+  const server = app.listen(PORT, () => {
+    console.log(`✓ Los Santos News API running on port ${PORT}`);
+    if (!isProd) console.log('⚠ Running in development mode');
+
+    if (process.env.IMAGE_PIPELINE_BACKFILL_ON_BOOT === 'true') {
+      const parsedLimit = Number.parseInt(process.env.IMAGE_PIPELINE_BACKFILL_LIMIT || '', 10);
+      const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 0;
+      backfillImagePipeline({ force: false, limit })
+        .then((summary) => {
+          console.log(`✓ Image pipeline backfill finished (${summary.generated} generated, ${summary.skipped} skipped, ${summary.failed} failed, engine=${summary.engine})`);
+        })
+        .catch((error) => {
+          console.error('✗ Image pipeline backfill failed on boot:', error?.message || error);
+        });
+    }
+  });
+
+  server.on('error', (error) => {
+    if (error?.code === 'EADDRINUSE') {
+      console.error(`✗ Port ${PORT} is already in use`);
+      console.error('Stop the running process on that port, then start the server again.');
+      console.error('PowerShell: netstat -ano | findstr :3001');
+      console.error('PowerShell: Stop-Process -Id <PID_FROM_NETSTAT> -Force');
+      process.exit(1);
+    }
+
+    console.error('✗ Server failed to start:', error);
+    process.exit(1);
+  });
+}
+
+startServer();
