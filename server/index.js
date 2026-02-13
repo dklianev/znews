@@ -210,8 +210,10 @@ const articleViewWindowMs = Math.max(
   Number.parseInt(process.env.ARTICLE_VIEW_WINDOW_MS || '', 10) || (6 * 60 * 60 * 1000)
 );
 const storageDriverInput = String(process.env.STORAGE_DRIVER || 'disk').trim().toLowerCase();
-const storageDriver = ['disk', 'spaces'].includes(storageDriverInput) ? storageDriverInput : 'disk';
+const storageDriver = ['disk', 'spaces', 'azure'].includes(storageDriverInput) ? storageDriverInput : 'disk';
 const isSpacesStorage = storageDriver === 'spaces';
+const isAzureStorage = storageDriver === 'azure';
+const isRemoteStorage = isSpacesStorage || isAzureStorage;
 const spacesBucket = String(process.env.SPACES_BUCKET || '').trim();
 const spacesRegion = String(process.env.SPACES_REGION || '').trim();
 const spacesEndpoint = String(process.env.SPACES_ENDPOINT || '').trim();
@@ -222,8 +224,21 @@ const defaultSpacesEndpoint = spacesRegion ? `https://${spacesRegion}.digitaloce
 const normalizedSpacesEndpoint = (spacesEndpoint || defaultSpacesEndpoint).replace(/\/+$/, '');
 const spacesPublicBaseUrl = String(process.env.SPACES_PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '')
   || (normalizedSpacesEndpoint && spacesBucket ? `${normalizedSpacesEndpoint}/${spacesBucket}` : '');
-const spacesUploadsPrefix = 'uploads';
+const azureBlobAccount = String(process.env.AZURE_BLOB_ACCOUNT || '').trim();
+const azureBlobContainer = String(process.env.AZURE_BLOB_CONTAINER || '').trim();
+const azureBlobEndpoint = String(process.env.AZURE_BLOB_ENDPOINT || '').trim();
+const azureBlobSasToken = String(process.env.AZURE_BLOB_SAS_TOKEN || '').trim().replace(/^\?/, '');
+const azureBlobApiVersion = String(process.env.AZURE_BLOB_API_VERSION || '2023-11-03').trim();
+const defaultAzureBlobEndpoint = azureBlobAccount ? `https://${azureBlobAccount}.blob.core.windows.net` : '';
+const normalizedAzureBlobEndpoint = (azureBlobEndpoint || defaultAzureBlobEndpoint).replace(/\/+$/, '');
+const azureBlobPublicBaseUrl = String(process.env.AZURE_BLOB_PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '')
+  || (normalizedAzureBlobEndpoint && azureBlobContainer ? `${normalizedAzureBlobEndpoint}/${azureBlobContainer}` : '');
+const storageUploadsPrefix = 'uploads';
+const storagePublicBaseUrl = isSpacesStorage
+  ? spacesPublicBaseUrl
+  : (isAzureStorage ? azureBlobPublicBaseUrl : '');
 const missingSpacesConfig = [];
+const missingAzureConfig = [];
 if (isSpacesStorage) {
   if (!spacesBucket) missingSpacesConfig.push('SPACES_BUCKET');
   if (!spacesRegion) missingSpacesConfig.push('SPACES_REGION');
@@ -232,12 +247,22 @@ if (isSpacesStorage) {
   if (!spacesSecret) missingSpacesConfig.push('SPACES_SECRET');
   if (!spacesPublicBaseUrl) missingSpacesConfig.push('SPACES_PUBLIC_BASE_URL');
 }
+if (isAzureStorage) {
+  if (!azureBlobContainer) missingAzureConfig.push('AZURE_BLOB_CONTAINER');
+  if (!normalizedAzureBlobEndpoint) missingAzureConfig.push('AZURE_BLOB_ENDPOINT (or AZURE_BLOB_ACCOUNT)');
+  if (!azureBlobSasToken) missingAzureConfig.push('AZURE_BLOB_SAS_TOKEN');
+  if (!azureBlobPublicBaseUrl) missingAzureConfig.push('AZURE_BLOB_PUBLIC_BASE_URL');
+}
 
 if (storageDriverInput !== storageDriver) {
   console.warn(`⚠ Unknown STORAGE_DRIVER="${storageDriverInput}". Falling back to "disk".`);
 }
 if (isSpacesStorage && missingSpacesConfig.length > 0) {
   console.error(`✗ STORAGE_DRIVER=spaces requires: ${missingSpacesConfig.join(', ')}`);
+  process.exit(1);
+}
+if (isAzureStorage && missingAzureConfig.length > 0) {
+  console.error(`✗ STORAGE_DRIVER=azure requires: ${missingAzureConfig.join(', ')}`);
   process.exit(1);
 }
 const spacesS3Client = isSpacesStorage
@@ -313,11 +338,11 @@ app.use(express.json({ limit: '1mb' }));
 
 // ─── File Uploads ───
 const uploadsDir = path.join(__dirname, 'uploads');
-if (!isSpacesStorage && !fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!isRemoteStorage && !fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 const uploadVariantsDir = path.join(uploadsDir, '_variants');
-if (!isSpacesStorage && !fs.existsSync(uploadVariantsDir)) fs.mkdirSync(uploadVariantsDir, { recursive: true });
+if (!isRemoteStorage && !fs.existsSync(uploadVariantsDir)) fs.mkdirSync(uploadVariantsDir, { recursive: true });
 const shareCardsDir = path.join(uploadsDir, '_share');
-if (!isSpacesStorage && !fs.existsSync(shareCardsDir)) fs.mkdirSync(shareCardsDir, { recursive: true });
+if (!isRemoteStorage && !fs.existsSync(shareCardsDir)) fs.mkdirSync(shareCardsDir, { recursive: true });
 const shareCardWidth = 1200;
 const shareCardHeight = 630;
 
@@ -339,8 +364,8 @@ function encodePathForUrl(value) {
 
 function toUploadsStorageKey(relativePath) {
   const normalized = toPosixRelativePath(relativePath);
-  if (!normalized) return `${spacesUploadsPrefix}/`;
-  return path.posix.join(spacesUploadsPrefix, normalized);
+  if (!normalized) return `${storageUploadsPrefix}/`;
+  return path.posix.join(storageUploadsPrefix, normalized);
 }
 
 function getDiskAbsolutePath(relativePath) {
@@ -351,9 +376,9 @@ function getDiskAbsolutePath(relativePath) {
 
 function toUploadsUrlFromRelative(relativePath) {
   const normalized = toPosixRelativePath(relativePath);
-  if (!normalized) return isSpacesStorage ? spacesPublicBaseUrl : '/uploads';
-  if (isSpacesStorage) {
-    return `${spacesPublicBaseUrl}/${encodePathForUrl(toUploadsStorageKey(normalized))}`;
+  if (!normalized) return isRemoteStorage ? storagePublicBaseUrl : '/uploads';
+  if (isRemoteStorage) {
+    return `${storagePublicBaseUrl}/${encodePathForUrl(toUploadsStorageKey(normalized))}`;
   }
   return `/uploads/${encodePathForUrl(normalized)}`;
 }
@@ -371,7 +396,7 @@ const diskStorage = multer.diskStorage({
 });
 
 const upload = multer({
-  storage: isSpacesStorage ? multer.memoryStorage() : diskStorage,
+  storage: isRemoteStorage ? multer.memoryStorage() : diskStorage,
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, cb) => {
     if (allowedImageMimeTypes.has(file.mimetype)) cb(null, true);
@@ -379,7 +404,7 @@ const upload = multer({
   },
 });
 
-if (!isSpacesStorage) {
+if (!isRemoteStorage) {
   app.use('/uploads', express.static(uploadsDir, {
     maxAge: isProd ? '30d' : '1d',
     setHeaders: (res) => {
@@ -464,6 +489,166 @@ function isStorageNotFoundError(error) {
   return code === 404 || name.includes('nosuchkey') || name.includes('notfound');
 }
 
+function decodeXmlEntities(value) {
+  return String(value || '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+function extractXmlTagValue(xml, tagName) {
+  const match = String(xml || '').match(new RegExp(`<${tagName}>([\\s\\S]*?)</${tagName}>`, 'i'));
+  return match?.[1] ? decodeXmlEntities(match[1].trim()) : '';
+}
+
+function buildAzureBlobUrl(blobKey = '', extraQuery = {}) {
+  const base = `${normalizedAzureBlobEndpoint}/${encodeURIComponent(azureBlobContainer)}${blobKey ? `/${encodePathForUrl(blobKey)}` : ''}`;
+  const query = new URLSearchParams(azureBlobSasToken);
+  Object.entries(extraQuery || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    query.set(key, String(value));
+  });
+  const asString = query.toString();
+  return asString ? `${base}?${asString}` : base;
+}
+
+async function sendAzureBlobRequest(blobKey = '', options = {}, extraQuery = {}) {
+  const response = await fetch(buildAzureBlobUrl(blobKey, extraQuery), {
+    method: options.method || 'GET',
+    headers: {
+      'x-ms-version': azureBlobApiVersion,
+      ...(options.headers || {}),
+    },
+    body: options.body,
+  });
+  return response;
+}
+
+function parseAzureListBlobsResult(xmlPayload) {
+  const xml = String(xmlPayload || '');
+  const blobs = [];
+  const blobRegex = /<Blob>([\s\S]*?)<\/Blob>/gi;
+  let match = null;
+
+  while ((match = blobRegex.exec(xml)) !== null) {
+    const chunk = match[1] || '';
+    const key = extractXmlTagValue(chunk, 'Name');
+    if (!key) continue;
+    const size = Number.parseInt(extractXmlTagValue(chunk, 'Content-Length') || '0', 10) || 0;
+    const lastModified = extractXmlTagValue(chunk, 'Last-Modified');
+    blobs.push({
+      Key: key,
+      Size: size,
+      LastModified: lastModified || null,
+    });
+  }
+
+  return {
+    blobs,
+    nextMarker: extractXmlTagValue(xml, 'NextMarker'),
+  };
+}
+
+async function listAzureObjectsByPrefix(prefixKey) {
+  const items = [];
+  let marker = '';
+
+  do {
+    const response = await sendAzureBlobRequest('', {}, {
+      restype: 'container',
+      comp: 'list',
+      prefix: prefixKey,
+      marker,
+      maxresults: 5000,
+    });
+    if (!response.ok) {
+      const details = await response.text().catch(() => '');
+      throw new Error(`Azure Blob list failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+    }
+    const xml = await response.text();
+    const parsed = parseAzureListBlobsResult(xml);
+    items.push(...parsed.blobs);
+    marker = parsed.nextMarker || '';
+  } while (marker);
+
+  return items;
+}
+
+async function deleteAzureKeys(keys) {
+  if (!isAzureStorage || !Array.isArray(keys) || keys.length === 0) return;
+
+  const batchSize = 50;
+  for (let index = 0; index < keys.length; index += batchSize) {
+    const chunk = keys
+      .slice(index, index + batchSize)
+      .filter(Boolean);
+    if (chunk.length === 0) continue;
+
+    await Promise.all(chunk.map(async (blobKey) => {
+      const response = await sendAzureBlobRequest(blobKey, { method: 'DELETE' });
+      if (response.status === 404) return;
+      if (!response.ok) {
+        const details = await response.text().catch(() => '');
+        throw new Error(`Azure Blob delete failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+      }
+    }));
+  }
+}
+
+async function listRemoteObjectsByPrefix(prefixKey) {
+  if (isSpacesStorage) {
+    const items = [];
+    let continuationToken = undefined;
+
+    do {
+      const response = await spacesS3Client.send(new ListObjectsV2Command({
+        Bucket: spacesBucket,
+        Prefix: prefixKey,
+        ContinuationToken: continuationToken,
+        MaxKeys: 1000,
+      }));
+      items.push(...(response.Contents || []));
+      continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    return items;
+  }
+
+  if (isAzureStorage) {
+    return listAzureObjectsByPrefix(prefixKey);
+  }
+
+  return [];
+}
+
+async function deleteRemoteKeys(keys) {
+  if (!Array.isArray(keys) || keys.length === 0) return;
+  if (isSpacesStorage) {
+    const batchSize = 500;
+    for (let index = 0; index < keys.length; index += batchSize) {
+      const chunk = keys
+        .slice(index, index + batchSize)
+        .filter(Boolean)
+        .map(key => ({ Key: key }));
+      if (chunk.length === 0) continue;
+      await spacesS3Client.send(new DeleteObjectsCommand({
+        Bucket: spacesBucket,
+        Delete: {
+          Objects: chunk,
+          Quiet: true,
+        },
+      }));
+    }
+    return;
+  }
+
+  if (isAzureStorage) {
+    await deleteAzureKeys(keys);
+  }
+}
+
 async function putStorageObject(relativePath, body, contentType = 'application/octet-stream') {
   const normalized = toPosixRelativePath(relativePath);
   if (!normalized) throw new Error('Invalid storage path');
@@ -478,6 +663,25 @@ async function putStorageObject(relativePath, body, contentType = 'application/o
     };
     if (spacesObjectAcl) params.ACL = spacesObjectAcl;
     await spacesS3Client.send(new PutObjectCommand(params));
+    return;
+  }
+  if (isAzureStorage) {
+    const cacheControl = normalized.startsWith('_share/') ? 'public, max-age=300' : 'public, max-age=2592000';
+    const response = await sendAzureBlobRequest(toUploadsStorageKey(normalized), {
+      method: 'PUT',
+      headers: {
+        'x-ms-blob-type': 'BlockBlob',
+        'Content-Type': contentType,
+        'x-ms-blob-content-type': contentType,
+        'x-ms-blob-cache-control': cacheControl,
+        'Cache-Control': cacheControl,
+      },
+      body,
+    });
+    if (!response.ok) {
+      const details = await response.text().catch(() => '');
+      throw new Error(`Azure Blob upload failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+    }
     return;
   }
 
@@ -501,6 +705,15 @@ async function getStorageObjectBuffer(relativePath) {
       if (isStorageNotFoundError(error)) return null;
       throw error;
     }
+  }
+  if (isAzureStorage) {
+    const response = await sendAzureBlobRequest(toUploadsStorageKey(normalized), { method: 'GET' });
+    if (response.status === 404) return null;
+    if (!response.ok) {
+      const details = await response.text().catch(() => '');
+      throw new Error(`Azure Blob read failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+    }
+    return Buffer.from(await response.arrayBuffer());
   }
 
   const absolute = getDiskAbsolutePath(normalized);
@@ -528,6 +741,15 @@ async function storageObjectExists(relativePath) {
       throw error;
     }
   }
+  if (isAzureStorage) {
+    const response = await sendAzureBlobRequest(toUploadsStorageKey(normalized), { method: 'HEAD' });
+    if (response.status === 404) return false;
+    if (!response.ok) {
+      const details = await response.text().catch(() => '');
+      throw new Error(`Azure Blob HEAD failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+    }
+    return true;
+  }
 
   try {
     await fs.promises.access(getDiskAbsolutePath(normalized), fs.constants.R_OK);
@@ -551,56 +773,27 @@ async function deleteStorageObject(relativePath) {
     }));
     return;
   }
+  if (isAzureStorage) {
+    const response = await sendAzureBlobRequest(toUploadsStorageKey(normalized), { method: 'DELETE' });
+    if (response.status === 404) return;
+    if (!response.ok) {
+      const details = await response.text().catch(() => '');
+      throw new Error(`Azure Blob delete failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+    }
+    return;
+  }
 
   await fs.promises.unlink(getDiskAbsolutePath(normalized));
-}
-
-async function listSpacesObjectsByPrefix(prefixKey) {
-  const items = [];
-  let continuationToken = undefined;
-
-  do {
-    const response = await spacesS3Client.send(new ListObjectsV2Command({
-      Bucket: spacesBucket,
-      Prefix: prefixKey,
-      ContinuationToken: continuationToken,
-      MaxKeys: 1000,
-    }));
-    items.push(...(response.Contents || []));
-    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
-  } while (continuationToken);
-
-  return items;
-}
-
-async function deleteSpacesKeys(keys) {
-  if (!isSpacesStorage || !Array.isArray(keys) || keys.length === 0) return;
-
-  const batchSize = 500;
-  for (let index = 0; index < keys.length; index += batchSize) {
-    const chunk = keys
-      .slice(index, index + batchSize)
-      .filter(Boolean)
-      .map(key => ({ Key: key }));
-    if (chunk.length === 0) continue;
-    await spacesS3Client.send(new DeleteObjectsCommand({
-      Bucket: spacesBucket,
-      Delete: {
-        Objects: chunk,
-        Quiet: true,
-      },
-    }));
-  }
 }
 
 async function deleteStoragePrefix(relativePrefix) {
   const normalizedPrefix = toPosixRelativePath(relativePrefix);
   if (!normalizedPrefix) return;
 
-  if (isSpacesStorage) {
+  if (isRemoteStorage) {
     const prefixKey = toUploadsStorageKey(normalizedPrefix.endsWith('/') ? normalizedPrefix : `${normalizedPrefix}/`);
-    const objects = await listSpacesObjectsByPrefix(prefixKey);
-    await deleteSpacesKeys(objects.map(item => item.Key).filter(Boolean));
+    const objects = await listRemoteObjectsByPrefix(prefixKey);
+    await deleteRemoteKeys(objects.map(item => item.Key).filter(Boolean));
     return;
   }
 
@@ -611,7 +804,7 @@ async function readImageManifest(fileName) {
   try {
     if (!fileName || !isOriginalUploadFileName(fileName)) return null;
     let raw = '';
-    if (isSpacesStorage) {
+    if (isRemoteStorage) {
       const buffer = await getStorageObjectBuffer(getManifestRelativePath(fileName));
       if (!buffer) return null;
       raw = buffer.toString('utf8');
@@ -629,7 +822,7 @@ async function readImageManifest(fileName) {
 async function writeImageManifest(fileName, manifest) {
   if (!fileName || !isOriginalUploadFileName(fileName)) return;
   const payload = JSON.stringify(manifest, null, 2);
-  if (isSpacesStorage) {
+  if (isRemoteStorage) {
     await putStorageObject(getManifestRelativePath(fileName), payload, 'application/json; charset=utf-8');
     return;
   }
@@ -763,9 +956,9 @@ async function resolveImageMetaFromUrl(mediaUrl) {
 }
 
 async function listOriginalUploadEntries() {
-  if (isSpacesStorage) {
+  if (isRemoteStorage) {
     const prefixKey = toUploadsStorageKey('');
-    const objects = await listSpacesObjectsByPrefix(prefixKey);
+    const objects = await listRemoteObjectsByPrefix(prefixKey);
     return objects
       .map((item) => {
         const key = String(item?.Key || '');
@@ -1238,17 +1431,17 @@ function buildShareCardOverlaySvg(model) {
 async function cleanupOldShareCards(articleId, keepFileName) {
   try {
     const prefix = `article-${articleId}-`;
-    if (isSpacesStorage) {
+    if (isRemoteStorage) {
       const prefixKey = toUploadsStorageKey(path.posix.join('_share', prefix));
-      const objects = await listSpacesObjectsByPrefix(prefixKey);
+      const objects = await listRemoteObjectsByPrefix(prefixKey);
       const staleKeys = objects
         .map(item => String(item?.Key || ''))
         .filter(Boolean)
         .filter((key) => {
-          const relative = key.startsWith(`${spacesUploadsPrefix}/`) ? key.slice(`${spacesUploadsPrefix}/`.length) : key;
+          const relative = key.startsWith(`${storageUploadsPrefix}/`) ? key.slice(`${storageUploadsPrefix}/`.length) : key;
           return !relative.endsWith(`/${keepFileName}`) && !relative.endsWith(keepFileName);
         });
-      await deleteSpacesKeys(staleKeys);
+      await deleteRemoteKeys(staleKeys);
       return;
     }
 
@@ -1295,7 +1488,7 @@ async function ensureArticleShareCard(article, { categoryLabel = '' } = {}) {
 
   const fileName = `article-${normalized.id}-${signature}.png`;
   const relativePath = getShareRelativePath(fileName);
-  const absolutePath = isSpacesStorage ? null : getDiskAbsolutePath(relativePath);
+  const absolutePath = isRemoteStorage ? null : getDiskAbsolutePath(relativePath);
   const url = toUploadsUrlFromRelative(relativePath);
 
   if (await storageObjectExists(relativePath)) {
@@ -1338,7 +1531,7 @@ async function resolveShareFallbackSource(article) {
   if (!sourceUrl) return null;
   const uploadFileName = getUploadFilenameFromUrl(sourceUrl);
   if (uploadFileName) {
-    if (isSpacesStorage) {
+    if (isRemoteStorage) {
       const exists = await storageObjectExists(uploadFileName);
       if (!exists) return null;
       return { type: 'redirect', url: getOriginalUploadUrl(uploadFileName) };
@@ -3401,7 +3594,7 @@ app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'g
         return res.status(400).json({ error: 'Invalid upload filename' });
       }
 
-      if (isSpacesStorage) {
+      if (isRemoteStorage) {
         if (!Buffer.isBuffer(req.file.buffer) || req.file.buffer.byteLength === 0) {
           return res.status(400).json({ error: 'Upload buffer is empty' });
         }
