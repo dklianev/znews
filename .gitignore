@@ -34,3 +34,7 @@ server/uploads/
 # Local tooling files
 .claude/
 nul
+
+# Local scratch outputs
+test-card-aligned.mjs
+test-card-aligned.png
