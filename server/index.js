@@ -8,10 +8,11 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
+import { isIP } from 'node:net';
 import {
   S3Client,
   PutObjectCommand,
@@ -323,6 +324,80 @@ app.use(cors({
   credentials: true,
 }));
 
+function stripPortFromIpMaybe(value) {
+  let raw = String(value || '').trim();
+  if (!raw) return '';
+
+  // Remove surrounding quotes.
+  raw = raw.replace(/^['"]+|['"]+$/g, '').trim();
+
+  // If a list is passed (X-Forwarded-For), take the first value.
+  if (raw.includes(',')) raw = raw.split(',')[0].trim();
+
+  // Handle RFC 7239 Forwarded header value fragments: for=...
+  raw = raw.replace(/^for=/i, '').trim();
+  raw = raw.replace(/^['"]+|['"]+$/g, '').trim();
+
+  // Handle bracketed IPv6: [::1]:1234
+  const bracketMatch = raw.match(/^\[(.+)\](?::\d+)?$/);
+  if (bracketMatch) raw = bracketMatch[1];
+
+  // Handle IPv4:port
+  const ipv4Port = raw.match(/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/);
+  if (ipv4Port) raw = ipv4Port[1];
+
+  // Handle IPv6 (or IPv6-mapped IPv4) with an appended :port (rare, but seen in some proxies)
+  if (!isIP(raw) && /:\d+$/.test(raw)) {
+    const idx = raw.lastIndexOf(':');
+    const head = raw.slice(0, idx);
+    if (isIP(head)) raw = head;
+  }
+
+  // Strip zone index if present (e.g. fe80::1%eth0)
+  if (!isIP(raw) && raw.includes('%')) {
+    const noZone = raw.split('%')[0];
+    if (isIP(noZone)) raw = noZone;
+  }
+
+  return raw;
+}
+
+function getClientIpForRateLimit(req) {
+  const xff = req.headers['x-forwarded-for'];
+  if (typeof xff === 'string' && xff.trim()) {
+    const fromXff = stripPortFromIpMaybe(xff);
+    if (isIP(fromXff)) return fromXff;
+  }
+
+  const forwarded = req.headers.forwarded;
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    // Forwarded: for=1.2.3.4:1234;proto=https, for="[2001:db8::1]:1234"
+    const entries = forwarded.split(',').map(s => s.trim()).filter(Boolean);
+    for (const entry of entries) {
+      const parts = entry.split(';').map(s => s.trim());
+      const forPart = parts.find(p => p.toLowerCase().startsWith('for='));
+      if (!forPart) continue;
+      const fromForwarded = stripPortFromIpMaybe(forPart);
+      if (isIP(fromForwarded)) return fromForwarded;
+    }
+  }
+
+  const fromReqIp = stripPortFromIpMaybe(req.ip);
+  if (isIP(fromReqIp)) return fromReqIp;
+
+  const fromSocket = stripPortFromIpMaybe(req.socket?.remoteAddress);
+  if (isIP(fromSocket)) return fromSocket;
+
+  // As a last resort return a stable non-empty key.
+  return fromReqIp || fromSocket || 'unknown';
+}
+
+function rateLimitKeyGenerator(req) {
+  const ip = getClientIpForRateLimit(req);
+  // Use helper so IPv6 users can't bypass limits by rotating addresses within a subnet.
+  return isIP(ip) ? ipKeyGenerator(ip, 56) : String(ip || 'unknown');
+}
+
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -330,6 +405,7 @@ const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+  keyGenerator: rateLimitKeyGenerator,
 });
 app.use('/api/', generalLimiter);
 
@@ -338,6 +414,7 @@ const authLimiter = rateLimit({
   max: 10,
   message: { error: 'Too many login attempts, please try again later.' },
   skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+  keyGenerator: rateLimitKeyGenerator,
 });
 
 const pollVoteLimiter = rateLimit({
@@ -345,6 +422,7 @@ const pollVoteLimiter = rateLimit({
   max: 30,
   message: { error: 'Too many poll votes from this IP. Please try again later.' },
   skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+  keyGenerator: rateLimitKeyGenerator,
 });
 
 app.use(express.json({ limit: '1mb' }));
