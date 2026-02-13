@@ -12,6 +12,14 @@ import rateLimit from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+} from '@aws-sdk/client-s3';
 import { randomUUID, createHash } from 'crypto';
 
 // Fix DNS for MongoDB Atlas SRV lookups
@@ -201,6 +209,48 @@ const articleViewWindowMs = Math.max(
   60 * 1000,
   Number.parseInt(process.env.ARTICLE_VIEW_WINDOW_MS || '', 10) || (6 * 60 * 60 * 1000)
 );
+const storageDriverInput = String(process.env.STORAGE_DRIVER || 'disk').trim().toLowerCase();
+const storageDriver = ['disk', 'spaces'].includes(storageDriverInput) ? storageDriverInput : 'disk';
+const isSpacesStorage = storageDriver === 'spaces';
+const spacesBucket = String(process.env.SPACES_BUCKET || '').trim();
+const spacesRegion = String(process.env.SPACES_REGION || '').trim();
+const spacesEndpoint = String(process.env.SPACES_ENDPOINT || '').trim();
+const spacesKey = String(process.env.SPACES_KEY || '').trim();
+const spacesSecret = String(process.env.SPACES_SECRET || '').trim();
+const spacesObjectAcl = String(process.env.SPACES_OBJECT_ACL || 'public-read').trim();
+const defaultSpacesEndpoint = spacesRegion ? `https://${spacesRegion}.digitaloceanspaces.com` : '';
+const normalizedSpacesEndpoint = (spacesEndpoint || defaultSpacesEndpoint).replace(/\/+$/, '');
+const spacesPublicBaseUrl = String(process.env.SPACES_PUBLIC_BASE_URL || '').trim().replace(/\/+$/, '')
+  || (normalizedSpacesEndpoint && spacesBucket ? `${normalizedSpacesEndpoint}/${spacesBucket}` : '');
+const spacesUploadsPrefix = 'uploads';
+const missingSpacesConfig = [];
+if (isSpacesStorage) {
+  if (!spacesBucket) missingSpacesConfig.push('SPACES_BUCKET');
+  if (!spacesRegion) missingSpacesConfig.push('SPACES_REGION');
+  if (!normalizedSpacesEndpoint) missingSpacesConfig.push('SPACES_ENDPOINT');
+  if (!spacesKey) missingSpacesConfig.push('SPACES_KEY');
+  if (!spacesSecret) missingSpacesConfig.push('SPACES_SECRET');
+  if (!spacesPublicBaseUrl) missingSpacesConfig.push('SPACES_PUBLIC_BASE_URL');
+}
+
+if (storageDriverInput !== storageDriver) {
+  console.warn(`⚠ Unknown STORAGE_DRIVER="${storageDriverInput}". Falling back to "disk".`);
+}
+if (isSpacesStorage && missingSpacesConfig.length > 0) {
+  console.error(`✗ STORAGE_DRIVER=spaces requires: ${missingSpacesConfig.join(', ')}`);
+  process.exit(1);
+}
+const spacesS3Client = isSpacesStorage
+  ? new S3Client({
+    region: spacesRegion,
+    endpoint: normalizedSpacesEndpoint,
+    forcePathStyle: false,
+    credentials: {
+      accessKeyId: spacesKey,
+      secretAccessKey: spacesSecret,
+    },
+  })
+  : null;
 
 app.set('trust proxy', 1);
 
@@ -263,15 +313,56 @@ app.use(express.json({ limit: '1mb' }));
 
 // ─── File Uploads ───
 const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!isSpacesStorage && !fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 const uploadVariantsDir = path.join(uploadsDir, '_variants');
-if (!fs.existsSync(uploadVariantsDir)) fs.mkdirSync(uploadVariantsDir, { recursive: true });
+if (!isSpacesStorage && !fs.existsSync(uploadVariantsDir)) fs.mkdirSync(uploadVariantsDir, { recursive: true });
 const shareCardsDir = path.join(uploadsDir, '_share');
-if (!fs.existsSync(shareCardsDir)) fs.mkdirSync(shareCardsDir, { recursive: true });
+if (!isSpacesStorage && !fs.existsSync(shareCardsDir)) fs.mkdirSync(shareCardsDir, { recursive: true });
 const shareCardWidth = 1200;
 const shareCardHeight = 630;
 
-const storage = multer.diskStorage({
+function toPosixRelativePath(value) {
+  return String(value || '')
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/\/+/g, '/')
+    .trim();
+}
+
+function encodePathForUrl(value) {
+  return toPosixRelativePath(value)
+    .split('/')
+    .filter(Boolean)
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+}
+
+function toUploadsStorageKey(relativePath) {
+  const normalized = toPosixRelativePath(relativePath);
+  if (!normalized) return `${spacesUploadsPrefix}/`;
+  return path.posix.join(spacesUploadsPrefix, normalized);
+}
+
+function getDiskAbsolutePath(relativePath) {
+  const normalized = toPosixRelativePath(relativePath);
+  if (!normalized) return uploadsDir;
+  return path.join(uploadsDir, ...normalized.split('/'));
+}
+
+function toUploadsUrlFromRelative(relativePath) {
+  const normalized = toPosixRelativePath(relativePath);
+  if (!normalized) return isSpacesStorage ? spacesPublicBaseUrl : '/uploads';
+  if (isSpacesStorage) {
+    return `${spacesPublicBaseUrl}/${encodePathForUrl(toUploadsStorageKey(normalized))}`;
+  }
+  return `/uploads/${encodePathForUrl(normalized)}`;
+}
+
+function getOriginalUploadUrl(fileName) {
+  return toUploadsUrlFromRelative(fileName);
+}
+
+const diskStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
     const ext = imageMimeToExt[file.mimetype] || '.jpg';
@@ -280,7 +371,7 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({
-  storage,
+  storage: isSpacesStorage ? multer.memoryStorage() : diskStorage,
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, cb) => {
     if (allowedImageMimeTypes.has(file.mimetype)) cb(null, true);
@@ -288,12 +379,20 @@ const upload = multer({
   },
 });
 
-app.use('/uploads', express.static(uploadsDir, {
-  maxAge: isProd ? '30d' : '1d',
-  setHeaders: (res) => {
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-  },
-}));
+if (!isSpacesStorage) {
+  app.use('/uploads', express.static(uploadsDir, {
+    maxAge: isProd ? '30d' : '1d',
+    setHeaders: (res) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+    },
+  }));
+} else {
+  app.get('/uploads/*', (req, res) => {
+    const rawSuffix = toPosixRelativePath(req.path.slice('/uploads/'.length));
+    if (!rawSuffix || rawSuffix.includes('..')) return res.status(404).send('Not found');
+    return res.redirect(302, toUploadsUrlFromRelative(rawSuffix));
+  });
+}
 
 function isSafeUploadFilename(name) {
   return /^[a-zA-Z0-9._-]+$/.test(name || '');
@@ -310,15 +409,19 @@ function getVariantsRelativeDir(fileName) {
 }
 
 function getVariantsAbsoluteDir(fileName) {
-  return path.join(uploadsDir, ...getVariantsRelativeDir(fileName).split('/'));
-}
-
-function toUploadsUrlFromRelative(relativePath) {
-  return `/uploads/${relativePath.split(path.sep).join('/')}`;
+  return getDiskAbsolutePath(getVariantsRelativeDir(fileName));
 }
 
 function getManifestAbsolutePath(fileName) {
-  return path.join(getVariantsAbsoluteDir(fileName), 'manifest.json');
+  return getDiskAbsolutePath(getManifestRelativePath(fileName));
+}
+
+function getManifestRelativePath(fileName) {
+  return path.posix.join(getVariantsRelativeDir(fileName), 'manifest.json');
+}
+
+function getShareRelativePath(fileName) {
+  return path.posix.join('_share', fileName);
 }
 
 async function loadSharp() {
@@ -335,9 +438,186 @@ async function loadSharp() {
   return sharpLoaderPromise;
 }
 
+function createUploadFileName(mimeType) {
+  const ext = imageMimeToExt[mimeType] || '.jpg';
+  return `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
+}
+
+async function readSdkBodyToBuffer(body) {
+  if (!body) return Buffer.alloc(0);
+  if (Buffer.isBuffer(body)) return body;
+  if (typeof body.transformToByteArray === 'function') {
+    const bytes = await body.transformToByteArray();
+    return Buffer.from(bytes);
+  }
+
+  const chunks = [];
+  for await (const chunk of body) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
+function isStorageNotFoundError(error) {
+  const code = error?.$metadata?.httpStatusCode;
+  const name = String(error?.name || error?.Code || error?.code || '').toLowerCase();
+  return code === 404 || name.includes('nosuchkey') || name.includes('notfound');
+}
+
+async function putStorageObject(relativePath, body, contentType = 'application/octet-stream') {
+  const normalized = toPosixRelativePath(relativePath);
+  if (!normalized) throw new Error('Invalid storage path');
+
+  if (isSpacesStorage) {
+    const params = {
+      Bucket: spacesBucket,
+      Key: toUploadsStorageKey(normalized),
+      Body: body,
+      ContentType: contentType,
+      CacheControl: normalized.startsWith('_share/') ? 'public, max-age=300' : 'public, max-age=2592000',
+    };
+    if (spacesObjectAcl) params.ACL = spacesObjectAcl;
+    await spacesS3Client.send(new PutObjectCommand(params));
+    return;
+  }
+
+  const absolute = getDiskAbsolutePath(normalized);
+  await fs.promises.mkdir(path.dirname(absolute), { recursive: true });
+  await fs.promises.writeFile(absolute, body);
+}
+
+async function getStorageObjectBuffer(relativePath) {
+  const normalized = toPosixRelativePath(relativePath);
+  if (!normalized) return null;
+
+  if (isSpacesStorage) {
+    try {
+      const response = await spacesS3Client.send(new GetObjectCommand({
+        Bucket: spacesBucket,
+        Key: toUploadsStorageKey(normalized),
+      }));
+      return await readSdkBodyToBuffer(response.Body);
+    } catch (error) {
+      if (isStorageNotFoundError(error)) return null;
+      throw error;
+    }
+  }
+
+  const absolute = getDiskAbsolutePath(normalized);
+  try {
+    return await fs.promises.readFile(absolute);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return null;
+    throw error;
+  }
+}
+
+async function storageObjectExists(relativePath) {
+  const normalized = toPosixRelativePath(relativePath);
+  if (!normalized) return false;
+
+  if (isSpacesStorage) {
+    try {
+      await spacesS3Client.send(new HeadObjectCommand({
+        Bucket: spacesBucket,
+        Key: toUploadsStorageKey(normalized),
+      }));
+      return true;
+    } catch (error) {
+      if (isStorageNotFoundError(error)) return false;
+      throw error;
+    }
+  }
+
+  try {
+    await fs.promises.access(getDiskAbsolutePath(normalized), fs.constants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function deleteStorageObject(relativePath) {
+  const normalized = toPosixRelativePath(relativePath);
+  if (!normalized) return;
+
+  if (isSpacesStorage) {
+    await spacesS3Client.send(new DeleteObjectsCommand({
+      Bucket: spacesBucket,
+      Delete: {
+        Objects: [{ Key: toUploadsStorageKey(normalized) }],
+        Quiet: true,
+      },
+    }));
+    return;
+  }
+
+  await fs.promises.unlink(getDiskAbsolutePath(normalized));
+}
+
+async function listSpacesObjectsByPrefix(prefixKey) {
+  const items = [];
+  let continuationToken = undefined;
+
+  do {
+    const response = await spacesS3Client.send(new ListObjectsV2Command({
+      Bucket: spacesBucket,
+      Prefix: prefixKey,
+      ContinuationToken: continuationToken,
+      MaxKeys: 1000,
+    }));
+    items.push(...(response.Contents || []));
+    continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+  } while (continuationToken);
+
+  return items;
+}
+
+async function deleteSpacesKeys(keys) {
+  if (!isSpacesStorage || !Array.isArray(keys) || keys.length === 0) return;
+
+  const batchSize = 500;
+  for (let index = 0; index < keys.length; index += batchSize) {
+    const chunk = keys
+      .slice(index, index + batchSize)
+      .filter(Boolean)
+      .map(key => ({ Key: key }));
+    if (chunk.length === 0) continue;
+    await spacesS3Client.send(new DeleteObjectsCommand({
+      Bucket: spacesBucket,
+      Delete: {
+        Objects: chunk,
+        Quiet: true,
+      },
+    }));
+  }
+}
+
+async function deleteStoragePrefix(relativePrefix) {
+  const normalizedPrefix = toPosixRelativePath(relativePrefix);
+  if (!normalizedPrefix) return;
+
+  if (isSpacesStorage) {
+    const prefixKey = toUploadsStorageKey(normalizedPrefix.endsWith('/') ? normalizedPrefix : `${normalizedPrefix}/`);
+    const objects = await listSpacesObjectsByPrefix(prefixKey);
+    await deleteSpacesKeys(objects.map(item => item.Key).filter(Boolean));
+    return;
+  }
+
+  await fs.promises.rm(getDiskAbsolutePath(normalizedPrefix), { recursive: true, force: true });
+}
+
 async function readImageManifest(fileName) {
   try {
-    const raw = await fs.promises.readFile(getManifestAbsolutePath(fileName), 'utf8');
+    if (!fileName || !isOriginalUploadFileName(fileName)) return null;
+    let raw = '';
+    if (isSpacesStorage) {
+      const buffer = await getStorageObjectBuffer(getManifestRelativePath(fileName));
+      if (!buffer) return null;
+      raw = buffer.toString('utf8');
+    } else {
+      raw = await fs.promises.readFile(getManifestAbsolutePath(fileName), 'utf8');
+    }
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
     return parsed;
@@ -347,20 +627,30 @@ async function readImageManifest(fileName) {
 }
 
 async function writeImageManifest(fileName, manifest) {
+  if (!fileName || !isOriginalUploadFileName(fileName)) return;
+  const payload = JSON.stringify(manifest, null, 2);
+  if (isSpacesStorage) {
+    await putStorageObject(getManifestRelativePath(fileName), payload, 'application/json; charset=utf-8');
+    return;
+  }
   const dir = getVariantsAbsoluteDir(fileName);
   await fs.promises.mkdir(dir, { recursive: true });
-  await fs.promises.writeFile(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+  await fs.promises.writeFile(path.join(dir, 'manifest.json'), payload, 'utf8');
 }
 
-async function generateImagePipeline(fileName) {
+async function readOriginalUploadBuffer(fileName) {
+  return getStorageObjectBuffer(fileName);
+}
+
+async function generateImagePipeline(fileName, { sourceBuffer = null } = {}) {
+  if (!fileName || !isOriginalUploadFileName(fileName)) return null;
   const sharp = await loadSharp();
   if (!sharp) return null;
 
-  const sourcePath = path.join(uploadsDir, fileName);
-  const variantsDir = getVariantsAbsoluteDir(fileName);
-  await fs.promises.mkdir(variantsDir, { recursive: true });
+  const originalBuffer = sourceBuffer || await readOriginalUploadBuffer(fileName);
+  if (!originalBuffer) return null;
 
-  const source = sharp(sourcePath, { failOn: 'none' }).rotate();
+  const source = sharp(originalBuffer, { failOn: 'none' }).rotate();
   const meta = await source.metadata();
   const sourceWidth = Number(meta.width) || null;
   const sourceHeight = Number(meta.height) || null;
@@ -375,11 +665,10 @@ async function generateImagePipeline(fileName) {
   for (const width of widths) {
     const webpName = `w${width}.webp`;
     const avifName = `w${width}.avif`;
-    const webpPath = path.join(variantsDir, webpName);
-    const avifPath = path.join(variantsDir, avifName);
-
-    await sharp(sourcePath).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 74 }).toFile(webpPath);
-    await sharp(sourcePath).rotate().resize({ width, withoutEnlargement: true }).avif({ quality: 52 }).toFile(avifPath);
+    const webpBuffer = await sharp(originalBuffer).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 74 }).toBuffer();
+    const avifBuffer = await sharp(originalBuffer).rotate().resize({ width, withoutEnlargement: true }).avif({ quality: 52 }).toBuffer();
+    await putStorageObject(path.posix.join(getVariantsRelativeDir(fileName), webpName), webpBuffer, 'image/webp');
+    await putStorageObject(path.posix.join(getVariantsRelativeDir(fileName), avifName), avifBuffer, 'image/avif');
 
     variants.push({
       width,
@@ -389,12 +678,13 @@ async function generateImagePipeline(fileName) {
   }
 
   const blurName = 'blur.webp';
-  await sharp(sourcePath).rotate().resize({ width: 32, withoutEnlargement: true }).blur(2).webp({ quality: 48 }).toFile(path.join(variantsDir, blurName));
+  const blurBuffer = await sharp(originalBuffer).rotate().resize({ width: 32, withoutEnlargement: true }).blur(2).webp({ quality: 48 }).toBuffer();
+  await putStorageObject(path.posix.join(getVariantsRelativeDir(fileName), blurName), blurBuffer, 'image/webp');
 
   const manifest = {
     generatedAt: new Date().toISOString(),
     original: {
-      url: `/uploads/${encodeURIComponent(fileName)}`,
+      url: getOriginalUploadUrl(fileName),
       width: sourceWidth,
       height: sourceHeight,
       format: meta.format || '',
@@ -407,11 +697,11 @@ async function generateImagePipeline(fileName) {
   return manifest;
 }
 
-async function ensureImagePipeline(fileName) {
+async function ensureImagePipeline(fileName, options = {}) {
   const existing = await readImageManifest(fileName);
   if (existing) return existing;
   try {
-    return await generateImagePipeline(fileName);
+    return await generateImagePipeline(fileName, options);
   } catch {
     return null;
   }
@@ -432,14 +722,33 @@ function toImageMetaFromManifest(manifest) {
   };
 }
 
-function getUploadFilenameFromUrl(mediaUrl) {
-  if (typeof mediaUrl !== 'string' || !mediaUrl.startsWith('/uploads/')) return null;
+function extractUploadsRelativePathFromUrl(mediaUrl) {
+  if (typeof mediaUrl !== 'string') return '';
+  const marker = '/uploads/';
   let raw = '';
-  try {
-    raw = decodeURIComponent(mediaUrl.slice('/uploads/'.length));
-  } catch {
-    return null;
+
+  if (mediaUrl.startsWith(marker)) {
+    raw = mediaUrl.slice(marker.length);
+  } else {
+    try {
+      const parsed = new URL(mediaUrl);
+      const markerIndex = parsed.pathname.indexOf(marker);
+      if (markerIndex < 0) return '';
+      raw = parsed.pathname.slice(markerIndex + marker.length);
+    } catch {
+      return '';
+    }
   }
+
+  try {
+    return decodeURIComponent(raw).replace(/^\/+/, '');
+  } catch {
+    return '';
+  }
+}
+
+function getUploadFilenameFromUrl(mediaUrl) {
+  const raw = extractUploadsRelativePathFromUrl(mediaUrl);
   if (!raw || raw.includes('/') || raw.includes('\\')) return null;
   const fileName = path.basename(raw);
   if (!isOriginalUploadFileName(fileName)) return null;
@@ -454,13 +763,41 @@ async function resolveImageMetaFromUrl(mediaUrl) {
 }
 
 async function listOriginalUploadEntries() {
+  if (isSpacesStorage) {
+    const prefixKey = toUploadsStorageKey('');
+    const objects = await listSpacesObjectsByPrefix(prefixKey);
+    return objects
+      .map((item) => {
+        const key = String(item?.Key || '');
+        if (!key.startsWith(prefixKey)) return null;
+        const relativePath = key.slice(prefixKey.length);
+        if (!relativePath || relativePath.includes('/')) return null;
+        const ext = path.extname(relativePath).toLowerCase();
+        if (!allowedImageExtensions.has(ext)) return null;
+        if (!isOriginalUploadFileName(relativePath)) return null;
+        return {
+          name: relativePath,
+          size: Number(item.Size) || 0,
+          updatedAt: item.LastModified ? new Date(item.LastModified).toISOString() : new Date(0).toISOString(),
+        };
+      })
+      .filter(Boolean);
+  }
+
   const entries = await fs.promises.readdir(uploadsDir, { withFileTypes: true });
-  return entries.filter((entry) => {
-    if (!entry.isFile()) return false;
+  const mapped = await Promise.all(entries.map(async (entry) => {
+    if (!entry.isFile()) return null;
     const ext = path.extname(entry.name).toLowerCase();
-    if (!allowedImageExtensions.has(ext)) return false;
-    return isOriginalUploadFileName(entry.name);
-  });
+    if (!allowedImageExtensions.has(ext)) return null;
+    if (!isOriginalUploadFileName(entry.name)) return null;
+    const stats = await fs.promises.stat(path.join(uploadsDir, entry.name));
+    return {
+      name: entry.name,
+      size: stats.size,
+      updatedAt: stats.mtime.toISOString(),
+    };
+  }));
+  return mapped.filter(Boolean);
 }
 
 async function getPipelineEngineName() {
@@ -541,15 +878,13 @@ async function listMediaFiles() {
   const engine = await getPipelineEngineName();
   const files = await Promise.all(entries
     .map(async (entry) => {
-      const fullPath = path.join(uploadsDir, entry.name);
-      const stats = await fs.promises.stat(fullPath);
       const manifest = await ensureImagePipeline(entry.name);
       return {
         id: entry.name,
         name: entry.name,
-        url: `/uploads/${encodeURIComponent(entry.name)}`,
-        size: stats.size,
-        updatedAt: stats.mtime.toISOString(),
+        url: getOriginalUploadUrl(entry.name),
+        size: entry.size,
+        updatedAt: entry.updatedAt,
         imageMeta: toImageMetaFromManifest(manifest),
         pipelineReady: Boolean(manifest),
         pipelineEngine: engine,
@@ -696,13 +1031,9 @@ async function resolveShareBackgroundInput(article) {
 
   const uploadFileName = getUploadFilenameFromUrl(sourceUrl);
   if (uploadFileName) {
-    const fullPath = path.join(uploadsDir, uploadFileName);
-    try {
-      await fs.promises.access(fullPath, fs.constants.R_OK);
-      return fullPath;
-    } catch {
-      return null;
-    }
+    const buffer = await readOriginalUploadBuffer(uploadFileName);
+    if (buffer && buffer.byteLength > 0) return buffer;
+    return null;
   }
 
   if (!/^https?:\/\//i.test(sourceUrl)) return null;
@@ -907,6 +1238,20 @@ function buildShareCardOverlaySvg(model) {
 async function cleanupOldShareCards(articleId, keepFileName) {
   try {
     const prefix = `article-${articleId}-`;
+    if (isSpacesStorage) {
+      const prefixKey = toUploadsStorageKey(path.posix.join('_share', prefix));
+      const objects = await listSpacesObjectsByPrefix(prefixKey);
+      const staleKeys = objects
+        .map(item => String(item?.Key || ''))
+        .filter(Boolean)
+        .filter((key) => {
+          const relative = key.startsWith(`${spacesUploadsPrefix}/`) ? key.slice(`${spacesUploadsPrefix}/`.length) : key;
+          return !relative.endsWith(`/${keepFileName}`) && !relative.endsWith(keepFileName);
+        });
+      await deleteSpacesKeys(staleKeys);
+      return;
+    }
+
     const entries = await fs.promises.readdir(shareCardsDir, { withFileTypes: true });
     await Promise.all(entries
       .filter((entry) => entry.isFile() && entry.name.startsWith(prefix) && entry.name !== keepFileName)
@@ -949,14 +1294,12 @@ async function ensureArticleShareCard(article, { categoryLabel = '' } = {}) {
     .slice(0, 14);
 
   const fileName = `article-${normalized.id}-${signature}.png`;
-  const absolutePath = path.join(shareCardsDir, fileName);
-  const url = `/uploads/_share/${encodeURIComponent(fileName)}`;
+  const relativePath = getShareRelativePath(fileName);
+  const absolutePath = isSpacesStorage ? null : getDiskAbsolutePath(relativePath);
+  const url = toUploadsUrlFromRelative(relativePath);
 
-  try {
-    await fs.promises.access(absolutePath, fs.constants.R_OK);
-    return { generated: true, fileName, absolutePath, url };
-  } catch {
-    // continue to generation
+  if (await storageObjectExists(relativePath)) {
+    return { generated: true, fileName, absolutePath, relativePath, url };
   }
 
   const backgroundInput = await resolveShareBackgroundInput(normalized);
@@ -985,9 +1328,9 @@ async function ensureArticleShareCard(article, { categoryLabel = '' } = {}) {
     .png({ compressionLevel: 9, quality: 92 })
     .toBuffer();
 
-  await fs.promises.writeFile(absolutePath, output);
+  await putStorageObject(relativePath, output, 'image/png');
   await cleanupOldShareCards(normalized.id, fileName);
-  return { generated: true, fileName, absolutePath, url };
+  return { generated: true, fileName, absolutePath, relativePath, url };
 }
 
 async function resolveShareFallbackSource(article) {
@@ -995,6 +1338,12 @@ async function resolveShareFallbackSource(article) {
   if (!sourceUrl) return null;
   const uploadFileName = getUploadFilenameFromUrl(sourceUrl);
   if (uploadFileName) {
+    if (isSpacesStorage) {
+      const exists = await storageObjectExists(uploadFileName);
+      if (!exists) return null;
+      return { type: 'redirect', url: getOriginalUploadUrl(uploadFileName) };
+    }
+
     const fullPath = path.join(uploadsDir, uploadFileName);
     try {
       await fs.promises.access(fullPath, fs.constants.R_OK);
@@ -2027,9 +2376,14 @@ articlesRouter.get('/:id/share.png', async (req, res) => {
 
     const category = await Category.findOne({ id: article.category }).select({ _id: 0, name: 1 }).lean();
     const card = await ensureArticleShareCard(article, { categoryLabel: category?.name || article.category || '' });
-    if (card?.generated && card.absolutePath) {
-      res.setHeader('Cache-Control', 'no-cache');
-      return res.sendFile(card.absolutePath);
+    if (card?.generated) {
+      if (card.absolutePath) {
+        res.setHeader('Cache-Control', 'no-cache');
+        return res.sendFile(card.absolutePath);
+      }
+      if (card.url) {
+        return res.redirect(302, card.url);
+      }
     }
 
     const fallback = await resolveShareFallbackSource(article);
@@ -3037,16 +3391,36 @@ app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
 // ─── Image Upload Endpoint ───
 app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), (req, res) => {
   upload.single('image')(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message });
-    if (!req.file) return res.status(400).json({ error: 'No file provided' });
-    const pipelineManifest = await ensureImagePipeline(req.file.filename);
-    const pipelineEngine = await getPipelineEngineName();
-    return res.json({
-      url: `/uploads/${req.file.filename}`,
-      imageMeta: toImageMetaFromManifest(pipelineManifest),
-      pipelineReady: Boolean(pipelineManifest),
-      pipelineEngine,
-    });
+    try {
+      if (err) return res.status(400).json({ error: err.message });
+      if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+      const mimeType = normalizeText(req.file.mimetype || '', 120).toLowerCase();
+      const fileName = req.file.filename || createUploadFileName(mimeType);
+      if (!isOriginalUploadFileName(fileName)) {
+        return res.status(400).json({ error: 'Invalid upload filename' });
+      }
+
+      if (isSpacesStorage) {
+        if (!Buffer.isBuffer(req.file.buffer) || req.file.buffer.byteLength === 0) {
+          return res.status(400).json({ error: 'Upload buffer is empty' });
+        }
+        await putStorageObject(fileName, req.file.buffer, mimeType || 'application/octet-stream');
+      }
+
+      const pipelineManifest = await ensureImagePipeline(fileName, {
+        sourceBuffer: Buffer.isBuffer(req.file.buffer) ? req.file.buffer : null,
+      });
+      const pipelineEngine = await getPipelineEngineName();
+      return res.json({
+        url: getOriginalUploadUrl(fileName),
+        imageMeta: toImageMetaFromManifest(pipelineManifest),
+        pipelineReady: Boolean(pipelineManifest),
+        pipelineEngine,
+      });
+    } catch (error) {
+      return res.status(500).json({ error: error?.message || 'Upload failed' });
+    }
   });
 });
 
@@ -3088,26 +3462,30 @@ app.delete('/api/media/:fileName', requireAuth, requireAnyPermission(['articles'
     const decoded = decodeURIComponent(req.params.fileName || '');
     const fileName = path.basename(decoded);
     if (!isOriginalUploadFileName(fileName)) return res.status(400).json({ error: 'Invalid filename' });
-    const mediaUrl = `/uploads/${fileName}`;
+    const candidateMediaUrls = [...new Set([
+      `/uploads/${encodeURIComponent(fileName)}`,
+      getOriginalUploadUrl(fileName),
+    ])];
 
     const [articleUse, adUse, galleryUse, eventUse] = await Promise.all([
-      Article.exists({ image: mediaUrl }),
-      Ad.exists({ image: mediaUrl }),
-      Gallery.exists({ image: mediaUrl }),
-      Event.exists({ image: mediaUrl }),
+      Article.exists({ image: { $in: candidateMediaUrls } }),
+      Ad.exists({ image: { $in: candidateMediaUrls } }),
+      Gallery.exists({ image: { $in: candidateMediaUrls } }),
+      Event.exists({ image: { $in: candidateMediaUrls } }),
     ]);
 
     if (articleUse || adUse || galleryUse || eventUse) {
       return res.status(409).json({ error: 'File is used in content and cannot be deleted' });
     }
 
-    const fullPath = path.join(uploadsDir, fileName);
-    await fs.promises.unlink(fullPath);
-    const variantsDir = getVariantsAbsoluteDir(fileName);
-    await fs.promises.rm(variantsDir, { recursive: true, force: true });
+    const exists = await storageObjectExists(fileName);
+    if (!exists) return res.status(404).json({ error: 'File not found' });
+
+    await deleteStorageObject(fileName);
+    await deleteStoragePrefix(getVariantsRelativeDir(fileName));
     res.json({ ok: true });
   } catch (e) {
-    if (e?.code === 'ENOENT') return res.status(404).json({ error: 'File not found' });
+    if (e?.code === 'ENOENT' || isStorageNotFoundError(e)) return res.status(404).json({ error: 'File not found' });
     res.status(500).json({ error: e.message });
   }
 });

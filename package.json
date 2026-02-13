@@ -7,15 +7,17 @@
     "dev": "node scripts/dev.mjs",
     "dev:client": "vite",
     "dev:server": "node --watch server/index.js",
-    "check:server": "node --check server/index.js && node --check server/seed.js && node --check server/scripts/backfill-image-pipeline.js",
+    "check:server": "node --check server/index.js && node --check server/seed.js && node --check server/scripts/backfill-image-pipeline.js && node --check server/scripts/migrate-local-uploads-to-spaces.js",
     "check": "npm run check:server && npm run build",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server/index.js",
     "seed": "node server/seed.js",
-    "images:backfill": "node server/scripts/backfill-image-pipeline.js"
+    "images:backfill": "node server/scripts/backfill-image-pipeline.js",
+    "storage:migrate-local": "node server/scripts/migrate-local-uploads-to-spaces.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.989.0",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
