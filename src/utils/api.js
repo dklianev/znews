@@ -281,7 +281,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ username, password }),
     }),
-    refresh: () => request('/auth/refresh', { method: 'POST' }, { skipRefresh: true }),
+    // Refresh is optional: for logged-out users the server can return 204/401.
+    // Don't treat that as an error in the UI.
+    refresh: () => refreshAccessToken(),
     logout: () => request('/auth/logout', { method: 'POST' }, { skipRefresh: true }),
   },
 

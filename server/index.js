@@ -3503,10 +3503,11 @@ app.post('/api/auth/refresh', async (req, res) => {
   try {
     const cookies = parseCookies(req);
     const refreshToken = cookies[REFRESH_COOKIE_NAME];
+    if (!refreshToken) return res.status(204).end();
     const decoded = decodeRefreshToken(refreshToken);
     if (!decoded) {
       clearRefreshCookie(res);
-      return res.status(401).json({ error: 'Invalid refresh token' });
+      return res.status(204).end();
     }
 
     const userId = Number.parseInt(decoded.userId, 10);
@@ -3517,14 +3518,14 @@ app.post('/api/auth/refresh', async (req, res) => {
     }).lean();
     if (!session) {
       clearRefreshCookie(res);
-      return res.status(401).json({ error: 'Refresh session expired' });
+      return res.status(204).end();
     }
 
     const user = await User.findOne({ id: userId }).lean();
     if (!user) {
       await AuthSession.deleteOne({ jti: decoded.jti });
       clearRefreshCookie(res);
-      return res.status(401).json({ error: 'User not found' });
+      return res.status(204).end();
     }
 
     const { accessToken, refreshToken: nextRefreshToken } = await rotateTokensForUser(req, user, decoded.jti);
