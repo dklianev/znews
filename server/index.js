@@ -438,6 +438,11 @@ if (!isRemoteStorage && !fs.existsSync(shareCardsDir)) fs.mkdirSync(shareCardsDi
 const shareCardWidth = 1200;
 const shareCardHeight = 630;
 
+// Note: librsvg (used by sharp for SVG rendering) often does not do per-glyph font fallback reliably.
+// Use a font stack that includes Cyrillic-capable fonts first so Bulgarian text renders on minimal servers.
+const shareCardFontStackDisplay = "DejaVu Sans Condensed, DejaVu Sans, Noto Sans, Liberation Sans, Segoe UI, Arial, sans-serif";
+const shareCardFontStackBody = "DejaVu Sans, Noto Sans, Liberation Sans, Segoe UI, Arial, sans-serif";
+
 function toPosixRelativePath(value) {
   return String(value || '')
     .replace(/\\/g, '/')
@@ -1474,7 +1479,7 @@ function buildShareCardOverlaySvg(model) {
 
   <g transform="rotate(-3 210 94)" filter="url(#softShadow)">
     <rect x="72" y="54" width="${model.badgeWidth}" height="${model.badgeHeight}" rx="14" fill="url(#accent)" stroke="#241833" stroke-width="3" />
-    <text x="100" y="${54 + Math.round(model.badgeHeight * 0.74)}" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="${model.badgeFontSize}" fill="#ffffff" letter-spacing="1.1" textLength="${model.badgeTextLength}" lengthAdjust="spacingAndGlyphs">${escapeHtml(model.badge)}</text>
+    <text x="100" y="${54 + Math.round(model.badgeHeight * 0.74)}" font-family="${shareCardFontStackDisplay}" font-weight="900" font-size="${model.badgeFontSize}" fill="#ffffff" letter-spacing="1.1" textLength="${model.badgeTextLength}" lengthAdjust="spacingAndGlyphs">${escapeHtml(model.badge)}</text>
   </g>
 
   <rect x="56" y="130" width="${shareCardWidth - 112}" height="374" rx="26" fill="url(#panelGrad)" stroke="rgba(255,255,255,0.30)" stroke-width="2.4" />
@@ -1484,12 +1489,12 @@ function buildShareCardOverlaySvg(model) {
 
   <g clip-path="url(#titleClip)">
     <g transform="translate(4 5)">
-      <text x="94" y="236" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="${model.titleFontSize}" fill="rgba(0,0,0,0.52)" letter-spacing="1.25">
+      <text x="94" y="236" font-family="${shareCardFontStackDisplay}" font-weight="900" font-size="${model.titleFontSize}" fill="rgba(0,0,0,0.52)" letter-spacing="1.25">
         ${titleShadowTspans}
       </text>
     </g>
 
-    <text x="94" y="236" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="${model.titleFontSize}" fill="#ffffff" stroke="rgba(22,14,34,0.35)" stroke-width="1.8" letter-spacing="1.25">
+    <text x="94" y="236" font-family="${shareCardFontStackDisplay}" font-weight="900" font-size="${model.titleFontSize}" fill="#ffffff" stroke="rgba(22,14,34,0.35)" stroke-width="1.8" letter-spacing="1.25">
       ${titleTspans}
     </text>
   </g>
@@ -1497,11 +1502,11 @@ function buildShareCardOverlaySvg(model) {
   <rect x="86" y="398" width="${shareCardWidth - 172}" height="96" rx="16" fill="rgba(255,255,255,0.10)" />
   <g clip-path="url(#subtitleClip)">
     <g transform="translate(0 1.2)">
-      <text x="96" y="434" font-family="Arial, Helvetica, sans-serif" font-size="${model.subtitleFontSize}" font-weight="600" letter-spacing="0.15" fill="rgba(13,10,20,0.48)">
+      <text x="96" y="434" font-family="${shareCardFontStackBody}" font-size="${model.subtitleFontSize}" font-weight="600" letter-spacing="0.15" fill="rgba(13,10,20,0.48)">
         ${subtitleTspans}
       </text>
     </g>
-    <text x="96" y="434" font-family="Arial, Helvetica, sans-serif" font-size="${model.subtitleFontSize}" font-weight="600" letter-spacing="0.15" fill="#f5f2fb">
+    <text x="96" y="434" font-family="${shareCardFontStackBody}" font-size="${model.subtitleFontSize}" font-weight="600" letter-spacing="0.15" fill="#f5f2fb">
       ${subtitleTspans}
     </text>
   </g>
@@ -1509,14 +1514,14 @@ function buildShareCardOverlaySvg(model) {
   <rect x="56" y="522" width="${shareCardWidth - 112}" height="86" rx="20" fill="url(#footerMetal)" stroke="#2a1d3d" stroke-width="2.4" />
   <g transform="rotate(-1 254 566)">
     <rect x="78" y="540" width="${model.categoryChipWidth}" height="50" rx="12" fill="url(#accent)" stroke="#2b1c40" stroke-width="2.5" />
-    <text x="${78 + Math.round(model.categoryChipWidth / 2)}" y="565" text-anchor="middle" dominant-baseline="middle" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="${model.categoryFontSize}" fill="${palette.ink}" letter-spacing="0.9" textLength="${model.categoryTextLength}" lengthAdjust="spacingAndGlyphs">${escapeHtml(model.category)}</text>
+    <text x="${78 + Math.round(model.categoryChipWidth / 2)}" y="565" text-anchor="middle" dominant-baseline="middle" font-family="${shareCardFontStackDisplay}" font-weight="900" font-size="${model.categoryFontSize}" fill="${palette.ink}" letter-spacing="0.9" textLength="${model.categoryTextLength}" lengthAdjust="spacingAndGlyphs">${escapeHtml(model.category)}</text>
   </g>
   <g transform="translate(${shareCardWidth - 384} 574) skewX(-8)" filter="url(#brandShadow)">
-    <text x="0" y="0" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="56" fill="#ffffff" stroke="rgba(25,14,40,0.42)" stroke-width="1.7" letter-spacing="-1.1">z</text>
-    <text x="22" y="2" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="56" fill="rgba(22,12,35,0.52)" letter-spacing="0.08">News<tspan dx="1.5" font-size="41" letter-spacing="0.03">.live</tspan></text>
-    <text x="22" y="0" font-family="Impact, Oswald, Arial Black, sans-serif" font-size="56" fill="url(#brandNews)" stroke="rgba(23,12,35,0.34)" stroke-width="1.5" letter-spacing="0.08">News<tspan dx="1.5" font-size="41" letter-spacing="0.03">.live</tspan></text>
+    <text x="0" y="0" font-family="${shareCardFontStackDisplay}" font-weight="900" font-size="56" fill="#ffffff" stroke="rgba(25,14,40,0.42)" stroke-width="1.7" letter-spacing="-1.1">z</text>
+    <text x="22" y="2" font-family="${shareCardFontStackDisplay}" font-weight="900" font-size="56" fill="rgba(22,12,35,0.52)" letter-spacing="0.08">News<tspan dx="1.5" font-size="41" letter-spacing="0.03">.live</tspan></text>
+    <text x="22" y="0" font-family="${shareCardFontStackDisplay}" font-weight="900" font-size="56" fill="url(#brandNews)" stroke="rgba(23,12,35,0.34)" stroke-width="1.5" letter-spacing="0.08">News<tspan dx="1.5" font-size="41" letter-spacing="0.03">.live</tspan></text>
   </g>
-  ${model.dateLabel ? `<text x="${shareCardWidth - 84}" y="598" text-anchor="end" font-family="Oswald, Arial, sans-serif" font-size="22" letter-spacing="0.8" fill="#3f2d56">${escapeHtml(model.dateLabel)}</text>` : ''}
+  ${model.dateLabel ? `<text x="${shareCardWidth - 84}" y="598" text-anchor="end" font-family="${shareCardFontStackBody}" font-size="22" letter-spacing="0.8" fill="#3f2d56">${escapeHtml(model.dateLabel)}</text>` : ''}
 </svg>`;
 }
 
@@ -1558,7 +1563,7 @@ async function ensureArticleShareCard(article, { categoryLabel = '' } = {}) {
   const imageSource = getShareSourceUrl(normalized);
   const signature = createHash('sha1')
     .update(JSON.stringify({
-      v: 'share-card-v18',
+      v: 'share-card-v19',
       id: normalized.id,
       title: normalized.title,
       excerpt: normalized.excerpt,
