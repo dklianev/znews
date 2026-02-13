@@ -55,7 +55,6 @@ export function DataProvider({ children }) {
       'court',
       'events',
       'polls',
-      'comments',
       'gallery',
     ];
     const publicResults = await Promise.allSettled([
@@ -71,7 +70,6 @@ export function DataProvider({ children }) {
       api.court.getAll(),
       api.events.getAll(),
       api.polls.getAll(),
-      api.comments.getAll(),
       api.gallery.getAll(),
     ]);
 
@@ -88,8 +86,9 @@ export function DataProvider({ children }) {
     setCourt(pick(publicResults[9], []));
     setEvents(pick(publicResults[10], []));
     setPolls(pick(publicResults[11], []));
-    setComments(pick(publicResults[12], []));
-    setGallery(pick(publicResults[13], []));
+    // Comments are loaded on-demand per article (public) or fully for admins (see below).
+    setComments([]);
+    setGallery(pick(publicResults[12], []));
 
     publicResults.forEach((result, idx) => {
       if (result.status === 'rejected') {
@@ -98,9 +97,10 @@ export function DataProvider({ children }) {
     });
 
     if (session?.token) {
-      const [usersResult, permsResult, mediaResult, mediaPipelineResult, heroRevisionsResult, siteRevisionsResult] = await Promise.allSettled([
+      const [usersResult, permsResult, commentsResult, mediaResult, mediaPipelineResult, heroRevisionsResult, siteRevisionsResult] = await Promise.allSettled([
         api.users.getAll(),
         api.permissions.getAll(),
+        api.comments.getAll(),
         api.media.getAll(),
         api.media.getPipelineStatus(),
         api.heroSettings.getRevisions(),
@@ -108,6 +108,7 @@ export function DataProvider({ children }) {
       ]);
       setUsers(usersResult.status === 'fulfilled' ? usersResult.value : []);
       setPermissions(permsResult.status === 'fulfilled' ? permsResult.value : []);
+      setComments(commentsResult.status === 'fulfilled' ? commentsResult.value : []);
       setMedia(mediaResult.status === 'fulfilled' ? mediaResult.value : []);
       setMediaPipelineStatus(mediaPipelineResult.status === 'fulfilled' ? mediaPipelineResult.value : null);
       setHeroSettingsRevisions(heroRevisionsResult.status === 'fulfilled' ? heroRevisionsResult.value : []);
@@ -115,6 +116,7 @@ export function DataProvider({ children }) {
 
       if (usersResult.status === 'rejected') console.error('Failed to load users:', usersResult.reason);
       if (permsResult.status === 'rejected') console.error('Failed to load permissions:', permsResult.reason);
+      if (commentsResult.status === 'rejected') console.error('Failed to load comments:', commentsResult.reason);
       if (mediaResult.status === 'rejected') console.error('Failed to load media:', mediaResult.reason);
       if (mediaPipelineResult.status === 'rejected') console.error('Failed to load media pipeline status:', mediaPipelineResult.reason);
     } else {
@@ -125,6 +127,7 @@ export function DataProvider({ children }) {
       setArticleRevisions({});
       setHeroSettingsRevisions([]);
       setSiteSettingsRevisions([]);
+      setComments([]);
     }
     setLoading(false);
   }, [session?.token]);
@@ -169,6 +172,7 @@ export function DataProvider({ children }) {
     setArticleRevisions({});
     setHeroSettingsRevisions([]);
     setSiteSettingsRevisions([]);
+    setComments([]);
   }, []);
 
   // ─── Articles ───
@@ -298,6 +302,20 @@ export function DataProvider({ children }) {
   const votePoll = useCallback(async (pollId, optIdx) => { const updated = await api.polls.vote(pollId, optIdx); setPolls(prev => prev.map(p => p.id === pollId ? updated : p)); }, []);
 
   // ─── Comments ───
+  const loadCommentsForArticle = useCallback(async (articleId) => {
+    const id = Number(articleId);
+    if (!Number.isFinite(id)) return [];
+    const items = await api.comments.getAll({ articleId: id });
+    setComments(prev => [...prev.filter(c => Number(c.articleId) !== id), ...(Array.isArray(items) ? items : [])]);
+    return items;
+  }, []);
+
+  const loadAllComments = useCallback(async () => {
+    const items = await api.comments.getAll();
+    setComments(Array.isArray(items) ? items : []);
+    return items;
+  }, []);
+
   const addComment = useCallback(async (c) => { const n = await api.comments.create(c); setComments(prev => [...prev, n]); }, []);
   const updateComment = useCallback(async (id, u) => { const updated = await api.comments.update(id, u); setComments(prev => prev.map(c => c.id === id ? updated : c)); }, []);
   const deleteComment = useCallback(async (id) => { await api.comments.delete(id); setComments(prev => prev.filter(c => c.id !== id)); }, []);
@@ -376,7 +394,7 @@ export function DataProvider({ children }) {
       court, addCourtCase, updateCourtCase, deleteCourtCase,
       events, addEvent, updateEvent, deleteEvent,
       polls, addPoll, updatePoll, deletePoll, votePoll,
-      comments, addComment, updateComment, deleteComment,
+      comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment,
       gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
       media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
       users, addUser, updateUser, deleteUser,

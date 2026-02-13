@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate }
 import { Suspense, lazy } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider, useData } from './context/DataContext';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import BreakingTicker from './components/BreakingTicker';
 import Footer from './components/Footer';
@@ -53,6 +53,56 @@ function PageFallback() {
   );
 }
 
+function PublicPageFallback() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-6 animate-pulse" aria-label="Зареждане на страница">
+      <div className="mx-auto mb-6 h-10 w-72 bg-zn-text/10 rounded" />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-5">
+          <div className="comic-panel comic-dots bg-white p-4">
+            <div className="h-56 md:h-72 w-full bg-zn-text/10 rounded mb-4" />
+            <div className="h-6 w-11/12 bg-zn-text/10 rounded mb-2" />
+            <div className="h-4 w-8/12 bg-zn-text/10 rounded" />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} className="comic-panel comic-dots bg-white p-4">
+                <div className="h-36 w-full bg-zn-text/10 rounded mb-3" />
+                <div className="h-5 w-10/12 bg-zn-text/10 rounded mb-2" />
+                <div className="h-3 w-full bg-zn-text/10 rounded mb-1" />
+                <div className="h-3 w-9/12 bg-zn-text/10 rounded" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="newspaper-page comic-panel comic-dots p-5 relative">
+            <div className="h-4 w-40 bg-zn-text/10 rounded mb-4" />
+            <div className="space-y-2">
+              <div className="h-3 w-full bg-zn-text/10 rounded" />
+              <div className="h-3 w-11/12 bg-zn-text/10 rounded" />
+              <div className="h-3 w-8/12 bg-zn-text/10 rounded" />
+            </div>
+          </div>
+
+          <div className="newspaper-page comic-panel comic-dots p-5 relative">
+            <div className="h-4 w-32 bg-zn-text/10 rounded mb-4" />
+            <div className="space-y-2">
+              <div className="h-3 w-full bg-zn-text/10 rounded" />
+              <div className="h-3 w-10/12 bg-zn-text/10 rounded" />
+              <div className="h-3 w-9/12 bg-zn-text/10 rounded" />
+              <div className="h-3 w-7/12 bg-zn-text/10 rounded" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AdminPermissionRoute({ permission, children }) {
   const { session, hasPermission } = useData();
   if (!session) return <Navigate to="/admin/login" replace />;
@@ -62,6 +112,7 @@ function AdminPermissionRoute({ permission, children }) {
 
 function PublicLayout() {
   const location = useLocation();
+  const reduceMotion = useReducedMotion();
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -70,12 +121,12 @@ function PublicLayout() {
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, y: 8 }}
+            initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
+            exit={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
+            transition={reduceMotion ? { duration: 0 } : { duration: 0.25, ease: 'easeOut' }}
           >
-            <Suspense fallback={<PageFallback />}>
+            <Suspense fallback={<PublicPageFallback />}>
               <Outlet />
             </Suspense>
           </motion.div>
@@ -149,13 +200,15 @@ function AppContent() {
 
 function App() {
   return (
-    <ThemeProvider>
-      <DataProvider>
-        <ErrorBoundary>
-          <AppContent />
-        </ErrorBoundary>
-      </DataProvider>
-    </ThemeProvider>
+    <MotionConfig reducedMotion="user">
+      <ThemeProvider>
+        <DataProvider>
+          <ErrorBoundary>
+            <AppContent />
+          </ErrorBoundary>
+        </DataProvider>
+      </ThemeProvider>
+    </MotionConfig>
   );
 }
 

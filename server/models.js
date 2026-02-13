@@ -36,6 +36,17 @@ const articleSchema = new mongoose.Schema({
   shareImage: { type: String, default: '' },
 }, opts);
 
+// Full-text search for /api/articles?q=...
+// Note: MongoDB allows only one text index per collection.
+articleSchema.index(
+  { title: 'text', excerpt: 'text', content: 'text', tags: 'text' },
+  {
+    name: 'article_text',
+    weights: { title: 10, tags: 5, excerpt: 3, content: 1 },
+    default_language: 'none',
+  }
+);
+
 // ─── Author ───
 const authorSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
@@ -154,13 +165,16 @@ const pollSchema = new mongoose.Schema({
 // ─── Comment ───
 const commentSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
-  articleId: Number,
-  author: String,
+  articleId: { type: Number, required: true },
+  author: { type: String, required: true, maxlength: 50 },
   avatar: String,
-  text: String,
-  date: String,
+  text: { type: String, required: true, maxlength: 1200 },
+  date: { type: String, required: true },
   approved: { type: Boolean, default: false },
 }, opts);
+
+// Public read path: find({ articleId, approved: true }).sort({ id: -1 })
+commentSchema.index({ articleId: 1, approved: 1, id: -1 }, { name: 'comment_article_approved_id' });
 
 // ─── Gallery ───
 const gallerySchema = new mongoose.Schema({

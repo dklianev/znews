@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { Clock, Eye, ChevronRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useData } from '../context/DataContext';
 import { AdBannerHorizontal, AdBannerInline, AdBannerSide } from '../components/AdBanner';
 import TrendingSidebar from '../components/TrendingSidebar';
@@ -22,9 +22,96 @@ const categoryColors = {
   breaking: 'bg-red-600 text-white',
 };
 
+function ArticleBodySkeleton() {
+  return (
+    <div className="animate-pulse mb-8" aria-label="Зареждане на статия">
+      <div className="h-24 bg-zn-text/10 rounded mb-7" />
+      <div className="space-y-3">
+        <div className="h-3 w-full bg-zn-text/10 rounded" />
+        <div className="h-3 w-11/12 bg-zn-text/10 rounded" />
+        <div className="h-3 w-full bg-zn-text/10 rounded" />
+        <div className="h-3 w-10/12 bg-zn-text/10 rounded" />
+        <div className="h-3 w-full bg-zn-text/10 rounded" />
+        <div className="h-3 w-9/12 bg-zn-text/10 rounded" />
+        <div className="h-3 w-full bg-zn-text/10 rounded" />
+        <div className="h-3 w-11/12 bg-zn-text/10 rounded" />
+        <div className="h-3 w-8/12 bg-zn-text/10 rounded" />
+      </div>
+    </div>
+  );
+}
+
+function ArticlePageSkeleton() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-6 animate-pulse" aria-label="Зареждане на страница">
+      <nav className="flex items-center gap-2 text-sm font-sans text-zn-text-muted mb-6">
+        <div className="h-3 w-80 bg-zn-text/10 rounded" />
+      </nav>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <article className="lg:col-span-2">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-5 w-24 bg-zn-text/10 rounded" />
+            <div className="h-5 w-32 bg-zn-text/10 rounded" />
+          </div>
+
+          <div className="space-y-3 mb-5">
+            <div className="h-10 w-11/12 bg-zn-text/10 rounded" />
+            <div className="h-10 w-9/12 bg-zn-text/10 rounded" />
+          </div>
+
+          <div className="space-y-2 mb-5">
+            <div className="h-4 w-full bg-zn-text/10 rounded" />
+            <div className="h-4 w-10/12 bg-zn-text/10 rounded" />
+          </div>
+
+          <div className="flex items-center flex-wrap gap-4 pb-5 mb-6 border-b border-zn-border">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-zn-text/10 border-2 border-[#1C1428]/10" />
+              <div className="h-3 w-44 bg-zn-text/10 rounded" />
+            </div>
+            <div className="h-3 w-20 bg-zn-text/10 rounded" />
+            <div className="h-3 w-28 bg-zn-text/10 rounded" />
+            <div className="h-3 w-20 bg-zn-text/10 rounded" />
+            <div className="ml-auto flex items-center gap-2">
+              <div className="h-8 w-20 bg-zn-text/10 rounded" />
+              <div className="h-8 w-20 bg-zn-text/10 rounded" />
+            </div>
+          </div>
+
+          <div className="mb-6 comic-panel comic-dots relative p-2 bg-white">
+            <div className="h-72 md:h-96 bg-zn-text/10 rounded relative z-[2]" />
+          </div>
+
+          <ArticleBodySkeleton />
+        </article>
+
+        <aside className="space-y-6">
+          <div className="newspaper-page comic-panel comic-dots p-5 relative">
+            <div className="h-4 w-40 bg-zn-text/10 rounded mb-4" />
+            <div className="space-y-2">
+              <div className="h-3 w-full bg-zn-text/10 rounded" />
+              <div className="h-3 w-11/12 bg-zn-text/10 rounded" />
+              <div className="h-3 w-10/12 bg-zn-text/10 rounded" />
+              <div className="h-3 w-9/12 bg-zn-text/10 rounded" />
+            </div>
+          </div>
+
+          <div className="newspaper-page comic-panel comic-dots p-5 text-center relative">
+            <div className="w-16 h-16 bg-zn-text/10 border-3 border-[#1C1428]/10 mx-auto mb-3" />
+            <div className="h-4 w-44 bg-zn-text/10 rounded mx-auto mb-2" />
+            <div className="h-3 w-28 bg-zn-text/10 rounded mx-auto" />
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 export default function ArticlePage() {
   const { id } = useParams();
   const { articles, authors, categories, ads, incrementArticleView, loading, siteSettings } = useData();
+  const reduceMotion = useReducedMotion();
   const articleId = Number.parseInt(id, 10);
   const contextArticle = articles.find(a => a.id === articleId);
   const [directArticle, setDirectArticle] = useState(null);
@@ -79,11 +166,7 @@ export default function ArticlePage() {
   }, [article?.id, incrementArticleView, articleId]);
 
   if ((loading || hydratingArticle) && !article) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <h1 className="font-display text-2xl font-bold text-zn-text mb-2 tracking-wider">Зареждане...</h1>
-      </div>
-    );
+    return <ArticlePageSkeleton />;
   }
 
   if (!article) {
@@ -97,6 +180,7 @@ export default function ArticlePage() {
 
   const author = authors.find(a => a.id === article.authorId);
   const category = categories.find(c => c.id === article.category);
+  const showBodySkeleton = Boolean(hydratingArticle && !directArticle?.content && !contextArticle?.content);
   const relatedArticles = useMemo(() => {
     const sourceTags = Array.isArray(article.tags)
       ? article.tags.map(tag => String(tag).toLowerCase())
@@ -281,7 +365,7 @@ export default function ArticlePage() {
   const scrollToSection = (sectionId) => {
     const target = document.getElementById(sectionId);
     if (!target) return;
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
     window.history.replaceState(null, '', `#${sectionId}`);
   };
 
@@ -410,26 +494,32 @@ export default function ArticlePage() {
           {/* Inline ad */}
           <AdBannerInline ad={inlineAd} />
 
-          {articlePresentation.pullQuote && (
-            <blockquote className="article-pull-quote mb-7">
-              {articlePresentation.pullQuote}
-            </blockquote>
-          )}
+          {showBodySkeleton ? (
+            <ArticleBodySkeleton />
+          ) : (
+            <>
+              {articlePresentation.pullQuote && (
+                <blockquote className="article-pull-quote mb-7">
+                  {articlePresentation.pullQuote}
+                </blockquote>
+              )}
 
-          {/* Article body content */}
-          <div
-            className="prose prose-lg max-w-none mb-8 article-body
-              [&_p]:font-sans [&_p]:leading-relaxed [&_p]:mb-4
-              [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-black [&_h2]:uppercase [&_h2]:mt-9 [&_h2]:mb-3
-              [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:mt-8 [&_h3]:mb-3
-              [&_h4]:font-display [&_h4]:text-lg [&_h4]:font-bold [&_h4]:mt-6 [&_h4]:mb-2
-              [&_blockquote]:border-l-4 [&_blockquote]:border-zn-purple [&_blockquote]:pl-5 [&_blockquote]:py-2 [&_blockquote]:my-6 [&_blockquote]:italic [&_blockquote]:font-sans [&_blockquote]:text-lg [&_blockquote]:bg-zn-bg-warm/50
-              [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ul]:font-sans
-              [&_li]:mb-1
-              [&_a]:text-zn-hot [&_a]:underline
-            "
-            dangerouslySetInnerHTML={{ __html: articlePresentation.html }}
-          />
+              {/* Article body content */}
+              <div
+                className="prose prose-lg max-w-none mb-8 article-body
+                  [&_p]:font-sans [&_p]:leading-relaxed [&_p]:mb-4
+                  [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-black [&_h2]:uppercase [&_h2]:mt-9 [&_h2]:mb-3
+                  [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:mt-8 [&_h3]:mb-3
+                  [&_h4]:font-display [&_h4]:text-lg [&_h4]:font-bold [&_h4]:mt-6 [&_h4]:mb-2
+                  [&_blockquote]:border-l-4 [&_blockquote]:border-zn-purple [&_blockquote]:pl-5 [&_blockquote]:py-2 [&_blockquote]:my-6 [&_blockquote]:italic [&_blockquote]:font-sans [&_blockquote]:text-lg [&_blockquote]:bg-zn-bg-warm/50
+                  [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ul]:font-sans
+                  [&_li]:mb-1
+                  [&_a]:text-zn-hot [&_a]:underline
+                "
+                dangerouslySetInnerHTML={{ __html: articlePresentation.html }}
+              />
+            </>
+          )}
 
           {/* Tags */}
           {article.tags && article.tags.length > 0 && (
@@ -485,6 +575,18 @@ export default function ArticlePage() {
 
         {/* Sidebar */}
         <aside className="space-y-6">
+          {showBodySkeleton && (
+            <div className="newspaper-page comic-panel comic-dots p-5 relative lg:sticky lg:top-24 animate-pulse" aria-label="Зареждане на навигация">
+              <div className="absolute -top-2 left-6 w-14 h-4 bg-yellow-200/50 border border-black/5 transform -rotate-3 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.08)' }} />
+              <div className="h-4 w-40 bg-zn-text/10 rounded mb-4 relative z-[2]" />
+              <div className="space-y-2 relative z-[2]">
+                <div className="h-3 w-full bg-zn-text/10 rounded" />
+                <div className="h-3 w-11/12 bg-zn-text/10 rounded" />
+                <div className="h-3 w-10/12 bg-zn-text/10 rounded" />
+                <div className="h-3 w-9/12 bg-zn-text/10 rounded" />
+              </div>
+            </div>
+          )}
           {articlePresentation.headings.length > 0 && (
             <div className="newspaper-page comic-panel comic-dots p-5 relative lg:sticky lg:top-24">
               <div className="absolute -top-2 left-6 w-14 h-4 bg-yellow-200/70 border border-black/5 transform -rotate-3 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />

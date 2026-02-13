@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 
@@ -40,6 +40,7 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const reduceMotion = useReducedMotion();
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleDark } = useTheme();
@@ -84,6 +85,7 @@ export default function Navbar() {
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
                 className="hover:text-white transition-colors flex items-center gap-1.5"
+                aria-label={searchOpen ? 'Затвори търсенето' : 'Отвори търсенето'}
               >
                 <Search className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Търси</span>
@@ -176,10 +178,14 @@ export default function Navbar() {
                     {link.hot && <span className="comic-main-nav-hot-dot" aria-hidden="true" />}
                     <span>{link.label}</span>
                     {isActive && (
-                      <motion.span
-                        layoutId="navIndicator"
-                        className="comic-main-nav-underline"
-                      />
+                      reduceMotion ? (
+                        <span className="comic-main-nav-underline" />
+                      ) : (
+                        <motion.span
+                          layoutId="navIndicator"
+                          className="comic-main-nav-underline"
+                        />
+                      )
                     )}
                   </Link>
                 );
@@ -201,40 +207,98 @@ export default function Navbar() {
           {/* Search bar */}
           <AnimatePresence>
             {searchOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                <form onSubmit={handleSearch} className="pb-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-dim" />
-                    <input
-                      type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Търси горещи новини, скандали..." autoFocus
-                      className="w-full pl-10 pr-4 py-3 bg-zn-bg-warm border-2 border-zn-border text-zn-text placeholder-zn-text-dim font-display text-sm outline-none focus:border-zn-hot uppercase tracking-wide"
-                    />
-                  </div>
-                </form>
-              </motion.div>
+              reduceMotion ? (
+                <div className="overflow-hidden">
+                  <form onSubmit={handleSearch} className="pb-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-dim" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Търси горещи новини, скандали..."
+                        aria-label="Търсене"
+                        autoFocus
+                        className="w-full pl-10 pr-4 py-3 bg-zn-bg-warm border-2 border-zn-border text-zn-text placeholder-zn-text-dim font-display text-sm outline-none focus:border-zn-hot uppercase tracking-wide"
+                      />
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: 'easeOut' }}
+                  className="overflow-hidden"
+                >
+                  <form onSubmit={handleSearch} className="pb-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-dim" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Търси горещи новини, скандали..."
+                        aria-label="Търсене"
+                        autoFocus
+                        className="w-full pl-10 pr-4 py-3 bg-zn-bg-warm border-2 border-zn-border text-zn-text placeholder-zn-text-dim font-display text-sm outline-none focus:border-zn-hot uppercase tracking-wide"
+                      />
+                    </div>
+                  </form>
+                </motion.div>
+              )
             )}
           </AnimatePresence>
 
           {/* Mobile nav */}
           <AnimatePresence>
             {isOpen && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="md:hidden overflow-hidden">
-                <div className="pb-3 space-y-0.5">
-                  {navLinks.map(link => (
-                    <Link
-                      key={link.to} to={link.to} onClick={() => setIsOpen(false)}
-                      className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 ${
-                        location.pathname === link.to
-                          ? 'text-zn-hot bg-zn-hot/5'
-                          : 'text-zn-text hover:text-zn-hot hover:bg-zn-bg-warm'
-                      }`}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
+              reduceMotion ? (
+                <div className="md:hidden overflow-hidden">
+                  <div className="pb-3 space-y-0.5">
+                    {navLinks.map(link => (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        onClick={() => setIsOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 ${
+                          location.pathname === link.to
+                            ? 'text-zn-hot bg-zn-hot/5'
+                            : 'text-zn-text hover:text-zn-hot hover:bg-zn-bg-warm'
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: 'easeOut' }}
+                  className="md:hidden overflow-hidden"
+                >
+                  <div className="pb-3 space-y-0.5">
+                    {navLinks.map(link => (
+                      <Link
+                        key={link.to}
+                        to={link.to}
+                        onClick={() => setIsOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 ${
+                          location.pathname === link.to
+                            ? 'text-zn-hot bg-zn-hot/5'
+                            : 'text-zn-text hover:text-zn-hot hover:bg-zn-bg-warm'
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </motion.div>
+              )
             )}
           </AnimatePresence>
         </div>

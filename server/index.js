@@ -77,6 +77,27 @@ const isProd = process.env.NODE_ENV === 'production';
 const rawJwtSecret = process.env.JWT_SECRET;
 const rawRefreshSecret = process.env.REFRESH_TOKEN_SECRET || rawJwtSecret;
 
+// Simple readiness health endpoint (returns 200 only when Mongo is connected).
+// Keep this before rate-limit middleware so platforms can probe it freely.
+app.get('/api/health', (_req, res) => {
+  const state = mongoose.connection?.readyState;
+  const mongo = state === 1
+    ? 'connected'
+    : state === 2
+      ? 'connecting'
+      : state === 3
+        ? 'disconnecting'
+        : 'disconnected';
+  const ok = mongo === 'connected';
+  res.set('Cache-Control', 'no-store');
+  res.status(ok ? 200 : 503).json({
+    ok,
+    mongo,
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 if (isProd && (!rawJwtSecret || rawJwtSecret.length < 32 || rawJwtSecret.toLowerCase().includes('change-me'))) {
   console.error('✗ JWT_SECRET is missing or too weak for production.');
   process.exit(1);
@@ -446,6 +467,14 @@ const pollVoteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 30,
   message: { error: 'Too many poll votes from this IP. Please try again later.' },
+  skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+  keyGenerator: rateLimitKeyGenerator,
+});
+
+const commentCreateLimiter = rateLimit({
+  windowMs: 2 * 60 * 1000,
+  max: 3,
+  message: { error: 'Too many comments from this IP. Please try again later.' },
   skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
   keyGenerator: rateLimitKeyGenerator,
 });
@@ -2565,6 +2594,19 @@ async function connectDB() {
   }
 }
 
+async function ensureDbIndexes() {
+  try {
+    // In production Mongoose defaults to autoIndex=false, so ensure the critical indexes exist.
+    await Promise.all([
+      Article.init(),
+      Comment.init(),
+    ]);
+    console.log('✓ MongoDB indexes ensured');
+  } catch (err) {
+    console.warn('⚠ MongoDB index init failed:', err?.message || err);
+  }
+}
+
 function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, sensitiveFields = [], writePermission = null) {
   const router = express.Router();
   const writeGuards = writePermission
@@ -2669,6 +2711,7 @@ articlesRouter.get('/', async (req, res) => {
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
     const filter = canSeeDrafts ? {} : getPublishedFilter();
     const category = normalizeText(req.query.category, 64);
+    const q = normalizeText(req.query.q, 160);
     const sectionFilter = getArticleSectionFilter(req.query.section);
     const fieldsProjection = buildArticleProjection(req.query.fields);
     const shouldPaginate = hasOwn(req.query, 'page') || hasOwn(req.query, 'limit');
@@ -2677,9 +2720,12 @@ articlesRouter.get('/', async (req, res) => {
 
     if (category) filter.category = category;
     if (sectionFilter) Object.assign(filter, sectionFilter);
+    if (q) filter.$text = { $search: q };
 
-    let query = Article.find(filter)
-      .sort({ id: -1 });
+    let query = Article.find(filter);
+    query = q
+      ? query.sort({ score: { $meta: 'textScore' }, id: -1 })
+      : query.sort({ id: -1 });
     if (fieldsProjection) {
       query = query.select(fieldsProjection);
     } else {
@@ -3199,6 +3245,19 @@ commentsRouter.get('/', async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canModerate = maybeUser ? await hasPermissionForSection(maybeUser, 'comments') : false;
     const filter = canModerate ? {} : { approved: true };
+
+    if (hasOwn(req.query, 'articleId')) {
+      const articleId = Number.parseInt(req.query.articleId, 10);
+      if (!Number.isInteger(articleId)) return res.status(400).json({ error: 'Invalid articleId' });
+      filter.articleId = articleId;
+    }
+
+    if (canModerate && hasOwn(req.query, 'approved')) {
+      const approvedRaw = normalizeText(String(req.query.approved), 10).toLowerCase();
+      if (approvedRaw === 'true') filter.approved = true;
+      else if (approvedRaw === 'false') filter.approved = false;
+    }
+
     const items = await Comment.find(filter).sort({ id: -1 }).lean();
     items.forEach(i => { delete i._id; delete i.__v; });
     res.json(items);
@@ -3207,15 +3266,33 @@ commentsRouter.get('/', async (req, res) => {
   }
 });
 
-commentsRouter.post('/', async (req, res) => {
+const COMMENT_AUTHOR_MAX_LEN = 50;
+const COMMENT_TEXT_MAX_LEN = 1200;
+
+commentsRouter.post('/', commentCreateLimiter, async (req, res) => {
   try {
     const articleId = Number.parseInt(req.body.articleId, 10);
-    const author = normalizeText(req.body.author, 50);
-    const text = normalizeText(req.body.text, 1200);
+    const authorRaw = typeof req.body.author === 'string'
+      ? req.body.author.replace(/\u0000/g, '').trim()
+      : '';
+    const textRaw = typeof req.body.text === 'string'
+      ? req.body.text.replace(/\u0000/g, '').trim()
+      : '';
 
-    if (!Number.isInteger(articleId) || !author || !text) {
+    if (!Number.isInteger(articleId) || !authorRaw || !textRaw) {
       return res.status(400).json({ error: 'Invalid comment payload' });
     }
+
+    if (authorRaw.length > COMMENT_AUTHOR_MAX_LEN) {
+      return res.status(400).json({ error: `Author too long (max ${COMMENT_AUTHOR_MAX_LEN} characters)` });
+    }
+
+    if (textRaw.length > COMMENT_TEXT_MAX_LEN) {
+      return res.status(400).json({ error: `Comment too long (max ${COMMENT_TEXT_MAX_LEN} characters)` });
+    }
+
+    const author = authorRaw;
+    const text = textRaw;
 
     if (commentContainsBlockedTerms(`${author} ${text}`)) {
       return res.status(400).json({ error: 'Comment contains blocked terms' });
@@ -3248,7 +3325,15 @@ commentsRouter.put('/:id', requireAuth, requirePermission('comments'), async (re
 
     const updates = {};
     if (hasOwn(req.body, 'approved')) updates.approved = Boolean(req.body.approved);
-    if (hasOwn(req.body, 'text')) updates.text = normalizeText(req.body.text, 1200);
+    if (hasOwn(req.body, 'text')) {
+      const textRaw = typeof req.body.text === 'string'
+        ? req.body.text.replace(/\u0000/g, '').trim()
+        : '';
+      if (textRaw.length > COMMENT_TEXT_MAX_LEN) {
+        return res.status(400).json({ error: `Comment too long (max ${COMMENT_TEXT_MAX_LEN} characters)` });
+      }
+      updates.text = textRaw;
+    }
 
     if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
@@ -3964,6 +4049,7 @@ const PORT = Number(process.env.PORT) || 3001;
 async function startServer() {
   try {
     await connectDB();
+    await ensureDbIndexes();
   } catch (err) {
     console.error('✗ MongoDB error:', err.message);
     process.exit(1);

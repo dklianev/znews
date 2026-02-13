@@ -11,6 +11,43 @@ import { api } from '../utils/api';
 const PER_PAGE = 6;
 const CATEGORY_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt';
 
+function CategoryCardSkeleton({ compact = true }) {
+  return (
+    <div className="comic-latest-card comic-panel comic-dots bg-white overflow-visible relative block h-full animate-pulse" aria-hidden="true">
+      <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-zn-hot/30 to-zn-orange/30" />
+      <div className="absolute top-3 left-3 z-20">
+        <div className="h-4 w-20 bg-zn-text/10 rounded" />
+      </div>
+      <div className="absolute -top-3 -right-2 z-30">
+        <div className="h-6 w-16 bg-zn-text/10 rounded" />
+      </div>
+
+      <div className={`relative overflow-hidden ${compact ? 'h-36' : 'h-52'}`}>
+        <div className="w-full h-full bg-zn-text/10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/10 to-transparent" />
+        <div className="absolute bottom-2 left-2 h-4 w-24 bg-zn-text/20 rounded" />
+      </div>
+
+      <div className={`flex flex-col justify-between ${compact ? 'p-3 gap-2' : 'p-4 gap-3'}`}>
+        <div className="space-y-2">
+          <div className="h-5 w-11/12 bg-zn-text/10 rounded" />
+          <div className="h-5 w-9/12 bg-zn-text/10 rounded" />
+        </div>
+
+        <div className="space-y-1">
+          <div className="h-3 w-full bg-zn-text/10 rounded" />
+          <div className="h-3 w-4/5 bg-zn-text/10 rounded" />
+        </div>
+
+        <div className="flex items-center justify-between border-t-2 border-zn-border/50 pt-2">
+          <div className="h-3 w-24 bg-zn-text/10 rounded" />
+          <div className="h-3 w-12 bg-zn-text/10 rounded" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CategoryPage() {
   const { slug } = useParams();
   const { categories, ads, siteSettings, loading } = useData();
@@ -66,6 +103,10 @@ export default function CategoryPage() {
   const horizontalAds = ads.filter(a => a.type === 'horizontal');
   const sideAds = ads.filter(a => a.type === 'side');
 
+  const showEmptyState = !loadingArticles && categoryArticles.length === 0;
+  const showInitialSkeleton = loadingArticles && categoryArticles.length === 0;
+  const showLoadMoreSkeleton = loadingArticles && categoryArticles.length > 0;
+
   if (loading && !category) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
@@ -106,38 +147,49 @@ export default function CategoryPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Articles */}
         <div className="lg:col-span-2 space-y-5">
-          {!loadingArticles && categoryArticles.length === 0 ? (
+          {showEmptyState ? (
             <div className="newspaper-page comic-panel comic-dots p-10 text-center relative">
               <div className="comic-stamp-circle absolute -top-5 -right-3 z-20 animate-wiggle text-[10px]">ПРАЗНО!</div>
               <p className="text-zn-text-muted font-display font-bold uppercase tracking-wider relative z-[2]">Няма публикации в тази категория.</p>
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {categoryArticles.map((article, index) => {
-                  const design = getComicCardStyle('categoryListing', index, article, layoutPresets.categoryListing);
-                  return (
-                    <Fragment key={article.id}>
-                      <ComicNewsCard
-                        article={article}
-                        compact
-                        tilt={design.tilt}
-                        variant={design.variant}
-                        sticker={design.sticker}
-                        stripe={design.stripe}
-                      />
-                      {(index + 1) % 4 === 0 && horizontalAds[Math.floor((index + 1) / 4)] && (
-                        <div className="md:col-span-2 my-1">
-                          <AdBannerHorizontal ad={horizontalAds[Math.floor((index + 1) / 4) % horizontalAds.length]} />
-                        </div>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </div>
-              {loadingArticles && (
-                <div className="text-center text-sm font-sans text-zn-text-muted py-3">Зареждане...</div>
+              {(showInitialSkeleton || showLoadMoreSkeleton) && (
+                <div className="sr-only" role="status">Зареждане...</div>
               )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5" aria-busy={showInitialSkeleton || showLoadMoreSkeleton}>
+                {showInitialSkeleton ? (
+                  Array.from({ length: PER_PAGE }).map((_, idx) => (
+                    <CategoryCardSkeleton key={`category-skeleton-${idx}`} />
+                  ))
+                ) : (
+                  categoryArticles.map((article, index) => {
+                    const design = getComicCardStyle('categoryListing', index, article, layoutPresets.categoryListing);
+                    return (
+                      <Fragment key={article.id}>
+                        <ComicNewsCard
+                          article={article}
+                          compact
+                          tilt={design.tilt}
+                          variant={design.variant}
+                          sticker={design.sticker}
+                          stripe={design.stripe}
+                        />
+                        {(index + 1) % 4 === 0 && horizontalAds[Math.floor((index + 1) / 4)] && (
+                          <div className="md:col-span-2 my-1">
+                            <AdBannerHorizontal ad={horizontalAds[Math.floor((index + 1) / 4) % horizontalAds.length]} />
+                          </div>
+                        )}
+                      </Fragment>
+                    );
+                  })
+                )}
+                {showLoadMoreSkeleton && (
+                  Array.from({ length: 2 }).map((_, idx) => (
+                    <CategoryCardSkeleton key={`category-more-skeleton-${idx}`} />
+                  ))
+                )}
+              </div>
               {page < totalPages && !loadingArticles && (
                 <button
                   onClick={() => setPage(p => p + 1)}

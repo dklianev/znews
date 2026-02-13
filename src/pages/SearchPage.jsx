@@ -2,9 +2,12 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search as SearchIcon, FileText, Briefcase, Scale, CalendarDays, Crosshair } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { api } from '../utils/api';
 import React, { useState } from 'react';
 import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
+
+const ARTICLE_SEARCH_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage';
 
 export default function SearchPage() {
   const { articles, jobs, court, events, wanted, siteSettings } = useData();
@@ -13,18 +16,61 @@ export default function SearchPage() {
   const navigate = useNavigate();
   const query = searchParams.get('q') || '';
   const [localQuery, setLocalQuery] = useState(query);
+  const [articleRemoteResults, setArticleRemoteResults] = useState([]);
+  const [articleRemoteLoading, setArticleRemoteLoading] = useState(false);
 
   // Sync input when URL query changes (e.g. from Navbar search)
   React.useEffect(() => { setLocalQuery(query); }, [query]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setArticleRemoteResults([]);
+      setArticleRemoteLoading(false);
+      return () => { cancelled = true; };
+    }
+
+    setArticleRemoteLoading(true);
+    api.articles.getAll({ q: trimmed, fields: ARTICLE_SEARCH_FIELDS })
+      .then((items) => {
+        if (cancelled) return;
+        setArticleRemoteResults(Array.isArray(items) ? items : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setArticleRemoteResults([]);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setArticleRemoteLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [query]);
+
   const q = query.toLowerCase();
 
-  const articleResults = !q ? [] : articles.filter(article =>
+  const localArticleResults = !q ? [] : articles.filter(article =>
     article.title.toLowerCase().includes(q) ||
     article.excerpt.toLowerCase().includes(q) ||
     (article.tags && article.tags.some(t => t.toLowerCase().includes(q))) ||
     String(article.content || '').toLowerCase().includes(q)
   );
+
+  const articleResults = !q ? [] : (() => {
+    const byId = new Map();
+    articleRemoteResults.forEach((a) => {
+      if (a && a.id !== undefined && a.id !== null) byId.set(a.id, a);
+    });
+    localArticleResults.forEach((a) => {
+      if (!a || a.id === undefined || a.id === null) return;
+      if (!byId.has(a.id)) byId.set(a.id, a);
+    });
+    return Array.from(byId.values());
+  })();
 
   const jobResults = !q ? [] : jobs.filter(j =>
     j.title?.toLowerCase().includes(q) ||
@@ -94,15 +140,38 @@ export default function SearchPage() {
       {query && (
         <p className="mb-6 font-display font-bold text-sm text-zn-text-muted uppercase tracking-wider">
           {totalResults} резултата за &ldquo;<span className="text-zn-hot">{query}</span>&rdquo;
+          {articleRemoteLoading && <span className="ml-2 text-zn-text-dim">Търсене...</span>}
         </p>
       )}
 
-      {query && totalResults === 0 && (
+      {query && totalResults === 0 && !articleRemoteLoading && (
         <div className="newspaper-page comic-panel comic-dots p-10 text-center relative">
           <div className="comic-stamp-circle absolute -top-5 -right-3 z-20 animate-wiggle text-[10px]">ПРАЗНО!</div>
           <p className="font-display font-black text-base text-zn-text mb-2 uppercase tracking-wider relative z-[2]">Няма намерени резултати.</p>
           <p className="text-sm font-sans text-zn-text-muted relative z-[2]">Опитай с различни ключови думи.</p>
         </div>
+      )}
+
+      {/* Article results (loading skeleton) */}
+      {query && articleRemoteLoading && articleResults.length === 0 && (
+        <section className="mb-8" aria-label="Зареждане на резултати">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="h-1 w-6 bg-zn-hot" />
+            <FileText className="w-4 h-4 text-zn-hot" />
+            <h2 className="font-display text-sm font-black uppercase tracking-widest text-zn-hot">Статии</h2>
+            <div className="h-1 flex-1 bg-gradient-to-r from-zn-hot/30 to-transparent" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} className="comic-panel bg-white p-4 animate-pulse">
+                <div className="h-28 w-full bg-zn-text/10 rounded mb-3" />
+                <div className="h-4 w-5/6 bg-zn-text/10 rounded mb-2" />
+                <div className="h-3 w-full bg-zn-text/10 rounded mb-1" />
+                <div className="h-3 w-4/5 bg-zn-text/10 rounded" />
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Article results */}
