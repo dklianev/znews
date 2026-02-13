@@ -48,27 +48,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 dotenv.config({ path: path.join(__dirname, '.env'), override: true });
 
-// ─── Bundled font setup for Sharp/librsvg Cyrillic rendering ───
-// On Azure/Linux, system fonts often lack Cyrillic glyphs.
-// We bundle Noto Sans and tell fontconfig to find it.
+// ─── Bundled font for Sharp/librsvg Cyrillic rendering ───
+// On Azure/Linux servers there are no Cyrillic system fonts.
+// We embed Noto Sans as base64 directly inside the SVG so librsvg
+// renders Bulgarian text without any fontconfig dependency.
+let embeddedFontBase64 = '';
 (() => {
-  const fontsDir = path.join(__dirname, 'fonts');
-  const fontsConf = path.join(fontsDir, 'fonts.conf');
-  if (fs.existsSync(fontsConf)) {
-    // Patch <dir> placeholder with the real absolute path to our fonts folder
-    const confContent = fs.readFileSync(fontsConf, 'utf8');
-    if (confContent.includes('FONTDIR_PLACEHOLDER')) {
-      fs.writeFileSync(fontsConf, confContent.replace('FONTDIR_PLACEHOLDER', fontsDir.replace(/\\/g, '/')), 'utf8');
-    }
-    // Set FONTCONFIG_PATH so librsvg (used by sharp) picks up our config
-    if (!process.env.FONTCONFIG_PATH) {
-      process.env.FONTCONFIG_PATH = fontsDir;
-    }
-    // Also add to FONTCONFIG_FILE for some librsvg builds
-    if (!process.env.FONTCONFIG_FILE) {
-      process.env.FONTCONFIG_FILE = fontsConf;
-    }
-    console.log(`✓ Bundled fonts configured from ${fontsDir}`);
+  const fontPath = path.join(__dirname, 'fonts', 'NotoSans.ttf');
+  if (fs.existsSync(fontPath)) {
+    embeddedFontBase64 = fs.readFileSync(fontPath).toString('base64');
+    console.log(`✓ Bundled Noto Sans font loaded (${Math.round(embeddedFontBase64.length / 1024)}KB base64)`);
+  } else {
+    console.warn('⚠ server/fonts/NotoSans.ttf not found — share card Cyrillic may not render on minimal servers.');
   }
 })();
 
@@ -462,10 +453,10 @@ if (!isRemoteStorage && !fs.existsSync(shareCardsDir)) fs.mkdirSync(shareCardsDi
 const shareCardWidth = 1200;
 const shareCardHeight = 630;
 
-// Note: librsvg (used by sharp for SVG rendering) often does not do per-glyph font fallback reliably.
-// Use a font stack that includes Cyrillic-capable fonts first so Bulgarian text renders on minimal servers.
-const shareCardFontStackDisplay = "Noto Sans, DejaVu Sans Condensed, DejaVu Sans, Liberation Sans, Segoe UI, Arial, sans-serif";
-const shareCardFontStackBody = "Noto Sans, DejaVu Sans, Liberation Sans, Segoe UI, Arial, sans-serif";
+// The embedded font family name used in SVG @font-face
+const shareCardFontFamily = 'NotoSans';
+const shareCardFontStackDisplay = `${shareCardFontFamily}, sans-serif`;
+const shareCardFontStackBody = `${shareCardFontFamily}, sans-serif`;
 
 function toPosixRelativePath(value) {
   return String(value || '')
@@ -1453,9 +1444,22 @@ function buildShareCardOverlaySvg(model) {
     .map(({ line, fit }, index) => `<tspan x="96" dy="${index === 0 ? 0 : model.subtitleLineHeight}"${fit ? ` textLength="${model.subtitleTextLength}" lengthAdjust="spacingAndGlyphs"` : ''}>${escapeHtml(line)}</tspan>`)
     .join('');
 
+  // Build @font-face block that embeds the font directly in the SVG
+  const fontFaceBlock = embeddedFontBase64
+    ? `<style>
+      @font-face {
+        font-family: '${shareCardFontFamily}';
+        src: url('data:font/ttf;base64,${embeddedFontBase64}') format('truetype');
+        font-weight: 100 900;
+        font-style: normal;
+      }
+    </style>`
+    : '';
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${shareCardWidth}" height="${shareCardHeight}" viewBox="0 0 ${shareCardWidth} ${shareCardHeight}">
   <defs>
+    ${fontFaceBlock}
     <linearGradient id="overlayFade" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#120d20" stop-opacity="0.15" />
       <stop offset="45%" stop-color="#120e21" stop-opacity="0.64" />
@@ -1587,7 +1591,7 @@ async function ensureArticleShareCard(article, { categoryLabel = '' } = {}) {
   const imageSource = getShareSourceUrl(normalized);
   const signature = createHash('sha1')
     .update(JSON.stringify({
-      v: 'share-card-v19',
+      v: 'share-card-v20-embedded-font',
       id: normalized.id,
       title: normalized.title,
       excerpt: normalized.excerpt,
