@@ -346,6 +346,13 @@ export const api = {
     }),
   },
 
+  roles: {
+    ensure: (role) => request('/roles', {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    }),
+  },
+
   auditLog: {
     getPage: (params) => request(`/audit-log${toQuery(params)}`),
   },

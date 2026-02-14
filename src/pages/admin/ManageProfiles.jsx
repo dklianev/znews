@@ -23,11 +23,16 @@ const emptyForm = {
 };
 
 export default function ManageProfiles() {
-  const { authors, articles, addAuthor, updateAuthor, deleteAuthor, users, addUser, updateUser, deleteUser, permissions, session } = useData();
+  const { authors, articles, addAuthor, updateAuthor, deleteAuthor, users, addUser, updateUser, deleteUser, permissions, createRole, session } = useData();
   const canManageUsers = session?.role === 'admin';
   const [editing, setEditing] = useState(null); // null | 'new' | userId
   const [form, setForm] = useState(emptyForm);
   const [tab, setTab] = useState('users'); // 'users' | 'authors'
+  const [newRoleKey, setNewRoleKey] = useState('');
+  const [newRoleError, setNewRoleError] = useState('');
+  const [creatingRole, setCreatingRole] = useState(false);
+
+  const isValidRoleKey = (role) => /^[a-z][a-z0-9_-]{1,31}$/.test(role);
 
   const roleOptions = useMemo(() => {
     const permsRoles = Array.isArray(permissions)
@@ -60,6 +65,34 @@ export default function ManageProfiles() {
     if (id === 1) return alert('Не може да изтриете главния админ!');
     if (!confirm('Сигурен ли сте?')) return;
     await deleteUser(id);
+  };
+
+  const handleEnsureRole = async () => {
+    const role = newRoleKey.trim().toLowerCase();
+    if (!role) return;
+    if (creatingRole) return;
+
+    setNewRoleError('');
+
+    if (role === 'admin' || BASE_ROLES.includes(role)) {
+      setNewRoleError('Тази роля е вградена. Избери я от списъка.');
+      return;
+    }
+    if (!isValidRoleKey(role)) {
+      setNewRoleError('Невалидна роля. Ползвай малки латински букви, цифри, "_" или "-".');
+      return;
+    }
+
+    setCreatingRole(true);
+    try {
+      const ensured = await createRole(role);
+      setForm((prev) => ({ ...prev, role: ensured.role }));
+      setNewRoleKey('');
+    } catch (e) {
+      setNewRoleError(e?.message || 'Неуспешно добавяне на роля');
+    } finally {
+      setCreatingRole(false);
+    }
   };
 
   const handleSaveAuthor = async () => {
@@ -144,6 +177,31 @@ export default function ManageProfiles() {
                   <select className={inputCls} value={form.role} onChange={e => setForm({...form, role: e.target.value})}>
                     {roleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                   </select>
+                  <div className="mt-2">
+                    <div className="flex gap-2">
+                      <input
+                        className={inputCls}
+                        value={newRoleKey}
+                        onChange={(e) => setNewRoleKey(e.target.value)}
+                        placeholder="Нова роля (напр. moderator)"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleEnsureRole}
+                        disabled={creatingRole}
+                        className="px-3 py-2 bg-gray-900 text-white text-xs font-sans font-semibold hover:bg-black transition-colors disabled:opacity-50"
+                        title="Добави роля"
+                      >
+                        {creatingRole ? '...' : 'Добави'}
+                      </button>
+                    </div>
+                    {newRoleError && (
+                      <p className="mt-1 text-xs font-sans text-red-600">{newRoleError}</p>
+                    )}
+                    <p className="mt-1 text-[10px] font-sans text-gray-400">
+                      Ролята създава нов ред в „Права“, с изключени разрешения по подразбиране.
+                    </p>
+                  </div>
                 </div>
                 <div>
                   <label className={labelCls}>Професия</label>

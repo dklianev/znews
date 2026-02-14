@@ -39,10 +39,12 @@ function ensureRoleRows(value) {
 }
 
 export default function ManagePermissions() {
-    const { permissions, updatePermission, session, hasPermission } = useData();
+    const { permissions, updatePermission, createRole, session, hasPermission } = useData();
     const [saving, setSaving] = useState(null);
     const [localPerms, setLocalPerms] = useState(null);
     const [error, setError] = useState('');
+    const [newRoleKey, setNewRoleKey] = useState('');
+    const [creatingRole, setCreatingRole] = useState(false);
 
     // Use local copy for editing, fall back to fetched data
     const permsToShow = ensureRoleRows(localPerms || permissions);
@@ -88,6 +90,39 @@ export default function ManagePermissions() {
         }
     };
 
+    const isValidRoleKey = (role) => /^[a-z][a-z0-9_-]{1,31}$/.test(role);
+
+    const handleAddRole = async () => {
+        const role = String(newRoleKey || '').trim().toLowerCase();
+        if (!role) return;
+        if (creatingRole) return;
+
+        setError('');
+        if (role === 'admin' || BASE_ROLES.includes(role)) {
+            setError('Тази роля е вградена. Не може да се добавя оттук.');
+            return;
+        }
+        if (!isValidRoleKey(role)) {
+            setError('Невалидна роля. Ползвай малки латински букви, цифри, "_" или "-".');
+            return;
+        }
+
+        setCreatingRole(true);
+        try {
+            const ensured = await createRole(role);
+            setLocalPerms((prev) => {
+                const base = ensureRoleRows(Array.isArray(prev) ? prev : permissions);
+                if (base.some((p) => p?.role === ensured.role)) return base;
+                return [...base, ensured];
+            });
+            setNewRoleKey('');
+        } catch (e) {
+            setError(e?.message || 'Неуспешно добавяне на роля');
+        } finally {
+            setCreatingRole(false);
+        }
+    };
+
     return (
         <div className="p-8">
             <div className="flex items-center justify-between mb-6">
@@ -103,6 +138,29 @@ export default function ManagePermissions() {
                     <span className="break-words">{error}</span>
                 </div>
             )}
+
+            <div className="mb-4 bg-white border border-gray-200 p-4">
+                <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-2">Нова роля</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                        className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
+                        value={newRoleKey}
+                        onChange={(e) => setNewRoleKey(e.target.value)}
+                        placeholder="напр. moderator"
+                    />
+                    <button
+                        type="button"
+                        onClick={handleAddRole}
+                        disabled={creatingRole}
+                        className="px-4 py-2 bg-gray-900 text-white text-sm font-sans font-semibold hover:bg-black transition-colors disabled:opacity-50"
+                    >
+                        {creatingRole ? '...' : 'Добави'}
+                    </button>
+                </div>
+                <p className="mt-2 text-[10px] font-sans text-gray-400">
+                    Формат: малки латински букви, цифри, "_" или "-" (2-32 символа). Новите роли започват без права.
+                </p>
+            </div>
 
             <div className="bg-white border border-gray-200 overflow-x-auto">
                 <table className="w-full min-w-[700px]">

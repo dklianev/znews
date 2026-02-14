@@ -425,6 +425,16 @@ export function DataProvider({ children }) {
     return updated;
   }, []);
 
+  const createRole = useCallback(async (role) => {
+    const ensured = await api.roles.ensure(role);
+    setPermissions((prev) => {
+      const idx = prev.findIndex(p => p.role === ensured.role);
+      if (idx === -1) return [...prev, ensured];
+      return prev.map(p => p.role === ensured.role ? ensured : p);
+    });
+    return ensured;
+  }, []);
+
   // ─── Reset ───
   const resetAll = useCallback(async () => {
     await api.reset();
@@ -450,7 +460,7 @@ export function DataProvider({ children }) {
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
     users, addUser, updateUser, deleteUser,
-    permissions, hasPermission, updatePermission,
+    permissions, hasPermission, updatePermission, createRole,
     session, login, logout,
     refresh: fetchAll, resetAll,
   }), [
@@ -472,7 +482,7 @@ export function DataProvider({ children }) {
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
     users, addUser, updateUser, deleteUser,
-    permissions, hasPermission, updatePermission,
+    permissions, hasPermission, updatePermission, createRole,
     session, login, logout,
     fetchAll, resetAll,
   ]);
