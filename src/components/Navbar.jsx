@@ -79,7 +79,7 @@ export default function Navbar() {
   };
 
   const searchForm = (
-    <form onSubmit={handleSearch} className="pt-1 pb-2">
+    <form onSubmit={handleSearch} className="pt-2 pb-3">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-dim" />
         <input
@@ -191,7 +191,7 @@ export default function Navbar() {
           <div className="max-w-6xl mx-auto px-4 py-3 relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-zn-hot to-transparent md:hidden" />
             <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-zn-navy to-transparent md:hidden" />
-            <div className="flex items-center justify-center gap-3 md:gap-5 overflow-x-auto scrollbar-hide pt-2 pb-3">
+            <div className="flex items-center justify-center gap-3 md:gap-5 overflow-x-auto scrollbar-hide pt-1 pb-2">
               {spotlightLinks.map(({ to, label, Icon, hot, tilt }) => (
                 <Link
                   key={to}
