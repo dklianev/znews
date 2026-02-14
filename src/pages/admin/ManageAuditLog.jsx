@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ClipboardList, Plus, Pencil, Trash2, Filter, Clock, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useData } from '../../context/DataContext';
+import { api } from '../../utils/api';
 
 const ACTION_ICONS = { create: Plus, update: Pencil, delete: Trash2 };
 const ACTION_COLORS = { create: 'bg-emerald-100 text-emerald-700', update: 'bg-blue-100 text-blue-700', delete: 'bg-red-100 text-red-700' };
@@ -17,12 +18,15 @@ export default function ManageAuditLog() {
     const { session, hasPermission } = useData();
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [nextCursor, setNextCursor] = useState(null);
     const [error, setError] = useState('');
     const [filterResource, setFilterResource] = useState('all');
 
     useEffect(() => {
         if (!session?.token) {
             setLogs([]);
+            setNextCursor(null);
             setLoading(false);
             return undefined;
         }
@@ -32,18 +36,16 @@ export default function ManageAuditLog() {
         setError('');
         (async () => {
             try {
-                const res = await fetch('/api/audit-log', {
-                    headers: { Authorization: `Bearer ${session?.token || ''}` },
-                });
-                if (!res.ok) {
-                    const payload = await res.json().catch(() => null);
-                    throw new Error(payload?.error || `Audit log failed (${res.status})`);
+                const page = await api.auditLog.getPage({ limit: 200 });
+                const items = Array.isArray(page?.items) ? page.items : [];
+                if (!cancelled) {
+                    setLogs(items);
+                    setNextCursor(page?.nextCursor || null);
                 }
-                const data = await res.json();
-                if (!cancelled) setLogs(data);
             } catch (e) {
                 if (!cancelled) {
                     setLogs([]);
+                    setNextCursor(null);
                     setError(e?.message || 'Грешка при зареждане на audit log');
                 }
             }
@@ -53,6 +55,22 @@ export default function ManageAuditLog() {
             cancelled = true;
         };
     }, [session?.token]);
+
+    const loadMore = async () => {
+        if (!nextCursor || loadingMore) return;
+        setLoadingMore(true);
+        setError('');
+        try {
+            const page = await api.auditLog.getPage({ cursor: nextCursor, limit: 200 });
+            const items = Array.isArray(page?.items) ? page.items : [];
+            setLogs(prev => [...prev, ...items]);
+            setNextCursor(page?.nextCursor || null);
+        } catch (e) {
+            setError(e?.message || 'Грешка при зареждане на audit log');
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     const filtered = filterResource === 'all' ? logs : logs.filter(l => l.resource === filterResource);
     const resources = [...new Set(logs.map(l => l.resource))];
@@ -145,6 +163,18 @@ export default function ManageAuditLog() {
                             })}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {nextCursor && !loading && (
+                <div className="mt-4 flex justify-center">
+                    <button
+                        onClick={loadMore}
+                        disabled={loadingMore}
+                        className="px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50"
+                    >
+                        {loadingMore ? 'Зареждане...' : 'Още'}
+                    </button>
                 </div>
             )}
                 </>

@@ -26,7 +26,16 @@ const ROLE_LABELS = {
     intern: 'Стажант',
 };
 
+const BASE_ROLES = Object.freeze(['admin', 'editor', 'reporter', 'photographer', 'intern']);
 const sections = Object.keys(SECTION_LABELS);
+
+function ensureRoleRows(value) {
+    const items = Array.isArray(value) ? value : [];
+    const byRole = new Map(items.map(p => [p?.role, p]).filter(([role]) => role));
+    const baseRows = BASE_ROLES.map(role => byRole.get(role) || { role, permissions: {} });
+    const extras = items.filter(p => p?.role && !BASE_ROLES.includes(p.role));
+    return [...baseRows, ...extras];
+}
 
 export default function ManagePermissions() {
     const { permissions, updatePermission, session, hasPermission } = useData();
@@ -35,7 +44,7 @@ export default function ManagePermissions() {
     const [error, setError] = useState('');
 
     // Use local copy for editing, fall back to fetched data
-    const permsToShow = localPerms || permissions;
+    const permsToShow = ensureRoleRows(localPerms || permissions);
 
     if (!session || !hasPermission('permissions')) {
         return (
@@ -51,12 +60,16 @@ export default function ManagePermissions() {
 
     const toggle = (role, section) => {
         if (role === 'admin') return; // Can't edit admin permissions
-        const current = localPerms || permissions.map(p => ({ ...p, permissions: { ...p.permissions } }));
-        const roleObj = current.find(p => p.role === role);
-        if (roleObj) {
-            roleObj.permissions[section] = !roleObj.permissions[section];
-            setLocalPerms([...current]);
-        }
+        setLocalPerms((prev) => {
+            const base = ensureRoleRows(Array.isArray(prev) ? prev : permissions);
+            return base.map((perm) => {
+                const nextPerms = { ...(perm.permissions || {}) };
+                if (perm.role === role) {
+                    nextPerms[section] = !Boolean(nextPerms[section]);
+                }
+                return { ...perm, permissions: nextPerms };
+            });
+        });
     };
 
     const handleSave = async (role) => {
@@ -66,7 +79,6 @@ export default function ManagePermissions() {
         setError('');
         try {
             await updatePermission(role, roleObj.permissions);
-            setLocalPerms(null);
         } catch (e) {
             setError(e?.message || 'Неуспешен запис на права');
             console.error('Failed to save permissions:', e);

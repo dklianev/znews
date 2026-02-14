@@ -190,6 +190,46 @@ async function request(path, options = {}, internal = {}) {
   return readResponsePayload(res);
 }
 
+async function requestBlob(path, options = {}, internal = {}) {
+  const session = getSession();
+  const headers = {
+    ...(options.headers || {}),
+  };
+
+  if (session?.token) {
+    headers.Authorization = `Bearer ${session.token}`;
+  }
+
+  const res = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
+    ...options,
+    headers,
+  });
+
+  if (res.status === 401
+    && !internal.skipRefresh
+    && !path.startsWith('/auth/login')
+    && !path.startsWith('/auth/refresh')
+    && !path.startsWith('/auth/logout')
+    && session?.token) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed?.token) {
+      return requestBlob(path, options, { ...internal, skipRefresh: true });
+    }
+    clearSession();
+  }
+
+  if (!res.ok) {
+    const payload = await readResponsePayload(res);
+    const message = typeof payload === 'string'
+      ? payload
+      : payload?.error || `HTTP ${res.status}`;
+    throw new Error(message);
+  }
+
+  return res.blob();
+}
+
 function crudEndpoints(resource) {
   return {
     getAll: (params) => request(`/${resource}${toQuery(params)}`),
@@ -293,6 +333,14 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ permissions }),
     }),
+  },
+
+  auditLog: {
+    getPage: (params) => request(`/audit-log${toQuery(params)}`),
+  },
+
+  backup: {
+    download: () => requestBlob('/backup'),
   },
 
   reset: () => request('/reset', { method: 'POST' }),

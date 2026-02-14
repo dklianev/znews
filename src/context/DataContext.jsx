@@ -417,7 +417,12 @@ export function DataProvider({ children }) {
 
   const updatePermission = useCallback(async (role, perms) => {
     const updated = await api.permissions.update(role, perms);
-    setPermissions(prev => prev.map(p => p.role === role ? updated : p));
+    setPermissions((prev) => {
+      const idx = prev.findIndex(p => p.role === role);
+      if (idx === -1) return [...prev, updated];
+      return prev.map(p => p.role === role ? updated : p);
+    });
+    return updated;
   }, []);
 
   // ─── Reset ───

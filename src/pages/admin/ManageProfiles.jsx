@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-react';
 
-const ROLES = [
-  { value: 'admin', label: 'Администратор' },
-  { value: 'editor', label: 'Редактор' },
-  { value: 'reporter', label: 'Репортер' },
-  { value: 'photographer', label: 'Фотограф' },
-  { value: 'intern', label: 'Стажант' },
-];
+const BASE_ROLES = Object.freeze(['admin', 'editor', 'reporter', 'photographer', 'intern']);
+const ROLE_LABELS = Object.freeze({
+  admin: 'Администратор',
+  editor: 'Редактор',
+  reporter: 'Репортер',
+  photographer: 'Фотограф',
+  intern: 'Стажант',
+});
 
 const AVATARS = ['👨‍💼', '👩‍💻', '👨‍🎤', '👩‍🎓', '🕵️', '👮', '👨‍⚕️', '👩‍🍳', '🧑‍💻', '👑', '📸', '✍️'];
 
@@ -22,11 +23,23 @@ const emptyForm = {
 };
 
 export default function ManageProfiles() {
-  const { authors, articles, addAuthor, updateAuthor, deleteAuthor, users, addUser, updateUser, deleteUser, session } = useData();
+  const { authors, articles, addAuthor, updateAuthor, deleteAuthor, users, addUser, updateUser, deleteUser, permissions, session } = useData();
   const canManageUsers = session?.role === 'admin';
   const [editing, setEditing] = useState(null); // null | 'new' | userId
   const [form, setForm] = useState(emptyForm);
   const [tab, setTab] = useState('users'); // 'users' | 'authors'
+
+  const roleOptions = useMemo(() => {
+    const permsRoles = Array.isArray(permissions)
+      ? permissions.map(p => p?.role).filter(Boolean)
+      : [];
+    const extraRoles = [...new Set(permsRoles.filter(r => !BASE_ROLES.includes(r)))]
+      .sort((a, b) => a.localeCompare(b));
+    return [...BASE_ROLES, ...extraRoles].map(value => ({
+      value,
+      label: ROLE_LABELS[value] || value,
+    }));
+  }, [permissions]);
 
   // --- Author form ---
   const [authorForm, setAuthorForm] = useState({ name: '', avatar: '👤', role: '' });
@@ -129,7 +142,7 @@ export default function ManageProfiles() {
                 <div>
                   <label className={labelCls}>Роля</label>
                   <select className={inputCls} value={form.role} onChange={e => setForm({...form, role: e.target.value})}>
-                    {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    {roleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                   </select>
                 </div>
                 <div>
@@ -192,7 +205,7 @@ export default function ManageProfiles() {
                       <span className={`px-2 py-0.5 text-[10px] font-sans font-bold uppercase tracking-wider ${
                         user.role === 'admin' ? 'bg-zn-purple text-white' : 'bg-gray-100 text-gray-600'
                       }`}>
-                        {ROLES.find(r => r.value === user.role)?.label || user.role}
+                        {roleOptions.find(r => r.value === user.role)?.label || user.role}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm font-sans text-gray-500">{user.profession || '—'}</td>

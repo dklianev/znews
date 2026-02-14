@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useData } from '../../context/DataContext';
+import { api } from '../../utils/api';
 import { FileText, Users, Megaphone, Eye, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, RotateCcw, MessageCircle, Image, TrendingUp, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -107,15 +108,7 @@ export default function Dashboard() {
     setAdminActionError('');
     setExporting(true);
     try {
-      const token = session?.token;
-      if (!token) throw new Error('Missing session token');
-      const res = await fetch('/api/backup', { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) {
-        const payload = await res.json().catch(() => null);
-        throw new Error(payload?.error || `Backup failed (${res.status})`);
-      }
-
-      const blob = await res.blob();
+      const blob = await api.backup.download();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

@@ -2545,6 +2545,8 @@ async function isKnownRole(role) {
   const normalized = normalizeText(role, 32);
   if (!normalized) return false;
   if (normalized === 'admin') return true;
+  // Allow built-in roles even if the permissions collection hasn't been seeded yet.
+  if (Object.prototype.hasOwnProperty.call(DEFAULT_PERMISSION_DOCS, normalized)) return true;
   return Boolean(await Permission.exists({ role: normalized }));
 }
 
@@ -2564,12 +2566,96 @@ const PERMISSION_KEYS = Object.freeze([
   'permissions',
 ]);
 
+const DEFAULT_PERMISSION_DOCS = Object.freeze({
+  admin: PERMISSION_KEYS.reduce((acc, key) => {
+    acc[key] = true;
+    return acc;
+  }, {}),
+  editor: {
+    articles: true,
+    categories: true,
+    ads: true,
+    breaking: true,
+    wanted: false,
+    jobs: false,
+    court: false,
+    events: true,
+    polls: true,
+    comments: true,
+    gallery: true,
+    profiles: false,
+    permissions: false,
+  },
+  reporter: {
+    articles: true,
+    categories: false,
+    ads: false,
+    breaking: false,
+    wanted: false,
+    jobs: false,
+    court: false,
+    events: false,
+    polls: false,
+    comments: false,
+    gallery: true,
+    profiles: false,
+    permissions: false,
+  },
+  photographer: {
+    articles: false,
+    categories: false,
+    ads: false,
+    breaking: false,
+    wanted: false,
+    jobs: false,
+    court: false,
+    events: false,
+    polls: false,
+    comments: false,
+    gallery: true,
+    profiles: false,
+    permissions: false,
+  },
+  intern: {
+    articles: false,
+    categories: false,
+    ads: false,
+    breaking: false,
+    wanted: false,
+    jobs: false,
+    court: false,
+    events: false,
+    polls: false,
+    comments: false,
+    gallery: false,
+    profiles: false,
+    permissions: false,
+  },
+});
+
 function sanitizePermissionMap(value) {
   const src = value && typeof value === 'object' ? value : {};
   return PERMISSION_KEYS.reduce((acc, key) => {
     acc[key] = Boolean(src[key]);
     return acc;
   }, {});
+}
+
+async function ensureDefaultPermissionDocs() {
+  try {
+    await Promise.all(
+      Object.entries(DEFAULT_PERMISSION_DOCS).map(([role, permissionMap]) => {
+        const permissions = sanitizePermissionMap(permissionMap);
+        return Permission.updateOne(
+          { role },
+          { $setOnInsert: { role, permissions } },
+          { upsert: true }
+        );
+      })
+    );
+  } catch (error) {
+    console.warn('⚠ Failed to ensure default permissions:', error?.message || error);
+  }
 }
 
 // ─── Auth / Authorization Middleware ───
@@ -3210,6 +3296,7 @@ usersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
+    let passwordChanged = false;
     const data = {};
 
     if (hasOwn(req.body, 'name')) data.name = normalizeText(req.body.name, 80);
@@ -3241,6 +3328,7 @@ usersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       }
       if (password.length >= 8) {
         data.password = await bcrypt.hash(password, 10);
+        passwordChanged = true;
       }
     }
 
@@ -3248,6 +3336,11 @@ usersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
     const item = await User.findOneAndUpdate({ id }, { $set: data }, { new: true });
     if (!item) return res.status(404).json({ error: 'Not found' });
+
+    if (passwordChanged) {
+      // Invalidate all refresh sessions for this account so old refresh tokens can't be used.
+      await AuthSession.deleteMany({ userId: id });
+    }
 
     AuditLog.create({
       user: req.user.name,
@@ -3449,6 +3542,7 @@ app.get('/api/permissions', requireAuth, async (req, res) => {
     const canManage = req.user.role === 'admin' || await hasPermissionForSection(req.user, 'permissions');
 
     if (canManage) {
+      await ensureDefaultPermissionDocs();
       const perms = await Permission.find().lean();
       perms.forEach(p => { delete p._id; delete p.__v; });
       return res.json(perms);
@@ -3529,7 +3623,16 @@ catRouter.put('/:id', requireAuth, requirePermission('categories'), async (req, 
 catRouter.delete('/:id', requireAuth, requirePermission('categories'), async (req, res) => {
   try {
     if (req.params.id === 'all') return res.json({ ok: false });
-    await Category.deleteOne({ id: req.params.id });
+    const categoryId = normalizeText(req.params.id, 64);
+    if (!categoryId) return res.status(400).json({ error: 'Invalid category id' });
+
+    const usedCount = await Article.countDocuments({ category: categoryId });
+    if (usedCount > 0) {
+      return res.status(409).json({ error: `Category is used by ${usedCount} article(s)` });
+    }
+
+    const result = await Category.deleteOne({ id: categoryId });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -3871,11 +3974,46 @@ app.post('/api/polls/:id/vote', pollVoteLimiter, async (req, res) => {
 });
 
 // ─── Audit / Backup / Reset ───
-app.get('/api/audit-log', requireAuth, requirePermission('permissions'), async (_req, res) => {
+function parseAuditLogCursor(value) {
+  const raw = normalizeText(value, 120);
+  if (!raw) return null;
+  const parts = raw.split(':');
+  if (parts.length !== 2) return null;
+  const ts = Number(parts[0]);
+  const idRaw = parts[1];
+  if (!Number.isFinite(ts) || ts <= 0) return null;
+  if (!mongoose.Types.ObjectId.isValid(idRaw)) return null;
+  return {
+    timestamp: new Date(ts),
+    id: new mongoose.Types.ObjectId(idRaw),
+  };
+}
+
+app.get('/api/audit-log', requireAuth, requirePermission('permissions'), async (req, res) => {
   try {
-    const logs = await AuditLog.find().sort({ timestamp: -1 }).limit(200).lean();
-    logs.forEach(l => { delete l._id; delete l.__v; });
-    res.json(logs);
+    const limit = parsePositiveInt(req.query.limit, 200, { min: 1, max: 200 });
+    const cursor = parseAuditLogCursor(req.query.cursor);
+    const filter = {};
+
+    if (cursor) {
+      filter.$or = [
+        { timestamp: { $lt: cursor.timestamp } },
+        { timestamp: cursor.timestamp, _id: { $lt: cursor.id } },
+      ];
+    }
+
+    const items = await AuditLog.find(filter)
+      .sort({ timestamp: -1, _id: -1 })
+      .limit(limit)
+      .lean();
+
+    const last = items.length > 0 ? items[items.length - 1] : null;
+    const nextCursor = items.length === limit && last
+      ? `${new Date(last.timestamp).getTime()}:${String(last._id)}`
+      : null;
+
+    items.forEach(l => { delete l._id; delete l.__v; });
+    res.json({ items, nextCursor });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
   }
@@ -4190,6 +4328,7 @@ async function startServer() {
   try {
     await connectDB();
     await ensureDbIndexes();
+    await ensureDefaultPermissionDocs();
   } catch (err) {
     console.error('✗ MongoDB error:', err.message);
     process.exit(1);

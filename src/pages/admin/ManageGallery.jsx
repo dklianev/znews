@@ -5,6 +5,25 @@ import AdminImageField from '../../components/admin/AdminImageField';
 
 const emptyItem = { title: '', description: '', image: '', category: '', featured: false };
 
+function parseGalleryDate(value) {
+  if (typeof value !== 'string') return 0;
+  const raw = value.trim();
+  if (!raw) return 0;
+
+  const parsed = Date.parse(raw);
+  if (!Number.isNaN(parsed)) return parsed;
+
+  // Legacy format: "14.02.2026 г." from toLocaleDateString('bg-BG')
+  const match = raw.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (!match) return 0;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const date = new Date(year, Math.max(0, month - 1), day);
+  const time = date.getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
 export default function ManageGallery() {
   const { gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem } = useData();
   const [editing, setEditing] = useState(null);
@@ -19,7 +38,7 @@ export default function ManageGallery() {
   const handleSave = async () => {
     if (!form.title || !form.image || !form.category) return;
     if (editing === 'new') {
-      await addGalleryItem({ ...form, date: new Date().toLocaleDateString('bg-BG') });
+      await addGalleryItem({ ...form, date: new Date().toISOString().slice(0, 10) });
     } else {
       await updateGalleryItem(editing, form);
     }
@@ -29,7 +48,7 @@ export default function ManageGallery() {
   const handleDelete = async (id) => { if (confirm('Изтрий снимката?')) await deleteGalleryItem(id); };
   const toggleFeatured = (item) => updateGalleryItem(item.id, { featured: !item.featured });
 
-  const sorted = [...gallery].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const sorted = [...gallery].sort((a, b) => parseGalleryDate(b.date) - parseGalleryDate(a.date));
 
   return (
     <div className="p-8">
