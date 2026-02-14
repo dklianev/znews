@@ -724,6 +724,14 @@
     @apply inline-block animate-ticker whitespace-nowrap;
   }
 
+  .breaking-strip:hover .ticker-content {
+    animation-play-state: paused;
+  }
+
+  .breaking-strip:hover::before {
+    animation-play-state: paused;
+  }
+
   .breaking-strip {
     background:
       linear-gradient(92deg, #b3071a 0%, #cc0a1a 35%, #ef6c13 100%),

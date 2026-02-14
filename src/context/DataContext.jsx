@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { api, getSession, saveSession, clearSession } from '../utils/api';
 
 const DataContext = createContext();
@@ -268,11 +268,54 @@ export function DataProvider({ children }) {
   const updateCategory = useCallback(async (id, u) => { const updated = await api.categories.update(id, u); setCategories(prev => prev.map(c => c.id === id ? updated : c)); }, []);
   const deleteCategory = useCallback(async (id) => { if (id === 'all') return; await api.categories.delete(id); setCategories(prev => prev.filter(c => c.id !== id)); }, []);
   const saveCategories = useCallback(async (cats) => {
-    // Replace all categories: delete all, re-insert
-    const existing = await api.categories.getAll();
-    await Promise.all(existing.map(c => api.categories.delete(c.id)));
-    await Promise.all(cats.map(c => api.categories.create(c)));
-    setCategories(cats);
+    const desiredRaw = Array.isArray(cats) ? cats : [];
+    const desired = desiredRaw
+      .map((c) => ({
+        id: String(c?.id || '').trim(),
+        name: String(c?.name || '').trim(),
+        icon: String(c?.icon || '').trim(),
+      }))
+      .filter((c) => c.id && c.name && c.id !== 'all');
+
+    const desiredById = new Map(desired.map((c) => [c.id, c]));
+    const existingRaw = await api.categories.getAll();
+    const existing = Array.isArray(existingRaw) ? existingRaw : [];
+    const existingById = new Map(existing.map((c) => [c.id, c]));
+
+    // Apply creates/updates first (no data-loss even if a later step fails).
+    const upsertOps = [];
+    desiredById.forEach((next, id) => {
+      const prev = existingById.get(id);
+      if (!prev) {
+        upsertOps.push(() => api.categories.create(next));
+        return;
+      }
+
+      const patch = {};
+      if (String(prev.name || '') !== next.name) patch.name = next.name;
+      if (String(prev.icon || '') !== next.icon) patch.icon = next.icon;
+      if (Object.keys(patch).length > 0) {
+        upsertOps.push(() => api.categories.update(id, patch));
+      }
+    });
+
+    const upsertResults = await Promise.allSettled(upsertOps.map(fn => fn()));
+    const upsertFailed = upsertResults.find(r => r.status === 'rejected');
+    if (upsertFailed) throw upsertFailed.reason;
+
+    // Then remove categories that no longer exist in the desired set.
+    const deleteOps = existing
+      .filter((c) => c?.id && c.id !== 'all' && !desiredById.has(c.id))
+      .map((c) => () => api.categories.delete(c.id));
+
+    const deleteResults = await Promise.allSettled(deleteOps.map(fn => fn()));
+    const deleteFailed = deleteResults.find(r => r.status === 'rejected');
+    if (deleteFailed) throw deleteFailed.reason;
+
+    const finalRaw = await api.categories.getAll();
+    const finalItems = Array.isArray(finalRaw) ? finalRaw : desired;
+    setCategories(finalItems);
+    return finalItems;
   }, []);
 
   // ─── Wanted ───
@@ -378,30 +421,54 @@ export function DataProvider({ children }) {
     await fetchAll();
   }, [fetchAll]);
 
+  const contextValue = useMemo(() => ({
+    loading,
+    articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
+    articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
+    authors, addAuthor, updateAuthor, deleteAuthor,
+    categories, addCategory, updateCategory, deleteCategory, saveCategories,
+    ads, addAd, updateAd, deleteAd,
+    breaking, saveBreaking,
+    heroSettings, heroSettingsRevisions, saveHeroSettings, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
+    siteSettings, siteSettingsRevisions, saveSiteSettings, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
+    wanted, addWanted, updateWanted, deleteWanted,
+    jobs, addJob, updateJob, deleteJob,
+    court, addCourtCase, updateCourtCase, deleteCourtCase,
+    events, addEvent, updateEvent, deleteEvent,
+    polls, addPoll, updatePoll, deletePoll, votePoll,
+    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment,
+    gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
+    media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
+    users, addUser, updateUser, deleteUser,
+    permissions, hasPermission, updatePermission,
+    session, login, logout,
+    refresh: fetchAll, resetAll,
+  }), [
+    loading,
+    articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
+    articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
+    authors, addAuthor, updateAuthor, deleteAuthor,
+    categories, addCategory, updateCategory, deleteCategory, saveCategories,
+    ads, addAd, updateAd, deleteAd,
+    breaking, saveBreaking,
+    heroSettings, heroSettingsRevisions, saveHeroSettings, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
+    siteSettings, siteSettingsRevisions, saveSiteSettings, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
+    wanted, addWanted, updateWanted, deleteWanted,
+    jobs, addJob, updateJob, deleteJob,
+    court, addCourtCase, updateCourtCase, deleteCourtCase,
+    events, addEvent, updateEvent, deleteEvent,
+    polls, addPoll, updatePoll, deletePoll, votePoll,
+    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment,
+    gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
+    media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
+    users, addUser, updateUser, deleteUser,
+    permissions, hasPermission, updatePermission,
+    session, login, logout,
+    fetchAll, resetAll,
+  ]);
+
   return (
-    <DataContext.Provider value={{
-      loading,
-      articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
-      articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
-      authors, addAuthor, updateAuthor, deleteAuthor,
-      categories, addCategory, updateCategory, deleteCategory, saveCategories,
-      ads, addAd, updateAd, deleteAd,
-      breaking, saveBreaking,
-      heroSettings, heroSettingsRevisions, saveHeroSettings, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
-      siteSettings, siteSettingsRevisions, saveSiteSettings, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
-      wanted, addWanted, updateWanted, deleteWanted,
-      jobs, addJob, updateJob, deleteJob,
-      court, addCourtCase, updateCourtCase, deleteCourtCase,
-      events, addEvent, updateEvent, deleteEvent,
-      polls, addPoll, updatePoll, deletePoll, votePoll,
-      comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment,
-      gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
-      media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
-      users, addUser, updateUser, deleteUser,
-      permissions, hasPermission, updatePermission,
-      session, login, logout,
-      refresh: fetchAll, resetAll,
-    }}>
+    <DataContext.Provider value={contextValue}>
       {children}
     </DataContext.Provider>
   );

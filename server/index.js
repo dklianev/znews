@@ -76,6 +76,7 @@ const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 const rawJwtSecret = process.env.JWT_SECRET;
 const rawRefreshSecret = process.env.REFRESH_TOKEN_SECRET || rawJwtSecret;
+let shuttingDown = false;
 
 // Simple readiness health endpoint (returns 200 only when Mongo is connected).
 // Keep this before rate-limit middleware so platforms can probe it freely.
@@ -86,16 +87,24 @@ app.get('/api/health', (_req, res) => {
     : state === 2
       ? 'connecting'
       : state === 3
-        ? 'disconnecting'
-        : 'disconnected';
-  const ok = mongo === 'connected';
+      ? 'disconnecting'
+      : 'disconnected';
+  const ok = mongo === 'connected' && !shuttingDown;
   res.set('Cache-Control', 'no-store');
   res.status(ok ? 200 : 503).json({
     ok,
     mongo,
+    shuttingDown,
     uptime: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),
   });
+});
+
+app.use((req, res, next) => {
+  if (!shuttingDown) return next();
+  // Allow load balancers/clients to drop keep-alive connections during deploy/restart.
+  res.set('Connection', 'close');
+  return res.status(503).json({ error: 'Server is restarting. Please try again shortly.' });
 });
 
 if (isProd && (!rawJwtSecret || rawJwtSecret.length < 32 || rawJwtSecret.toLowerCase().includes('change-me'))) {
@@ -835,8 +844,21 @@ async function putStorageObject(relativePath, body, contentType = 'application/o
   }
 
   const absolute = getDiskAbsolutePath(normalized);
-  await fs.promises.mkdir(path.dirname(absolute), { recursive: true });
-  await fs.promises.writeFile(absolute, body);
+  const dir = path.dirname(absolute);
+  await fs.promises.mkdir(dir, { recursive: true });
+
+  // Atomic-ish write (avoid corrupting files on abrupt restarts): write temp then rename.
+  const tmpPath = path.join(dir, `.${path.basename(absolute)}.tmp-${randomUUID()}`);
+  await fs.promises.writeFile(tmpPath, body);
+  try {
+    await fs.promises.rename(tmpPath, absolute);
+  } catch (error) {
+    // Windows can fail to rename over an existing file; fall back to unlink+rename.
+    try { await fs.promises.unlink(absolute); } catch { }
+    await fs.promises.rename(tmpPath, absolute);
+  } finally {
+    fs.promises.unlink(tmpPath).catch(() => { });
+  }
 }
 
 async function getStorageObjectBuffer(relativePath) {
@@ -4046,6 +4068,77 @@ app.get('*', (_req, res) => {
 // ─── Start ───
 const PORT = Number(process.env.PORT) || 3001;
 
+function registerGracefulShutdown(server) {
+  const sockets = new Set();
+  server.on('connection', (socket) => {
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+  });
+
+  const shutdown = async (reason, exitCode = 0) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    try {
+      console.log(`\n⚠ Graceful shutdown: ${reason}`);
+
+      // Stop accepting new connections.
+      const closePromise = new Promise((resolve) => server.close(resolve));
+
+      // Encourage keep-alive clients to disconnect.
+      sockets.forEach((socket) => {
+        try { socket.end(); } catch { }
+      });
+
+      const FORCE_SHUTDOWN_MS = 12_000;
+      const forceTimer = setTimeout(() => {
+        console.warn(`✗ Forcing shutdown after ${FORCE_SHUTDOWN_MS}ms`);
+        sockets.forEach((socket) => {
+          try { socket.destroy(); } catch { }
+        });
+      }, FORCE_SHUTDOWN_MS);
+      forceTimer.unref();
+
+      // Wait for the server to close (or until we hit the force timer).
+      await Promise.race([
+        closePromise,
+        new Promise((resolve) => setTimeout(resolve, FORCE_SHUTDOWN_MS)),
+      ]);
+
+      if (typeof server.closeIdleConnections === 'function') {
+        server.closeIdleConnections();
+      }
+      if (typeof server.closeAllConnections === 'function') {
+        server.closeAllConnections();
+      }
+
+      try {
+        await mongoose.connection.close(false);
+      } catch (error) {
+        console.error('✗ Failed to close MongoDB connection:', error?.message || error);
+      }
+
+      clearTimeout(forceTimer);
+    } finally {
+      process.exit(exitCode);
+    }
+  };
+
+  ['SIGINT', 'SIGTERM'].forEach((signal) => {
+    process.once(signal, () => shutdown(signal, 0));
+  });
+
+  process.once('uncaughtException', (error) => {
+    console.error('✗ Uncaught exception:', error);
+    shutdown('uncaughtException', 1);
+  });
+
+  process.once('unhandledRejection', (reason) => {
+    console.error('✗ Unhandled rejection:', reason);
+    shutdown('unhandledRejection', 1);
+  });
+}
+
 async function startServer() {
   try {
     await connectDB();
@@ -4071,6 +4164,8 @@ async function startServer() {
         });
     }
   });
+
+  registerGracefulShutdown(server);
 
   server.on('error', (error) => {
     if (error?.code === 'EADDRINUSE') {

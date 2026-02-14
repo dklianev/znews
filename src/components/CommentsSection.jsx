@@ -92,12 +92,12 @@ export default function CommentsSection({ articleId }) {
         <div className="absolute -top-2 right-6 w-12 h-4 bg-yellow-200/70 border border-black/5 transform rotate-3 z-10" style={{boxShadow:'1px 1px 2px rgba(0,0,0,0.1)'}} />
         <h3 className="font-display font-black uppercase text-sm text-zn-text mb-3 tracking-widest relative z-[2]">Остави коментар</h3>
         {submitted && (
-          <div className="mb-3 p-3 bg-emerald-50 border-2 border-emerald-300 text-emerald-700 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
+          <div className="mb-3 p-3 bg-emerald-50 border-2 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-400/30 dark:text-emerald-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
             Коментарът е изпратен и очаква одобрение.
           </div>
         )}
         {error && (
-          <div className="mb-3 p-3 bg-red-50 border-2 border-red-300 text-red-700 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
+          <div className="mb-3 p-3 bg-red-50 border-2 border-red-300 text-red-700 dark:bg-red-950/30 dark:border-red-400/30 dark:text-red-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
             {error}
           </div>
         )}

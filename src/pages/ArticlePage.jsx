@@ -370,25 +370,27 @@ export default function ArticlePage() {
   };
 
   useEffect(() => {
-    if (!nextArticle || typeof document === 'undefined') return undefined;
+    if (!nextArticle?.image || typeof Image === 'undefined') return undefined;
 
-    const routeLink = document.createElement('link');
-    routeLink.rel = 'prefetch';
-    routeLink.href = `/article/${nextArticle.id}`;
-    document.head.appendChild(routeLink);
-
+    // Prefetching the SPA route itself is not useful (it usually re-downloads index.html).
+    // Instead we lightly prefetch the next article's image, with a delay to avoid spamming
+    // downloads when users navigate quickly.
     let preloadImage = null;
-    if (nextArticle.image) {
+    const t = window.setTimeout(() => {
       preloadImage = new Image();
       preloadImage.decoding = 'async';
       preloadImage.src = nextArticle.image;
-    }
+    }, 800);
 
     return () => {
-      if (routeLink.parentNode) routeLink.parentNode.removeChild(routeLink);
+      window.clearTimeout(t);
+      if (preloadImage) {
+        // Best-effort cancel.
+        try { preloadImage.src = ''; } catch { }
+      }
       preloadImage = null;
     };
-  }, [nextArticle]);
+  }, [nextArticle?.image]);
 
   return (
     <motion.div
