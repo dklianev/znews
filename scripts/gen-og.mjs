@@ -41,7 +41,7 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
   </g>
 
   <!-- Logo (vector, inspired by favicon.svg) -->
-  <g transform="translate(130 185) scale(5)">
+  <g transform="translate(130 155) scale(5)">
     <defs>
       <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0%" stop-color="#ff3a1e"/>
@@ -50,11 +50,11 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
     </defs>
     <rect x="4" y="4" width="56" height="56" rx="12" fill="#f4ead7"/>
     <rect x="4" y="4" width="56" height="56" rx="12" fill="none" stroke="#20182e" stroke-width="4"/>
-    <path d="M18 19h28v7L28 45h18v7H17v-7l19-19H18z" fill="url(#logoGrad)" stroke="#20182e" stroke-width="2.5"/>
+    <path d="M18 19h28v7L28 45h18v7H17v-7l19-19H18z" transform="translate(0.5 -3.5)" fill="url(#logoGrad)" stroke="#20182e" stroke-width="2.5"/>
   </g>
 
   <!-- Text -->
-  <text x="460" y="300"
+  <text x="460" y="312"
     font-family="Impact, 'Arial Black', 'Segoe UI Black', 'Segoe UI', Arial, sans-serif"
     font-size="126"
     letter-spacing="1"
@@ -64,14 +64,14 @@ const svg = `<?xml version="1.0" encoding="UTF-8"?>
     paint-order="stroke"
   >zNews</text>
 
-  <text x="463" y="370"
+  <text x="463" y="382"
     font-family="'Segoe UI', Arial, sans-serif"
     font-size="38"
     fill="#20182e"
     opacity="0.92"
   >Горещи новини, скандали и слухове.</text>
 
-  <text x="463" y="426"
+  <text x="463" y="438"
     font-family="'Segoe UI', Arial, sans-serif"
     font-size="28"
     fill="#20182e"
@@ -97,4 +97,3 @@ await sharp(Buffer.from(svg))
   .toFile(outPath);
 
 console.log(`✓ Wrote ${outPath}`);
-
