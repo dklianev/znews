@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Plus, Trash2, X, Save } from 'lucide-react';
+import { Plus, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 
 export default function ManageBreaking() {
   const { breaking, saveBreaking } = useData();
   const [items, setItems] = useState(breaking);
   const [newItem, setNewItem] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const addItem = () => {
     if (!newItem.trim()) return;
@@ -37,11 +39,20 @@ export default function ManageBreaking() {
   };
 
   const handleSave = async () => {
-    await saveBreaking(items.filter(Boolean));
-    setHasChanges(false);
+    setSaving(true);
+    setError('');
+    try {
+      await saveBreaking(items.filter(Boolean));
+      setHasChanges(false);
+    } catch (e) {
+      setError(e?.message || 'Грешка при запис на тикера');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleReset = () => {
+    setError('');
     setItems(breaking);
     setHasChanges(false);
   };
@@ -61,12 +72,19 @@ export default function ManageBreaking() {
             <button onClick={handleReset} className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
               <X className="w-4 h-4" /> Откажи
             </button>
-            <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors">
+            <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50">
               <Save className="w-4 h-4" /> Запази промените
             </button>
           </div>
         )}
       </div>
+
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
 
       {/* Live preview */}
       <div className="mb-6 border border-gray-200 overflow-hidden">

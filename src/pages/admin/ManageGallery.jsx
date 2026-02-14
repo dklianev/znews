@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Image, Plus, Trash2, Edit3, Star, StarOff, X } from 'lucide-react';
+import { Image, Plus, Trash2, Edit3, Star, StarOff, X, AlertTriangle } from 'lucide-react';
 import AdminImageField from '../../components/admin/AdminImageField';
 
 const emptyItem = { title: '', description: '', image: '', category: '', featured: false };
@@ -28,25 +28,51 @@ export default function ManageGallery() {
   const { gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem } = useData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyItem);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const categories = [...new Set(gallery.map(g => g.category))];
 
-  const openNew = () => { setForm(emptyItem); setEditing('new'); };
-  const openEdit = (item) => { setForm({ title: item.title, description: item.description, image: item.image, category: item.category, featured: item.featured }); setEditing(item.id); };
-  const close = () => { setForm(emptyItem); setEditing(null); };
+  const openNew = () => { setError(''); setForm(emptyItem); setEditing('new'); };
+  const openEdit = (item) => { setError(''); setForm({ title: item.title, description: item.description, image: item.image, category: item.category, featured: item.featured }); setEditing(item.id); };
+  const close = () => { setError(''); setForm(emptyItem); setEditing(null); };
 
   const handleSave = async () => {
     if (!form.title || !form.image || !form.category) return;
-    if (editing === 'new') {
-      await addGalleryItem({ ...form, date: new Date().toISOString().slice(0, 10) });
-    } else {
-      await updateGalleryItem(editing, form);
+    setSaving(true);
+    setError('');
+    try {
+      if (editing === 'new') {
+        await addGalleryItem({ ...form, date: new Date().toISOString().slice(0, 10) });
+      } else {
+        await updateGalleryItem(editing, form);
+      }
+      close();
+    } catch (e) {
+      setError(e?.message || 'Грешка при запис');
+    } finally {
+      setSaving(false);
     }
-    close();
   };
 
-  const handleDelete = async (id) => { if (confirm('Изтрий снимката?')) await deleteGalleryItem(id); };
-  const toggleFeatured = (item) => updateGalleryItem(item.id, { featured: !item.featured });
+  const handleDelete = async (id) => {
+    if (!confirm('Изтрий снимката?')) return;
+    setError('');
+    try {
+      await deleteGalleryItem(id);
+    } catch (e) {
+      setError(e?.message || 'Грешка при изтриване');
+    }
+  };
+
+  const toggleFeatured = async (item) => {
+    setError('');
+    try {
+      await updateGalleryItem(item.id, { featured: !item.featured });
+    } catch (e) {
+      setError(e?.message || 'Грешка при запис');
+    }
+  };
 
   const sorted = [...gallery].sort((a, b) => parseGalleryDate(b.date) - parseGalleryDate(a.date));
 
@@ -61,6 +87,13 @@ export default function ManageGallery() {
           <Plus className="w-4 h-4" /> Добави снимка
         </button>
       </div>
+
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
 
       {/* Modal */}
       {editing !== null && (
@@ -103,7 +136,7 @@ export default function ManageGallery() {
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={close} className="px-4 py-2 text-sm font-sans text-gray-500 hover:text-gray-700">Откажи</button>
-              <button onClick={handleSave} className="px-4 py-2 bg-zn-hot text-white text-sm font-sans hover:bg-zn-hot/90 transition-colors">Запази</button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-zn-hot text-white text-sm font-sans hover:bg-zn-hot/90 transition-colors disabled:opacity-50">Запази</button>
             </div>
           </div>
         </div>

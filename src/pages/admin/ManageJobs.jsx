@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react';
 
 const JOB_TYPES = [
   { value: 'police', label: 'Полиция' },
@@ -18,15 +18,43 @@ export default function ManageJobs() {
   const { jobs, addJob, updateJob, deleteJob } = useData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSave = async () => {
     if (!form.title) return;
-    if (editing === 'new') await addJob(form);
-    else await updateJob(editing, form);
-    setEditing(null); setForm(emptyForm);
+    setSaving(true);
+    setError('');
+    try {
+      if (editing === 'new') await addJob(form);
+      else await updateJob(editing, form);
+      setEditing(null);
+      setForm(emptyForm);
+    } catch (e) {
+      setError(e?.message || 'Грешка при запис на обявата');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const toggleActive = (job) => updateJob(job.id, { active: !job.active });
+  const toggleActive = async (job) => {
+    setError('');
+    try {
+      await updateJob(job.id, { active: !job.active });
+    } catch (e) {
+      setError(e?.message || 'Грешка при промяна на статуса');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Изтрий?')) return;
+    setError('');
+    try {
+      await deleteJob(id);
+    } catch (e) {
+      setError(e?.message || 'Грешка при изтриване');
+    }
+  };
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
   const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
@@ -42,6 +70,13 @@ export default function ManageJobs() {
           <Plus className="w-4 h-4" /> Нова обява
         </button>
       </div>
+
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
 
       {editing && (
         <div className="bg-white border border-gray-200 p-6 mb-6">
@@ -60,7 +95,7 @@ export default function ManageJobs() {
             <div><label className={labelCls}>Дата</label><input className={inputCls} type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} /></div>
           </div>
           <div className="flex gap-2 mt-5">
-            <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold"><Save className="w-4 h-4" /> Запази</button>
+            <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold disabled:opacity-50"><Save className="w-4 h-4" /> Запази</button>
             <button onClick={() => setEditing(null)} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans"><X className="w-4 h-4" /> Откажи</button>
           </div>
         </div>
@@ -82,10 +117,15 @@ export default function ManageJobs() {
                 {job.active ? <ToggleRight className="w-5 h-5 text-zn-hot" /> : <ToggleLeft className="w-5 h-5" />}
               </button>
               <button onClick={() => { setEditing(job.id); setForm(job); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => { if (confirm('Изтрий?')) deleteJob(job.id); }} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => handleDelete(job.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}
+        {jobs.length === 0 && (
+          <div className="text-center py-12 text-sm font-sans text-gray-400">
+            Няма обяви за работа.
+          </div>
+        )}
       </div>
     </div>
   );

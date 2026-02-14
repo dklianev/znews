@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { MessageCircle, Check, Trash2, XCircle, Eye } from 'lucide-react';
+import { MessageCircle, Check, Trash2, XCircle, Eye, AlertTriangle } from 'lucide-react';
 
 export default function ManageComments() {
   const { comments, articles, updateComment, deleteComment } = useData();
   const [filter, setFilter] = useState('all'); // all | pending | approved
+  const [busyId, setBusyId] = useState(null);
+  const [error, setError] = useState('');
 
   const filtered = filter === 'all' ? comments
     : filter === 'pending' ? comments.filter(c => !c.approved)
@@ -15,9 +17,42 @@ export default function ManageComments() {
 
   const getArticleTitle = (id) => articles.find(a => a.id === id)?.title || `Статия #${id}`;
 
-  const handleApprove = (id) => updateComment(id, { approved: true });
-  const handleReject = (id) => updateComment(id, { approved: false });
-  const handleDelete = async (id) => { if (confirm('Изтрий коментара?')) await deleteComment(id); };
+  const handleApprove = async (id) => {
+    setBusyId(id);
+    setError('');
+    try {
+      await updateComment(id, { approved: true });
+    } catch (e) {
+      setError(e?.message || 'Грешка при одобрение');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleReject = async (id) => {
+    setBusyId(id);
+    setError('');
+    try {
+      await updateComment(id, { approved: false });
+    } catch (e) {
+      setError(e?.message || 'Грешка при скриване');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Изтрий коментара?')) return;
+    setBusyId(id);
+    setError('');
+    try {
+      await deleteComment(id);
+    } catch (e) {
+      setError(e?.message || 'Грешка при изтриване');
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const filterBtn = (value, label, count) => (
     <button
@@ -45,6 +80,13 @@ export default function ManageComments() {
           </p>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-5 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-2 mb-5">
@@ -80,19 +122,19 @@ export default function ManageComments() {
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
               {!comment.approved && (
-                <button onClick={() => handleApprove(comment.id)} className="p-1.5 text-gray-400 hover:text-emerald-600 transition-colors" title="Одобри">
+                <button onClick={() => handleApprove(comment.id)} disabled={busyId === comment.id} className="p-1.5 text-gray-400 hover:text-emerald-600 transition-colors disabled:opacity-50" title="Одобри">
                   <Check className="w-4 h-4" />
                 </button>
               )}
               {comment.approved && (
-                <button onClick={() => handleReject(comment.id)} className="p-1.5 text-gray-400 hover:text-amber-600 transition-colors" title="Скрий">
+                <button onClick={() => handleReject(comment.id)} disabled={busyId === comment.id} className="p-1.5 text-gray-400 hover:text-amber-600 transition-colors disabled:opacity-50" title="Скрий">
                   <XCircle className="w-4 h-4" />
                 </button>
               )}
               <a href={`/article/${comment.articleId}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors" title="Виж статията">
                 <Eye className="w-4 h-4" />
               </a>
-              <button onClick={() => handleDelete(comment.id)} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors" title="Изтрий">
+              <button onClick={() => handleDelete(comment.id)} disabled={busyId === comment.id} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50" title="Изтрий">
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>

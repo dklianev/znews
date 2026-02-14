@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 
 const ICONS = ['📰', '🔫', '🏛️', '💰', '🏆', '👥', '🌑', '🚓', '🎥', '🚨', '⚖️', '💼', '📅', '🗳️', '🎮', '🏎️', '🎵', '🍔'];
 
@@ -8,22 +8,37 @@ export default function ManageCategories() {
   const { categories, addCategory, updateCategory, deleteCategory } = useData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ id: '', name: '', icon: '📰' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSave = async () => {
     if (!form.id || !form.name) return;
-    if (editing === 'new') {
-      await addCategory({ id: form.id.toLowerCase().replace(/\s+/g, '-'), name: form.name, icon: form.icon });
-    } else {
-      await updateCategory(editing, { name: form.name, icon: form.icon });
+    setSaving(true);
+    setError('');
+    try {
+      if (editing === 'new') {
+        await addCategory({ id: form.id.toLowerCase().replace(/\s+/g, '-'), name: form.name, icon: form.icon });
+      } else {
+        await updateCategory(editing, { name: form.name, icon: form.icon });
+      }
+      setEditing(null);
+      setForm({ id: '', name: '', icon: '📰' });
+    } catch (e) {
+      setError(e?.message || 'Грешка при запис на категория');
+    } finally {
+      setSaving(false);
     }
-    setEditing(null);
-    setForm({ id: '', name: '', icon: '📰' });
   };
 
   const handleDelete = async (id) => {
     if (id === 'all') return;
     if (!confirm('Изтрий категорията?')) return;
-    await deleteCategory(id);
+    setError('');
+    try {
+      await deleteCategory(id);
+    } catch (e) {
+      setError(e?.message || 'Грешка при изтриване');
+    }
   };
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
@@ -36,10 +51,17 @@ export default function ManageCategories() {
           <h1 className="text-2xl font-display font-bold text-gray-900">Категории</h1>
           <p className="text-sm font-sans text-gray-500 mt-1">Управление на категории за статиите</p>
         </div>
-        <button onClick={() => { setEditing('new'); setForm({ id: '', name: '', icon: '📰' }); }} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors">
+        <button onClick={() => { setError(''); setEditing('new'); setForm({ id: '', name: '', icon: '📰' }); }} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors">
           <Plus className="w-4 h-4" /> Нова категория
         </button>
       </div>
+
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
 
       {editing && (
         <div className="bg-white border border-gray-200 p-6 mb-6">
@@ -63,8 +85,8 @@ export default function ManageCategories() {
             </div>
           </div>
           <div className="flex gap-2 mt-5">
-            <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold"><Save className="w-4 h-4" /> Запази</button>
-            <button onClick={() => setEditing(null)} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans"><X className="w-4 h-4" /> Откажи</button>
+            <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold disabled:opacity-50"><Save className="w-4 h-4" /> Запази</button>
+            <button onClick={() => { setEditing(null); setError(''); }} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans"><X className="w-4 h-4" /> Откажи</button>
           </div>
         </div>
       )}
@@ -87,7 +109,7 @@ export default function ManageCategories() {
                 <td className="px-4 py-3 text-sm font-sans font-medium text-gray-900">{cat.name}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <button onClick={() => { setEditing(cat.id); setForm(cat); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
+                    <button onClick={() => { setError(''); setEditing(cat.id); setForm(cat); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
                     {cat.id !== 'all' && <button onClick={() => handleDelete(cat.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>}
                   </div>
                 </td>

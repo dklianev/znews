@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 
 const DANGERS = [
   { value: 'high', label: 'Висока опасност', color: 'bg-red-600 text-white' },
@@ -14,15 +14,34 @@ export default function ManageMostWanted() {
   const { wanted, addWanted, updateWanted, deleteWanted } = useData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSave = async () => {
     if (!form.name) return;
-    if (editing === 'new') await addWanted(form);
-    else await updateWanted(editing, form);
-    setEditing(null); setForm(emptyForm);
+    setSaving(true);
+    setError('');
+    try {
+      if (editing === 'new') await addWanted(form);
+      else await updateWanted(editing, form);
+      setEditing(null);
+      setForm(emptyForm);
+    } catch (e) {
+      setError(e?.message || 'Грешка при запис');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = async (id) => { if (confirm('Изтрий?')) await deleteWanted(id); };
+  const handleDelete = async (id) => {
+    if (!confirm('Изтрий?')) return;
+    setError('');
+    try {
+      await deleteWanted(id);
+    } catch (e) {
+      setError(e?.message || 'Грешка при изтриване');
+    }
+  };
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
   const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
@@ -39,6 +58,13 @@ export default function ManageMostWanted() {
         </button>
       </div>
 
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
+
       {editing && (
         <div className="bg-white border border-gray-200 p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -53,7 +79,7 @@ export default function ManageMostWanted() {
             </div>
           </div>
           <div className="flex gap-2 mt-5">
-            <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold"><Save className="w-4 h-4" /> Запази</button>
+            <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold disabled:opacity-50"><Save className="w-4 h-4" /> Запази</button>
             <button onClick={() => setEditing(null)} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans"><X className="w-4 h-4" /> Откажи</button>
           </div>
         </div>
@@ -77,6 +103,11 @@ export default function ManageMostWanted() {
             </div>
           </div>
         ))}
+        {wanted.length === 0 && (
+          <div className="text-center py-12 text-sm font-sans text-gray-400">
+            Няма записи.
+          </div>
+        )}
       </div>
     </div>
   );

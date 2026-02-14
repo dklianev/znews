@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save, ExternalLink, ImageIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, ExternalLink, ImageIcon, AlertTriangle } from 'lucide-react';
 import AdminImageField from '../../components/admin/AdminImageField';
 
 const AD_TYPES = [
@@ -26,21 +26,36 @@ export default function ManageAds() {
   const { ads, addAd, updateAd, deleteAd } = useData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSave = async () => {
     if (!form.title) return;
-    if (editing === 'new') {
-      await addAd(form);
-    } else {
-      await updateAd(editing, form);
+    setSaving(true);
+    setError('');
+    try {
+      if (editing === 'new') {
+        await addAd(form);
+      } else {
+        await updateAd(editing, form);
+      }
+      setEditing(null);
+      setForm(emptyForm);
+    } catch (e) {
+      setError(e?.message || 'Грешка при запис');
+    } finally {
+      setSaving(false);
     }
-    setEditing(null);
-    setForm(emptyForm);
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Изтрий рекламата?')) return;
-    await deleteAd(id);
+    setError('');
+    try {
+      await deleteAd(id);
+    } catch (e) {
+      setError(e?.message || 'Грешка при изтриване');
+    }
   };
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
@@ -54,13 +69,20 @@ export default function ManageAds() {
           <p className="text-sm font-sans text-gray-500 mt-1">Управление на рекламни банери</p>
         </div>
         <button
-          onClick={() => { setEditing('new'); setForm(emptyForm); }}
+          onClick={() => { setError(''); setEditing('new'); setForm(emptyForm); }}
           className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors"
         >
           <Plus className="w-4 h-4" />
           Нова реклама
         </button>
       </div>
+
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
 
       {/* Editor */}
       {editing && (
@@ -152,10 +174,10 @@ export default function ManageAds() {
           </div>
 
           <div className="flex gap-2 mt-5">
-            <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors">
+            <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50">
               <Save className="w-4 h-4" /> Запази
             </button>
-            <button onClick={() => setEditing(null)} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
+            <button onClick={() => { setEditing(null); setError(''); }} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
               <X className="w-4 h-4" /> Откажи
             </button>
           </div>
@@ -203,7 +225,7 @@ export default function ManageAds() {
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => { setEditing(ad.id); setForm(ad); }}
+                  onClick={() => { setError(''); setEditing(ad.id); setForm(ad); }}
                   className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors"
                 >
                   <Pencil className="w-4 h-4" />
