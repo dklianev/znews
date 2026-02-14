@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Crown, Search, Save, X, ExternalLink, Flame, History, RotateCcw } from 'lucide-react';
+import { Crown, Search, Save, X, ExternalLink, Flame, History, RotateCcw, AlertTriangle } from 'lucide-react';
 
 const heroPreviewFallbackImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="800" height="450" fill="#EDE4D0"/><text x="400" y="240" text-anchor="middle" font-family="Oswald,sans-serif" font-size="42" font-weight="900" fill="#C4B49A">LOS SANTOS NEWSWIRE</text></svg>');
 
@@ -33,6 +33,7 @@ export default function ManageHero() {
   const [savingCopy, setSavingCopy] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [restoringHistory, setRestoringHistory] = useState(null);
+  const [error, setError] = useState('');
   const [copyForm, setCopyForm] = useState({
     headline: DEFAULT_COPY.headline,
     shockLabel: DEFAULT_COPY.shockLabel,
@@ -78,7 +79,10 @@ export default function ManageHero() {
     let cancelled = false;
     setLoadingHistory(true);
     loadHeroSettingsRevisions()
-      .catch(() => { })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e?.message || 'Грешка при зареждане на Hero историята');
+      })
       .finally(() => {
         if (!cancelled) setLoadingHistory(false);
       });
@@ -161,12 +165,15 @@ export default function ManageHero() {
 
   const setHero = async (articleId) => {
     setSavingId(articleId);
+    setError('');
     try {
       const currentlyHero = articles.filter(a => a.hero && a.id !== articleId);
       await Promise.all([
         ...currentlyHero.map(a => updateArticle(a.id, { hero: false })),
         updateArticle(articleId, { hero: true, status: 'published' }),
       ]);
+    } catch (e) {
+      setError(e?.message || 'Грешка при запазване на Hero статията');
     } finally {
       setSavingId(null);
     }
@@ -176,8 +183,11 @@ export default function ManageHero() {
     const currentlyHero = articles.filter(a => a.hero);
     if (currentlyHero.length === 0) return;
     setClearing(true);
+    setError('');
     try {
       await Promise.all(currentlyHero.map(a => updateArticle(a.id, { hero: false })));
+    } catch (e) {
+      setError(e?.message || 'Грешка при премахване на Hero статията');
     } finally {
       setClearing(false);
     }
@@ -187,6 +197,7 @@ export default function ManageHero() {
 
   const saveCopy = async () => {
     setSavingCopy(true);
+    setError('');
     try {
       const mainPhotoArticleIdRaw = Number.parseInt(copyForm.mainPhotoArticleId, 10);
       const mainPhotoArticleId = Number.isInteger(mainPhotoArticleIdRaw) && mainPhotoArticleIdRaw > 0
@@ -208,6 +219,8 @@ export default function ManageHero() {
         mainPhotoArticleId,
         photoArticleIds,
       });
+    } catch (e) {
+      setError(e?.message || 'Грешка при запазване на Hero настройките');
     } finally {
       setSavingCopy(false);
     }
@@ -217,8 +230,11 @@ export default function ManageHero() {
     if (!revisionId) return;
     if (!confirm('Да върна тази Hero версия? Текущите незапазени промени ще бъдат заменени.')) return;
     setRestoringHistory(revisionId);
+    setError('');
     try {
       await restoreHeroSettingsRevision(revisionId);
+    } catch (e) {
+      setError(e?.message || 'Грешка при възстановяване на Hero версия');
     } finally {
       setRestoringHistory(null);
     }
@@ -242,6 +258,13 @@ export default function ManageHero() {
           </button>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
 
       <div className="bg-white border border-gray-200 p-5 mb-6">
         <p className={labelCls}>Текущ Hero</p>
@@ -280,8 +303,11 @@ export default function ManageHero() {
           <button
             onClick={async () => {
               setLoadingHistory(true);
+              setError('');
               try {
                 await loadHeroSettingsRevisions();
+              } catch (e) {
+                setError(e?.message || 'Грешка при зареждане на Hero историята');
               } finally {
                 setLoadingHistory(false);
               }

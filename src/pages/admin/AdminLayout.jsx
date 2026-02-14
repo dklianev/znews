@@ -1,7 +1,7 @@
 import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 
 const navItems = [
@@ -34,6 +34,7 @@ export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [globalError, setGlobalError] = useState('');
   const { isDark, toggleDark } = useTheme();
 
   if (!session) {
@@ -44,6 +45,40 @@ export default function AdminLayout() {
     logout();
     navigate('/admin/login');
   };
+
+  useEffect(() => {
+    setGlobalError('');
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const formatReason = (reason) => {
+      if (!reason) return 'Неочаквана грешка';
+      if (typeof reason === 'string') return reason.slice(0, 500);
+      if (typeof reason?.message === 'string') return reason.message.slice(0, 500);
+      try {
+        return JSON.stringify(reason).slice(0, 500);
+      } catch {
+        return 'Неочаквана грешка';
+      }
+    };
+
+    const onUnhandledRejection = (event) => {
+      const message = formatReason(event?.reason);
+      setGlobalError(message);
+    };
+
+    const onWindowError = (event) => {
+      const message = formatReason(event?.error || event?.message);
+      setGlobalError(message);
+    };
+
+    window.addEventListener('unhandledrejection', onUnhandledRejection);
+    window.addEventListener('error', onWindowError);
+    return () => {
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
+      window.removeEventListener('error', onWindowError);
+    };
+  }, []);
 
   const sidebarContent = (
     <>
@@ -158,6 +193,23 @@ export default function AdminLayout() {
 
       {/* Main */}
       <main className="flex-1 min-h-[100dvh] overflow-auto lg:ml-64 mt-14 lg:mt-0">
+        {globalError && (
+          <div className="mx-4 mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm font-sans flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">Грешка</p>
+              <p className="break-words">{globalError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setGlobalError('')}
+              className="p-1 text-red-700 hover:text-red-900"
+              aria-label="Затвори"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Shield, Save, Check, X } from 'lucide-react';
+import { Shield, Save, Check, X, AlertTriangle } from 'lucide-react';
 
 const SECTION_LABELS = {
     articles: 'Статии',
@@ -29,20 +29,21 @@ const ROLE_LABELS = {
 const sections = Object.keys(SECTION_LABELS);
 
 export default function ManagePermissions() {
-    const { permissions, updatePermission, session } = useData();
+    const { permissions, updatePermission, session, hasPermission } = useData();
     const [saving, setSaving] = useState(null);
     const [localPerms, setLocalPerms] = useState(null);
+    const [error, setError] = useState('');
 
     // Use local copy for editing, fall back to fetched data
     const permsToShow = localPerms || permissions;
 
-    if (session?.role !== 'admin') {
+    if (!session || !hasPermission('permissions')) {
         return (
             <div className="p-8">
                 <div className="bg-red-50 border border-red-200 p-6 text-center">
                     <Shield className="w-8 h-8 text-red-500 mx-auto mb-2" />
                     <p className="font-sans text-red-700 font-semibold">Нямате достъп до тази страница</p>
-                    <p className="font-sans text-red-500 text-sm mt-1">Само главният администратор може да управлява правата</p>
+                    <p className="font-sans text-red-500 text-sm mt-1">Нужни са права за управление на permissions</p>
                 </div>
             </div>
         );
@@ -62,13 +63,16 @@ export default function ManagePermissions() {
         const roleObj = permsToShow.find(p => p.role === role);
         if (!roleObj) return;
         setSaving(role);
+        setError('');
         try {
             await updatePermission(role, roleObj.permissions);
+            setLocalPerms(null);
         } catch (e) {
+            setError(e?.message || 'Неуспешен запис на права');
             console.error('Failed to save permissions:', e);
+        } finally {
+            setSaving(null);
         }
-        setSaving(null);
-        setLocalPerms(null);
     };
 
     return (
@@ -79,6 +83,13 @@ export default function ManagePermissions() {
                     <p className="text-sm font-sans text-gray-500 mt-1">Настройте какво може да прави всяка роля</p>
                 </div>
             </div>
+
+            {error && (
+                <div className="mb-4 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span className="break-words">{error}</span>
+                </div>
+            )}
 
             <div className="bg-white border border-gray-200 overflow-x-auto">
                 <table className="w-full min-w-[700px]">

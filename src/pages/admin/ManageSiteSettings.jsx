@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Save, Plus, Trash2, RotateCcw, ShieldAlert, History } from 'lucide-react';
+import { Save, Plus, Trash2, RotateCcw, ShieldAlert, History, AlertTriangle } from 'lucide-react';
 import { COMIC_LAYOUT_PRESET_OPTIONS } from '../../utils/comicCardDesign';
 
 const DEFAULT_SETTINGS = {
@@ -114,10 +114,12 @@ export default function ManageSiteSettings() {
     saveSiteSettings,
     loadSiteSettingsRevisions,
     restoreSiteSettingsRevision,
+    hasPermission,
   } = useData();
   const [form, setForm] = useState(resolveSettings(siteSettings));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [restoringHistory, setRestoringHistory] = useState(null);
 
@@ -126,24 +128,28 @@ export default function ManageSiteSettings() {
   }, [siteSettings]);
 
   useEffect(() => {
-    if (session?.role !== 'admin') return undefined;
+    if (!session?.token) return undefined;
+    if (!hasPermission('permissions')) return undefined;
     let cancelled = false;
     setLoadingHistory(true);
     loadSiteSettingsRevisions()
-      .catch(() => { })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e?.message || 'Грешка при зареждане на Site settings историята');
+      })
       .finally(() => {
         if (!cancelled) setLoadingHistory(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [loadSiteSettingsRevisions, session?.role]);
+  }, [hasPermission, loadSiteSettingsRevisions, session?.token]);
 
   const listSectionCls = 'bg-white border border-gray-200 p-5 space-y-3';
   const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple';
   const tinyLabelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
 
-  const canEdit = useMemo(() => session?.role === 'admin', [session?.role]);
+  const canEdit = useMemo(() => hasPermission('permissions'), [hasPermission]);
 
   const updateListItem = (key, index, field, value) => {
     setForm((prev) => ({
@@ -169,10 +175,14 @@ export default function ManageSiteSettings() {
   const save = async () => {
     setSaving(true);
     setSaved(false);
+    setError('');
     try {
       await saveSiteSettings(form);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setError(e?.message || 'Грешка при запазване на Site настройките');
+      console.error('Failed to save site settings:', e);
     } finally {
       setSaving(false);
     }
@@ -182,8 +192,12 @@ export default function ManageSiteSettings() {
     if (!revisionId) return;
     if (!confirm('Да върна тази Site версия? Текущите незапазени промени ще бъдат заменени.')) return;
     setRestoringHistory(revisionId);
+    setError('');
     try {
       await restoreSiteSettingsRevision(revisionId);
+    } catch (e) {
+      setError(e?.message || 'Грешка при възстановяване на Site версия');
+      console.error('Failed to restore site settings revision:', e);
     } finally {
       setRestoringHistory(null);
     }
@@ -195,7 +209,7 @@ export default function ManageSiteSettings() {
         <div className="bg-red-50 border border-red-200 p-6 text-center">
           <ShieldAlert className="w-8 h-8 text-red-500 mx-auto mb-2" />
           <p className="font-sans text-red-700 font-semibold">Нямате достъп до тази страница</p>
-          <p className="font-sans text-red-500 text-sm mt-1">Site настройките са само за администратор</p>
+          <p className="font-sans text-red-500 text-sm mt-1">Нужни са права за управление на permissions</p>
         </div>
       </div>
     );
@@ -227,6 +241,13 @@ export default function ManageSiteSettings() {
         </div>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <span className="break-words">{error}</span>
+        </div>
+      )}
+
       <section className={listSectionCls}>
         <div className="flex items-center justify-between mb-2">
           <div className="inline-flex items-center gap-2 text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500">
@@ -236,8 +257,12 @@ export default function ManageSiteSettings() {
           <button
             onClick={async () => {
               setLoadingHistory(true);
+              setError('');
               try {
                 await loadSiteSettingsRevisions();
+              } catch (e) {
+                setError(e?.message || 'Грешка при зареждане на Site settings историята');
+                console.error('Failed to load site settings revisions:', e);
               } finally {
                 setLoadingHistory(false);
               }

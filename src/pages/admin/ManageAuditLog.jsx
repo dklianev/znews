@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ClipboardList, Plus, Pencil, Trash2, Filter, Clock } from 'lucide-react';
+import { ClipboardList, Plus, Pencil, Trash2, Filter, Clock, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useData } from '../../context/DataContext';
 
 const ACTION_ICONS = { create: Plus, update: Pencil, delete: Trash2 };
@@ -14,9 +14,10 @@ const RESOURCE_LABELS = {
 };
 
 export default function ManageAuditLog() {
-    const { session } = useData();
+    const { session, hasPermission } = useData();
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
     const [filterResource, setFilterResource] = useState('all');
 
     useEffect(() => {
@@ -28,13 +29,24 @@ export default function ManageAuditLog() {
 
         let cancelled = false;
         setLoading(true);
+        setError('');
         (async () => {
             try {
                 const res = await fetch('/api/audit-log', {
                     headers: { Authorization: `Bearer ${session?.token || ''}` },
                 });
-                if (res.ok && !cancelled) setLogs(await res.json());
-            } catch { }
+                if (!res.ok) {
+                    const payload = await res.json().catch(() => null);
+                    throw new Error(payload?.error || `Audit log failed (${res.status})`);
+                }
+                const data = await res.json();
+                if (!cancelled) setLogs(data);
+            } catch (e) {
+                if (!cancelled) {
+                    setLogs([]);
+                    setError(e?.message || 'Грешка при зареждане на audit log');
+                }
+            }
             if (!cancelled) setLoading(false);
         })();
         return () => {
@@ -46,7 +58,7 @@ export default function ManageAuditLog() {
     const resources = [...new Set(logs.map(l => l.resource))];
 
     return (
-        <div>
+        <div className="p-8">
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                     <ClipboardList className="w-6 h-6 text-zn-purple" />
@@ -66,6 +78,21 @@ export default function ManageAuditLog() {
                     </select>
                 </div>
             </div>
+
+            {!hasPermission('permissions') ? (
+                <div className="bg-red-50 border border-red-200 p-6 text-center">
+                    <ShieldAlert className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                    <p className="font-sans text-red-700 font-semibold">Нямате достъп до тази страница</p>
+                    <p className="font-sans text-red-500 text-sm mt-1">Нужни са права за управление на permissions</p>
+                </div>
+            ) : (
+                <>
+                    {error && (
+                        <div className="mb-4 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+                            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                            <span className="break-words">{error}</span>
+                        </div>
+                    )}
 
             {loading ? (
                 <div className="text-center py-12 text-gray-400">Зареждане...</div>
@@ -119,6 +146,8 @@ export default function ManageAuditLog() {
                         </tbody>
                     </table>
                 </div>
+            )}
+                </>
             )}
         </div>
     );
