@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, ChevronRight, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -15,7 +16,7 @@ const DEFAULT_HERO_SETTINGS = {
   photoArticleIds: [],
 };
 
-export default function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhotoArticle = null }) {
+function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhotoArticle = null }) {
   const { authors, categories, heroSettings } = useData();
   const author = authors.find(a => a.id === article.authorId);
   const category = categories.find(c => c.id === article.category);
@@ -159,3 +160,5 @@ export default function ArticleCard({ article, size = 'normal', siblingArticles 
     </Link>
   );
 }
+
+export default memo(ArticleCard);

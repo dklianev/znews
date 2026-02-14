@@ -107,6 +107,10 @@ app.use((req, res, next) => {
   return res.status(503).json({ error: 'Server is restarting. Please try again shortly.' });
 });
 
+function publicError(error, fallback = 'Server error') {
+  return isProd ? fallback : (error?.message || fallback);
+}
+
 if (isProd && (!rawJwtSecret || rawJwtSecret.length < 32 || rawJwtSecret.toLowerCase().includes('change-me'))) {
   console.error('✗ JWT_SECRET is missing or too weak for production.');
   process.exit(1);
@@ -2556,7 +2560,7 @@ function requirePermission(section) {
       if (await hasPermissionForSection(req.user, section)) return next();
       return res.status(403).json({ error: `Missing permission: ${section}` });
     } catch (e) {
-      return res.status(500).json({ error: e.message });
+      return res.status(500).json({ error: publicError(e) });
     }
   };
 }
@@ -2569,7 +2573,7 @@ function requireAnyPermission(sections) {
       }
       return res.status(403).json({ error: 'Missing permissions' });
     } catch (e) {
-      return res.status(500).json({ error: e.message });
+      return res.status(500).json({ error: publicError(e) });
     }
   };
 }
@@ -2653,7 +2657,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
       });
       res.json(items);
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: publicError(e) });
     }
   });
 
@@ -2673,7 +2677,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
       }).catch(() => { });
       res.status(201).json(obj);
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: publicError(e) });
     }
   });
 
@@ -2697,7 +2701,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
       }).catch(() => { });
       res.json(item.toJSON());
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: publicError(e) });
     }
   });
 
@@ -2717,7 +2721,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
       }).catch(() => { });
       res.json({ ok: true });
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(500).json({ error: publicError(e) });
     }
   });
 
@@ -2783,7 +2787,7 @@ articlesRouter.get('/', async (req, res) => {
       totalPages: Math.max(1, Math.ceil(total / limit)),
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -2819,7 +2823,7 @@ articlesRouter.get('/:id(\\d+)', async (req, res) => {
     delete item.__v;
     return res.json(item);
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -2859,7 +2863,7 @@ articlesRouter.get('/:id/share.png', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=120');
     return res.send(transparentPng1x1);
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -2887,7 +2891,7 @@ articlesRouter.post('/', requireAuth, requirePermission('articles'), async (req,
     await createArticleRevision(id, obj, { source: 'create', user: req.user });
     res.json(obj);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -2919,7 +2923,7 @@ articlesRouter.put('/:id', requireAuth, requirePermission('articles'), async (re
     await createArticleRevision(id, updated, { source: 'update', user: req.user });
     res.json(updated);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -2948,7 +2952,7 @@ articlesRouter.get('/:id/revisions', requireAuth, requirePermission('articles'),
 
     res.json(formatted);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -2973,7 +2977,7 @@ articlesRouter.get('/:id/revisions/:revisionId', requireAuth, requirePermission(
       snapshot: buildArticleSnapshot(revision.snapshot),
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3003,7 +3007,7 @@ articlesRouter.post('/:id/revisions/autosave', requireAuth, requirePermission('a
         : null,
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3041,7 +3045,7 @@ articlesRouter.post('/:id/revisions/restore', requireAuth, requirePermission('ar
 
     res.json(restoredObj);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3065,7 +3069,7 @@ articlesRouter.delete('/:id', requireAuth, requirePermission('articles'), async 
 
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3105,7 +3109,7 @@ articlesRouter.post('/:id/view', async (req, res) => {
     delete item.__v;
     res.json({ ...item, deduped });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3124,7 +3128,7 @@ usersRouter.get('/', requireAuth, requirePermission('profiles'), async (_req, re
     });
     res.json(items);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3161,7 +3165,7 @@ usersRouter.post('/', requireAuth, requireAdmin, async (req, res) => {
     }).catch(() => { });
     res.json(obj);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3219,7 +3223,7 @@ usersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
     res.json(item.toJSON());
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3243,7 +3247,7 @@ usersRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3284,7 +3288,7 @@ commentsRouter.get('/', async (req, res) => {
     items.forEach(i => { delete i._id; delete i.__v; });
     res.json(items);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3336,7 +3340,7 @@ commentsRouter.post('/', commentCreateLimiter, async (req, res) => {
 
     res.status(201).json(item.toJSON());
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3373,7 +3377,7 @@ commentsRouter.put('/:id', requireAuth, requirePermission('comments'), async (re
 
     res.json(item.toJSON());
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3396,7 +3400,7 @@ commentsRouter.delete('/:id', requireAuth, requirePermission('comments'), async 
 
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3417,7 +3421,7 @@ app.get('/api/permissions', requireAuth, async (req, res) => {
     delete own.__v;
     return res.json([own]);
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3430,7 +3434,7 @@ app.put('/api/permissions/:role', requireAuth, requireAdmin, async (req, res) =>
     );
     res.json(perm.toJSON());
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3443,7 +3447,7 @@ catRouter.get('/', async (_req, res) => {
     items.forEach(i => { delete i._id; delete i.__v; });
     res.json(items);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3456,7 +3460,7 @@ catRouter.post('/', requireAuth, requirePermission('categories'), async (req, re
     const item = await Category.create({ id, name, icon });
     res.json(item.toJSON());
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3475,7 +3479,7 @@ catRouter.put('/:id', requireAuth, requirePermission('categories'), async (req, 
     if (!item) return res.status(404).json({ error: 'Not found' });
     res.json(item.toJSON());
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3485,7 +3489,7 @@ catRouter.delete('/:id', requireAuth, requirePermission('categories'), async (re
     await Category.deleteOne({ id: req.params.id });
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3497,7 +3501,7 @@ app.get('/api/breaking', async (_req, res) => {
     const doc = await Breaking.findOne().lean();
     res.json(doc?.items || []);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3510,7 +3514,7 @@ app.put('/api/breaking', requireAuth, requirePermission('breaking'), async (req,
     const doc = await Breaking.create({ items });
     res.json(doc.items);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3520,7 +3524,7 @@ app.get('/api/hero-settings', async (_req, res) => {
     const doc = await HeroSettings.findOne({ key: 'main' }).lean();
     res.json(serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS));
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3546,7 +3550,7 @@ app.put('/api/hero-settings', requireAuth, requirePermission('articles'), async 
 
     res.json(serialized);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3558,7 +3562,7 @@ app.get('/api/hero-settings/revisions', requireAuth, requirePermission('articles
       .lean();
     res.json(formatSettingsRevisionList(revisions));
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3590,7 +3594,7 @@ app.post('/api/hero-settings/revisions/restore', requireAuth, requirePermission(
 
     res.json(serialized);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3602,7 +3606,7 @@ app.get('/api/site-settings/revisions', requireAuth, requireAdmin, async (_req, 
       .lean();
     res.json(formatSettingsRevisionList(revisions));
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3634,7 +3638,7 @@ app.post('/api/site-settings/revisions/restore', requireAuth, requireAdmin, asyn
 
     res.json(serialized);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3644,7 +3648,7 @@ app.get('/api/site-settings', async (_req, res) => {
     const doc = await SiteSettings.findOne({ key: 'main' }).lean();
     res.json(serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS));
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3670,7 +3674,7 @@ app.put('/api/site-settings', requireAuth, requireAdmin, async (req, res) => {
 
     res.json(serialized);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3709,7 +3713,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       accessTokenExpiresIn: Math.floor(accessTokenMaxAgeMs / 1000),
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3755,7 +3759,7 @@ app.post('/api/auth/refresh', async (req, res) => {
     });
   } catch (e) {
     clearRefreshCookie(res);
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3772,7 +3776,7 @@ app.post('/api/auth/logout', async (req, res) => {
     return res.json({ ok: true });
   } catch (e) {
     clearRefreshCookie(res);
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3819,7 +3823,7 @@ app.post('/api/polls/:id/vote', pollVoteLimiter, async (req, res) => {
     delete updated.__v;
     res.json(updated);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3830,7 +3834,7 @@ app.get('/api/audit-log', requireAuth, requireAdmin, async (_req, res) => {
     logs.forEach(l => { delete l._id; delete l.__v; });
     res.json(logs);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3874,7 +3878,7 @@ app.get('/api/backup', requireAuth, requireAdmin, async (_req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=znews-backup-${Date.now()}.json`);
     res.json(data);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3884,7 +3888,7 @@ app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
     await seedAll();
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3930,7 +3934,7 @@ app.get('/api/media', requireAuth, requireAnyPermission(['articles', 'ads', 'gal
     const files = await listMediaFiles();
     res.json(files);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3939,7 +3943,7 @@ app.get('/api/media/pipeline/status', requireAuth, requireAnyPermission(['articl
     const status = await getImagePipelineStatus();
     res.json(status);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3953,7 +3957,7 @@ app.post('/api/media/pipeline/backfill', requireAuth, requireAnyPermission(['art
     const summary = await backfillImagePipeline({ force, limit });
     res.json(summary);
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -3986,7 +3990,7 @@ app.delete('/api/media/:fileName', requireAuth, requireAnyPermission(['articles'
     res.json({ ok: true });
   } catch (e) {
     if (e?.code === 'ENOENT' || isStorageNotFoundError(e)) return res.status(404).json({ error: 'File not found' });
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: publicError(e) });
   }
 });
 

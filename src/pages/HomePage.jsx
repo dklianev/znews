@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import ArticleCard from '../components/ArticleCard';
 import TrendingSidebar from '../components/TrendingSidebar';
@@ -17,6 +18,88 @@ export default function HomePage() {
   const { articles, ads, categories, heroSettings, siteSettings } = useData();
   const layoutPresets = siteSettings?.layoutPresets || {};
 
+  const {
+    heroArticle,
+    featuredArticles,
+    latestArticles,
+    crimeArticles,
+    emergencyArticles,
+    reportageArticles,
+    activeCategories,
+    categoryById,
+    horizontalAds,
+    sideAds,
+    latestShowcase,
+    latestWire,
+    headlineBoardWords,
+    heroPrimaryPhoto,
+    heroSiblings,
+  } = useMemo(() => {
+    const safeArticles = Array.isArray(articles) ? articles : [];
+    const safeCategories = Array.isArray(categories) ? categories : [];
+    const safeAds = Array.isArray(ads) ? ads : [];
+
+    const heroArticle = safeArticles.find(a => a.hero) || safeArticles.find(a => a.breaking) || safeArticles[0] || null;
+    const featuredArticles = heroArticle
+      ? safeArticles.filter(a => a.featured && a.id !== heroArticle.id).slice(0, 3)
+      : [];
+    const latestArticles = heroArticle
+      ? safeArticles.filter(a => a.id !== heroArticle.id && !featuredArticles.find(f => f.id === a.id))
+      : safeArticles;
+
+    const crimeArticles = safeArticles.filter(a => a.category === 'crime' || a.category === 'underground').slice(0, 4);
+    const emergencyArticles = safeArticles.filter(a => a.category === 'emergency').slice(0, 2);
+    const reportageArticles = safeArticles.filter(a => a.category === 'reportage').slice(0, 3);
+    const activeCategories = safeCategories.filter(c => c.id !== 'all');
+    const categoryById = new Map(safeCategories.map(c => [c.id, c.name]));
+
+    const horizontalAds = safeAds.filter(a => a.type === 'horizontal');
+    const sideAds = safeAds.filter(a => a.type === 'side');
+    const latestShowcase = latestArticles.slice(0, 5);
+    const latestWire = latestArticles.slice(5, 13);
+
+    const headlineBoardWords = (heroSettings?.headlineBoardText || 'ШОК И СЕНЗАЦИЯ!')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    /* Hero photos can be manually selected from admin hero settings */
+    const selectedMainPhotoId = Number.parseInt(heroSettings?.mainPhotoArticleId, 10);
+    const selectedMainPhotoArticle = Number.isInteger(selectedMainPhotoId) && selectedMainPhotoId > 0
+      ? safeArticles.find((a) => a.id === selectedMainPhotoId)
+      : null;
+    const heroPrimaryPhoto = selectedMainPhotoArticle || heroArticle;
+
+    const selectedHeroSiblingIds = Array.isArray(heroSettings?.photoArticleIds) ? heroSettings.photoArticleIds : [];
+    const selectedHeroSiblings = selectedHeroSiblingIds
+      .map((id) => safeArticles.find((a) => a.id === id))
+      .filter(Boolean)
+      .filter((a, index, arr) => a.id !== heroPrimaryPhoto?.id && arr.findIndex((x) => x.id === a.id) === index)
+      .slice(0, 2);
+    const autoHeroSiblings = [...featuredArticles, ...latestArticles]
+      .filter((a) => a.id !== heroPrimaryPhoto?.id && a.image)
+      .slice(0, 2);
+    const heroSiblings = [...selectedHeroSiblings, ...autoHeroSiblings.filter((a) => !selectedHeroSiblings.find((s) => s.id === a.id))].slice(0, 2);
+
+    return {
+      heroArticle,
+      featuredArticles,
+      latestArticles,
+      crimeArticles,
+      emergencyArticles,
+      reportageArticles,
+      activeCategories,
+      categoryById,
+      horizontalAds,
+      sideAds,
+      latestShowcase,
+      latestWire,
+      headlineBoardWords,
+      heroPrimaryPhoto,
+      heroSiblings,
+    };
+  }, [articles, ads, categories, heroSettings]);
+
   if (!articles || articles.length === 0) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
@@ -28,25 +111,6 @@ export default function HomePage() {
       </div>
     );
   }
-
-  const heroArticle = articles.find(a => a.hero) || articles.find(a => a.breaking) || articles[0];
-  const featuredArticles = articles.filter(a => a.featured && a.id !== heroArticle.id).slice(0, 3);
-  const latestArticles = articles.filter(a => a.id !== heroArticle.id && !featuredArticles.find(f => f.id === a.id));
-
-  const crimeArticles = articles.filter(a => a.category === 'crime' || a.category === 'underground').slice(0, 4);
-  const emergencyArticles = articles.filter(a => a.category === 'emergency').slice(0, 2);
-  const reportageArticles = articles.filter(a => a.category === 'reportage').slice(0, 3);
-  const activeCategories = categories.filter(c => c.id !== 'all');
-  const categoryById = new Map(categories.map(c => [c.id, c.name]));
-
-  const horizontalAds = ads.filter(a => a.type === 'horizontal');
-  const sideAds = ads.filter(a => a.type === 'side');
-  const latestShowcase = latestArticles.slice(0, 5);
-  const latestWire = latestArticles.slice(5, 13);
-  const headlineBoardWords = (heroSettings?.headlineBoardText || 'ШОК И СЕНЗАЦИЯ!')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
   const latestSlots = [
     { span: 'md:col-span-8 md:row-span-2', tilt: '-1.2deg', sticker: 'Фронт' },
     { span: 'md:col-span-4', tilt: '1deg', sticker: 'Досиe' },
@@ -54,24 +118,6 @@ export default function HomePage() {
     { span: 'md:col-span-4', tilt: '0.8deg', sticker: 'Сигнал' },
     { span: 'md:col-span-8', tilt: '-0.8deg', sticker: 'Ключово' },
   ];
-
-  /* Hero photos can be manually selected from admin hero settings */
-  const selectedMainPhotoId = Number.parseInt(heroSettings?.mainPhotoArticleId, 10);
-  const selectedMainPhotoArticle = Number.isInteger(selectedMainPhotoId) && selectedMainPhotoId > 0
-    ? articles.find((a) => a.id === selectedMainPhotoId)
-    : null;
-  const heroPrimaryPhoto = selectedMainPhotoArticle || heroArticle;
-
-  const selectedHeroSiblingIds = Array.isArray(heroSettings?.photoArticleIds) ? heroSettings.photoArticleIds : [];
-  const selectedHeroSiblings = selectedHeroSiblingIds
-    .map((id) => articles.find((a) => a.id === id))
-    .filter(Boolean)
-    .filter((a, index, arr) => a.id !== heroPrimaryPhoto.id && arr.findIndex((x) => x.id === a.id) === index)
-    .slice(0, 2);
-  const autoHeroSiblings = [...featuredArticles, ...latestArticles]
-    .filter((a) => a.id !== heroPrimaryPhoto.id && a.image)
-    .slice(0, 2);
-  const heroSiblings = [...selectedHeroSiblings, ...autoHeroSiblings.filter((a) => !selectedHeroSiblings.find((s) => s.id === a.id))].slice(0, 2);
 
   return (
     <div className="max-w-6xl mx-auto px-3 md:px-4 py-5 space-y-6">

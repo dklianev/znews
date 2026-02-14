@@ -72,6 +72,42 @@ export default function Navbar() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
+  const searchForm = (
+    <form onSubmit={handleSearch} className="pb-3">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-dim" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Търси горещи новини, скандали..."
+          aria-label="Търсене"
+          autoFocus
+          className="w-full pl-10 pr-4 py-3 bg-zn-bg-warm border-2 border-zn-border text-zn-text placeholder-zn-text-dim font-display text-sm outline-none focus:border-zn-hot uppercase tracking-wide"
+        />
+      </div>
+    </form>
+  );
+
+  const mobileNav = (
+    <div className="pb-3 space-y-0.5">
+      {navLinks.map(link => (
+        <Link
+          key={link.to}
+          to={link.to}
+          onClick={() => setIsOpen(false)}
+          className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 ${
+            location.pathname === link.to
+              ? 'text-zn-hot bg-zn-hot/5'
+              : 'text-zn-text hover:text-zn-hot hover:bg-zn-bg-warm'
+          }`}
+        >
+          {link.label}
+        </Link>
+      ))}
+    </div>
+  );
+
   return (
     <header className="relative z-50 select-none">
       {/* ── GTA SUNSET SKYLINE BANNER ── */}
@@ -146,18 +182,22 @@ export default function Navbar() {
       {/* ── TABLOID CATEGORY PILLS — ROUNDED like the images ── */}
       <div className="relative border-t-4 border-b-4 border-black/20">
         <div className="bg-gradient-to-r from-zn-hot via-zn-purple to-zn-navy">
-          <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-center gap-3 md:gap-5 overflow-x-auto scrollbar-hide">
-            {spotlightLinks.map(({ to, label, Icon, hot, tilt }) => (
-              <Link
-                key={to}
-                to={to}
-                className={`comic-chip whitespace-nowrap ${hot ? 'comic-chip-hot' : ''}`}
-                style={{ '--chip-tilt': tilt }}
-              >
-                <Icon className="w-4 h-4" />
-                <span>{label}</span>
-              </Link>
-            ))}
+          <div className="max-w-6xl mx-auto px-4 py-3 relative">
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-zn-hot to-transparent md:hidden" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-zn-navy to-transparent md:hidden" />
+            <div className="flex items-center justify-center gap-3 md:gap-5 overflow-x-auto scrollbar-hide">
+              {spotlightLinks.map(({ to, label, Icon, hot, tilt }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`comic-chip whitespace-nowrap ${hot ? 'comic-chip-hot' : ''}`}
+                  style={{ '--chip-tilt': tilt }}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{label}</span>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -209,20 +249,7 @@ export default function Navbar() {
             {searchOpen && (
               reduceMotion ? (
                 <div className="overflow-hidden">
-                  <form onSubmit={handleSearch} className="pb-3">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-dim" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Търси горещи новини, скандали..."
-                        aria-label="Търсене"
-                        autoFocus
-                        className="w-full pl-10 pr-4 py-3 bg-zn-bg-warm border-2 border-zn-border text-zn-text placeholder-zn-text-dim font-display text-sm outline-none focus:border-zn-hot uppercase tracking-wide"
-                      />
-                    </div>
-                  </form>
+                  {searchForm}
                 </div>
               ) : (
                 <motion.div
@@ -232,20 +259,7 @@ export default function Navbar() {
                   transition={{ duration: 0.22, ease: 'easeOut' }}
                   className="overflow-hidden"
                 >
-                  <form onSubmit={handleSearch} className="pb-3">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-dim" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Търси горещи новини, скандали..."
-                        aria-label="Търсене"
-                        autoFocus
-                        className="w-full pl-10 pr-4 py-3 bg-zn-bg-warm border-2 border-zn-border text-zn-text placeholder-zn-text-dim font-display text-sm outline-none focus:border-zn-hot uppercase tracking-wide"
-                      />
-                    </div>
-                  </form>
+                  {searchForm}
                 </motion.div>
               )
             )}
@@ -256,22 +270,7 @@ export default function Navbar() {
             {isOpen && (
               reduceMotion ? (
                 <div className="md:hidden overflow-hidden">
-                  <div className="pb-3 space-y-0.5">
-                    {navLinks.map(link => (
-                      <Link
-                        key={link.to}
-                        to={link.to}
-                        onClick={() => setIsOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 ${
-                          location.pathname === link.to
-                            ? 'text-zn-hot bg-zn-hot/5'
-                            : 'text-zn-text hover:text-zn-hot hover:bg-zn-bg-warm'
-                        }`}
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
-                  </div>
+                  {mobileNav}
                 </div>
               ) : (
                 <motion.div
@@ -281,22 +280,7 @@ export default function Navbar() {
                   transition={{ duration: 0.22, ease: 'easeOut' }}
                   className="md:hidden overflow-hidden"
                 >
-                  <div className="pb-3 space-y-0.5">
-                    {navLinks.map(link => (
-                      <Link
-                        key={link.to}
-                        to={link.to}
-                        onClick={() => setIsOpen(false)}
-                        className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 ${
-                          location.pathname === link.to
-                            ? 'text-zn-hot bg-zn-hot/5'
-                            : 'text-zn-text hover:text-zn-hot hover:bg-zn-bg-warm'
-                        }`}
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
-                  </div>
+                  {mobileNav}
                 </motion.div>
               )
             )}
