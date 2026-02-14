@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate }
 import { Suspense, lazy } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider, useData } from './context/DataContext';
-import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import BreakingTicker from './components/BreakingTicker';
 import Footer from './components/Footer';
@@ -112,7 +112,6 @@ function AdminPermissionRoute({ permission, children }) {
 
 function PublicLayout() {
   const location = useLocation();
-  const reduceMotion = useReducedMotion();
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -121,10 +120,10 @@ function PublicLayout() {
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
-            initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
-            transition={reduceMotion ? { duration: 0 } : { duration: 0.25, ease: 'easeOut' }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
           >
             <Suspense fallback={<PublicPageFallback />}>
               <Outlet />
@@ -200,15 +199,13 @@ function AppContent() {
 
 function App() {
   return (
-    <MotionConfig reducedMotion="user">
-      <ThemeProvider>
-        <DataProvider>
-          <ErrorBoundary>
-            <AppContent />
-          </ErrorBoundary>
-        </DataProvider>
-      </ThemeProvider>
-    </MotionConfig>
+    <ThemeProvider>
+      <DataProvider>
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
+      </DataProvider>
+    </ThemeProvider>
   );
 }
 

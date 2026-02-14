@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert } from 'lucide-react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 
@@ -40,7 +40,6 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const reduceMotion = useReducedMotion();
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleDark } = useTheme();
@@ -72,16 +71,12 @@ export default function Navbar() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
-  const Collapsible = reduceMotion ? 'div' : motion.div;
-  const collapsibleMotionProps = reduceMotion ? {} : {
+  const collapsibleMotionProps = {
     initial: { height: 0, opacity: 0 },
     animate: { height: 'auto', opacity: 1 },
     exit: { height: 0, opacity: 0 },
     transition: { duration: 0.22, ease: 'easeOut' },
   };
-
-  const NavIndicator = reduceMotion ? 'span' : motion.span;
-  const navIndicatorProps = reduceMotion ? {} : { layoutId: 'navIndicator' };
 
   const searchForm = (
     <form onSubmit={handleSearch} className="pb-3">
@@ -229,7 +224,7 @@ export default function Navbar() {
                     {link.hot && <span className="comic-main-nav-hot-dot" aria-hidden="true" />}
                     <span>{link.label}</span>
                     {isActive && (
-                      <NavIndicator {...navIndicatorProps} className="comic-main-nav-underline" />
+                      <motion.span layoutId="navIndicator" className="comic-main-nav-underline" />
                     )}
                   </Link>
                 );
@@ -251,18 +246,18 @@ export default function Navbar() {
           {/* Search bar */}
           <AnimatePresence>
             {searchOpen && (
-              <Collapsible {...collapsibleMotionProps} className="overflow-hidden">
+              <motion.div {...collapsibleMotionProps} className="overflow-hidden">
                 {searchForm}
-              </Collapsible>
+              </motion.div>
             )}
           </AnimatePresence>
 
           {/* Mobile nav */}
           <AnimatePresence>
             {isOpen && (
-              <Collapsible {...collapsibleMotionProps} className="md:hidden overflow-hidden">
+              <motion.div {...collapsibleMotionProps} className="md:hidden overflow-hidden">
                 {mobileNav}
-              </Collapsible>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>

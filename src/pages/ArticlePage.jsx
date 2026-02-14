@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { Clock, Eye, ChevronRight } from 'lucide-react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useData } from '../context/DataContext';
 import { AdBannerHorizontal, AdBannerInline, AdBannerSide } from '../components/AdBanner';
 import TrendingSidebar from '../components/TrendingSidebar';
@@ -111,7 +111,6 @@ function ArticlePageSkeleton() {
 export default function ArticlePage() {
   const { id } = useParams();
   const { articles, authors, categories, ads, incrementArticleView, loading, siteSettings } = useData();
-  const reduceMotion = useReducedMotion();
   const articleId = Number.parseInt(id, 10);
   const contextArticle = articles.find(a => a.id === articleId);
   const [directArticle, setDirectArticle] = useState(null);
@@ -365,7 +364,7 @@ export default function ArticlePage() {
   const scrollToSection = (sectionId) => {
     const target = document.getElementById(sectionId);
     if (!target) return;
-    target.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     window.history.replaceState(null, '', `#${sectionId}`);
   };
 
