@@ -13,6 +13,7 @@ const SECTION_LABELS = {
     events: 'Събития',
     polls: 'Анкети',
     comments: 'Коментари',
+    contact: 'Контакти',
     gallery: 'Галерия',
     profiles: 'Профили',
     permissions: 'Права',

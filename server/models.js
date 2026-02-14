@@ -176,6 +176,18 @@ const commentSchema = new mongoose.Schema({
 // Public read path: find({ articleId, approved: true }).sort({ id: -1 })
 commentSchema.index({ articleId: 1, approved: 1, id: -1 }, { name: 'comment_article_approved_id' });
 
+// ─── Contact Messages ───
+const contactMessageSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  name: { type: String, required: true, maxlength: 80 },
+  email: { type: String, required: true, maxlength: 120, index: true },
+  message: { type: String, required: true, maxlength: 4000 },
+  status: { type: String, default: 'new', enum: ['new', 'read', 'archived'], index: true },
+  createdAt: { type: Date, default: Date.now, index: true },
+}, opts);
+
+contactMessageSchema.index({ status: 1, createdAt: -1, id: -1 }, { name: 'contact_status_createdAt_id' });
+
 // ─── Gallery ───
 const gallerySchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
@@ -201,6 +213,7 @@ const permissionSchema = new mongoose.Schema({
     events: { type: Boolean, default: false },
     polls: { type: Boolean, default: false },
     comments: { type: Boolean, default: false },
+    contact: { type: Boolean, default: false },
     gallery: { type: Boolean, default: false },
     profiles: { type: Boolean, default: false },
     permissions: { type: Boolean, default: false },
@@ -357,6 +370,7 @@ export const Court = mongoose.model('Court', courtSchema);
 export const Event = mongoose.model('Event', eventSchema);
 export const Poll = mongoose.model('Poll', pollSchema);
 export const Comment = mongoose.model('Comment', commentSchema);
+export const ContactMessage = mongoose.model('ContactMessage', contactMessageSchema);
 export const Gallery = mongoose.model('Gallery', gallerySchema);
 export const Permission = mongoose.model('Permission', permissionSchema);
 export const HeroSettings = mongoose.model('HeroSettings', heroSettingsSchema);

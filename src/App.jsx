@@ -43,6 +43,7 @@ const ManageGallery = lazy(() => import('./pages/admin/ManageGallery'));
 const ManagePermissions = lazy(() => import('./pages/admin/ManagePermissions'));
 const ManageAuditLog = lazy(() => import('./pages/admin/ManageAuditLog'));
 const ManageSiteSettings = lazy(() => import('./pages/admin/ManageSiteSettings'));
+const ManageContactMessages = lazy(() => import('./pages/admin/ManageContactMessages'));
 
 // ─── Inline loading fallback ───
 function PageFallback() {
@@ -173,6 +174,7 @@ function AppContent() {
           <Route path="events" element={<AdminPermissionRoute permission="events"><Suspense fallback={<PageFallback />}><ManageEvents /></Suspense></AdminPermissionRoute>} />
           <Route path="polls" element={<AdminPermissionRoute permission="polls"><Suspense fallback={<PageFallback />}><ManagePolls /></Suspense></AdminPermissionRoute>} />
           <Route path="comments" element={<AdminPermissionRoute permission="comments"><Suspense fallback={<PageFallback />}><ManageComments /></Suspense></AdminPermissionRoute>} />
+          <Route path="contact" element={<AdminPermissionRoute permission="contact"><Suspense fallback={<PageFallback />}><ManageContactMessages /></Suspense></AdminPermissionRoute>} />
           <Route path="gallery" element={<AdminPermissionRoute permission="gallery"><Suspense fallback={<PageFallback />}><ManageGallery /></Suspense></AdminPermissionRoute>} />
           <Route path="permissions" element={<AdminPermissionRoute permission="permissions"><Suspense fallback={<PageFallback />}><ManagePermissions /></Suspense></AdminPermissionRoute>} />
           <Route path="site-settings" element={<AdminPermissionRoute permission="permissions"><Suspense fallback={<PageFallback />}><ManageSiteSettings /></Suspense></AdminPermissionRoute>} />

@@ -268,6 +268,17 @@ export const api = {
     }),
   },
   comments: crudEndpoints('comments'),
+
+  contactMessages: {
+    submit: (data) => request('/contact-messages', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+    getAll: (params) => request(`/contact-messages${toQuery(params)}`),
+    update: (id, data) => request(`/contact-messages/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => request(`/contact-messages/${id}`, { method: 'DELETE' }),
+  },
+
   gallery: crudEndpoints('gallery'),
 
   media: {

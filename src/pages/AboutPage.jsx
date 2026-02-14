@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
-import { Mail, Phone, MapPin, Users, Award, Newspaper, Shield, CheckCircle } from 'lucide-react';
+import { Mail, Phone, MapPin, Users, Award, Newspaper, Shield, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { useState } from 'react';
+import { api } from '../utils/api';
 
 const AVATAR_COLORS = ['bg-zn-hot', 'bg-zn-purple', 'bg-blue-700', 'bg-emerald-700', 'bg-amber-700', 'bg-violet-700', 'bg-rose-700', 'bg-teal-700'];
 const DEFAULT_ABOUT = {
@@ -27,16 +28,29 @@ export default function AboutPage() {
   const { authors, siteSettings } = useData();
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [contactSent, setContactSent] = useState(false);
+  const [contactSending, setContactSending] = useState(false);
+  const [contactError, setContactError] = useState('');
   const about = { ...DEFAULT_ABOUT, ...(siteSettings?.about || {}) };
   const contact = { ...DEFAULT_CONTACT, ...(siteSettings?.contact || {}) };
   const adPlans = Array.isArray(about.adPlans) && about.adPlans.length > 0 ? about.adPlans : DEFAULT_ABOUT.adPlans;
 
-  const handleContactSubmit = (e) => {
+  const handleContactSubmit = async (e) => {
     e.preventDefault();
     if (!contactForm.name || !contactForm.email || !contactForm.message) return;
-    setContactSent(true);
-    setContactForm({ name: '', email: '', message: '' });
-    setTimeout(() => setContactSent(false), 5000);
+    if (contactSending) return;
+
+    setContactSending(true);
+    setContactError('');
+    try {
+      await api.contactMessages.submit(contactForm);
+      setContactSent(true);
+      setContactForm({ name: '', email: '', message: '' });
+      setTimeout(() => setContactSent(false), 5000);
+    } catch (err) {
+      setContactError(err?.message || 'Неуспешно изпращане. Опитай пак.');
+    } finally {
+      setContactSending(false);
+    }
   };
 
   return (
@@ -147,6 +161,12 @@ export default function AboutPage() {
                 Съобщението е изпратено!
               </div>
             )}
+            {contactError && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 border-2 border-red-200 text-red-800 text-sm font-display font-bold uppercase tracking-wider" role="alert">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span className="break-words">{contactError}</span>
+              </div>
+            )}
             <input
               type="text"
               placeholder="Име"
@@ -171,7 +191,9 @@ export default function AboutPage() {
               required
               className="w-full px-4 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple resize-none transition-colors"
             />
-            <button className="btn-primary w-full">Изпрати</button>
+            <button disabled={contactSending} className="btn-primary w-full disabled:opacity-60">
+              {contactSending ? 'Изпращане...' : 'Изпрати'}
+            </button>
           </form>
         </div>
       </section>

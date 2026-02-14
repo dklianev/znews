@@ -1,6 +1,6 @@
 import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
-import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3 } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3, Mail } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -22,6 +22,7 @@ const navItems = [
   { to: '/admin/polls', label: 'Анкети', icon: BarChart3, permission: 'polls' },
   { type: 'divider', label: 'Медия & Общност' },
   { to: '/admin/comments', label: 'Коментари', icon: MessageCircle, permission: 'comments' },
+  { to: '/admin/contact', label: 'Запитвания', icon: Mail, permission: 'contact' },
   { to: '/admin/gallery', label: 'Галерия', icon: Image, permission: 'gallery' },
   { type: 'divider', label: 'Администрация' },
   { to: '/admin/site-settings', label: 'Site настройки', icon: SlidersHorizontal, permission: 'permissions' },
