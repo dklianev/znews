@@ -72,6 +72,17 @@ export default function Navbar() {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
+  const Collapsible = reduceMotion ? 'div' : motion.div;
+  const collapsibleMotionProps = reduceMotion ? {} : {
+    initial: { height: 0, opacity: 0 },
+    animate: { height: 'auto', opacity: 1 },
+    exit: { height: 0, opacity: 0 },
+    transition: { duration: 0.22, ease: 'easeOut' },
+  };
+
+  const NavIndicator = reduceMotion ? 'span' : motion.span;
+  const navIndicatorProps = reduceMotion ? {} : { layoutId: 'navIndicator' };
+
   const searchForm = (
     <form onSubmit={handleSearch} className="pb-3">
       <div className="relative">
@@ -218,14 +229,7 @@ export default function Navbar() {
                     {link.hot && <span className="comic-main-nav-hot-dot" aria-hidden="true" />}
                     <span>{link.label}</span>
                     {isActive && (
-                      reduceMotion ? (
-                        <span className="comic-main-nav-underline" />
-                      ) : (
-                        <motion.span
-                          layoutId="navIndicator"
-                          className="comic-main-nav-underline"
-                        />
-                      )
+                      <NavIndicator {...navIndicatorProps} className="comic-main-nav-underline" />
                     )}
                   </Link>
                 );
@@ -247,42 +251,18 @@ export default function Navbar() {
           {/* Search bar */}
           <AnimatePresence>
             {searchOpen && (
-              reduceMotion ? (
-                <div className="overflow-hidden">
-                  {searchForm}
-                </div>
-              ) : (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="overflow-hidden"
-                >
-                  {searchForm}
-                </motion.div>
-              )
+              <Collapsible {...collapsibleMotionProps} className="overflow-hidden">
+                {searchForm}
+              </Collapsible>
             )}
           </AnimatePresence>
 
           {/* Mobile nav */}
           <AnimatePresence>
             {isOpen && (
-              reduceMotion ? (
-                <div className="md:hidden overflow-hidden">
-                  {mobileNav}
-                </div>
-              ) : (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.22, ease: 'easeOut' }}
-                  className="md:hidden overflow-hidden"
-                >
-                  {mobileNav}
-                </motion.div>
-              )
+              <Collapsible {...collapsibleMotionProps} className="md:hidden overflow-hidden">
+                {mobileNav}
+              </Collapsible>
             )}
           </AnimatePresence>
         </div>
