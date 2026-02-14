@@ -407,7 +407,12 @@ export function DataProvider({ children }) {
     if (!session) return false;
     if (session.role === 'admin') return true; // admin always has all permissions
     const rolePerm = permissions.find(p => p.role === session.role);
-    return rolePerm?.permissions?.[section] ?? false;
+    if (!rolePerm?.permissions) return false;
+
+    const has = (key) => Boolean(rolePerm.permissions?.[key]);
+    if (Array.isArray(section)) return section.some(has);
+    if (typeof section === 'string') return has(section);
+    return false;
   }, [session, permissions]);
 
   const updatePermission = useCallback(async (role, perms) => {

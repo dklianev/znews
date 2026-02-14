@@ -9,7 +9,7 @@ const navItems = [
   { to: '/admin/profiles', label: 'Профили', icon: Users, permission: 'profiles' },
   { to: '/admin/articles', label: 'Статии', icon: FileText, permission: 'articles' },
   { to: '/admin/editorial-queue', label: 'Editorial Queue', icon: Clock3, permission: 'articles' },
-  { to: '/admin/media', label: 'Media Library', icon: Image, permission: 'articles' },
+  { to: '/admin/media', label: 'Media Library', icon: Image, permission: ['articles', 'ads', 'gallery', 'events'] },
   { to: '/admin/hero', label: 'Hero секция', icon: Crown, permission: 'articles' },
   { to: '/admin/categories', label: 'Категории', icon: FolderOpen, permission: 'categories' },
   { to: '/admin/ads', label: 'Реклами', icon: Megaphone, permission: 'ads' },

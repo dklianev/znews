@@ -163,7 +163,7 @@ function AppContent() {
           <Route path="profiles" element={<AdminPermissionRoute permission="profiles"><Suspense fallback={<PageFallback />}><ManageProfiles /></Suspense></AdminPermissionRoute>} />
           <Route path="articles" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><ManageArticles /></Suspense></AdminPermissionRoute>} />
           <Route path="editorial-queue" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><EditorialQueue /></Suspense></AdminPermissionRoute>} />
-          <Route path="media" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><ManageMedia /></Suspense></AdminPermissionRoute>} />
+          <Route path="media" element={<AdminPermissionRoute permission={['articles', 'ads', 'gallery', 'events']}><Suspense fallback={<PageFallback />}><ManageMedia /></Suspense></AdminPermissionRoute>} />
           <Route path="ads" element={<AdminPermissionRoute permission="ads"><Suspense fallback={<PageFallback />}><ManageAds /></Suspense></AdminPermissionRoute>} />
           <Route path="hero" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><ManageHero /></Suspense></AdminPermissionRoute>} />
           <Route path="breaking" element={<AdminPermissionRoute permission="breaking"><Suspense fallback={<PageFallback />}><ManageBreaking /></Suspense></AdminPermissionRoute>} />

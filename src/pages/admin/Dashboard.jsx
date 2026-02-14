@@ -24,9 +24,14 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function Dashboard() {
-  const { articles, authors, ads, wanted, jobs, court, events, polls, comments, gallery, categories, users, resetAll, session } = useData();
+  const { articles, authors, ads, wanted, jobs, court, events, polls, comments, gallery, categories, users, resetAll, session, hasPermission } = useData();
   const [resetting, setResetting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [adminActionError, setAdminActionError] = useState('');
+
+  const isAdmin = session?.role === 'admin';
+  const canSeeAnalytics = hasPermission('articles');
+  const canSeeTeam = hasPermission('profiles');
 
   const totalViews = articles.reduce((sum, a) => sum + (a.views || 0), 0);
   const pendingComments = comments.filter(c => !c.approved).length;
@@ -78,28 +83,62 @@ export default function Dashboard() {
 
   // ─── Stat cards ──────────────────────
   const stats = [
-    { label: 'Статии', value: articles.length, icon: FileText, color: 'bg-zn-purple', to: '/admin/articles' },
-    { label: 'Преглеждания', value: totalViews.toLocaleString(), icon: Eye, color: 'bg-amber-600', to: null },
-    { label: 'Коментари', value: comments.length, icon: MessageCircle, color: 'bg-zn-hot', badge: pendingComments > 0 ? `${pendingComments} чакащи` : null, to: '/admin/comments' },
-    { label: 'Галерия', value: gallery.length, icon: Image, color: 'bg-blue-500', to: '/admin/gallery' },
+    { label: 'Статии', value: articles.length, icon: FileText, color: 'bg-zn-purple', to: '/admin/articles', permission: 'articles' },
+    { label: 'Преглеждания', value: totalViews.toLocaleString(), icon: Eye, color: 'bg-amber-600', to: null, permission: 'articles' },
+    { label: 'Коментари', value: comments.length, icon: MessageCircle, color: 'bg-zn-hot', badge: pendingComments > 0 ? `${pendingComments} чакащи` : null, to: '/admin/comments', permission: 'comments' },
+    { label: 'Галерия', value: gallery.length, icon: Image, color: 'bg-blue-500', to: '/admin/gallery', permission: 'gallery' },
   ];
 
   const rpStats = [
-    { label: 'Издирвани', value: wanted.length, icon: Crosshair, color: 'bg-red-600', to: '/admin/wanted' },
-    { label: 'Обяви работа', value: jobs.length, icon: Briefcase, color: 'bg-emerald-600', to: '/admin/jobs' },
-    { label: 'Съдебни дела', value: court.length, icon: Scale, color: 'bg-violet-600', to: '/admin/court' },
-    { label: 'Събития', value: events.length, icon: CalendarDays, color: 'bg-blue-600', to: '/admin/events' },
-    { label: 'Анкети', value: polls.length, icon: BarChart3, color: 'bg-pink-600', to: '/admin/polls' },
+    { label: 'Издирвани', value: wanted.length, icon: Crosshair, color: 'bg-red-600', to: '/admin/wanted', permission: 'wanted' },
+    { label: 'Обяви работа', value: jobs.length, icon: Briefcase, color: 'bg-emerald-600', to: '/admin/jobs', permission: 'jobs' },
+    { label: 'Съдебни дела', value: court.length, icon: Scale, color: 'bg-violet-600', to: '/admin/court', permission: 'court' },
+    { label: 'Събития', value: events.length, icon: CalendarDays, color: 'bg-blue-600', to: '/admin/events', permission: 'events' },
+    { label: 'Анкети', value: polls.length, icon: BarChart3, color: 'bg-pink-600', to: '/admin/polls', permission: 'polls' },
   ];
+
+  const visibleStats = stats.filter(stat => !stat.permission || hasPermission(stat.permission));
+  const visibleRpStats = rpStats.filter(stat => !stat.permission || hasPermission(stat.permission));
 
   const recentArticles = [...articles].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
 
+  const handleExport = async () => {
+    if (!isAdmin) return;
+    setAdminActionError('');
+    setExporting(true);
+    try {
+      const token = session?.token;
+      if (!token) throw new Error('Missing session token');
+      const res = await fetch('/api/backup', { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        throw new Error(payload?.error || `Backup failed (${res.status})`);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `znews-backup-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setAdminActionError(e?.message || 'Export failed');
+      console.error('Export failed:', e);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleReset = async () => {
+    if (!isAdmin) return;
+    setAdminActionError('');
     if (!confirm('Сигурен ли си? Това ще изтрие ВСИЧКИ данни и ще зареди началните стойности!')) return;
     setResetting(true);
     try {
       await resetAll();
     } catch (err) {
+      setAdminActionError(err?.message || 'Reset failed');
       console.error('Reset failed:', err);
     } finally {
       setResetting(false);
@@ -113,76 +152,79 @@ export default function Dashboard() {
           <h1 className="text-2xl font-display font-bold text-gray-900">Табло</h1>
           <p className="text-sm font-sans text-gray-500 mt-1">Обобщение на Los Santos News CMS</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={async () => {
-              setExporting(true);
-              try {
-                const token = session?.token;
-                if (!token) throw new Error('Missing session token');
-                const res = await fetch('/api/backup', { headers: { Authorization: `Bearer ${token}` } });
-                if (res.ok) {
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `znews-backup-${Date.now()}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }
-              } catch (e) { console.error('Export failed:', e); }
-              setExporting(false);
-            }}
-            disabled={exporting}
-            className="flex items-center gap-2 px-4 py-2 border border-emerald-200 text-emerald-600 text-sm font-sans font-medium hover:bg-emerald-50 transition-colors disabled:opacity-50"
-          >
-            <Download className={`w-4 h-4 ${exporting ? 'animate-bounce' : ''}`} /> Бекъп
-          </button>
-          <button onClick={handleReset} disabled={resetting} className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 text-sm font-sans font-medium hover:bg-red-50 transition-colors disabled:opacity-50">
-            <RotateCcw className={`w-4 h-4 ${resetting ? 'animate-spin' : ''}`} /> Нулирай данни
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="flex gap-2">
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-2 border border-emerald-200 text-emerald-600 text-sm font-sans font-medium hover:bg-emerald-50 transition-colors disabled:opacity-50"
+            >
+              <Download className={`w-4 h-4 ${exporting ? 'animate-bounce' : ''}`} /> Бекъп
+            </button>
+            <button onClick={handleReset} disabled={resetting} className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 text-sm font-sans font-medium hover:bg-red-50 transition-colors disabled:opacity-50">
+              <RotateCcw className={`w-4 h-4 ${resetting ? 'animate-spin' : ''}`} /> Нулирай данни
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {stats.map(stat => {
-          const Inner = (
-            <div className="bg-white border border-gray-200 p-5 flex items-center gap-4 hover:shadow-sm transition-shadow">
-              <div className={`${stat.color} w-12 h-12 flex items-center justify-center text-white shrink-0`}>
-                <stat.icon className="w-6 h-6" />
+      {adminActionError && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm font-sans">
+          {adminActionError}
+        </div>
+      )}
+
+      {visibleStats.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {visibleStats.map(stat => {
+            const Inner = (
+              <div className="bg-white border border-gray-200 p-5 flex items-center gap-4 hover:shadow-sm transition-shadow">
+                <div className={`${stat.color} w-12 h-12 flex items-center justify-center text-white shrink-0`}>
+                  <stat.icon className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-2xl font-display font-bold text-gray-900">{stat.value}</p>
+                  <p className="text-xs font-sans text-gray-500 uppercase tracking-wider">{stat.label}</p>
+                  {stat.badge && <span className="text-[10px] font-sans text-amber-600 font-semibold">{stat.badge}</span>}
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-display font-bold text-gray-900">{stat.value}</p>
-                <p className="text-xs font-sans text-gray-500 uppercase tracking-wider">{stat.label}</p>
-                {stat.badge && <span className="text-[10px] font-sans text-amber-600 font-semibold">{stat.badge}</span>}
-              </div>
-            </div>
-          );
-          return stat.to ? <Link key={stat.label} to={stat.to}>{Inner}</Link> : <div key={stat.label}>{Inner}</div>;
-        })}
-      </div>
+            );
+            return stat.to ? <Link key={stat.label} to={stat.to}>{Inner}</Link> : <div key={stat.label}>{Inner}</div>;
+          })}
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 p-5 text-sm font-sans text-gray-600 mb-6">
+          Нямаш активни права за секции. Свържи се с администратор.
+        </div>
+      )}
 
       {/* RP Stats */}
-      <div className="mb-3">
-        <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-gray-400">RP Секции</p>
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-        {rpStats.map(stat => (
-          <Link key={stat.label} to={stat.to} className="bg-white border border-gray-200 p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
-            <div className={`${stat.color} w-9 h-9 flex items-center justify-center text-white shrink-0`}>
-              <stat.icon className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xl font-display font-bold text-gray-900">{stat.value}</p>
-              <p className="text-[10px] font-sans text-gray-500 uppercase tracking-wider">{stat.label}</p>
-            </div>
-          </Link>
-        ))}
-      </div>
+      {visibleRpStats.length > 0 && (
+        <>
+          <div className="mb-3">
+            <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-gray-400">RP Секции</p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+            {visibleRpStats.map(stat => (
+              <Link key={stat.label} to={stat.to} className="bg-white border border-gray-200 p-4 flex items-center gap-3 hover:shadow-sm transition-shadow">
+                <div className={`${stat.color} w-9 h-9 flex items-center justify-center text-white shrink-0`}>
+                  <stat.icon className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xl font-display font-bold text-gray-900">{stat.value}</p>
+                  <p className="text-[10px] font-sans text-gray-500 uppercase tracking-wider">{stat.label}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
 
-      {/* ─── Charts Row 1 ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      {canSeeAnalytics && (
+        <>
+          {/* ─── Charts Row 1 ─── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Articles by Category — Bar */}
         <div className="lg:col-span-2 bg-white border border-gray-200 p-5">
           <h2 className="font-sans font-semibold text-gray-900 mb-1">Статии по категория</h2>
@@ -230,10 +272,10 @@ export default function Dashboard() {
             </PieChart>
           </ResponsiveContainer>
         </div>
-      </div>
+          </div>
 
-      {/* ─── Charts Row 2 ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* ─── Charts Row 2 ─── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Top Articles by Views — Area */}
         <div className="bg-white border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-1">
@@ -300,54 +342,68 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-      </div>
+          </div>
+        </>
+      )}
 
       {/* ─── Bottom Row ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent articles */}
-        <div className="bg-white border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-sans font-semibold text-gray-900">Последни статии</h2>
-            <Link to="/admin/articles" className="text-xs font-sans text-zn-hot hover:underline">Виж всички →</Link>
-          </div>
-          <div className="space-y-3">
-            {recentArticles.map(article => (
-              <div key={article.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                <div className="min-w-0 flex-1 mr-3">
-                  <p className="text-sm font-sans font-medium text-gray-900 truncate">{article.title}</p>
-                  <p className="text-xs font-sans text-gray-400">{article.date} · {article.category}</p>
-                </div>
-                <span className="text-xs font-sans text-gray-400 shrink-0">{(article.views || 0).toLocaleString()} 👁</span>
+      {(canSeeAnalytics || canSeeTeam) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent articles */}
+          {canSeeAnalytics && (
+            <div className={`bg-white border border-gray-200 p-5 ${!canSeeTeam ? 'lg:col-span-2' : ''}`}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-sans font-semibold text-gray-900">Последни статии</h2>
+                <Link to="/admin/articles" className="text-xs font-sans text-zn-hot hover:underline">Виж всички →</Link>
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="space-y-3">
+                {recentArticles.map(article => (
+                  <div key={article.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                    <div className="min-w-0 flex-1 mr-3">
+                      <p className="text-sm font-sans font-medium text-gray-900 truncate">{article.title}</p>
+                      <p className="text-xs font-sans text-gray-400">{article.date} · {article.category}</p>
+                    </div>
+                    <span className="text-xs font-sans text-gray-400 shrink-0">{(article.views || 0).toLocaleString()} 👁</span>
+                  </div>
+                ))}
+                {recentArticles.length === 0 && (
+                  <p className="text-sm font-sans text-gray-400 text-center py-4">Няма данни</p>
+                )}
+              </div>
+            </div>
+          )}
 
-        {/* Team */}
-        <div className="bg-white border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-sans font-semibold text-gray-900">Екип</h2>
-            <Link to="/admin/profiles" className="text-xs font-sans text-zn-hot hover:underline">Управлявай →</Link>
-          </div>
-          <div className="space-y-3">
-            {users.map(user => (
-              <div key={user.id} className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
-                <div className="w-9 h-9 bg-gray-100 flex items-center justify-center text-lg rounded-full">
-                  {user.avatar || '👤'}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-sans font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs font-sans text-gray-400">{user.profession || user.role}</p>
-                </div>
-                <span className={`px-2 py-0.5 text-[10px] font-sans font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-zn-purple text-white' : 'bg-gray-100 text-gray-600'
-                  }`}>
-                  {user.role}
-                </span>
+          {/* Team */}
+          {canSeeTeam && (
+            <div className={`bg-white border border-gray-200 p-5 ${!canSeeAnalytics ? 'lg:col-span-2' : ''}`}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-sans font-semibold text-gray-900">Екип</h2>
+                <Link to="/admin/profiles" className="text-xs font-sans text-zn-hot hover:underline">Управлявай →</Link>
               </div>
-            ))}
-          </div>
+              <div className="space-y-3">
+                {users.map(user => (
+                  <div key={user.id} className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+                    <div className="w-9 h-9 bg-gray-100 flex items-center justify-center text-lg rounded-full">
+                      {user.avatar || '👤'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-sans font-medium text-gray-900">{user.name}</p>
+                      <p className="text-xs font-sans text-gray-400">{user.profession || user.role}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 text-[10px] font-sans font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-zn-purple text-white' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                      {user.role}
+                    </span>
+                  </div>
+                ))}
+                {users.length === 0 && (
+                  <p className="text-sm font-sans text-gray-400 text-center py-4">Няма данни</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

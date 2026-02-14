@@ -2541,6 +2541,37 @@ async function hasPermissionForSection(user, section) {
   return Boolean(rolePerm?.permissions?.[section]);
 }
 
+async function isKnownRole(role) {
+  const normalized = normalizeText(role, 32);
+  if (!normalized) return false;
+  if (normalized === 'admin') return true;
+  return Boolean(await Permission.exists({ role: normalized }));
+}
+
+const PERMISSION_KEYS = Object.freeze([
+  'articles',
+  'categories',
+  'ads',
+  'breaking',
+  'wanted',
+  'jobs',
+  'court',
+  'events',
+  'polls',
+  'comments',
+  'gallery',
+  'profiles',
+  'permissions',
+]);
+
+function sanitizePermissionMap(value) {
+  const src = value && typeof value === 'object' ? value : {};
+  return PERMISSION_KEYS.reduce((acc, key) => {
+    acc[key] = Boolean(src[key]);
+    return acc;
+  }, {});
+}
+
 // ─── Auth / Authorization Middleware ───
 function requireAuth(req, res, next) {
   const decoded = decodeTokenFromRequest(req);
@@ -3142,13 +3173,18 @@ usersRouter.post('/', requireAuth, requireAdmin, async (req, res) => {
     const existing = await User.findOne({ username }).lean();
     if (existing) return res.status(409).json({ error: 'Username already exists' });
 
+    const role = normalizeText(req.body.role, 32) || 'reporter';
+    if (!(await isKnownRole(role))) {
+      return res.status(400).json({ error: 'Unknown role' });
+    }
+
     const id = await nextNumericId(User);
     const item = await User.create({
       id,
       username,
       password: await bcrypt.hash(password, 10),
       name: normalizeText(req.body.name, 80),
-      role: normalizeText(req.body.role, 32) || 'reporter',
+      role,
       profession: normalizeText(req.body.profession, 120),
       avatar: normalizeText(req.body.avatar, 16) || '👤',
       createdAt: sanitizeDate(req.body.createdAt),
@@ -3191,6 +3227,7 @@ usersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     if (hasOwn(req.body, 'role')) {
       const role = normalizeText(req.body.role, 32);
       if (!role) return res.status(400).json({ error: 'Invalid role' });
+      if (!(await isKnownRole(role))) return res.status(400).json({ error: 'Unknown role' });
       if (id === 1 && role !== 'admin') {
         return res.status(403).json({ error: 'Cannot downgrade main admin account' });
       }
@@ -3409,7 +3446,9 @@ app.use('/api/comments', commentsRouter);
 // ─── Permissions API ───
 app.get('/api/permissions', requireAuth, async (req, res) => {
   try {
-    if (req.user.role === 'admin') {
+    const canManage = req.user.role === 'admin' || await hasPermissionForSection(req.user, 'permissions');
+
+    if (canManage) {
       const perms = await Permission.find().lean();
       perms.forEach(p => { delete p._id; delete p.__v; });
       return res.json(perms);
@@ -3425,11 +3464,15 @@ app.get('/api/permissions', requireAuth, async (req, res) => {
   }
 });
 
-app.put('/api/permissions/:role', requireAuth, requireAdmin, async (req, res) => {
+app.put('/api/permissions/:role', requireAuth, requirePermission('permissions'), async (req, res) => {
   try {
+    const role = normalizeText(req.params.role, 32);
+    if (!role) return res.status(400).json({ error: 'Invalid role' });
+
+    const permissions = sanitizePermissionMap(req.body?.permissions);
     const perm = await Permission.findOneAndUpdate(
-      { role: req.params.role },
-      { $set: { permissions: req.body.permissions } },
+      { role },
+      { $set: { permissions } },
       { new: true, upsert: true }
     );
     res.json(perm.toJSON());
@@ -3598,7 +3641,7 @@ app.post('/api/hero-settings/revisions/restore', requireAuth, requirePermission(
   }
 });
 
-app.get('/api/site-settings/revisions', requireAuth, requireAdmin, async (_req, res) => {
+app.get('/api/site-settings/revisions', requireAuth, requirePermission('permissions'), async (_req, res) => {
   try {
     const revisions = await SettingsRevision.find({ scope: 'site' })
       .sort({ createdAt: -1 })
@@ -3610,7 +3653,7 @@ app.get('/api/site-settings/revisions', requireAuth, requireAdmin, async (_req, 
   }
 });
 
-app.post('/api/site-settings/revisions/restore', requireAuth, requireAdmin, async (req, res) => {
+app.post('/api/site-settings/revisions/restore', requireAuth, requirePermission('permissions'), async (req, res) => {
   try {
     const revisionId = normalizeText(req.body?.revisionId, 80);
     if (!revisionId) return res.status(400).json({ error: 'revisionId is required' });
@@ -3652,7 +3695,7 @@ app.get('/api/site-settings', async (_req, res) => {
   }
 });
 
-app.put('/api/site-settings', requireAuth, requireAdmin, async (req, res) => {
+app.put('/api/site-settings', requireAuth, requirePermission('permissions'), async (req, res) => {
   try {
     const settings = sanitizeSiteSettingsPayload(req.body);
     const updated = await SiteSettings.findOneAndUpdate(
@@ -3828,7 +3871,7 @@ app.post('/api/polls/:id/vote', pollVoteLimiter, async (req, res) => {
 });
 
 // ─── Audit / Backup / Reset ───
-app.get('/api/audit-log', requireAuth, requireAdmin, async (_req, res) => {
+app.get('/api/audit-log', requireAuth, requirePermission('permissions'), async (_req, res) => {
   try {
     const logs = await AuditLog.find().sort({ timestamp: -1 }).limit(200).lean();
     logs.forEach(l => { delete l._id; delete l.__v; });
