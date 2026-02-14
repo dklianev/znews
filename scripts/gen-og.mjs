@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 import sharp from 'sharp';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -8,6 +9,81 @@ const repoRoot = path.join(__dirname, '..');
 const width = 1200;
 const height = 630;
 const outPath = path.join(repoRoot, 'public', 'og.png');
+
+const sourceCandidates = [
+  process.env.OG_SOURCE,
+  path.join(repoRoot, 'scripts', 'og-source.png'),
+  path.join(repoRoot, 'scripts', 'og-source.jpg'),
+  path.join(repoRoot, 'scripts', 'og-source.jpeg'),
+  path.join(repoRoot, 'scripts', 'og-source.webp'),
+].filter(Boolean);
+
+const sourcePath = sourceCandidates.find((p) => fs.existsSync(p));
+
+if (sourcePath) {
+  const meta = await sharp(sourcePath).metadata();
+  const sourceW = meta.width ?? 0;
+  const sourceH = meta.height ?? 0;
+  const targetRatio = width / height;
+  const sourceRatio = sourceH ? sourceW / sourceH : 0;
+  const ratioDelta = Math.abs(sourceRatio - targetRatio);
+
+  // If the source already matches the OG ratio, do a simple resize/encode
+  // to avoid unintended stylistic changes (blur/vignette).
+  if (sourceW && sourceH && ratioDelta < 0.01) {
+    await sharp(sourcePath)
+      .resize(width, height, { fit: 'cover' })
+      .png({ compressionLevel: 9, adaptiveFiltering: true })
+      .toFile(outPath);
+
+    console.log(`✓ Wrote ${outPath} from ${sourcePath}`);
+    process.exit(0);
+  }
+
+  // Otherwise: fit the artwork inside the OG frame, and fill the rest with a
+  // blurred version of itself so we don't crop important parts.
+  const background = await sharp(sourcePath)
+    .resize(width, height, { fit: 'cover' })
+    .blur(32)
+    .modulate({ brightness: 0.95, saturation: 1.08 })
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
+    .toBuffer();
+
+  const foreground = await sharp(sourcePath)
+    .resize(width, height, {
+      fit: 'contain',
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
+    .toBuffer();
+
+  await sharp(background)
+    .composite([
+      { input: foreground, top: 0, left: 0 },
+      // Subtle vignette for contrast at the edges.
+      {
+        input: Buffer.from(
+          `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+            <defs>
+              <radialGradient id="v" cx="50%" cy="48%" r="70%">
+                <stop offset="65%" stop-color="#000" stop-opacity="0"/>
+                <stop offset="100%" stop-color="#000" stop-opacity="0.28"/>
+              </radialGradient>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#v)"/>
+          </svg>`,
+          'utf8'
+        ),
+        top: 0,
+        left: 0,
+      },
+    ])
+    .png({ compressionLevel: 9, adaptiveFiltering: true })
+    .toFile(outPath);
+
+  console.log(`✓ Wrote ${outPath} from ${sourcePath}`);
+  process.exit(0);
+}
 
 const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
