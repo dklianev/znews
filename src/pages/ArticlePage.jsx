@@ -311,12 +311,17 @@ export default function ArticlePage() {
 
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [yapperOpen, setYapperOpen] = useState(false);
+  const [yapperCopied, setYapperCopied] = useState(false);
+  const yapperRef = useRef(null);
+  const yapperInputRef = useRef(null);
   const sharePublicUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/share/article/${article.id}`
     : `/share/article/${article.id}`;
   const sharePngUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/api/articles/${article.id}/share.png`
     : `/api/articles/${article.id}/share.png`;
+  const yapperPopupId = `yapper-popup-${article.id}`;
 
   const copyText = async (text) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
@@ -360,6 +365,45 @@ export default function ArticlePage() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const handleYapperCopy = async () => {
+    const ok = await copyText(sharePngUrl);
+    if (ok) {
+      setYapperCopied(true);
+      setTimeout(() => setYapperCopied(false), 2000);
+    }
+  };
+
+  // Close yapper popup on outside click or Esc
+  useEffect(() => {
+    if (!yapperOpen) return;
+    const handleClick = (e) => {
+      if (yapperRef.current && !yapperRef.current.contains(e.target)) {
+        setYapperOpen(false);
+      }
+    };
+    const handleKey = (e) => {
+      if (e.key === 'Escape') setYapperOpen(false);
+    };
+    document.addEventListener('pointerdown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('pointerdown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [yapperOpen]);
+
+  // Autofocus the link input when opening the yapper popup.
+  useEffect(() => {
+    if (!yapperOpen) return;
+    const t = window.requestAnimationFrame(() => {
+      try {
+        yapperInputRef.current?.focus();
+        yapperInputRef.current?.select();
+      } catch { }
+    });
+    return () => window.cancelAnimationFrame(t);
+  }, [yapperOpen]);
 
   const scrollToSection = (sectionId) => {
     const target = document.getElementById(sectionId);
@@ -461,17 +505,48 @@ export default function ArticlePage() {
               {(article.views || 0).toLocaleString()}
             </span>
             {/* Share buttons */}
-            <div className="flex items-center gap-2 ml-auto">
-              <a
-                href={sharePngUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="share-btn share-btn-yapper"
-                title="Отвори PNG версията за Yapper"
-              >
-                Yapper
-              </a>
-              <button onClick={handleCopyLink} className="share-btn share-btn-copy" title="Копирай линк">
+            <div className="flex items-center gap-2 ml-auto relative">
+              <div ref={yapperRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setYapperOpen((v) => !v)}
+                  className="share-btn share-btn-yapper"
+                  title="Вземи линк за Yapper"
+                  aria-haspopup="dialog"
+                  aria-expanded={yapperOpen}
+                  aria-controls={yapperPopupId}
+                >
+                  Yapper
+                </button>
+                {yapperOpen && (
+                  <div className="yapper-popup" id={yapperPopupId} role="dialog" aria-label="Yapper снимка">
+                    <div className="yapper-popup-title">Yapper снимка</div>
+                    <img
+                      src={sharePngUrl}
+                      alt="Yapper share"
+                      className="yapper-popup-img"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <p className="yapper-popup-desc">Копирай линка и го постни в Yapper:</p>
+                    <div className="yapper-popup-link-row">
+                      <input
+                        ref={yapperInputRef}
+                        type="text"
+                        readOnly
+                        value={sharePngUrl}
+                        className="yapper-popup-input"
+                        onClick={(e) => e.target.select()}
+                        aria-label="Линк към Yapper PNG"
+                      />
+                      <button type="button" onClick={handleYapperCopy} className="yapper-popup-copy-btn">
+                        {yapperCopied ? '✓' : 'Копирай'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button type="button" onClick={handleCopyLink} className="share-btn share-btn-copy" title="Копирай линк">
                 {copyFailed ? 'Неуспешно' : copied ? 'Копирано!' : 'Копирай'}
               </button>
             </div>
