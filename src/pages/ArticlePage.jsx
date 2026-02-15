@@ -631,7 +631,7 @@ export default function ArticlePage() {
                   const design = getComicCardStyle('articleRelated', index, related, siteSettings?.layoutPresets?.articleRelated);
                   const sticker = index === 0 ? 'Най-близка' : design.sticker;
                   return (
-                    <div key={related.id}>
+                    <div key={related.id} className="relative">
                       <ComicNewsCard
                         article={related}
                         compact
@@ -640,9 +640,11 @@ export default function ArticlePage() {
                         sticker={sticker}
                         stripe={design.stripe}
                       />
-                      <p className="mt-2 text-[11px] font-display font-bold uppercase tracking-[0.12em] text-zn-text-dim">
-                        {reason}
-                      </p>
+                      <div className="absolute top-1 right-16 z-40">
+                        <span className="inline-block px-2 py-0.5 text-[9px] font-display font-black uppercase tracking-[0.1em] bg-zn-purple text-white border-2 border-zn-comic-black shadow-[2px_2px_0_#1C1428] rotate-[-2deg]">
+                          {reason}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
