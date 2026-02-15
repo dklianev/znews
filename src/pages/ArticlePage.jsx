@@ -196,7 +196,7 @@ export default function ArticlePage() {
 
         if (candidate.category === article.category) {
           score += 40;
-          reasons.push('Същата рубрика');
+          reasons.push('Рубрика');
         }
 
         const candidateTags = Array.isArray(candidate.tags)
@@ -205,7 +205,7 @@ export default function ArticlePage() {
         const sharedTag = candidateTags.find(tag => sourceTags.includes(tag));
         if (sharedTag) {
           score += 16;
-          reasons.push(`Таг: ${sharedTag}`);
+          reasons.push(`#${sharedTag}`);
         }
 
         if (candidate.breaking) {
@@ -629,22 +629,16 @@ export default function ArticlePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {relatedArticles.map(({ article: related, reason }, index) => {
                   const design = getComicCardStyle('articleRelated', index, related, siteSettings?.layoutPresets?.articleRelated);
-                  const sticker = index === 0 ? 'Най-близка' : design.sticker;
                   return (
-                    <div key={related.id} className="relative">
+                    <div key={related.id}>
                       <ComicNewsCard
                         article={related}
                         compact
                         tilt={design.tilt}
                         variant={design.variant}
-                        sticker={sticker}
+                        sticker={reason}
                         stripe={design.stripe}
                       />
-                      <div className="absolute top-1 right-16 z-40">
-                        <span className="inline-block px-2 py-0.5 text-[9px] font-display font-black uppercase tracking-[0.1em] bg-zn-purple text-white border-2 border-zn-comic-black shadow-[2px_2px_0_#1C1428] rotate-[-2deg]">
-                          {reason}
-                        </span>
-                      </div>
                     </div>
                   );
                 })}
