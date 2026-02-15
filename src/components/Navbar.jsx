@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,6 +40,7 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleDark } = useTheme();
@@ -67,6 +68,45 @@ export default function Navbar() {
     }
   };
 
+  // Ctrl/Cmd + K opens the search box (common modern shortcut).
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const onKeyDown = (event) => {
+      const key = (event?.key || '').toLowerCase();
+      if (key !== 'k') return;
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+
+      event.preventDefault();
+      setIsOpen(false);
+      setSearchOpen(true);
+
+      // Focus once the collapsible is rendered.
+      window.requestAnimationFrame(() => {
+        if (!searchInputRef.current) return;
+        try {
+          searchInputRef.current.focus();
+          if (typeof searchInputRef.current.select === 'function') searchInputRef.current.select();
+        } catch { }
+      });
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    if (typeof window === 'undefined') return;
+
+    window.requestAnimationFrame(() => {
+      if (!searchInputRef.current) return;
+      try {
+        searchInputRef.current.focus();
+      } catch { }
+    });
+  }, [searchOpen]);
+
   const today = new Date().toLocaleDateString('bg-BG', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
@@ -83,12 +123,12 @@ export default function Navbar() {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-dim" />
         <input
+          ref={searchInputRef}
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Търси горещи новини, скандали..."
           aria-label="Търсене"
-          autoFocus
           className="w-full pl-10 pr-4 py-3 bg-zn-bg-warm border-2 border-zn-border text-zn-text placeholder-zn-text-dim font-display text-sm outline-none focus:border-zn-hot uppercase tracking-wide"
         />
       </div>

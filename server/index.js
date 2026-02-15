@@ -3985,6 +3985,106 @@ app.put('/api/site-settings', requireAuth, requirePermission('permissions'), asy
   }
 });
 
+// ─── Bootstrap (public initial payload) ───
+// Consolidates the public "homepage" requests into a single roundtrip.
+// Uses the same visibility rules as /api/articles (drafts are visible only to users with articles permission).
+app.get('/api/bootstrap', async (req, res) => {
+  try {
+    const maybeUser = decodeTokenFromRequest(req);
+    const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
+    const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
+    const fieldsProjection = buildArticleProjection(req.query.fields);
+
+    const stripMongooseFields = (item) => {
+      if (!item || typeof item !== 'object') return item;
+      delete item._id;
+      delete item.__v;
+      return item;
+    };
+
+    const tasks = {
+      articles: (async () => {
+        let query = Article.find(articleFilter).sort({ id: -1 });
+        if (fieldsProjection) query = query.select(fieldsProjection);
+        else query = query.select({ _id: 0, __v: 0 });
+
+        const items = await query.lean();
+        await Promise.all(items.map(async (item) => {
+          if (!item?.imageMeta && item?.image) {
+            const resolved = await resolveImageMetaFromUrl(item.image);
+            if (resolved) {
+              item.imageMeta = resolved;
+              Article.updateOne({ id: item.id }, { $set: { imageMeta: resolved } }).catch(() => { });
+            }
+          }
+          stripMongooseFields(item);
+        }));
+        return items;
+      })(),
+      authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
+      ads: Ad.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      breaking: Breaking.findOne().lean().then((doc) => doc?.items || []),
+      heroSettings: HeroSettings.findOne({ key: 'main' }).lean().then((doc) => serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS)),
+      siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),
+      wanted: Wanted.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      jobs: Job.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      court: Court.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      events: Event.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      polls: Poll.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      gallery: Gallery.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+    };
+
+    const entries = Object.entries(tasks);
+    const settled = await Promise.allSettled(entries.map(([, promise]) => promise));
+    const payload = {};
+    const errors = {};
+
+    settled.forEach((result, idx) => {
+      const key = entries[idx][0];
+      if (result.status === 'fulfilled') {
+        payload[key] = result.value;
+        return;
+      }
+
+      errors[key] = publicError(result.reason, `Failed to load ${key}`);
+      payload[key] = Array.isArray(tasks[key]) ? [] : null;
+    });
+
+    // Ensure missing values align with the client expectations.
+    if (!Array.isArray(payload.articles)) payload.articles = [];
+    if (!Array.isArray(payload.authors)) payload.authors = [];
+    if (!Array.isArray(payload.categories)) payload.categories = [];
+    if (!Array.isArray(payload.ads)) payload.ads = [];
+    if (!Array.isArray(payload.breaking)) payload.breaking = [];
+    if (!Array.isArray(payload.wanted)) payload.wanted = [];
+    if (!Array.isArray(payload.jobs)) payload.jobs = [];
+    if (!Array.isArray(payload.court)) payload.court = [];
+    if (!Array.isArray(payload.events)) payload.events = [];
+    if (!Array.isArray(payload.polls)) payload.polls = [];
+    if (!Array.isArray(payload.gallery)) payload.gallery = [];
+
+    // Some items are already projected, but keep stripping in case a select() path changes.
+    payload.authors.forEach(stripMongooseFields);
+    payload.categories.forEach(stripMongooseFields);
+    payload.ads.forEach(stripMongooseFields);
+    payload.wanted.forEach(stripMongooseFields);
+    payload.jobs.forEach(stripMongooseFields);
+    payload.court.forEach(stripMongooseFields);
+    payload.events.forEach(stripMongooseFields);
+    payload.polls.forEach(stripMongooseFields);
+    payload.gallery.forEach(stripMongooseFields);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      ...payload,
+      ...(Object.keys(errors).length ? { errors } : {}),
+    });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
 // ─── Auth ───
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
@@ -4333,6 +4433,72 @@ app.delete('/api/media/:fileName', requireAuth, requireAnyPermission(['articles'
   } catch (e) {
     if (e?.code === 'ENOENT' || isStorageNotFoundError(e)) return res.status(404).json({ error: 'File not found' });
     res.status(500).json({ error: publicError(e) });
+  }
+});
+
+function isBotUserAgent(req) {
+  const ua = String(req?.headers?.['user-agent'] || '').toLowerCase();
+  if (!ua) return false;
+  return /(discordbot|discordapp|twitterbot|slackbot|telegrambot|whatsapp|facebookexternalhit|linkedinbot|embedly|quora link preview|pinterest|googlebot|bingbot|yandex|duckduckbot)/i.test(ua);
+}
+
+// OG tags per article (Discord/Twitter/Slack etc).
+// The SPA can't set dynamic OG tags reliably, so for bot user-agents we serve a small HTML shell
+// with per-article meta and let real browsers fall back to the SPA entrypoint.
+app.get('/article/:id(\\d+)', async (req, res, next) => {
+  try {
+    if (!isBotUserAgent(req)) return next();
+
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).send('Invalid article id');
+
+    const article = await Article.findOne({ id, ...getPublishedFilter() }).lean();
+    if (!article) return res.status(404).send('Article not found');
+
+    const baseUrl = getPublicBaseUrl(req);
+    const articleUrl = `${baseUrl}/article/${id}`;
+    const shareImageUrl = `${baseUrl}/api/articles/${id}/share.png`;
+    const title = clampText(article.shareTitle || article.title || 'zNews.live', 140);
+    const description = clampText(
+      article.shareSubtitle || stripHtmlToText(article.excerpt || article.content || ''),
+      220
+    ) || 'Горещи новини от Los Santos.';
+
+    const safeTitle = escapeHtml(title);
+    const safeDescription = escapeHtml(description);
+    const safeArticleUrl = escapeHtml(articleUrl);
+    const safeImageUrl = escapeHtml(shareImageUrl);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    return res.send(`<!doctype html>
+<html lang="bg">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${safeTitle}</title>
+    <meta name="description" content="${safeDescription}" />
+    <link rel="canonical" href="${safeArticleUrl}" />
+
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="zNews.live" />
+    <meta property="og:title" content="${safeTitle}" />
+    <meta property="og:description" content="${safeDescription}" />
+    <meta property="og:url" content="${safeArticleUrl}" />
+    <meta property="og:image" content="${safeImageUrl}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="${shareCardWidth}" />
+    <meta property="og:image:height" content="${shareCardHeight}" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${safeTitle}" />
+    <meta name="twitter:description" content="${safeDescription}" />
+    <meta name="twitter:image" content="${safeImageUrl}" />
+  </head>
+  <body></body>
+</html>`);
+  } catch (e) {
+    return next();
   }
 });
 

@@ -42,59 +42,89 @@ export function DataProvider({ children }) {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setArticleRevisions({});
-    const publicResultKeys = [
-      'articles',
-      'authors',
-      'categories',
-      'ads',
-      'breaking',
-      'heroSettings',
-      'siteSettings',
-      'wanted',
-      'jobs',
-      'court',
-      'events',
-      'polls',
-      'gallery',
-    ];
-    const publicResults = await Promise.allSettled([
-      api.articles.getAll({ fields: ARTICLE_LIST_FIELDS }),
-      api.authors.getAll(),
-      api.categories.getAll(),
-      api.ads.getAll(),
-      api.breaking.get(),
-      api.heroSettings.get(),
-      api.siteSettings.get(),
-      api.wanted.getAll(),
-      api.jobs.getAll(),
-      api.court.getAll(),
-      api.events.getAll(),
-      api.polls.getAll(),
-      api.gallery.getAll(),
-    ]);
 
-    const pick = (result, fallback) => (result.status === 'fulfilled' ? result.value : fallback);
-    setArticles(pick(publicResults[0], []));
-    setAuthors(pick(publicResults[1], []));
-    setCategories(pick(publicResults[2], []));
-    setAds(pick(publicResults[3], []));
-    setBreaking(pick(publicResults[4], []));
-    setHeroSettings(pick(publicResults[5], null));
-    setSiteSettings(pick(publicResults[6], null));
-    setWanted(pick(publicResults[7], []));
-    setJobs(pick(publicResults[8], []));
-    setCourt(pick(publicResults[9], []));
-    setEvents(pick(publicResults[10], []));
-    setPolls(pick(publicResults[11], []));
-    // Comments are loaded on-demand per article (public) or fully for admins (see below).
-    setComments([]);
-    setGallery(pick(publicResults[12], []));
+    // Consolidate public bootstrap data into a single request.
+    // Fallback to the legacy parallel requests if bootstrap fails (older server, network edge cases).
+    try {
+      const payload = await api.bootstrap.get({ fields: ARTICLE_LIST_FIELDS });
+      setArticles(Array.isArray(payload?.articles) ? payload.articles : []);
+      setAuthors(Array.isArray(payload?.authors) ? payload.authors : []);
+      setCategories(Array.isArray(payload?.categories) ? payload.categories : []);
+      setAds(Array.isArray(payload?.ads) ? payload.ads : []);
+      setBreaking(Array.isArray(payload?.breaking) ? payload.breaking : []);
+      setHeroSettings(payload?.heroSettings || null);
+      setSiteSettings(payload?.siteSettings || null);
+      setWanted(Array.isArray(payload?.wanted) ? payload.wanted : []);
+      setJobs(Array.isArray(payload?.jobs) ? payload.jobs : []);
+      setCourt(Array.isArray(payload?.court) ? payload.court : []);
+      setEvents(Array.isArray(payload?.events) ? payload.events : []);
+      setPolls(Array.isArray(payload?.polls) ? payload.polls : []);
+      // Comments are loaded on-demand per article (public) or fully for admins (see below).
+      setComments([]);
+      setGallery(Array.isArray(payload?.gallery) ? payload.gallery : []);
 
-    publicResults.forEach((result, idx) => {
-      if (result.status === 'rejected') {
-        console.error(`Failed to load ${publicResultKeys[idx]}:`, result.reason);
+      if (payload?.errors && typeof payload.errors === 'object') {
+        Object.entries(payload.errors).forEach(([key, message]) => {
+          if (!message) return;
+          console.error(`Failed to load ${key}:`, message);
+        });
       }
-    });
+    } catch (error) {
+      console.error('Failed to load bootstrap:', error);
+      const publicResultKeys = [
+        'articles',
+        'authors',
+        'categories',
+        'ads',
+        'breaking',
+        'heroSettings',
+        'siteSettings',
+        'wanted',
+        'jobs',
+        'court',
+        'events',
+        'polls',
+        'gallery',
+      ];
+      const publicResults = await Promise.allSettled([
+        api.articles.getAll({ fields: ARTICLE_LIST_FIELDS }),
+        api.authors.getAll(),
+        api.categories.getAll(),
+        api.ads.getAll(),
+        api.breaking.get(),
+        api.heroSettings.get(),
+        api.siteSettings.get(),
+        api.wanted.getAll(),
+        api.jobs.getAll(),
+        api.court.getAll(),
+        api.events.getAll(),
+        api.polls.getAll(),
+        api.gallery.getAll(),
+      ]);
+
+      const pick = (result, fallback) => (result.status === 'fulfilled' ? result.value : fallback);
+      setArticles(pick(publicResults[0], []));
+      setAuthors(pick(publicResults[1], []));
+      setCategories(pick(publicResults[2], []));
+      setAds(pick(publicResults[3], []));
+      setBreaking(pick(publicResults[4], []));
+      setHeroSettings(pick(publicResults[5], null));
+      setSiteSettings(pick(publicResults[6], null));
+      setWanted(pick(publicResults[7], []));
+      setJobs(pick(publicResults[8], []));
+      setCourt(pick(publicResults[9], []));
+      setEvents(pick(publicResults[10], []));
+      setPolls(pick(publicResults[11], []));
+      // Comments are loaded on-demand per article (public) or fully for admins (see below).
+      setComments([]);
+      setGallery(pick(publicResults[12], []));
+
+      publicResults.forEach((result, idx) => {
+        if (result.status === 'rejected') {
+          console.error(`Failed to load ${publicResultKeys[idx]}:`, result.reason);
+        }
+      });
+    }
 
     if (session?.token) {
       const [usersResult, permsResult, commentsResult, mediaResult, mediaPipelineResult, heroRevisionsResult, siteRevisionsResult] = await Promise.allSettled([

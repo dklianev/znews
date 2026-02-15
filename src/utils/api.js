@@ -240,6 +240,9 @@ function crudEndpoints(resource) {
 }
 
 export const api = {
+  bootstrap: {
+    get: (params) => request(`/bootstrap${toQuery(params)}`),
+  },
   articles: {
     ...crudEndpoints('articles'),
     getById: (id, params) => request(`/articles/${id}${toQuery(params)}`),
