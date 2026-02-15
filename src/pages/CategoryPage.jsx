@@ -7,6 +7,7 @@ import { useData } from '../context/DataContext';
 import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { api } from '../utils/api';
+import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const PER_PAGE = 6;
 const CATEGORY_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt';
@@ -53,6 +54,8 @@ export default function CategoryPage() {
   const { categories, ads, siteSettings, loading } = useData();
   const layoutPresets = siteSettings?.layoutPresets || {};
   const category = categories.find(c => c.id === slug);
+
+  useDocumentTitle(makeTitle(category?.name || 'Категория'));
   const [categoryArticles, setCategoryArticles] = useState([]);
   const [totalArticles, setTotalArticles] = useState(0);
   const [loadingArticles, setLoadingArticles] = useState(false);

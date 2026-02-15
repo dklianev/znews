@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, Home } from 'lucide-react';
+import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function NotFoundPage() {
+  useDocumentTitle(makeTitle('404'));
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

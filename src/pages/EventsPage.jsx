@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Calendar, Clock, MapPin, User } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const typeLabels = {
   race: 'Рали / Състезание',
@@ -13,6 +14,7 @@ const typeLabels = {
 
 export default function EventsPage() {
   const { events } = useData();
+  useDocumentTitle(makeTitle('Събития'));
   const sorted = [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
   const today = new Date().toISOString().split('T')[0];
   const upcoming = sorted.filter(e => e.date >= today);

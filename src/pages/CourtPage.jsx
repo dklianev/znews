@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Scale, Gavel, CalendarClock, CheckCircle2, Clock } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const severityConfig = {
   heavy: { label: 'Тежко', color: 'bg-red-700 text-white' },
@@ -17,6 +18,7 @@ const statusConfig = {
 
 export default function CourtPage() {
   const { court } = useData();
+  useDocumentTitle(makeTitle('Съд'));
   const [tab, setTab] = useState('all');
 
   const completed = court.filter(c => c.status === 'completed');

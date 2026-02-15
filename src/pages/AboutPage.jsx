@@ -3,6 +3,7 @@ import { Mail, Phone, MapPin, Users, Award, Newspaper, Shield, CheckCircle, Aler
 import { useData } from '../context/DataContext';
 import { useState } from 'react';
 import { api } from '../utils/api';
+import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const AVATAR_COLORS = ['bg-zn-hot', 'bg-zn-purple', 'bg-blue-700', 'bg-emerald-700', 'bg-amber-700', 'bg-violet-700', 'bg-rose-700', 'bg-teal-700'];
 const DEFAULT_ABOUT = {
@@ -26,6 +27,7 @@ const DEFAULT_CONTACT = {
 
 export default function AboutPage() {
   const { authors, siteSettings } = useData();
+  useDocumentTitle(makeTitle('За нас'));
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [contactSent, setContactSent] = useState(false);
   const [contactSending, setContactSending] = useState(false);

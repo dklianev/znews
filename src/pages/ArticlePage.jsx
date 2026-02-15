@@ -10,6 +10,7 @@ import ComicNewsCard from '../components/ComicNewsCard';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { api } from '../utils/api';
+import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const categoryColors = {
   crime: 'bg-zn-purple text-white',
@@ -152,6 +153,7 @@ export default function ArticlePage() {
   }, [articleId, contextArticle?.id, contextArticle?.content, directArticle?.id, directArticle?.content]);
 
   const article = directArticle || contextArticle;
+  useDocumentTitle(makeTitle(article?.title || 'Статия'));
 
   useEffect(() => {
     viewCounted.current = false;

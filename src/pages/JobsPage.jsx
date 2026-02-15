@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Briefcase, MapPin, DollarSign, Shield, Heart, Wrench, Scale, Car, Building } from 'lucide-react';
 import { useData } from '../context/DataContext';
+import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const typeConfig = {
   police: { label: 'Полиция', icon: Shield, color: 'bg-blue-700 text-white' },
@@ -14,6 +15,7 @@ const typeConfig = {
 
 export default function JobsPage() {
   const { jobs } = useData();
+  useDocumentTitle(makeTitle('Работа'));
   const activeJobs = jobs.filter(j => j.active);
 
   return (

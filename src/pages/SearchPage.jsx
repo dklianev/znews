@@ -6,6 +6,7 @@ import { api } from '../utils/api';
 import React, { useState } from 'react';
 import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
+import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const ARTICLE_SEARCH_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage';
 
@@ -15,6 +16,8 @@ export default function SearchPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const query = searchParams.get('q') || '';
+  const trimmedQuery = query.trim();
+  useDocumentTitle(makeTitle(trimmedQuery ? `Търсене: ${trimmedQuery.slice(0, 80)}` : 'Търсене'));
   const [localQuery, setLocalQuery] = useState(query);
   const [articleRemoteResults, setArticleRemoteResults] = useState([]);
   const [articleRemoteLoading, setArticleRemoteLoading] = useState(false);

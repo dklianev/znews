@@ -1,8 +1,9 @@
 import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3, Mail } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
+import { makeTitle, useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 const navItems = [
   { to: '/admin', label: 'Табло', icon: LayoutDashboard, exact: true },
@@ -37,6 +38,18 @@ export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [globalError, setGlobalError] = useState('');
   const { isDark, toggleDark } = useTheme();
+
+  const adminTitle = useMemo(() => {
+    const path = location.pathname;
+    const active = navItems.find((item) => {
+      if (!item?.to) return false;
+      if (item.exact) return path === item.to;
+      return path === item.to || path.startsWith(`${item.to}/`);
+    });
+    const label = active?.label || 'Админ';
+    return makeTitle(`Админ: ${label}`);
+  }, [location.pathname]);
+  useDocumentTitle(adminTitle);
 
   if (!session) {
     return <Navigate to="/admin/login" replace />;

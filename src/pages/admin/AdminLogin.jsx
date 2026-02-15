@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
 import { Lock, User } from 'lucide-react';
+import { makeTitle, useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 export default function AdminLogin() {
+  useDocumentTitle(makeTitle('Админ вход'));
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
