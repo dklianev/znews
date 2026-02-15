@@ -355,6 +355,7 @@ app.set('trust proxy', 1);
 app.use(compression());
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
   contentSecurityPolicy: {
     useDefaults: true,
     directives: {
