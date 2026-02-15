@@ -1,12 +1,12 @@
 {
   "name": "zNews",
   "short_name": "zNews",
-  "description": "Comic-style city news portal",
+  "description": "zNews — горещи новини, скандали и слухове. Ексклузивни разкрития!",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#f4ead7",
-  "theme_color": "#D4112A",
+  "theme_color": "#5B1A8C",
   "icons": [
     {
       "src": "/icon-192.png",
