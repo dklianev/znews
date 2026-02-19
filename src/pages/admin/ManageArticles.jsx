@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2, Search, Copy, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2, Search, Copy, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, CheckSquare, Square } from 'lucide-react';
 import RichTextEditor from '../../components/admin/RichTextEditor';
 import AdminImageField from '../../components/admin/AdminImageField';
 import { estimateReadTimeFromHtml, normalizeRichTextHtml } from '../../utils/richText';
 import { api } from '../../utils/api';
+import { useToast } from '../../components/admin/Toast';
 
 const ARTICLE_DRAFT_KEY = 'zn_manage_articles_draft_v1';
 const ARTICLE_HISTORY_KEY = 'zn_manage_articles_history_v1';
@@ -140,6 +141,8 @@ export default function ManageArticles() {
   const [currentPage, setCurrentPage] = useState(1);
   const ARTICLES_PER_PAGE = 15;
   const initialFormRef = useRef(emptyForm);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const toast = useToast();
 
   const filtered = useMemo(() => {
     let result = filterCat === 'all' ? articles : articles.filter(a => a.category === filterCat);
@@ -509,9 +512,11 @@ export default function ManageArticles() {
       if (editing === 'new') {
         await addArticle(data);
         clearDraft();
+        toast.success('Статията е създадена успешно');
       } else {
         await updateArticle(editing, data);
         await loadArticleRevisions(editing);
+        toast.success('Промените са запазени');
       }
 
       setEditing(null);
@@ -530,6 +535,34 @@ export default function ManageArticles() {
   const handleDelete = async (id) => {
     if (!confirm('Изтрий статията?')) return;
     await deleteArticle(id);
+    setSelectedIds(prev => prev.filter(sid => sid !== id));
+    toast.success('Статията е изтрита');
+  };
+
+  // Bulk actions
+  const toggleSelectId = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const selectAllOnPage = () => {
+    const pageIds = paginatedArticles.map(a => a.id);
+    const allSelected = pageIds.every(id => selectedIds.includes(id));
+    setSelectedIds(allSelected ? selectedIds.filter(id => !pageIds.includes(id)) : [...new Set([...selectedIds, ...pageIds])]);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedIds.length || !confirm(`Изтрий ${selectedIds.length} статии?`)) return;
+    for (const id of selectedIds) await deleteArticle(id);
+    toast.success(`${selectedIds.length} статии изтрити`);
+    setSelectedIds([]);
+  };
+
+  const handleBulkStatusChange = async (newStatus) => {
+    if (!selectedIds.length) return;
+    const label = newStatus === 'published' ? 'публикувани' : 'върнати в чернова';
+    for (const id of selectedIds) {
+      const article = articles.find(a => a.id === id);
+      if (article) await updateArticle(id, { ...article, status: newStatus });
+    }
+    toast.success(`${selectedIds.length} статии ${label}`);
+    setSelectedIds([]);
   };
 
   const startEdit = async (article) => {
@@ -639,6 +672,7 @@ export default function ManageArticles() {
   const handleQuickStatusToggle = async (article) => {
     const newStatus = article.status === 'draft' ? 'published' : 'draft';
     await updateArticle(article.id, { ...article, status: newStatus });
+    toast.success(newStatus === 'published' ? 'Статията е публикувана' : 'Статията е в чернова');
   };
 
   // Feature 8: Duplicate article
@@ -663,6 +697,7 @@ export default function ManageArticles() {
     };
     delete dup.id;
     await addArticle(dup);
+    toast.success('Статията е дублирана като чернова');
   };
 
   // Feature 1: Ctrl+S keyboard shortcut
@@ -1157,17 +1192,41 @@ export default function ManageArticles() {
         </div>
       </div>
 
+      {/* Bulk actions bar */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-zn-purple/5 border border-zn-purple/20">
+          <span className="text-xs font-sans font-semibold text-zn-purple">{selectedIds.length} избрани</span>
+          <button onClick={() => handleBulkStatusChange('published')} className="px-3 py-1 text-xs font-sans font-semibold text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 transition-colors">Публикувай</button>
+          <button onClick={() => handleBulkStatusChange('draft')} className="px-3 py-1 text-xs font-sans font-semibold text-gray-700 bg-gray-100 border border-gray-200 hover:bg-gray-200 transition-colors">Чернова</button>
+          <button onClick={handleBulkDelete} className="px-3 py-1 text-xs font-sans font-semibold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 transition-colors">Изтрий</button>
+          <button onClick={() => setSelectedIds([])} className="ml-auto text-xs font-sans text-gray-500 hover:text-gray-700 transition-colors">Отмени</button>
+        </div>
+      )}
+
       {/* Articles list */}
       <div className="space-y-2">
+        {/* Select all row */}
+        {paginatedArticles.length > 0 && (
+          <div className="flex items-center gap-3 px-4 py-1.5">
+            <button onClick={selectAllOnPage} className="text-gray-400 hover:text-zn-purple transition-colors">
+              {paginatedArticles.every(a => selectedIds.includes(a.id)) ? <CheckSquare className="w-4 h-4 text-zn-purple" /> : <Square className="w-4 h-4" />}
+            </button>
+            <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-gray-400">Избери всички на страницата</span>
+          </div>
+        )}
         {paginatedArticles.map(article => {
           const publishAtDate = article.publishAt ? new Date(article.publishAt) : null;
           const isScheduled = article.status === 'published' && publishAtDate && publishAtDate > new Date();
           const publishAtLabel = publishAtDate && !Number.isNaN(publishAtDate.getTime())
             ? publishAtDate.toLocaleString('bg-BG', { dateStyle: 'short', timeStyle: 'short' })
             : null;
+          const isSelected = selectedIds.includes(article.id);
 
           return (
-            <div key={article.id} className="bg-white border border-gray-200 p-4 flex items-start gap-4 hover:bg-gray-50 transition-colors group">
+            <div key={article.id} className={`bg-white border p-4 flex items-start gap-4 hover:bg-gray-50 transition-colors group ${isSelected ? 'border-zn-purple/40 bg-zn-purple/5' : 'border-gray-200'}`}>
+              <button onClick={() => toggleSelectId(article.id)} className="mt-0.5 text-gray-400 hover:text-zn-purple transition-colors shrink-0">
+                {isSelected ? <CheckSquare className="w-4 h-4 text-zn-purple" /> : <Square className="w-4 h-4" />}
+              </button>
               {article.image && (
                 <img src={article.image} alt="" className="w-20 h-14 object-cover flex-shrink-0 border border-gray-100" loading="lazy" decoding="async" />
               )}

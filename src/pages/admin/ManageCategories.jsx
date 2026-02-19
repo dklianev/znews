@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 const ICONS = ['📰', '🔫', '🏛️', '💰', '🏆', '👥', '🌑', '🚓', '🎥', '🚨', '⚖️', '💼', '📅', '🗳️', '🎮', '🏎️', '🎵', '🍔'];
 
@@ -10,6 +11,7 @@ export default function ManageCategories() {
   const [form, setForm] = useState({ id: '', name: '', icon: '📰' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const toast = useToast();
 
   const handleSave = async () => {
     if (!form.id || !form.name) return;
@@ -18,8 +20,10 @@ export default function ManageCategories() {
     try {
       if (editing === 'new') {
         await addCategory({ id: form.id.toLowerCase().replace(/\s+/g, '-'), name: form.name, icon: form.icon });
+        toast.success('Категорията е добавена');
       } else {
         await updateCategory(editing, { name: form.name, icon: form.icon });
+        toast.success('Категорията е актуализирана');
       }
       setEditing(null);
       setForm({ id: '', name: '', icon: '📰' });
@@ -36,6 +40,7 @@ export default function ManageCategories() {
     setError('');
     try {
       await deleteCategory(id);
+      toast.success('Категорията е изтрита');
     } catch (e) {
       setError(e?.message || 'Грешка при изтриване');
     }

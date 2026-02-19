@@ -4,6 +4,7 @@ import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, Ext
 import { useEffect, useMemo, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { makeTitle, useDocumentTitle } from '../../hooks/useDocumentTitle';
+import { ToastProvider } from '../../components/admin/Toast';
 
 const navItems = [
   { to: '/admin', label: 'Табло', icon: LayoutDashboard, exact: true },
@@ -174,58 +175,61 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50 flex">
-      {/* Mobile header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-zn-bg text-white flex items-center justify-between px-4 py-3">
-        <button onClick={() => setSidebarOpen(true)} className="p-1" aria-label="Отвори менюто">
-          <Menu className="w-6 h-6" />
-        </button>
-        <h1 className="font-display text-lg font-bold">Los Santos News CMS</h1>
-        <div className="w-6" />
-      </div>
+    <ToastProvider>
+      <div className="min-h-[100dvh] bg-gray-50 flex">
+        {/* Mobile header */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-zn-bg text-white flex items-center justify-between px-4 py-3">
+          <button onClick={() => setSidebarOpen(true)} className="p-1" aria-label="Отвори менюто">
+            <Menu className="w-6 h-6" />
+          </button>
+          <h1 className="font-display text-lg font-bold">Los Santos News CMS</h1>
+          <div className="w-6" />
+        </div>
 
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
+        {/* Mobile overlay */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        )}
 
-      {/* Sidebar */}
-      <aside className={`
+        {/* Sidebar */}
+        <aside className={`
         fixed top-0 left-0 z-50 h-[100dvh] lg:h-screen w-64 bg-zn-bg text-white flex flex-col min-h-0 shrink-0 transition-transform duration-200
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
-        {/* Mobile close button */}
-        <button
-          onClick={() => setSidebarOpen(false)}
-          className="lg:hidden absolute top-4 right-4 text-white/60 hover:text-zn-text"
-          aria-label="Затвори менюто"
-        >
-          <X className="w-5 h-5" />
-        </button>
-        {sidebarContent}
-      </aside>
+          {/* Mobile close button */}
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden absolute top-4 right-4 text-white/60 hover:text-zn-text"
+            aria-label="Затвори менюто"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          {sidebarContent}
+        </aside>
 
-      {/* Main */}
-      <main className="flex-1 min-h-[100dvh] overflow-auto lg:ml-64 mt-14 lg:mt-0">
-        {globalError && (
-          <div className="mx-4 mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm font-sans flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold">Грешка</p>
-              <p className="break-words">{globalError}</p>
+        {/* Main */}
+        <main className="flex-1 min-h-[100dvh] overflow-auto lg:ml-64 mt-14 lg:mt-0">
+          {globalError && (
+            <div className="mx-4 mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm font-sans flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">Грешка</p>
+                <p className="break-words">{globalError}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGlobalError('')}
+                className="p-1 text-red-700 hover:text-red-900"
+                aria-label="Затвори"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setGlobalError('')}
-              className="p-1 text-red-700 hover:text-red-900"
-              aria-label="Затвори"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-        <Outlet />
-      </main>
-    </div>
+          )}
+          <Outlet />
+        </main>
+      </div>
+    </ToastProvider>
   );
 }
+

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 const BASE_ROLES = Object.freeze(['admin', 'editor', 'reporter', 'photographer', 'intern']);
 const ROLE_LABELS = Object.freeze({
@@ -31,6 +32,7 @@ export default function ManageProfiles() {
   const [newRoleKey, setNewRoleKey] = useState('');
   const [newRoleError, setNewRoleError] = useState('');
   const [creatingRole, setCreatingRole] = useState(false);
+  const toast = useToast();
 
   const isValidRoleKey = (role) => /^[a-z][a-z0-9_-]{1,31}$/.test(role);
 
@@ -54,17 +56,20 @@ export default function ManageProfiles() {
     if (!form.name || !form.username) return;
     if (editing === 'new') {
       await addUser(form);
+      toast.success('Потребителят е добавен');
     } else {
       await updateUser(editing, form);
+      toast.success('Потребителят е актуализиран');
     }
     setEditing(null);
     setForm(emptyForm);
   };
 
   const handleDeleteUser = async (id) => {
-    if (id === 1) return alert('Не може да изтриете главния админ!');
+    if (id === 1) return toast.warning('Не може да изтриете главния админ!');
     if (!confirm('Сигурен ли сте?')) return;
     await deleteUser(id);
+    toast.success('Потребителят е изтрит');
   };
 
   const handleEnsureRole = async () => {
@@ -99,8 +104,10 @@ export default function ManageProfiles() {
     if (!authorForm.name) return;
     if (editingAuthor === 'new') {
       await addAuthor(authorForm);
+      toast.success('Авторът е добавен');
     } else {
       await updateAuthor(editingAuthor, authorForm);
+      toast.success('Авторът е актуализиран');
     }
     setEditingAuthor(null);
     setAuthorForm({ name: '', avatar: '👤', role: '' });
@@ -109,6 +116,7 @@ export default function ManageProfiles() {
   const handleDeleteAuthor = async (id) => {
     if (!confirm('Сигурен ли сте?')) return;
     await deleteAuthor(id);
+    toast.success('Авторът е изтрит');
   };
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
@@ -132,9 +140,8 @@ export default function ManageProfiles() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`px-5 py-3 text-sm font-sans font-medium border-b-2 transition-colors ${
-              tab === t.id ? 'border-zn-purple text-zn-hot' : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+            className={`px-5 py-3 text-sm font-sans font-medium border-b-2 transition-colors ${tab === t.id ? 'border-zn-purple text-zn-hot' : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
           >
             {t.label}
           </button>
@@ -162,19 +169,19 @@ export default function ManageProfiles() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className={labelCls}>Име</label>
-                  <input className={inputCls} value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Иван Иванов" />
+                  <input className={inputCls} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Иван Иванов" />
                 </div>
                 <div>
                   <label className={labelCls}>Потребителско име</label>
-                  <input className={inputCls} value={form.username} onChange={e => setForm({...form, username: e.target.value})} placeholder="ivan" />
+                  <input className={inputCls} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder="ivan" />
                 </div>
                 <div>
                   <label className={labelCls}>Парола</label>
-                  <input className={inputCls} type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} placeholder="••••••" />
+                  <input className={inputCls} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••" />
                 </div>
                 <div>
                   <label className={labelCls}>Роля</label>
-                  <select className={inputCls} value={form.role} onChange={e => setForm({...form, role: e.target.value})}>
+                  <select className={inputCls} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
                     {roleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                   </select>
                   <div className="mt-2">
@@ -205,7 +212,7 @@ export default function ManageProfiles() {
                 </div>
                 <div>
                   <label className={labelCls}>Професия</label>
-                  <input className={inputCls} value={form.profession} onChange={e => setForm({...form, profession: e.target.value})} placeholder="Криминален репортер" />
+                  <input className={inputCls} value={form.profession} onChange={e => setForm({ ...form, profession: e.target.value })} placeholder="Криминален репортер" />
                 </div>
                 <div>
                   <label className={labelCls}>Аватар</label>
@@ -213,10 +220,9 @@ export default function ManageProfiles() {
                     {AVATARS.map(a => (
                       <button
                         key={a}
-                        onClick={() => setForm({...form, avatar: a})}
-                        className={`w-8 h-8 text-lg flex items-center justify-center border transition-colors ${
-                          form.avatar === a ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200 hover:border-gray-400'
-                        }`}
+                        onClick={() => setForm({ ...form, avatar: a })}
+                        className={`w-8 h-8 text-lg flex items-center justify-center border transition-colors ${form.avatar === a ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200 hover:border-gray-400'
+                          }`}
                       >
                         {a}
                       </button>
@@ -260,9 +266,8 @@ export default function ManageProfiles() {
                     </td>
                     <td className="px-4 py-3 text-sm font-sans text-gray-500">{user.username}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 text-[10px] font-sans font-bold uppercase tracking-wider ${
-                        user.role === 'admin' ? 'bg-zn-purple text-white' : 'bg-gray-100 text-gray-600'
-                      }`}>
+                      <span className={`px-2 py-0.5 text-[10px] font-sans font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-zn-purple text-white' : 'bg-gray-100 text-gray-600'
+                        }`}>
                         {roleOptions.find(r => r.value === user.role)?.label || user.role}
                       </span>
                     </td>
@@ -317,11 +322,11 @@ export default function ManageProfiles() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className={labelCls}>Име</label>
-                  <input className={inputCls} value={authorForm.name} onChange={e => setAuthorForm({...authorForm, name: e.target.value})} placeholder="Марко Николич" />
+                  <input className={inputCls} value={authorForm.name} onChange={e => setAuthorForm({ ...authorForm, name: e.target.value })} placeholder="Марко Николич" />
                 </div>
                 <div>
                   <label className={labelCls}>Позиция</label>
-                  <input className={inputCls} value={authorForm.role} onChange={e => setAuthorForm({...authorForm, role: e.target.value})} placeholder="Криминален репортер" />
+                  <input className={inputCls} value={authorForm.role} onChange={e => setAuthorForm({ ...authorForm, role: e.target.value })} placeholder="Криминален репортер" />
                 </div>
                 <div>
                   <label className={labelCls}>Аватар</label>
@@ -329,10 +334,9 @@ export default function ManageProfiles() {
                     {AVATARS.map(a => (
                       <button
                         key={a}
-                        onClick={() => setAuthorForm({...authorForm, avatar: a})}
-                        className={`w-8 h-8 text-lg flex items-center justify-center border transition-colors ${
-                          authorForm.avatar === a ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200 hover:border-gray-400'
-                        }`}
+                        onClick={() => setAuthorForm({ ...authorForm, avatar: a })}
+                        className={`w-8 h-8 text-lg flex items-center justify-center border transition-colors ${authorForm.avatar === a ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200 hover:border-gray-400'
+                          }`}
                       >
                         {a}
                       </button>

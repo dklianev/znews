@@ -16,6 +16,7 @@ export default function AdminImageField({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const fileRef = useRef(null);
 
   const filteredMedia = useMemo(() => {
@@ -27,11 +28,15 @@ export default function AdminImageField({
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    await processFile(file);
+  };
+
+  const processFile = async (file) => {
+    if (!file.type.startsWith('image/')) return;
     setUploading(true);
     try {
       const uploaded = await uploadMedia(file);
       if (uploaded?.url) onChange(uploaded.url);
-      setPickerOpen(true);
     } catch (error) {
       alert(`Грешка при качване: ${error.message}`);
     } finally {
@@ -39,6 +44,16 @@ export default function AdminImageField({
       if (fileRef.current) fileRef.current.value = '';
     }
   };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDragOver = (e) => { e.preventDefault(); setDragActive(true); };
+  const handleDragLeave = () => setDragActive(false);
 
   const labelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
   const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple';
@@ -97,8 +112,23 @@ export default function AdminImageField({
         <p className="mt-1.5 text-xs font-sans text-gray-400">{helperText}</p>
       )}
 
-      {value && (
-        <div className={`mt-2 border border-gray-200 bg-gray-50 overflow-hidden ${previewClassName}`}>
+      {/* Drop zone / Preview */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={`mt-2 border-2 border-dashed transition-colors overflow-hidden ${previewClassName} ${dragActive
+            ? 'border-zn-purple bg-zn-purple/5'
+            : value
+              ? 'border-gray-200 bg-gray-50'
+              : 'border-gray-300 bg-gray-50'
+          }`}
+      >
+        {uploading ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-xs font-sans text-gray-500 animate-pulse">Качване...</p>
+          </div>
+        ) : value ? (
           <img
             src={value}
             alt=""
@@ -106,8 +136,13 @@ export default function AdminImageField({
             loading="lazy"
             decoding="async"
           />
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+            <Upload className="w-6 h-6 mb-1" />
+            <p className="text-xs font-sans">Провлачи снимка тук</p>
+          </div>
+        )}
+      </div>
 
       {pickerOpen && (
         <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-4" onClick={() => setPickerOpen(false)}>

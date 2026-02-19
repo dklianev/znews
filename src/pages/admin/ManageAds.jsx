@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, ExternalLink, ImageIcon, AlertTriangle } from 'lucide-react';
 import AdminImageField from '../../components/admin/AdminImageField';
+import { useToast } from '../../components/admin/Toast';
 
 const AD_TYPES = [
   { value: 'horizontal', label: 'Хоризонтален банер' },
@@ -28,6 +29,7 @@ export default function ManageAds() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const toast = useToast();
 
   const handleSave = async () => {
     if (!form.title) return;
@@ -36,8 +38,10 @@ export default function ManageAds() {
     try {
       if (editing === 'new') {
         await addAd(form);
+        toast.success('Рекламата е добавена');
       } else {
         await updateAd(editing, form);
+        toast.success('Рекламата е актуализирана');
       }
       setEditing(null);
       setForm(emptyForm);
@@ -53,6 +57,7 @@ export default function ManageAds() {
     setError('');
     try {
       await deleteAd(id);
+      toast.success('Рекламата е изтрита');
     } catch (e) {
       setError(e?.message || 'Грешка при изтриване');
     }
