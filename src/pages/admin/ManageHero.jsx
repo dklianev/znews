@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Crown, Search, Save, X, ExternalLink, Flame, History, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Crown, Search, Save, X, ExternalLink, Flame, History, RotateCcw, AlertTriangle, Loader2, Megaphone, Clock, Eye } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 const heroPreviewFallbackImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="800" height="450" fill="#EDE4D0"/><text x="400" y="240" text-anchor="middle" font-family="Oswald,sans-serif" font-size="42" font-weight="900" fill="#C4B49A">LOS SANTOS NEWSWIRE</text></svg>');
 
@@ -27,6 +28,7 @@ export default function ManageHero() {
     loadHeroSettingsRevisions,
     restoreHeroSettingsRevision,
   } = useData();
+  const toast = useToast();
   const [query, setQuery] = useState('');
   const [savingId, setSavingId] = useState(null);
   const [clearing, setClearing] = useState(false);
@@ -46,7 +48,9 @@ export default function ManageHero() {
     photoArticleId1: '',
     photoArticleId2: '',
   });
+  const initialCopyRef = useRef(copyForm);
 
+  // Sync from server
   useEffect(() => {
     const resolved = {
       ...DEFAULT_COPY,
@@ -61,7 +65,7 @@ export default function ManageHero() {
         ? Number.parseInt(heroSettings?.mainPhotoArticleId, 10)
         : DEFAULT_COPY.mainPhotoArticleId,
     };
-    setCopyForm({
+    const newForm = {
       headline: resolved.headline,
       shockLabel: resolved.shockLabel,
       ctaLabel: resolved.ctaLabel,
@@ -72,9 +76,12 @@ export default function ManageHero() {
       mainPhotoArticleId: resolved.mainPhotoArticleId ? String(resolved.mainPhotoArticleId) : '',
       photoArticleId1: resolved.photoArticleIds[0] ? String(resolved.photoArticleIds[0]) : '',
       photoArticleId2: resolved.photoArticleIds[1] ? String(resolved.photoArticleIds[1]) : '',
-    });
+    };
+    setCopyForm(newForm);
+    initialCopyRef.current = newForm;
   }, [heroSettings]);
 
+  // Load revision history
   useEffect(() => {
     let cancelled = false;
     setLoadingHistory(true);
@@ -86,11 +93,28 @@ export default function ManageHero() {
       .finally(() => {
         if (!cancelled) setLoadingHistory(false);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [loadHeroSettingsRevisions]);
 
+  // Dirty tracking
+  const isCopyDirty = useMemo(() => {
+    const ref = initialCopyRef.current;
+    return ref.headline !== copyForm.headline || ref.shockLabel !== copyForm.shockLabel
+      || ref.ctaLabel !== copyForm.ctaLabel || ref.headlineBoardText !== copyForm.headlineBoardText
+      || ref.caption1 !== copyForm.caption1 || ref.caption2 !== copyForm.caption2
+      || ref.caption3 !== copyForm.caption3 || ref.mainPhotoArticleId !== copyForm.mainPhotoArticleId
+      || ref.photoArticleId1 !== copyForm.photoArticleId1 || ref.photoArticleId2 !== copyForm.photoArticleId2;
+  }, [copyForm]);
+
+  // Unsaved changes warning
+  useEffect(() => {
+    if (!isCopyDirty) return undefined;
+    const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isCopyDirty]);
+
+  // Memos
   const categoryMap = useMemo(() => {
     const map = new Map();
     categories.forEach(c => map.set(c.id, c.name));
@@ -128,10 +152,7 @@ export default function ManageHero() {
   );
   const previewHeroArticle = heroArticle || fallbackHero || null;
   const previewTickerItems = Array.isArray(breaking) ? breaking.filter(Boolean) : [];
-  const headlineBoardWords = (copyForm.headlineBoardText || DEFAULT_COPY.headlineBoardText)
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  const headlineBoardWords = (copyForm.headlineBoardText || DEFAULT_COPY.headlineBoardText).trim().split(/\s+/).filter(Boolean);
 
   const previewMainPhoto = useMemo(() => {
     const selectedId = Number.parseInt(copyForm.mainPhotoArticleId, 10);
@@ -144,25 +165,22 @@ export default function ManageHero() {
 
   const previewPhotoArticles = useMemo(() => {
     if (!previewHeroArticle || !previewMainPhoto) return [];
-
     const selectedIds = [copyForm.photoArticleId1, copyForm.photoArticleId2]
       .map(value => Number.parseInt(value, 10))
       .filter(value => Number.isInteger(value) && value > 0);
-
     const selectedSiblings = [...new Set(selectedIds)]
       .map((articleId) => sortedArticles.find(item => item.id === articleId))
       .filter(Boolean)
       .filter((item) => item.id !== previewMainPhoto.id)
       .slice(0, 2);
-
     const autoSiblings = sortedArticles
       .filter((item) => item.id !== previewMainPhoto.id && !selectedSiblings.find((selected) => selected.id === item.id))
       .slice(0, 2);
-
     const resolvedSiblings = [...selectedSiblings, ...autoSiblings].slice(0, 2);
     return [previewMainPhoto, ...resolvedSiblings];
   }, [copyForm.photoArticleId1, copyForm.photoArticleId2, previewHeroArticle, previewMainPhoto, sortedArticles]);
 
+  // Handlers
   const setHero = async (articleId) => {
     setSavingId(articleId);
     setError('');
@@ -172,8 +190,10 @@ export default function ManageHero() {
         ...currentlyHero.map(a => updateArticle(a.id, { hero: false })),
         updateArticle(articleId, { hero: true, status: 'published' }),
       ]);
+      toast.success('Hero статията е зададена');
     } catch (e) {
       setError(e?.message || 'Грешка при запазване на Hero статията');
+      toast.error('Грешка при задаване на Hero');
     } finally {
       setSavingId(null);
     }
@@ -186,14 +206,14 @@ export default function ManageHero() {
     setError('');
     try {
       await Promise.all(currentlyHero.map(a => updateArticle(a.id, { hero: false })));
+      toast.success('Hero статията е премахната');
     } catch (e) {
       setError(e?.message || 'Грешка при премахване на Hero статията');
+      toast.error('Грешка при премахване');
     } finally {
       setClearing(false);
     }
   };
-
-  const labelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
 
   const saveCopy = async () => {
     setSavingCopy(true);
@@ -203,13 +223,11 @@ export default function ManageHero() {
       const mainPhotoArticleId = Number.isInteger(mainPhotoArticleIdRaw) && mainPhotoArticleIdRaw > 0
         ? mainPhotoArticleIdRaw
         : null;
-
       const photoArticleIds = [...new Set(
         [copyForm.photoArticleId1, copyForm.photoArticleId2]
           .map(v => Number.parseInt(v, 10))
           .filter(v => Number.isInteger(v) && v > 0)
       )].slice(0, 2);
-
       await saveHeroSettings({
         headline: copyForm.headline,
         shockLabel: copyForm.shockLabel,
@@ -219,8 +237,11 @@ export default function ManageHero() {
         mainPhotoArticleId,
         photoArticleIds,
       });
+      initialCopyRef.current = { ...copyForm };
+      toast.success('Hero настройките са запазени');
     } catch (e) {
       setError(e?.message || 'Грешка при запазване на Hero настройките');
+      toast.error('Грешка при запис');
     } finally {
       setSavingCopy(false);
     }
@@ -233,21 +254,35 @@ export default function ManageHero() {
     setError('');
     try {
       await restoreHeroSettingsRevision(revisionId);
+      toast.success('Hero версията е възстановена');
     } catch (e) {
       setError(e?.message || 'Грешка при възстановяване на Hero версия');
+      toast.error('Грешка при възстановяване');
     } finally {
       setRestoringHistory(null);
     }
   };
 
+  const labelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
+  const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple';
+
+  // Headline for demo
+  const headlineLines = (copyForm.headline || DEFAULT_COPY.headline).split('\n').filter(Boolean);
+
   return (
     <div className="p-8">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-bold text-gray-900">Hero секция</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">Избери една статия за главния Hero блок на началната страница</p>
+          <p className="text-sm font-sans text-gray-500 mt-1">Управлявай водещата секция на началната страница</p>
         </div>
         <div className="flex gap-2">
+          {isCopyDirty && (
+            <span className="flex items-center gap-1.5 px-3 py-2 text-xs font-sans font-semibold text-amber-600 bg-amber-50 border border-amber-200">
+              <AlertTriangle className="w-3.5 h-3.5" /> Има незапазени промени
+            </span>
+          )}
           <button
             onClick={clearHero}
             disabled={clearing || !heroArticle}
@@ -266,15 +301,21 @@ export default function ManageHero() {
         </div>
       )}
 
+      {/* Current Hero status */}
       <div className="bg-white border border-gray-200 p-5 mb-6">
         <p className={labelCls}>Текущ Hero</p>
         {heroArticle ? (
           <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-sans font-bold text-gray-900 truncate">{heroArticle.title}</p>
-              <p className="text-xs font-sans text-gray-500 mt-1">
-                {categoryMap.get(heroArticle.category) || heroArticle.category} · {authorMap.get(heroArticle.authorId) || 'Неизвестен'} · {heroArticle.date}
-              </p>
+            <div className="flex items-center gap-3 min-w-0">
+              {heroArticle.image && (
+                <img src={heroArticle.image} alt="" className="w-16 h-10 object-cover border border-gray-100 shrink-0" />
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-sans font-bold text-gray-900 truncate">{heroArticle.title}</p>
+                <p className="text-xs font-sans text-gray-500 mt-0.5">
+                  {categoryMap.get(heroArticle.category) || heroArticle.category} · {authorMap.get(heroArticle.authorId) || 'Неизвестен'} · {heroArticle.date}
+                </p>
+              </div>
             </div>
             <a
               href={`/article/${heroArticle.id}`}
@@ -288,64 +329,365 @@ export default function ManageHero() {
           </div>
         ) : (
           <div className="text-sm font-sans text-gray-500">
-            Няма избрана hero статия. В момента началната ще ползва fallback: {' '}
+            Няма избрана hero статия. Ще се ползва: {' '}
             <span className="font-semibold text-gray-700">{fallbackHero?.title || 'няма налични публикации'}</span>
           </div>
         )}
       </div>
 
-      <div className="bg-white border border-gray-200 p-5 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <div className="inline-flex items-center gap-2 text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500">
-            <History className="w-3.5 h-3.5" />
-            Hero revisions
+      {/* ═══════════════════════════════════════ */}
+      {/* 2-COLUMN LAYOUT: Form (left) + Live Preview (right) */}
+      {/* ═══════════════════════════════════════ */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6 mb-6">
+        {/* LEFT: Form */}
+        <div className="bg-white border border-gray-200 p-5 space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-sans font-semibold text-gray-900">Hero текстове и снимки</h2>
+              <p className="text-xs font-sans text-gray-500 mt-0.5">Редактирай надписи и избери кои снимки/статии да се показват</p>
+            </div>
+            <button
+              onClick={saveCopy}
+              disabled={savingCopy}
+              className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50"
+            >
+              {savingCopy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {savingCopy ? 'Запис...' : 'Запази Hero'}
+            </button>
           </div>
-          <button
-            onClick={async () => {
-              setLoadingHistory(true);
-              setError('');
-              try {
-                await loadHeroSettingsRevisions();
-              } catch (e) {
-                setError(e?.message || 'Грешка при зареждане на Hero историята');
-              } finally {
-                setLoadingHistory(false);
-              }
-            }}
-            className="text-xs font-sans font-semibold text-zn-purple hover:text-zn-purple-dark transition-colors"
-          >
-            Обнови
-          </button>
+
+          {/* Photo selection */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border border-gray-200 bg-gray-50/40">
+            <div>
+              <label className={labelCls}>Снимка 1 (главна, вляво)</label>
+              <select value={copyForm.mainPhotoArticleId} onChange={(e) => setCopyForm(prev => ({ ...prev, mainPhotoArticleId: e.target.value }))} className={inputCls}>
+                <option value="">Автоматично (Hero статия)</option>
+                {sortedArticles.map(article => (
+                  <option key={`hero-photo-main-${article.id}`} value={String(article.id)} disabled={copyForm.photoArticleId1 === String(article.id) || copyForm.photoArticleId2 === String(article.id)}>
+                    {article.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Снимка 2 (горе вдясно)</label>
+              <select value={copyForm.photoArticleId1} onChange={(e) => setCopyForm(prev => ({ ...prev, photoArticleId1: e.target.value }))} className={inputCls}>
+                <option value="">Автоматично</option>
+                {sortedArticles.map(article => (
+                  <option key={`hero-photo-1-${article.id}`} value={String(article.id)} disabled={copyForm.mainPhotoArticleId === String(article.id) || copyForm.photoArticleId2 === String(article.id)}>
+                    {article.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Снимка 3 (долу вдясно)</label>
+              <select value={copyForm.photoArticleId2} onChange={(e) => setCopyForm(prev => ({ ...prev, photoArticleId2: e.target.value }))} className={inputCls}>
+                <option value="">Автоматично</option>
+                {sortedArticles.map(article => (
+                  <option key={`hero-photo-2-${article.id}`} value={String(article.id)} disabled={copyForm.mainPhotoArticleId === String(article.id) || copyForm.photoArticleId1 === String(article.id)}>
+                    {article.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Text fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className={labelCls}>Голям червен надпис (нов ред с Enter)</label>
+              <textarea value={copyForm.headline} onChange={(e) => setCopyForm(prev => ({ ...prev, headline: e.target.value }))} className={inputCls + ' resize-y h-20'} />
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelCls}>Горен board текст (над Hero)</label>
+              <input value={copyForm.headlineBoardText} onChange={(e) => setCopyForm(prev => ({ ...prev, headlineBoardText: e.target.value }))} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Лента върху 1-ва снимка</label>
+              <input value={copyForm.caption1} onChange={(e) => setCopyForm(prev => ({ ...prev, caption1: e.target.value }))} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Лента върху 2-ра снимка</label>
+              <input value={copyForm.caption2} onChange={(e) => setCopyForm(prev => ({ ...prev, caption2: e.target.value }))} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Лента върху 3-та снимка</label>
+              <input value={copyForm.caption3} onChange={(e) => setCopyForm(prev => ({ ...prev, caption3: e.target.value }))} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Starburst текст</label>
+              <input value={copyForm.shockLabel} onChange={(e) => setCopyForm(prev => ({ ...prev, shockLabel: e.target.value }))} className={inputCls} />
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelCls}>CTA текст (долу)</label>
+              <input value={copyForm.ctaLabel} onChange={(e) => setCopyForm(prev => ({ ...prev, ctaLabel: e.target.value }))} className={inputCls} />
+            </div>
+          </div>
         </div>
-        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-          {loadingHistory && <p className="text-xs font-sans text-gray-400 py-2">Зареждане на версии...</p>}
-          {!loadingHistory && heroSettingsRevisions.slice(0, 20).map((revision) => (
-            <div key={revision.revisionId} className="flex items-center justify-between gap-2 border border-gray-200 bg-white px-2.5 py-1.5">
-              <div className="min-w-0">
-                <p className="text-xs font-sans font-semibold text-gray-700 truncate">
-                  v{revision.version} · {revision.source}
-                </p>
-                <p className="text-[10px] font-sans text-gray-400">
-                  {new Date(revision.createdAt).toLocaleString('bg-BG', { dateStyle: 'short', timeStyle: 'short' })}
-                </p>
+
+        {/* RIGHT: Mini preview + Revisions */}
+        <div className="space-y-4">
+          {/* Mini layout preview */}
+          <div className="bg-white border border-gray-200 p-4">
+            <p className={labelCls}>Преглед на снимки</p>
+            {previewPhotoArticles.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2">
+                {previewPhotoArticles.map((item, index) => (
+                  <div key={`mini-preview-${item.id}-${index}`} className="border border-gray-200 bg-gray-50 p-1.5">
+                    <div className="aspect-[4/3] overflow-hidden border border-gray-100 mb-1">
+                      <img
+                        src={item.image || heroPreviewFallbackImage}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = heroPreviewFallbackImage; }}
+                      />
+                    </div>
+                    <p className="text-[9px] font-sans font-semibold text-gray-700 truncate">{item.title}</p>
+                    <p className="text-[8px] font-sans text-zn-hot truncate mt-0.5">
+                      {index === 0 ? copyForm.caption1 : index === 1 ? copyForm.caption2 : copyForm.caption3}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs font-sans text-gray-400 py-4 text-center">Няма статии за preview</p>
+            )}
+          </div>
+
+          {/* Headline board preview */}
+          <div className="bg-white border border-gray-200 p-4">
+            <p className={labelCls}>Headline Board</p>
+            <div className="comic-headline-board inline-flex flex-wrap">
+              {(headlineBoardWords.length > 0 ? headlineBoardWords : DEFAULT_COPY.headlineBoardText.split(' ')).map((word, index, words) => {
+                const edgeWord = index === 0 || index === words.length - 1;
+                return (
+                  <span
+                    key={`${word}-${index}`}
+                    className={`comic-headline-board-word ${edgeWord ? 'comic-headline-board-word-hot' : 'comic-headline-board-word-ink'}`}
+                  >
+                    {word}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Ticker preview */}
+          <div className="bg-white border border-gray-200 overflow-hidden">
+            <div className="bg-zn-purple text-white px-3 py-1.5 text-[10px] font-sans font-bold uppercase tracking-wider">
+              Тикер (текущ)
+            </div>
+            <div className="breaking-strip border-y border-black/20 comic-dots-red">
+              <div className="px-3 py-1">
+                <div className="ticker-wrap py-2">
+                  <div className="ticker-content text-white text-xs font-display font-bold uppercase tracking-wider">
+                    {previewTickerItems.length > 0 ? (
+                      <>
+                        <span>{previewTickerItems.join('  ★  ')}&nbsp;&nbsp;★&nbsp;&nbsp;</span>
+                        <span>{previewTickerItems.join('  ★  ')}&nbsp;&nbsp;★&nbsp;&nbsp;</span>
+                      </>
+                    ) : (
+                      <span>Няма елементи в тикера</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Revisions */}
+          <div className="bg-white border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="inline-flex items-center gap-2 text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500">
+                <History className="w-3.5 h-3.5" />
+                Hero revisions
               </div>
               <button
-                type="button"
-                onClick={() => handleRestoreHistory(revision.revisionId)}
-                disabled={restoringHistory === revision.revisionId}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-sans font-semibold text-zn-purple border border-zn-purple/30 hover:bg-zn-purple/5 transition-colors disabled:opacity-50"
+                onClick={async () => {
+                  setLoadingHistory(true);
+                  setError('');
+                  try { await loadHeroSettingsRevisions(); }
+                  catch (e) { setError(e?.message || 'Грешка при зареждане'); }
+                  finally { setLoadingHistory(false); }
+                }}
+                className="text-xs font-sans font-semibold text-zn-purple hover:text-zn-purple-dark transition-colors"
               >
-                <RotateCcw className="w-3 h-3" />
-                {restoringHistory === revision.revisionId ? '...' : 'Restore'}
+                Обнови
               </button>
             </div>
-          ))}
-          {!loadingHistory && heroSettingsRevisions.length === 0 && (
-            <p className="text-xs font-sans text-gray-400 py-2">Няма запазени версии на Hero settings.</p>
-          )}
+            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+              {loadingHistory && <p className="text-xs font-sans text-gray-400 py-2">Зареждане на версии...</p>}
+              {!loadingHistory && heroSettingsRevisions.slice(0, 15).map((revision) => (
+                <div key={revision.revisionId} className="flex items-center justify-between gap-2 border border-gray-200 bg-white px-2.5 py-1.5">
+                  <div className="min-w-0">
+                    <p className="text-xs font-sans font-semibold text-gray-700 truncate">
+                      v{revision.version} · {revision.source}
+                    </p>
+                    <p className="text-[10px] font-sans text-gray-400">
+                      {new Date(revision.createdAt).toLocaleString('bg-BG', { dateStyle: 'short', timeStyle: 'short' })}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRestoreHistory(revision.revisionId)}
+                    disabled={restoringHistory === revision.revisionId}
+                    className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-sans font-semibold text-zn-purple border border-zn-purple/30 hover:bg-zn-purple/5 transition-colors disabled:opacity-50"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    {restoringHistory === revision.revisionId ? '...' : 'Restore'}
+                  </button>
+                </div>
+              ))}
+              {!loadingHistory && heroSettingsRevisions.length === 0 && (
+                <p className="text-xs font-sans text-gray-400 py-2">Няма запазени версии.</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
+      {/* ═══════════════════════════════════════ */}
+      {/* LIVE HERO DEMO — shows exactly how it looks on the site */}
+      {/* ═══════════════════════════════════════ */}
+      {previewHeroArticle && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Crown className="w-4 h-4 text-amber-500" />
+            <h2 className="text-base font-sans font-semibold text-gray-900">Демо — как изглежда на сайта</h2>
+            <span className="text-[10px] font-sans text-gray-400">(live preview при промяна)</span>
+          </div>
+          <div className="border-2 border-dashed border-gray-300 overflow-hidden bg-white">
+            {/* Actual hero rendering */}
+            <div className="newspaper-page relative comic-panel comic-dots comic-speed-lines hero-sunset-bg">
+              <div className="h-3 bg-gradient-to-r from-red-700 via-red-600 to-orange-500 border-y-2 border-black/30" />
+              <div className="px-5 md:px-10 pt-6 pb-8 relative z-[1]">
+                {/* Breaking + category */}
+                <div className="flex items-center gap-3 mb-3">
+                  {previewHeroArticle.breaking && (
+                    <span className="breaking-badge flex items-center gap-1.5 text-xs">
+                      <Flame className="w-3.5 h-3.5" /> ИЗВЪНРЕДНО
+                    </span>
+                  )}
+                  {categoryMap.get(previewHeroArticle.category) && (
+                    <span className="comic-kicker">{categoryMap.get(previewHeroArticle.category)}</span>
+                  )}
+                </div>
+
+                {/* Title */}
+                <div className="flex items-start gap-3 mb-4">
+                  <Megaphone className="hidden md:inline-block mt-2 w-10 h-10 text-zn-hot" style={{ filter: 'drop-shadow(3px 3px 0 rgba(0,0,0,0.3))', transform: 'rotate(-10deg)' }} />
+                  <h1 className="flex-1 min-w-0 font-display font-black uppercase leading-[0.88]" style={{ fontSize: 'clamp(2rem, 5vw, 4rem)', textShadow: '3px 3px 0 rgba(204,10,26,0.25), 5px 5px 0 rgba(0,0,0,0.15)', letterSpacing: '-0.03em' }}>
+                    {previewHeroArticle.title.split(' ').map((word, i) => (
+                      <span key={i} style={{ color: i % 3 === 0 ? '#CC0A1A' : '#1C1428', WebkitTextStroke: i % 3 === 0 ? '1px rgba(153,8,19,0.3)' : 'none' }}>
+                        {word}{' '}
+                      </span>
+                    ))}
+                  </h1>
+                  <div className="h-1.5 w-32 bg-gradient-to-r from-red-600 to-orange-500 mt-2 mb-1" />
+                </div>
+
+                {/* Excerpt */}
+                <p className="font-sans text-base md:text-lg mb-3 leading-relaxed text-zn-text-dim">{previewHeroArticle.excerpt}</p>
+
+                {/* Meta */}
+                <div className="flex items-center gap-4 text-xs font-display text-zn-text-dim uppercase tracking-wider mb-6">
+                  <span className="font-black text-zn-hot">{authorMap.get(previewHeroArticle.authorId) || 'Неизвестен'}</span>
+                  <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {previewHeroArticle.readTime || 3} мин</span>
+                  <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {(previewHeroArticle.views || 0).toLocaleString()}</span>
+                  <span>{previewHeroArticle.date}</span>
+                </div>
+
+                {/* Photos row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+                  {previewPhotoArticles[0] && (
+                    <div className="polaroid-thick relative" style={{ '--tilt': '-2deg' }}>
+                      <div className="tape tape-tl" />
+                      <div className="tape tape-tr" />
+                      <div className="relative overflow-hidden" style={{ height: '220px' }}>
+                        <img
+                          src={previewPhotoArticles[0].image || heroPreviewFallbackImage}
+                          alt={previewPhotoArticles[0].title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = heroPreviewFallbackImage; }}
+                        />
+                        <div className="photo-caption">{copyForm.caption1}</div>
+                      </div>
+                    </div>
+                  )}
+                  {previewPhotoArticles[1] && (
+                    <div className="polaroid-thick relative" style={{ '--tilt': '2deg' }}>
+                      <div className="tape tape-tl" />
+                      <div className="relative overflow-hidden" style={{ height: '220px' }}>
+                        <img
+                          src={previewPhotoArticles[1].image || heroPreviewFallbackImage}
+                          alt={previewPhotoArticles[1].title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = heroPreviewFallbackImage; }}
+                        />
+                        <div className="photo-caption">{copyForm.caption2}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Headline + 3rd photo */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <h2 className="section-header-red text-2xl md:text-3xl lg:text-4xl mb-4 leading-tight">
+                      {headlineLines.map((line, index) => (
+                        <span key={`${line}-${index}`}>
+                          {line}
+                          {index < headlineLines.length - 1 && <br />}
+                        </span>
+                      ))}
+                    </h2>
+                    <div className="space-y-3 mb-5">
+                      <p className="red-dot font-sans text-sm md:text-base leading-relaxed">{previewHeroArticle.excerpt}</p>
+                      {previewPhotoArticles[1] && <p className="red-dot font-sans text-sm md:text-base leading-relaxed">{previewPhotoArticles[1].excerpt}</p>}
+                    </div>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute -top-5 -right-3 z-30">
+                      <div className="starburst text-base md:text-lg" style={{ padding: '14px 18px' }}>{copyForm.shockLabel}</div>
+                    </div>
+                    {previewPhotoArticles[2] && (
+                      <div className="polaroid-thick relative" style={{ '--tilt': '-1deg' }}>
+                        <div className="tape tape-tr" />
+                        <div className="relative overflow-hidden" style={{ height: '200px' }}>
+                          <img
+                            src={previewPhotoArticles[2].image || heroPreviewFallbackImage}
+                            alt={previewPhotoArticles[2].title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = heroPreviewFallbackImage; }}
+                          />
+                          <div className="photo-caption">{copyForm.caption3}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* CTA */}
+                <div className="block text-center">
+                  <span
+                    className="inline-block section-header-red text-2xl md:text-4xl tracking-wider"
+                    style={{ textShadow: '3px 3px 0 rgba(153,8,19,0.3), 5px 5px 0 rgba(0,0,0,0.1)' }}
+                  >
+                    {copyForm.ctaLabel}
+                  </span>
+                </div>
+              </div>
+              <div className="h-3 bg-gradient-to-r from-orange-500 via-red-600 to-red-700 border-y-2 border-black/30" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════ */}
+      {/* Article picker list */}
+      {/* ═══════════════════════════════════════ */}
       <div className="bg-white border border-gray-200 p-5 mb-4">
         <label className={labelCls}>Търсене на статия</label>
         <div className="relative">
@@ -356,231 +698,6 @@ export default function ManageHero() {
             placeholder="Търси по заглавие, резюме или категория..."
             className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
           />
-        </div>
-      </div>
-
-      <div className="bg-white border border-gray-200 p-5 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-base font-sans font-semibold text-gray-900">Hero текстове и снимки</h2>
-            <p className="text-xs font-sans text-gray-500 mt-0.5">Това управлява надписите и избора на снимки в Hero блока на началната страница</p>
-          </div>
-          <button
-            onClick={saveCopy}
-            disabled={savingCopy}
-            className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            {savingCopy ? 'Запис...' : 'Запази Hero'}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4 p-3 border border-gray-200 bg-gray-50/40">
-            <div>
-              <label className={labelCls}>Снимка 1 (вляво, линк + снимка)</label>
-              <select
-                value={copyForm.mainPhotoArticleId}
-                onChange={(e) => setCopyForm(prev => ({ ...prev, mainPhotoArticleId: e.target.value }))}
-                className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
-              >
-                <option value="">Автоматично (Hero статия)</option>
-                {sortedArticles.map(article => (
-                  <option
-                    key={`hero-photo-main-${article.id}`}
-                    value={String(article.id)}
-                    disabled={copyForm.photoArticleId1 === String(article.id) || copyForm.photoArticleId2 === String(article.id)}
-                  >
-                    {article.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Снимка 2 (горе вдясно, линк + снимка)</label>
-              <select
-                value={copyForm.photoArticleId1}
-                onChange={(e) => setCopyForm(prev => ({ ...prev, photoArticleId1: e.target.value }))}
-                className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
-              >
-                <option value="">Автоматично (по статии)</option>
-                {sortedArticles.map(article => (
-                  <option
-                    key={`hero-photo-1-${article.id}`}
-                    value={String(article.id)}
-                    disabled={copyForm.mainPhotoArticleId === String(article.id) || copyForm.photoArticleId2 === String(article.id)}
-                  >
-                    {article.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Снимка 3 (долу вдясно, линк + снимка)</label>
-              <select
-                value={copyForm.photoArticleId2}
-                onChange={(e) => setCopyForm(prev => ({ ...prev, photoArticleId2: e.target.value }))}
-                className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
-              >
-                <option value="">Автоматично (по статии)</option>
-                {sortedArticles.map(article => (
-                  <option
-                    key={`hero-photo-2-${article.id}`}
-                    value={String(article.id)}
-                    disabled={copyForm.mainPhotoArticleId === String(article.id) || copyForm.photoArticleId1 === String(article.id)}
-                  >
-                    {article.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <p className="md:col-span-3 text-xs font-sans text-gray-500">
-              Можеш да пренасочиш всяка снимка към конкретна статия. При "Автоматично" за снимка 1 се ползва Hero статията, а за снимка 2 и 3 се ползва автоматичен подбор от последни публикации.
-            </p>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className={labelCls}>Голям червен надпис (нов ред с Enter)</label>
-            <textarea
-              value={copyForm.headline}
-              onChange={(e) => setCopyForm(prev => ({ ...prev, headline: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple resize-y h-20"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className={labelCls}>Горен board текст (над Hero)</label>
-            <input
-              value={copyForm.headlineBoardText}
-              onChange={(e) => setCopyForm(prev => ({ ...prev, headlineBoardText: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Лента върху 1-ва снимка</label>
-            <input
-              value={copyForm.caption1}
-              onChange={(e) => setCopyForm(prev => ({ ...prev, caption1: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Лента върху 2-ра снимка</label>
-            <input
-              value={copyForm.caption2}
-              onChange={(e) => setCopyForm(prev => ({ ...prev, caption2: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Лента върху 3-та снимка</label>
-            <input
-              value={copyForm.caption3}
-              onChange={(e) => setCopyForm(prev => ({ ...prev, caption3: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Starburst текст</label>
-            <input
-              value={copyForm.shockLabel}
-              onChange={(e) => setCopyForm(prev => ({ ...prev, shockLabel: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className={labelCls}>CTA текст (долу)</label>
-            <input
-              value={copyForm.ctaLabel}
-              onChange={(e) => setCopyForm(prev => ({ ...prev, ctaLabel: e.target.value }))}
-              className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white border border-gray-200 p-5 mb-6 space-y-5">
-        <div>
-          <h2 className="text-base font-sans font-semibold text-gray-900">Live preview</h2>
-          <p className="text-xs font-sans text-gray-500 mt-0.5">Преглед в реално време на тикер, headline board и Hero снимки</p>
-        </div>
-
-        <div className="border border-gray-200 overflow-hidden">
-          <div className="bg-zn-purple text-white px-3 py-1.5 text-[10px] font-sans font-bold uppercase tracking-wider">
-            Тикер (текущ)
-          </div>
-          <div className="breaking-strip border-y border-black/20 comic-dots-red">
-            <div className="px-3 py-1">
-              <div className="ticker-wrap py-2">
-                <div className="ticker-content text-white text-xs font-display font-bold uppercase tracking-wider">
-                  {previewTickerItems.length > 0 ? (
-                    <>
-                      <span>{previewTickerItems.join('  ★  ')}&nbsp;&nbsp;★&nbsp;&nbsp;</span>
-                      <span>{previewTickerItems.join('  ★  ')}&nbsp;&nbsp;★&nbsp;&nbsp;</span>
-                    </>
-                  ) : (
-                    <span>Няма елементи в тикера</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="border border-gray-200 p-4 bg-gray-50/60">
-          <p className={labelCls}>Headline board</p>
-          <div className="comic-headline-board inline-flex">
-            {(headlineBoardWords.length > 0 ? headlineBoardWords : DEFAULT_COPY.headlineBoardText.split(' ')).map((word, index, words) => {
-              const edgeWord = index === 0 || index === words.length - 1;
-              return (
-                <span
-                  key={`${word}-${index}`}
-                  className={`comic-headline-board-word ${edgeWord ? 'comic-headline-board-word-hot' : 'comic-headline-board-word-ink'}`}
-                >
-                  {word}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="border border-gray-200 p-4 bg-gray-50/50">
-          <p className={labelCls}>Hero снимки и препратки</p>
-          {previewHeroArticle ? (
-            <>
-              <p className="text-sm font-sans font-semibold text-gray-900 mb-3">
-                Hero статия: <span className="text-zn-hot">{previewHeroArticle.title}</span>
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {previewPhotoArticles.map((item, index) => (
-                  <div key={`hero-preview-${item.id}-${index}`} className="border border-gray-200 bg-white p-2">
-                    <div className="aspect-[16/10] overflow-hidden border border-gray-100">
-                      <img
-                        src={item.image || heroPreviewFallbackImage}
-                        alt={item.title}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          e.currentTarget.src = heroPreviewFallbackImage;
-                        }}
-                      />
-                    </div>
-                    <p className="mt-2 text-xs font-display font-black uppercase text-gray-900 line-clamp-2">
-                      {item.title}
-                    </p>
-                    <p className="text-[11px] font-sans text-gray-500 mt-1 line-clamp-2">
-                      {index === 0 ? copyForm.caption1 : index === 1 ? copyForm.caption2 : copyForm.caption3}
-                    </p>
-                    <p className="text-[10px] font-sans text-zn-hot mt-1">
-                      Препраща към: /article/{item.id}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p className="text-sm font-sans text-gray-500">Няма публикации за Hero preview.</p>
-          )}
         </div>
       </div>
 
@@ -634,7 +751,7 @@ export default function ManageHero() {
                   disabled={isSaving || isHero}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-zn-purple text-white text-xs font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50"
                 >
-                  <Save className="w-3.5 h-3.5" />
+                  {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   {isHero ? 'Избран' : isSaving ? 'Запис...' : 'Направи Hero'}
                 </button>
               </div>
