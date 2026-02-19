@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2 } from 'lucide-react';
 import RichTextEditor from '../../components/admin/RichTextEditor';
 import AdminImageField from '../../components/admin/AdminImageField';
 import { estimateReadTimeFromHtml, normalizeRichTextHtml } from '../../utils/richText';
@@ -134,6 +134,8 @@ export default function ManageArticles() {
   const [selectedRevisionIds, setSelectedRevisionIds] = useState([]);
   const [revisionDetailsById, setRevisionDetailsById] = useState({});
   const [loadingRevisionDetails, setLoadingRevisionDetails] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
 
   const filtered = useMemo(
     () => (filterCat === 'all' ? articles : articles.filter(a => a.category === filterCat)),
@@ -450,38 +452,55 @@ export default function ManageArticles() {
     setDraftSavedAt(null);
   };
 
+  const validateForm = useCallback(() => {
+    const errors = {};
+    if (!form.title.trim()) errors.title = 'Заглавието е задължително';
+    if (!form.excerpt.trim()) errors.excerpt = 'Резюмето е задължително';
+    const cleanContent = (form.content || '').replace(/<[^>]*>?/gm, '').trim();
+    if (!cleanContent) errors.content = 'Съдържанието не може да бъде празно';
+    return errors;
+  }, [form.title, form.excerpt, form.content]);
+
   const handleSave = async () => {
-    if (!form.title.trim() || !form.excerpt.trim()) return;
-    const normalizedContent = normalizeRichTextHtml(form.content || '');
-    const autoReadTime = estimateReadTimeFromHtml(normalizedContent || form.excerpt);
+    const errors = validateForm();
+    setValidationErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+    setSaving(true);
+    try {
+      const normalizedContent = normalizeRichTextHtml(form.content || '');
+      const autoReadTime = estimateReadTimeFromHtml(normalizedContent || form.excerpt);
 
-    const data = {
-      ...form,
-      title: form.title.trim(),
-      excerpt: form.excerpt.trim(),
-      content: normalizedContent,
-      authorId: Number(form.authorId),
-      tags: typeof form.tags === 'string' ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : form.tags,
-      readTime: Number(form.readTime) > 0 ? Number(form.readTime) : autoReadTime,
-      views: Number(form.views) || 0,
-      publishAt: localInputToIso(form.publishAt),
-    };
+      const data = {
+        ...form,
+        title: form.title.trim(),
+        excerpt: form.excerpt.trim(),
+        content: normalizedContent,
+        authorId: Number(form.authorId),
+        tags: typeof form.tags === 'string' ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : form.tags,
+        readTime: Number(form.readTime) > 0 ? Number(form.readTime) : autoReadTime,
+        views: Number(form.views) || 0,
+        publishAt: localInputToIso(form.publishAt),
+      };
 
-    if (editing === 'new') {
-      await addArticle(data);
-      clearDraft();
-    } else {
-      await updateArticle(editing, data);
-      await loadArticleRevisions(editing);
+      if (editing === 'new') {
+        await addArticle(data);
+        clearDraft();
+      } else {
+        await updateArticle(editing, data);
+        await loadArticleRevisions(editing);
+      }
+
+      setEditing(null);
+      setForm(emptyForm);
+      setContentMode('write');
+      setDraftSavedAt(null);
+      setAutosavedAt(null);
+      setHistoryItems([]);
+      setLoadingRevisions(false);
+      setValidationErrors({});
+    } finally {
+      setSaving(false);
     }
-
-    setEditing(null);
-    setForm(emptyForm);
-    setContentMode('write');
-    setDraftSavedAt(null);
-    setAutosavedAt(null);
-    setHistoryItems([]);
-    setLoadingRevisions(false);
   };
 
   const handleDelete = async (id) => {
@@ -618,10 +637,10 @@ export default function ManageArticles() {
                 )}
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
-              <button onClick={handleSave} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors">
-                <Save className="w-4 h-4" /> Запази
+              <button onClick={handleSave} disabled={saving} className={`flex items-center gap-2 px-4 py-2 text-white text-sm font-sans font-semibold transition-colors ${saving ? 'bg-zn-purple/60 cursor-not-allowed' : 'bg-zn-purple hover:bg-zn-purple-dark'}`}>
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {saving ? 'Запазване...' : 'Запази'}
               </button>
               <button onClick={handleCancel} className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
                 <X className="w-4 h-4" /> Откажи
@@ -642,12 +661,14 @@ export default function ManageArticles() {
             {/* Left Column: Main Content */}
             <div className="lg:col-span-2 space-y-6">
               <div>
-                <label className={labelCls}>Заглавие</label>
-                <input className={inputCls} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Заглавие на статията" />
+                <label className={labelCls}>Заглавие <span className="text-red-500">*</span></label>
+                <input className={inputCls + (validationErrors.title ? ' !border-red-400 bg-red-50/30' : '')} value={form.title} onChange={e => { setForm({ ...form, title: e.target.value }); if (validationErrors.title) setValidationErrors(prev => ({ ...prev, title: undefined })); }} placeholder="Заглавие на статията" />
+                {validationErrors.title && <p className="text-xs text-red-500 mt-1 font-sans">{validationErrors.title}</p>}
               </div>
               <div>
-                <label className={labelCls}>Резюме</label>
-                <textarea className={inputCls + ' h-20 resize-none'} value={form.excerpt} onChange={e => setForm({ ...form, excerpt: e.target.value })} placeholder="Кратко описание..." />
+                <label className={labelCls}>Резюме <span className="text-red-500">*</span></label>
+                <textarea className={inputCls + ' h-20 resize-none' + (validationErrors.excerpt ? ' !border-red-400 bg-red-50/30' : '')} value={form.excerpt} onChange={e => { setForm({ ...form, excerpt: e.target.value }); if (validationErrors.excerpt) setValidationErrors(prev => ({ ...prev, excerpt: undefined })); }} placeholder="Кратко описание..." />
+                {validationErrors.excerpt && <p className="text-xs text-red-500 mt-1 font-sans">{validationErrors.excerpt}</p>}
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -671,11 +692,11 @@ export default function ManageArticles() {
                 </div>
 
                 {contentMode === 'write' ? (
-                  <div className="h-[600px] overflow-hidden border border-gray-200">
+                  <div className={`h-[600px] overflow-hidden border ${validationErrors.content ? 'border-red-400' : 'border-gray-200'}`}>
                     <RichTextEditor
                       className="!h-full border-none"
                       value={form.content}
-                      onChange={(nextHtml) => setForm(prev => ({ ...prev, content: nextHtml }))}
+                      onChange={(nextHtml) => { setForm(prev => ({ ...prev, content: nextHtml })); if (validationErrors.content) setValidationErrors(prev => ({ ...prev, content: undefined })); }}
                       placeholder="Напиши текста на статията..."
                     />
                   </div>
@@ -690,6 +711,7 @@ export default function ManageArticles() {
                 <p className="mt-2 text-xs font-sans text-gray-500">
                   Разрешени формати: bold, italic, underline, strike, H2/H3/H4, списъци, цитат и линк.
                 </p>
+                {validationErrors.content && <p className="text-xs text-red-500 mt-1 font-sans">{validationErrors.content}</p>}
               </div>
 
               {/* Revision history inside the Editor column if editing */}
@@ -770,7 +792,7 @@ export default function ManageArticles() {
                   </div>
                 )}
               </div>
-              
+
               {/* Revision Comparison Details */}
               {selectedRevisionIds.length > 0 && (
                 <div className="mt-4 border border-gray-200 bg-white p-4">
@@ -868,7 +890,7 @@ export default function ManageArticles() {
                   </label>
                 </div>
               </div>
-              
+
               <div className="p-4 border border-gray-200 bg-gray-50/30 space-y-4">
                 <div>
                   <label className={labelCls}>Тагове</label>
@@ -912,10 +934,10 @@ export default function ManageArticles() {
                 <summary className="p-4 font-sans font-semibold text-sm text-gray-900 cursor-pointer hover:bg-gray-50 select-none list-none flex items-center justify-between">
                   SEO & Social Sharing
                   <div className="w-5 h-5 border border-gray-200 rounded flex items-center justify-center bg-white text-gray-500 group-open:rotate-180 transition-transform">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
                   </div>
                 </summary>
-                
+
                 <div className="px-4 pt-2 space-y-4 border-t border-gray-100 mt-2">
                   <p className="text-xs text-gray-500 font-sans">
                     Персонализирай как изглежда връзката във Facebook, Viber и други мрежи.
