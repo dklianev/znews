@@ -3005,6 +3005,15 @@ articlesRouter.post('/', requireAuth, requirePermission('articles'), async (req,
     if (!data.title || !data.excerpt || !data.content || !data.category) {
       return res.status(400).json({ error: 'Missing required article fields' });
     }
+
+    const cleanContentText = data.content.replace(/<[^>]*>?/gm, '').trim();
+    if (cleanContentText.length === 0) {
+      return res.status(400).json({ error: 'Article content cannot be empty text' });
+    }
+
+    if (!req.body.authorId || parseInt(req.body.authorId, 10) === 1) {
+      data.authorId = Number.isInteger(req.user?.userId) ? req.user.userId : 1;
+    }
     const id = await nextNumericId(Article);
     const item = await Article.create({ ...data, id });
     const obj = item.toJSON();
