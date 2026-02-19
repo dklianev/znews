@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2, Search, Copy, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import RichTextEditor from '../../components/admin/RichTextEditor';
 import AdminImageField from '../../components/admin/AdminImageField';
 import { estimateReadTimeFromHtml, normalizeRichTextHtml } from '../../utils/richText';
@@ -136,16 +136,37 @@ export default function ManageArticles() {
   const [loadingRevisionDetails, setLoadingRevisionDetails] = useState({});
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ARTICLES_PER_PAGE = 15;
+  const initialFormRef = useRef(emptyForm);
 
-  const filtered = useMemo(
-    () => (filterCat === 'all' ? articles : articles.filter(a => a.category === filterCat)),
-    [articles, filterCat]
-  );
+  const filtered = useMemo(() => {
+    let result = filterCat === 'all' ? articles : articles.filter(a => a.category === filterCat);
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(a => a.title?.toLowerCase().includes(q));
+    }
+    return result;
+  }, [articles, filterCat, searchQuery]);
 
   const sorted = useMemo(
     () => [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date)),
     [filtered]
   );
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / ARTICLES_PER_PAGE));
+  const paginatedArticles = useMemo(
+    () => sorted.slice((currentPage - 1) * ARTICLES_PER_PAGE, currentPage * ARTICLES_PER_PAGE),
+    [sorted, currentPage]
+  );
+
+  const isFormDirty = useMemo(() => {
+    if (!editing) return false;
+    const ref = initialFormRef.current;
+    return ref.title !== form.title || ref.excerpt !== form.excerpt || ref.content !== form.content
+      || ref.category !== form.category || ref.image !== form.image || ref.tags !== form.tags;
+  }, [editing, form]);
 
   const computedReadTime = useMemo(
     () => estimateReadTimeFromHtml(form.content || form.excerpt || ''),
@@ -442,13 +463,16 @@ export default function ManageArticles() {
     setEditing('new');
     setContentMode('write');
     setAutosavedAt(null);
+    setValidationErrors({});
     loadHistoryForScope('new');
     if (draft) {
       setForm(draft);
+      initialFormRef.current = draft;
       setDraftSavedAt(draft._savedAt);
       return;
     }
     setForm(emptyForm);
+    initialFormRef.current = emptyForm;
     setDraftSavedAt(null);
   };
 
@@ -526,7 +550,7 @@ export default function ManageArticles() {
     setDraftSavedAt(null);
     setAutosavedAt(null);
     loadHistoryForScope(getHistoryScope(article.id));
-    setForm({
+    const resolvedForm = {
       ...resolvedArticle,
       content: resolvedArticle.content || '<p></p>',
       tags: Array.isArray(resolvedArticle.tags) ? resolvedArticle.tags.join(', ') : resolvedArticle.tags || '',
@@ -536,7 +560,10 @@ export default function ManageArticles() {
       shareBadge: resolvedArticle.shareBadge || '',
       shareAccent: resolvedArticle.shareAccent || 'auto',
       shareImage: resolvedArticle.shareImage || '',
-    });
+    };
+    setForm(resolvedForm);
+    initialFormRef.current = resolvedForm;
+    setValidationErrors({});
     setLoadingRevisions(true);
     try {
       await loadArticleRevisions(article.id);
@@ -546,12 +573,14 @@ export default function ManageArticles() {
   };
 
   const handleCancel = () => {
+    if (isFormDirty && !confirm('Имаш незапазени промени. Сигурен ли си, че искаш да излезеш?')) return;
     setEditing(null);
     setForm(emptyForm);
     setContentMode('write');
     setHistoryItems([]);
     setAutosavedAt(null);
     setLoadingRevisions(false);
+    setValidationErrors({});
     if (editing !== 'new') {
       setDraftSavedAt(null);
     }
@@ -596,6 +625,69 @@ export default function ManageArticles() {
 
   const getAuthorName = (id) => authors.find(a => a.id === id)?.name || 'Неизвестен';
   const getCategoryLabel = (catId) => categories.find(c => c.id === catId)?.name || catId;
+
+  // Feature 7: Auto-generate excerpt from content
+  const autoGenerateExcerpt = () => {
+    const text = (form.content || '').replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+    if (!text) return;
+    const sentences = text.match(/[^.!?]+[.!?]+/g);
+    const excerpt = sentences ? sentences.slice(0, 2).join(' ').trim() : text.slice(0, 200);
+    setForm(prev => ({ ...prev, excerpt }));
+  };
+
+  // Feature 6: Quick status toggle
+  const handleQuickStatusToggle = async (article) => {
+    const newStatus = article.status === 'draft' ? 'published' : 'draft';
+    await updateArticle(article.id, { ...article, status: newStatus });
+  };
+
+  // Feature 8: Duplicate article
+  const handleDuplicate = async (article) => {
+    let fullArticle = article;
+    if (!article.content) {
+      try {
+        const detailed = await api.articles.getById(article.id);
+        if (detailed) fullArticle = { ...article, ...detailed };
+      } catch { /* use partial */ }
+    }
+    const dup = {
+      ...fullArticle,
+      title: `${fullArticle.title} (копие)`,
+      status: 'draft',
+      featured: false,
+      breaking: false,
+      hero: false,
+      date: new Date().toISOString().slice(0, 10),
+      views: 0,
+      publishAt: null,
+    };
+    delete dup.id;
+    await addArticle(dup);
+  };
+
+  // Feature 1: Ctrl+S keyboard shortcut
+  useEffect(() => {
+    if (!editing) return undefined;
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [editing, handleSave]);
+
+  // Feature 2: beforeunload warning
+  useEffect(() => {
+    if (!isFormDirty) return undefined;
+    const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isFormDirty]);
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1); }, [filterCat, searchQuery]);
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
   const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
@@ -661,12 +753,18 @@ export default function ManageArticles() {
             {/* Left Column: Main Content */}
             <div className="lg:col-span-2 space-y-6">
               <div>
-                <label className={labelCls}>Заглавие <span className="text-red-500">*</span></label>
+                <div className="flex items-center justify-between">
+                  <label className={labelCls}>Заглавие <span className="text-red-500">*</span></label>
+                  <span className={`text-[10px] font-sans tabular-nums ${form.title.length > 100 ? 'text-amber-600' : 'text-gray-400'}`}>{form.title.length}/120</span>
+                </div>
                 <input className={inputCls + (validationErrors.title ? ' !border-red-400 bg-red-50/30' : '')} value={form.title} onChange={e => { setForm({ ...form, title: e.target.value }); if (validationErrors.title) setValidationErrors(prev => ({ ...prev, title: undefined })); }} placeholder="Заглавие на статията" />
                 {validationErrors.title && <p className="text-xs text-red-500 mt-1 font-sans">{validationErrors.title}</p>}
               </div>
               <div>
-                <label className={labelCls}>Резюме <span className="text-red-500">*</span></label>
+                <div className="flex items-center justify-between">
+                  <label className={labelCls}>Резюме <span className="text-red-500">*</span></label>
+                  <button type="button" onClick={autoGenerateExcerpt} className="text-[10px] font-sans font-semibold text-zn-purple hover:text-zn-purple-dark transition-colors" title="Генерирай от съдържанието">✨ Авто</button>
+                </div>
                 <textarea className={inputCls + ' h-20 resize-none' + (validationErrors.excerpt ? ' !border-red-400 bg-red-50/30' : '')} value={form.excerpt} onChange={e => { setForm({ ...form, excerpt: e.target.value }); if (validationErrors.excerpt) setValidationErrors(prev => ({ ...prev, excerpt: undefined })); }} placeholder="Кратко описание..." />
                 {validationErrors.excerpt && <p className="text-xs text-red-500 mt-1 font-sans">{validationErrors.excerpt}</p>}
               </div>
@@ -1026,33 +1124,42 @@ export default function ManageArticles() {
           </div>
         </div>
       )}
-      {/* Category filter */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        <button
-          onClick={() => setFilterCat('all')}
-          className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filterCat === 'all' ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
-            }`}
-        >
-          Всички ({articles.length})
-        </button>
-        {categories.filter(c => c.id !== 'all').map(c => {
-          const count = articles.filter(a => a.category === c.id).length;
-          return (
-            <button
-              key={c.id}
-              onClick={() => setFilterCat(c.id)}
-              className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filterCat === c.id ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
-                }`}
-            >
-              {c.name} ({count})
-            </button>
-          );
-        })}
+      {/* Search + Category filter */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <input
+            className={inputCls + ' !pl-9'}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Търси по заглавие..."
+          />
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setFilterCat('all')}
+            className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filterCat === 'all' ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'}`}
+          >
+            Всички ({articles.length})
+          </button>
+          {categories.filter(c => c.id !== 'all').map(c => {
+            const count = articles.filter(a => a.category === c.id).length;
+            return (
+              <button
+                key={c.id}
+                onClick={() => setFilterCat(c.id)}
+                className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filterCat === c.id ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'}`}
+              >
+                {c.name} ({count})
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Articles list */}
       <div className="space-y-2">
-        {sorted.map(article => {
+        {paginatedArticles.map(article => {
           const publishAtDate = article.publishAt ? new Date(article.publishAt) : null;
           const isScheduled = article.status === 'published' && publishAtDate && publishAtDate > new Date();
           const publishAtLabel = publishAtDate && !Number.isNaN(publishAtDate.getTime())
@@ -1082,6 +1189,12 @@ export default function ManageArticles() {
                 </p>
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => handleQuickStatusToggle(article)} className="p-1.5 text-gray-400 hover:text-zn-purple transition-colors" title={article.status === 'draft' ? 'Публикувай' : 'Върни в чернова'}>
+                  {article.status === 'draft' ? <ToggleLeft className="w-4 h-4" /> : <ToggleRight className="w-4 h-4 text-green-500" />}
+                </button>
+                <button onClick={() => handleDuplicate(article)} className="p-1.5 text-gray-400 hover:text-zn-purple transition-colors" title="Дублирай">
+                  <Copy className="w-4 h-4" />
+                </button>
                 <a href={`/article/${article.id}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors">
                   <Eye className="w-4 h-4" />
                 </a>
@@ -1096,9 +1209,33 @@ export default function ManageArticles() {
           );
         })}
         {sorted.length === 0 && (
-          <div className="text-center py-12 text-sm font-sans text-gray-400">Няма статии в тази категория</div>
+          <div className="text-center py-12 text-sm font-sans text-gray-400">Няма статии {searchQuery ? 'със съвпадащо заглавие' : 'в тази категория'}</div>
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage <= 1}
+            className="p-2 text-gray-500 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="text-sm font-sans text-gray-600">
+            {currentPage} / {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage >= totalPages}
+            className="p-2 text-gray-500 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <span className="text-xs font-sans text-gray-400 ml-2">({sorted.length} статии)</span>
+        </div>
+      )}
     </div>
   );
 }
