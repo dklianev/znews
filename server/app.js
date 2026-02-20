@@ -2886,6 +2886,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
       }).catch(() => { });
 
       clearApiCacheKeys(`api_cache_/api/${resourceName}`);
+      clearApiCacheKeys('api_cache_/api/bootstrap');
 
       res.status(201).json(obj);
     } catch (e) {
@@ -2913,6 +2914,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
       }).catch(() => { });
 
       clearApiCacheKeys(`api_cache_/api/${resourceName}`);
+      clearApiCacheKeys('api_cache_/api/bootstrap');
 
       res.json(item.toJSON());
     } catch (e) {
@@ -2936,6 +2938,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
       }).catch(() => { });
 
       clearApiCacheKeys(`api_cache_/api/${resourceName}`);
+      clearApiCacheKeys('api_cache_/api/bootstrap');
 
       res.json({ ok: true });
     } catch (e) {
@@ -3009,7 +3012,7 @@ articlesRouter.get('/', cacheMiddleware, async (req, res) => {
   }
 });
 
-articlesRouter.get('/:id(\\d+)', async (req, res) => {
+articlesRouter.get('/:id(\\d+)', cacheMiddleware, async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
@@ -3920,6 +3923,9 @@ catRouter.post('/', requireAuth, requirePermission('categories'), async (req, re
     const icon = normalizeText(req.body.icon, 16);
     if (!id || !name) return res.status(400).json({ error: 'Invalid category payload' });
     const item = await Category.create({ id, name, icon });
+
+    clearApiCacheKeys('api_cache_/api/bootstrap');
+
     res.json(item.toJSON());
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -3939,6 +3945,9 @@ catRouter.put('/:id', requireAuth, requirePermission('categories'), async (req, 
       { new: true }
     );
     if (!item) return res.status(404).json({ error: 'Not found' });
+
+    clearApiCacheKeys('api_cache_/api/bootstrap');
+
     res.json(item.toJSON());
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -3958,6 +3967,9 @@ catRouter.delete('/:id', requireAuth, requirePermission('categories'), async (re
 
     const result = await Category.deleteOne({ id: categoryId });
     if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+
+    clearApiCacheKeys('api_cache_/api/bootstrap');
+
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -3984,8 +3996,9 @@ app.put('/api/breaking', requireAuth, requirePermission('breaking'), async (req,
     await Breaking.deleteMany({});
     const doc = await Breaking.create({ items });
 
-    // Invalidate breaking cache
+    // Invalidate breaking cache & bootstrap
     clearApiCacheKeys('api_cache_/api/breaking');
+    clearApiCacheKeys('api_cache_/api/bootstrap');
 
     res.json(doc.items);
   } catch (e) {
@@ -4022,6 +4035,8 @@ app.put('/api/hero-settings', requireAuth, requirePermission('articles'), async 
       resourceId: 1,
       details: 'save',
     }).catch(() => { });
+
+    clearApiCacheKeys('api_cache_/api/bootstrap');
 
     res.json(serialized);
   } catch (e) {
@@ -4067,6 +4082,8 @@ app.post('/api/hero-settings/revisions/restore', requireAuth, requirePermission(
       details: `restore:${revisionId}`,
     }).catch(() => { });
 
+    clearApiCacheKeys('api_cache_/api/bootstrap');
+
     res.json(serialized);
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -4110,6 +4127,8 @@ app.post('/api/site-settings/revisions/restore', requireAuth, requirePermission(
       resourceId: 1,
       details: `restore:${revisionId}`,
     }).catch(() => { });
+
+    clearApiCacheKeys('api_cache_/api/bootstrap');
 
     res.json(serialized);
   } catch (e) {
@@ -4156,7 +4175,7 @@ app.put('/api/site-settings', requireAuth, requirePermission('permissions'), asy
 // ─── Bootstrap (public initial payload) ───
 // Consolidates the public "homepage" requests into a single roundtrip.
 // Uses the same visibility rules as /api/articles (drafts are visible only to users with articles permission).
-app.get('/api/bootstrap', async (req, res) => {
+app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
   try {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
