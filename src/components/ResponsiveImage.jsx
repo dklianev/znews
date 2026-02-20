@@ -61,6 +61,21 @@ export default function ResponsiveImage({
 
   const effectivePlaceholder = placeholder || normalizedPipeline?.placeholder || '';
 
+  const computedStyle = useMemo(() => {
+    let base = {};
+    if (effectivePlaceholder && !loaded) {
+      base = {
+        backgroundImage: `url(${effectivePlaceholder})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      };
+    }
+    if (pipeline?.objectPosition) {
+      base.objectPosition = pipeline.objectPosition;
+    }
+    return Object.keys(base).length > 0 ? base : undefined;
+  }, [effectivePlaceholder, loaded, pipeline]);
+
   if (!safeSrc) return null;
 
   return (
@@ -77,7 +92,7 @@ export default function ResponsiveImage({
         loading={loading}
         decoding={decoding}
         fetchpriority={fetchPriority}
-        style={effectivePlaceholder && !loaded ? { backgroundImage: `url(${effectivePlaceholder})`, backgroundSize: 'cover', backgroundPosition: 'center' } : undefined}
+        style={computedStyle}
         onLoad={() => setLoaded(true)}
         onError={(event) => {
           if (!failed && fallbackSrc && safeSrc !== fallbackSrc) {

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
-import { Image as ImageIcon, Search, Upload, X, RefreshCw } from 'lucide-react';
+import { Image as ImageIcon, Search, Upload, X, RefreshCw, Crop } from 'lucide-react';
+import ImageEditorDialog from './ImageEditorDialog';
 import { useData } from '../../context/DataContext';
 
 export default function AdminImageField({
@@ -11,12 +12,16 @@ export default function AdminImageField({
   required = false,
   previewClassName = 'h-32',
   showManualInput = true,
+  imageMeta = null,
+  onChangeMeta = null,
 }) {
   const { media, uploadMedia, refreshMedia } = useData();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [editorUrl, setEditorUrl] = useState(null);
+  const [editorFile, setEditorFile] = useState(null);
   const fileRef = useRef(null);
 
   const filteredMedia = useMemo(() => {
@@ -28,7 +33,13 @@ export default function AdminImageField({
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    await processFile(file);
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setEditorFile(file);
+      setEditorUrl(url);
+    } else {
+      await processFile(file);
+    }
   };
 
   const processFile = async (file) => {
@@ -49,7 +60,34 @@ export default function AdminImageField({
     e.preventDefault();
     setDragActive(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) processFile(file);
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        const url = URL.createObjectURL(file);
+        setEditorFile(file);
+        setEditorUrl(url);
+      } else {
+        processFile(file);
+      }
+    }
+  };
+
+  const handleEditSave = async (result) => {
+    if (result.action === 'crop') {
+      // Cropped image is a new file
+      await processFile(new File([result.file], 'cropped_image.jpg', { type: 'image/jpeg' }));
+      if (onChangeMeta) onChangeMeta({ ...imageMeta, objectPosition: null }); // reset focal if cropped
+    } else if (result.action === 'focal') {
+      // If we were uploading a new file, upload it now
+      if (editorFile) {
+        await processFile(editorFile);
+      }
+      // Save focal point
+      if (onChangeMeta) {
+        onChangeMeta({ ...imageMeta, objectPosition: result.objectPosition });
+      }
+    }
+    setEditorUrl(null);
+    setEditorFile(null);
   };
 
   const handleDragOver = (e) => { e.preventDefault(); setDragActive(true); };
@@ -97,14 +135,30 @@ export default function AdminImageField({
         </label>
 
         {value && (
-          <button
-            type="button"
-            onClick={() => onChange('')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-200 text-xs font-sans font-semibold text-red-600 hover:bg-red-50 transition-colors"
-          >
-            <X className="w-3.5 h-3.5" />
-            Изчисти
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setEditorFile(null);
+                setEditorUrl(value);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 border border-blue-200 text-xs font-sans font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
+            >
+              <Crop className="w-3.5 h-3.5" />
+              Редактирай
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onChange('');
+                if (onChangeMeta) onChangeMeta({ ...imageMeta, objectPosition: null });
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-200 text-xs font-sans font-semibold text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+              Изчисти
+            </button>
+          </>
         )}
       </div>
 
@@ -118,10 +172,10 @@ export default function AdminImageField({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={`mt-2 border-2 border-dashed transition-colors overflow-hidden ${previewClassName} ${dragActive
-            ? 'border-zn-purple bg-zn-purple/5'
-            : value
-              ? 'border-gray-200 bg-gray-50'
-              : 'border-gray-300 bg-gray-50'
+          ? 'border-zn-purple bg-zn-purple/5'
+          : value
+            ? 'border-gray-200 bg-gray-50'
+            : 'border-gray-300 bg-gray-50'
           }`}
       >
         {uploading ? (
@@ -133,6 +187,7 @@ export default function AdminImageField({
             src={value}
             alt=""
             className="w-full h-full object-cover"
+            style={imageMeta?.objectPosition ? { objectPosition: imageMeta.objectPosition } : {}}
             loading="lazy"
             decoding="async"
           />
@@ -225,6 +280,18 @@ export default function AdminImageField({
             </div>
           </div>
         </div>
+      )}
+
+      {editorUrl && (
+        <ImageEditorDialog
+          imageUrl={editorUrl}
+          initialFocalPoint={imageMeta?.objectPosition}
+          onClose={() => {
+            setEditorUrl(null);
+            setEditorFile(null);
+          }}
+          onSave={handleEditSave}
+        />
       )}
     </div>
   );

@@ -168,7 +168,8 @@ export default function ManageArticles() {
     if (!editing) return false;
     const ref = initialFormRef.current;
     return ref.title !== form.title || ref.excerpt !== form.excerpt || ref.content !== form.content
-      || ref.category !== form.category || ref.image !== form.image || ref.tags !== form.tags;
+      || ref.category !== form.category || ref.image !== form.image || ref.tags !== form.tags
+      || JSON.stringify(ref.imageMeta || null) !== JSON.stringify(form.imageMeta || null);
   }, [editing, form]);
 
   const computedReadTime = useMemo(
@@ -216,6 +217,7 @@ export default function ManageArticles() {
     date: form.date,
     readTime: Number(form.readTime) || 0,
     image: form.image,
+    imageMeta: form.imageMeta || null,
     featured: Boolean(form.featured),
     breaking: Boolean(form.breaking),
     hero: Boolean(form.hero),
@@ -1014,6 +1016,8 @@ export default function ManageArticles() {
                   required
                   value={form.image}
                   onChange={(nextValue) => setForm({ ...form, image: nextValue })}
+                  imageMeta={form.imageMeta}
+                  onChangeMeta={(nextMeta) => setForm({ ...form, imageMeta: nextMeta })}
                   helperText="Избери снимка (16:9 препоръчително)."
                   previewClassName="h-40"
                 />

@@ -87,8 +87,8 @@ app.get('/api/health', (_req, res) => {
     : state === 2
       ? 'connecting'
       : state === 3
-      ? 'disconnecting'
-      : 'disconnected';
+        ? 'disconnecting'
+        : 'disconnected';
   const ok = mongo === 'connected' && !shuttingDown;
   res.set('Cache-Control', 'no-store');
   res.status(ok ? 200 : 503).json({
@@ -1693,12 +1693,12 @@ async function ensureArticleShareCard(article, { categoryLabel = '' } = {}) {
     }),
     model.dateLabel
       ? renderTextImage(sharp, model.dateLabel, {
-          fontSize: 18,
-          fontWeight: 'bold',
-          color: '#3f2d56',
-          width: 190,
-          height: 26,
-        })
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#3f2d56',
+        width: 190,
+        height: 26,
+      })
       : null,
   ]);
 
@@ -2004,6 +2004,9 @@ function sanitizeArticlePayload(payload, { partial = false } = {}) {
   }
 
   if (!partial || hasOwn(payload, 'image')) out.image = sanitizeMediaUrl(payload.image);
+  if (!partial || hasOwn(payload, 'imageMeta')) {
+    out.imageMeta = payload.imageMeta && typeof payload.imageMeta === 'object' ? payload.imageMeta : null;
+  }
   if (!partial || hasOwn(payload, 'featured')) out.featured = Boolean(payload.featured);
   if (!partial || hasOwn(payload, 'breaking')) out.breaking = Boolean(payload.breaking);
   if (!partial || hasOwn(payload, 'hero')) out.hero = Boolean(payload.hero);
@@ -2076,7 +2079,9 @@ async function enrichArticlePayloadWithImageMeta(payload, { partial = false } = 
   if (!payload || typeof payload !== 'object') return payload;
   if (!partial || hasOwn(payload, 'image')) {
     const resolvedMeta = await resolveImageMetaFromUrl(payload.image);
-    payload.imageMeta = resolvedMeta || null;
+    if (resolvedMeta) {
+      payload.imageMeta = { ...(payload.imageMeta || {}), ...resolvedMeta };
+    }
   }
   return payload;
 }
