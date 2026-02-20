@@ -112,8 +112,8 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                             ))}
                         </h2>
                         <div className="space-y-3 mb-5">
-                            <p className="red-dot font-sans text-base md:text-lg leading-relaxed">{article.excerpt}</p>
                             {siblingArticles[0] && <p className="red-dot font-sans text-base md:text-lg leading-relaxed">{siblingArticles[0].excerpt}</p>}
+                            {siblingArticles[1] && <p className="red-dot font-sans text-base md:text-lg leading-relaxed">{siblingArticles[1].excerpt}</p>}
                         </div>
                     </div>
                     <div className="relative">
