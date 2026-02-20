@@ -13,6 +13,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import webpush from 'web-push';
+import NodeCache from 'node-cache';
 import { isIP } from 'node:net';
 import {
   S3Client,
@@ -90,6 +91,48 @@ const isProd = process.env.NODE_ENV === 'production';
 const rawJwtSecret = process.env.JWT_SECRET;
 const rawRefreshSecret = process.env.REFRESH_TOKEN_SECRET || rawJwtSecret;
 let shuttingDown = false;
+
+// ─── API Performance Caching ───
+const apiCache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
+function cacheMiddleware(req, res, next) {
+  // Only cache GET requests
+  if (req.method !== 'GET') {
+    return next();
+  }
+
+  // Skip cache if admin user is logged in
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return next();
+  }
+
+  const key = `api_cache_${req.originalUrl || req.url}`;
+  const cachedBody = apiCache.get(key);
+
+  if (cachedBody) {
+    res.setHeader('X-Cache', 'HIT');
+    return res.json(JSON.parse(cachedBody));
+  } else {
+    res.setHeader('X-Cache', 'MISS');
+    const originalSend = res.json;
+    res.json = function (body) {
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        apiCache.set(key, JSON.stringify(body));
+      }
+      return originalSend.call(this, body);
+    };
+    next();
+  }
+}
+
+function clearApiCacheKeys(pattern) {
+  const keys = apiCache.keys();
+  const keysToDelete = keys.filter(k => k.includes(pattern));
+  if (keysToDelete.length > 0) {
+    apiCache.del(keysToDelete);
+    console.log(`Cache cleared for pattern: ${pattern} (${keysToDelete.length} keys)`);
+  }
+}
 
 // Simple readiness health endpoint (returns 200 only when Mongo is connected).
 // Keep this before rate-limit middleware so platforms can probe it freely.
@@ -2793,7 +2836,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
     return next;
   };
 
-  router.get('/', async (_req, res) => {
+  router.get('/', cacheMiddleware, async (_req, res) => {
     try {
       const items = await Model.find().sort(defaultSort).lean();
       items.forEach(i => {
@@ -2821,6 +2864,9 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
         resourceId: id,
         details: obj.title || obj.name || obj.question || '',
       }).catch(() => { });
+
+      clearApiCacheKeys(`api_cache_/api/${resourceName}`);
+
       res.status(201).json(obj);
     } catch (e) {
       res.status(500).json({ error: publicError(e) });
@@ -2845,6 +2891,9 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
         resourceId: id,
         details: data.title || data.name || '',
       }).catch(() => { });
+
+      clearApiCacheKeys(`api_cache_/api/${resourceName}`);
+
       res.json(item.toJSON());
     } catch (e) {
       res.status(500).json({ error: publicError(e) });
@@ -2865,6 +2914,9 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
         resourceId: id,
         details: '',
       }).catch(() => { });
+
+      clearApiCacheKeys(`api_cache_/api/${resourceName}`);
+
       res.json({ ok: true });
     } catch (e) {
       res.status(500).json({ error: publicError(e) });
@@ -2877,7 +2929,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
 // ─── Articles ───
 const articlesRouter = express.Router();
 
-articlesRouter.get('/', async (req, res) => {
+articlesRouter.get('/', cacheMiddleware, async (req, res) => {
   try {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
@@ -3078,6 +3130,10 @@ articlesRouter.post('/', requireAuth, requirePermission('articles'), async (req,
       sendPushNotificationForArticle(obj);
     }
 
+    // Invalidate articles cache
+    clearApiCacheKeys('api_cache_/api/articles');
+    clearApiCacheKeys('api_cache_/api/breaking');
+
     res.json(obj);
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -3115,6 +3171,10 @@ articlesRouter.put('/:id', requireAuth, requirePermission('articles'), async (re
     if (updated.breaking && updated.status === 'published' && (!updated.publishAt || new Date(updated.publishAt) <= new Date())) {
       sendPushNotificationForArticle(updated);
     }
+
+    // Invalidate articles cache
+    clearApiCacheKeys('api_cache_/api/articles');
+    clearApiCacheKeys('api_cache_/api/breaking');
 
     res.json(updated);
   } catch (e) {
@@ -3867,7 +3927,7 @@ catRouter.delete('/:id', requireAuth, requirePermission('categories'), async (re
 app.use('/api/categories', catRouter);
 
 // ─── Breaking News (single doc with items array) ───
-app.get('/api/breaking', async (_req, res) => {
+app.get('/api/breaking', cacheMiddleware, async (_req, res) => {
   try {
     const doc = await Breaking.findOne().lean();
     res.json(doc?.items || []);
@@ -3883,6 +3943,10 @@ app.put('/api/breaking', requireAuth, requirePermission('breaking'), async (req,
       : [];
     await Breaking.deleteMany({});
     const doc = await Breaking.create({ items });
+
+    // Invalidate breaking cache
+    clearApiCacheKeys('api_cache_/api/breaking');
+
     res.json(doc.items);
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
