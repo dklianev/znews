@@ -58,6 +58,9 @@ export default function HomePage() {
 
     const horizontalAds = safeAds.filter(a => a.type === 'horizontal');
     const sideAds = safeAds.filter(a => a.type === 'side');
+    // The grid for showcase needs up to 5. If we have fewer, they still go here.
+    // The rest go to the wire. If we want all of them in a simple list when there are few, we can do that,
+    // but the current logic is: first 5 go to showcase, rest go to wire.
     const latestShowcase = latestArticles.slice(0, 5);
     const latestWire = latestArticles.slice(5);
 
@@ -114,13 +117,32 @@ export default function HomePage() {
       </div>
     );
   }
-  const latestSlots = [
-    { span: 'md:col-span-8 md:row-span-2', tilt: '-1.2deg', sticker: 'Фронт' },
-    { span: 'md:col-span-4', tilt: '1deg', sticker: 'Досиe' },
-    { span: 'md:col-span-4', tilt: '-0.9deg', sticker: 'Радар' },
-    { span: 'md:col-span-4', tilt: '0.8deg', sticker: 'Сигнал' },
-    { span: 'md:col-span-8', tilt: '-0.8deg', sticker: 'Ключово' },
-  ];
+  const getDynamicSlots = (count) => {
+    if (count === 1) return [{ span: 'col-span-1 md:col-span-12', tilt: '-1.2deg', sticker: 'Фронт' }];
+    if (count === 2) return [
+      { span: 'col-span-1 md:col-span-6', tilt: '-1.2deg', sticker: 'Фронт' },
+      { span: 'col-span-1 md:col-span-6', tilt: '1deg', sticker: 'Досие' }
+    ];
+    if (count === 3) return [
+      { span: 'col-span-1 md:col-span-12', tilt: '-1.2deg', sticker: 'Фронт' },
+      { span: 'col-span-1 md:col-span-6', tilt: '1deg', sticker: 'Досие' },
+      { span: 'col-span-1 md:col-span-6', tilt: '-0.9deg', sticker: 'Радар' }
+    ];
+    if (count === 4) return [
+      { span: 'col-span-1 md:col-span-12', tilt: '-1.2deg', sticker: 'Фронт' },
+      { span: 'col-span-1 md:col-span-4', tilt: '1deg', sticker: 'Досие' },
+      { span: 'col-span-1 md:col-span-4', tilt: '-0.9deg', sticker: 'Радар' },
+      { span: 'col-span-1 md:col-span-4', tilt: '0.8deg', sticker: 'Сигнал' }
+    ];
+    return [
+      { span: 'col-span-1 md:col-span-8 md:row-span-2', tilt: '-1.2deg', sticker: 'Фронт' },
+      { span: 'col-span-1 md:col-span-4', tilt: '1deg', sticker: 'Досиe' },
+      { span: 'col-span-1 md:col-span-4', tilt: '-0.9deg', sticker: 'Радар' },
+      { span: 'col-span-1 md:col-span-4', tilt: '0.8deg', sticker: 'Сигнал' },
+      { span: 'col-span-1 md:col-span-8', tilt: '-0.8deg', sticker: 'Ключово' },
+    ];
+  };
+  const latestSlots = getDynamicSlots(latestShowcase.length);
 
   return (
     <div className="max-w-6xl mx-auto px-3 md:px-4 py-5 space-y-6">
