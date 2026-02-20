@@ -32,8 +32,12 @@ export function AdBannerHorizontal({ ad }) {
           <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-zn-hot/10 to-transparent pointer-events-none" />
           <AdLabel className="-top-2 -right-1 md:-top-3 md:-right-2" />
           <div className="flex items-center gap-4 min-w-0 relative z-[2]">
-            <div className="w-14 h-14 rounded-full border-[4px] border-white outline outline-[3px] outline-[#1C1428] flex items-center justify-center bg-white shrink-0" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
-              <span className="text-2xl">{ad.icon}</span>
+            <div className="w-14 h-14 rounded-full border-[4px] border-white outline outline-[3px] outline-[#1C1428] flex items-center justify-center bg-white shrink-0 overflow-hidden" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
+              {ad.image ? (
+                <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl">{ad.icon}</span>
+              )}
             </div>
             <div className="min-w-0">
               <h4 className="font-display font-black text-zn-text tracking-wider uppercase leading-none">{ad.title}</h4>
@@ -64,12 +68,16 @@ export function AdBannerSide({ ad }) {
           <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-zn-hot to-zn-orange" />
           <AdLabel className="-top-2 -right-2" />
           <div className="absolute top-5 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full bg-zn-hot/10 blur-xl pointer-events-none" />
-          <div className="w-16 h-16 rounded-full border-[4px] border-white outline outline-[3px] outline-[#1C1428] flex items-center justify-center bg-white relative z-[2]" style={{boxShadow:'3px 3px 0 #1C1428'}}>
-            <span className="text-3xl">{ad.icon}</span>
+          <div className="w-16 h-16 rounded-full border-[4px] border-white outline outline-[3px] outline-[#1C1428] flex items-center justify-center bg-white relative z-[2] overflow-hidden" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
+            {ad.image ? (
+              <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-3xl">{ad.icon}</span>
+            )}
           </div>
           <h4 className="font-display font-black text-zn-text tracking-wider uppercase relative z-[2]">{ad.title}</h4>
           <p className="text-sm text-zn-text-muted whitespace-pre-line relative z-[2]">{ad.subtitle}</p>
-          <span className="mt-1 inline-block px-5 py-2 bg-gradient-to-r from-zn-hot to-zn-orange text-white text-xs font-display font-black uppercase tracking-wider group-hover:shadow-lg transition-all border-2 border-white/30 relative z-[2]" style={{boxShadow:'2px 2px 0 rgba(0,0,0,0.3)'}}>
+          <span className="mt-1 inline-block px-5 py-2 bg-gradient-to-r from-zn-hot to-zn-orange text-white text-xs font-display font-black uppercase tracking-wider group-hover:shadow-lg transition-all border-2 border-white/30 relative z-[2]" style={{ boxShadow: '2px 2px 0 rgba(0,0,0,0.3)' }}>
             {ad.cta}
           </span>
         </div>
@@ -95,8 +103,12 @@ export function AdBannerInline({ ad }) {
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange" />
           <AdLabel className="-top-2 -right-1" />
           <div className="flex items-center gap-3 relative z-[2]">
-            <div className="w-10 h-10 rounded-full border-[3px] border-white outline outline-[2px] outline-[#1C1428] flex items-center justify-center bg-white shrink-0" style={{ boxShadow: '2px 2px 0 #1C1428' }}>
-              <span className="text-xl">{ad.icon}</span>
+            <div className="w-10 h-10 rounded-full border-[3px] border-white outline outline-[2px] outline-[#1C1428] flex items-center justify-center bg-white shrink-0 overflow-hidden" style={{ boxShadow: '2px 2px 0 #1C1428' }}>
+              {ad.image ? (
+                <img src={ad.image} alt={ad.title} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl">{ad.icon}</span>
+              )}
             </div>
             <div>
               <h4 className="font-display font-black uppercase text-sm text-zn-text tracking-wider">{ad.title}</h4>
