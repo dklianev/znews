@@ -485,6 +485,27 @@ export default function ManageArticles() {
     setDraftSavedAt(null);
   };
 
+  // Auto-load prefill from Tip Line
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem('znews_tip_prefill');
+      if (raw) {
+        const prefill = JSON.parse(raw);
+        setEditing('new');
+        setContentMode('write');
+        setAutosavedAt(null);
+        setValidationErrors({});
+        loadHistoryForScope('new');
+        setForm({ ...emptyForm, ...prefill });
+        initialFormRef.current = { ...emptyForm, ...prefill };
+        window.localStorage.removeItem('znews_tip_prefill');
+      }
+    } catch {
+      window.localStorage.removeItem('znews_tip_prefill');
+    }
+  }, []);
+
   const validateForm = useCallback(() => {
     const errors = {};
     if (!form.title.trim()) errors.title = 'Заглавието е задължително';

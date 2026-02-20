@@ -358,6 +358,18 @@ const auditLogSchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now, index: true },
 }, opts);
 
+// ─── Tip (Tip Line) ───
+const tipSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  text: String,
+  location: String,
+  image: String,
+  imageMeta: { type: mongoose.Schema.Types.Mixed, default: null },
+  status: { type: String, default: 'new', enum: ['new', 'processed', 'rejected'] },
+  ipHash: { type: String, index: true },
+  createdAt: { type: Date, default: Date.now, index: true },
+}, opts);
+
 export const Article = mongoose.model('Article', articleSchema);
 export const Author = mongoose.model('Author', authorSchema);
 export const Category = mongoose.model('Category', categorySchema);
@@ -381,3 +393,4 @@ export const ArticleView = mongoose.model('ArticleView', articleViewSchema);
 export const PollVote = mongoose.model('PollVote', pollVoteSchema);
 export const AuthSession = mongoose.model('AuthSession', authSessionSchema);
 export const AuditLog = mongoose.model('AuditLog', auditLogSchema);
+export const Tip = mongoose.model('Tip', tipSchema);

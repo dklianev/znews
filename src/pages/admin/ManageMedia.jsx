@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Upload, Trash2, Copy, RefreshCw, Search, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import ImageEditorDialog from '../../components/admin/ImageEditorDialog';
 
 export default function ManageMedia() {
   const { media, mediaPipelineStatus, uploadMedia, deleteMedia, refreshMedia, backfillMediaPipeline } = useData();
@@ -15,6 +16,7 @@ export default function ManageMedia() {
   const [backfillLimit, setBackfillLimit] = useState('');
   const [lastBackfillSummary, setLastBackfillSummary] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const [cropCandidate, setCropCandidate] = useState(null);
   const fileRef = useRef(null);
 
   const filtered = useMemo(() => {
@@ -61,7 +63,18 @@ export default function ManageMedia() {
   }, [uploadMedia, toast]);
 
   const handleUpload = async (event) => {
-    await processFiles(event.target.files);
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+
+    if (imageFiles.length === 1) {
+      setCropCandidate({
+        file: imageFiles[0],
+        url: URL.createObjectURL(imageFiles[0])
+      });
+    } else {
+      await processFiles(files);
+    }
   };
 
   const handleDelete = async (item) => {
@@ -110,7 +123,18 @@ export default function ManageMedia() {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    await processFiles(e.dataTransfer.files);
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+
+    if (imageFiles.length === 1) {
+      setCropCandidate({
+        file: imageFiles[0],
+        url: URL.createObjectURL(imageFiles[0])
+      });
+    } else {
+      await processFiles(files);
+    }
   };
 
   return (
@@ -120,6 +144,30 @@ export default function ManageMedia() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {cropCandidate && (
+        <ImageEditorDialog
+          imageUrl={cropCandidate.url}
+          onClose={() => {
+            URL.revokeObjectURL(cropCandidate.url);
+            setCropCandidate(null);
+            if (fileRef.current) fileRef.current.value = '';
+          }}
+          onSave={async (result) => {
+            if (result.action === 'crop') {
+              const finalFile = new File([result.file], cropCandidate.file.name, { type: result.file.type });
+              URL.revokeObjectURL(cropCandidate.url);
+              setCropCandidate(null);
+              await processFiles([finalFile]);
+            } else {
+              // Proceed with original if they didn't really crop (e.g. they chose focal point mode)
+              URL.revokeObjectURL(cropCandidate.url);
+              setCropCandidate(null);
+              await processFiles([cropCandidate.file]);
+            }
+          }}
+        />
+      )}
+
       {/* DnD overlay */}
       {dragActive && (
         <div className="fixed inset-0 z-50 bg-zn-purple/10 backdrop-blur-sm flex items-center justify-center pointer-events-none">

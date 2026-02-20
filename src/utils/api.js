@@ -360,6 +360,19 @@ export const api = {
     getPage: (params) => request(`/audit-log${toQuery(params)}`),
   },
 
+  tips: {
+    getAll: () => request('/tips'),
+    create: (formData) => request('/tips', {
+      method: 'POST',
+      body: formData,
+    }),
+    update: (id, status) => request(`/tips/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+    delete: (id) => request(`/tips/${id}`, { method: 'DELETE' }),
+  },
+
   backup: {
     download: () => requestBlob('/backup'),
   },

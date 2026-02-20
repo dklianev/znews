@@ -20,6 +20,7 @@ const GalleryPage = lazy(() => import('./pages/GalleryPage'));
 const CourtPage = lazy(() => import('./pages/CourtPage'));
 const EventsPage = lazy(() => import('./pages/EventsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const TipLine = lazy(() => import('./pages/TipLine'));
 
 // Admin (lazy — heavy, rarely visited)
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
@@ -44,6 +45,7 @@ const ManagePermissions = lazy(() => import('./pages/admin/ManagePermissions'));
 const ManageAuditLog = lazy(() => import('./pages/admin/ManageAuditLog'));
 const ManageSiteSettings = lazy(() => import('./pages/admin/ManageSiteSettings'));
 const ManageContactMessages = lazy(() => import('./pages/admin/ManageContactMessages'));
+const ManageTips = lazy(() => import('./pages/admin/ManageTips'));
 
 // ─── Inline loading fallback ───
 function PageFallback() {
@@ -161,6 +163,7 @@ function AppContent() {
         <Route path="/admin" element={<Suspense fallback={<PageFallback />}><AdminLayout /></Suspense>}>
           <Route index element={<Suspense fallback={<PageFallback />}><Dashboard /></Suspense>} />
           <Route path="profiles" element={<AdminPermissionRoute permission="profiles"><Suspense fallback={<PageFallback />}><ManageProfiles /></Suspense></AdminPermissionRoute>} />
+          <Route path="tips" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><ManageTips /></Suspense></AdminPermissionRoute>} />
           <Route path="articles" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><ManageArticles /></Suspense></AdminPermissionRoute>} />
           <Route path="editorial-queue" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><EditorialQueue /></Suspense></AdminPermissionRoute>} />
           <Route path="media" element={<AdminPermissionRoute permission={['articles', 'ads', 'gallery', 'events']}><Suspense fallback={<PageFallback />}><ManageMedia /></Suspense></AdminPermissionRoute>} />
@@ -192,6 +195,7 @@ function AppContent() {
           <Route path="/court" element={<CourtPage />} />
           <Route path="/events" element={<EventsPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/tipline" element={<TipLine />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

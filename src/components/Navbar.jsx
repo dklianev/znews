@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert } from 'lucide-react';
+import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
@@ -14,6 +14,7 @@ const DEFAULT_NAV_LINKS = [
   { to: '/category/politics', label: 'Политика' },
   { to: '/category/business', label: 'Бизнес' },
   { to: '/category/society', label: 'Общество' },
+  { to: '/tipline', label: 'Сигнали', hot: true },
   { to: '/jobs', label: 'Работа' },
   { to: '/court', label: 'Съд' },
   { to: '/events', label: 'Събития' },
@@ -142,11 +143,10 @@ export default function Navbar() {
           key={link.to}
           to={link.to}
           onClick={() => setIsOpen(false)}
-          className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 ${
-            location.pathname === link.to
-              ? 'text-zn-hot bg-zn-hot/5'
-              : 'text-zn-text hover:text-zn-hot hover:bg-zn-bg-warm'
-          }`}
+          className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 ${location.pathname === link.to
+            ? 'text-zn-hot bg-zn-hot/5'
+            : 'text-zn-text hover:text-zn-hot hover:bg-zn-bg-warm'
+            }`}
         >
           {link.label}
         </Link>
@@ -164,6 +164,10 @@ export default function Navbar() {
           <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 sm:mb-5 text-white/55 text-[9px] sm:text-[10px] font-display uppercase tracking-[0.22em] sm:tracking-[0.35em]">
             <span className="capitalize">{today}</span>
             <div className="flex items-center gap-3 sm:gap-4">
+              <Link to="/tipline" className="text-zn-red hover:text-white transition-colors flex items-center gap-1.5 font-bold" title="Гореща линия за сигнали">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Подай Сигнал</span>
+              </Link>
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
                 className="hover:text-white transition-colors flex items-center gap-1.5"

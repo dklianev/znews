@@ -41,7 +41,7 @@ if (mongoDnsServersEnv && mongoDnsServersEnv.trim()) {
 
 import {
   Article, Author, Category, Ad, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog,
+  Wanted, Job, Court, Event, Poll, Comment, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip
 } from './models.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -558,17 +558,11 @@ function getOriginalUploadUrl(fileName) {
   return toUploadsUrlFromRelative(fileName);
 }
 
-const diskStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadsDir),
-  filename: (_req, file, cb) => {
-    const ext = imageMimeToExt[file.mimetype] || '.jpg';
-    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`);
-  },
-});
 
+// Multer always uses memoryStorage so we can process with sharp via buffer before writing
 const upload = multer({
-  storage: isRemoteStorage ? multer.memoryStorage() : diskStorage,
-  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
   fileFilter: (_req, file, cb) => {
     if (allowedImageMimeTypes.has(file.mimetype)) cb(null, true);
     else cb(new Error('Only JPEG, PNG, GIF, and WebP files are allowed'));
@@ -4357,34 +4351,156 @@ app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'g
     try {
       if (err) return res.status(400).json({ error: err.message });
       if (!req.file) return res.status(400).json({ error: 'No file provided' });
-
-      const mimeType = normalizeText(req.file.mimetype || '', 120).toLowerCase();
-      const fileName = req.file.filename || createUploadFileName(mimeType);
-      if (!isOriginalUploadFileName(fileName)) {
-        return res.status(400).json({ error: 'Invalid upload filename' });
+      if (!Buffer.isBuffer(req.file.buffer) || req.file.buffer.byteLength === 0) {
+        return res.status(400).json({ error: 'Upload buffer is empty' });
       }
 
-      if (isRemoteStorage) {
-        if (!Buffer.isBuffer(req.file.buffer) || req.file.buffer.byteLength === 0) {
-          return res.status(400).json({ error: 'Upload buffer is empty' });
-        }
-        await putStorageObject(fileName, req.file.buffer, mimeType || 'application/octet-stream');
+      const sharp = await loadSharp();
+      if (!sharp) {
+        // Fallback if sharp is not installed: save original file
+        const mimeType = normalizeText(req.file.mimetype || '', 120).toLowerCase();
+        const fallbackExt = imageMimeToExt[mimeType] || '.jpg';
+        const fallbackName = `${Date.now()}-${Math.round(Math.random() * 1e6)}${fallbackExt}`;
+
+        await putStorageObject(fallbackName, req.file.buffer, mimeType || 'application/octet-stream');
+
+        const pipelineManifest = await ensureImagePipeline(fallbackName, { sourceBuffer: req.file.buffer });
+        return res.json({
+          url: getOriginalUploadUrl(fallbackName),
+          imageMeta: toImageMetaFromManifest(pipelineManifest),
+          pipelineReady: Boolean(pipelineManifest),
+          pipelineEngine: 'disabled',
+        });
       }
 
-      const pipelineManifest = await ensureImagePipeline(fileName, {
-        sourceBuffer: Buffer.isBuffer(req.file.buffer) ? req.file.buffer : null,
-      });
-      const pipelineEngine = await getPipelineEngineName();
+      // Convert ALL uploads to highly optimized WebP format
+      const webpBuffer = await sharp(req.file.buffer)
+        .rotate()
+        .webp({ quality: 82, effort: 4 })
+        .toBuffer();
+
+      const fileName = `${Date.now()}-${Math.round(Math.random() * 1e6)}.webp`;
+
+      await putStorageObject(fileName, webpBuffer, 'image/webp');
+
+      const pipelineManifest = await ensureImagePipeline(fileName, { sourceBuffer: webpBuffer });
       return res.json({
         url: getOriginalUploadUrl(fileName),
         imageMeta: toImageMetaFromManifest(pipelineManifest),
         pipelineReady: Boolean(pipelineManifest),
-        pipelineEngine,
+        pipelineEngine: 'sharp',
       });
     } catch (error) {
+      console.error('Upload processing error:', error);
       return res.status(500).json({ error: error?.message || 'Upload failed' });
     }
   });
+});
+
+// ─── Tip Line ───
+app.get('/api/tips', requireAuth, requireAnyPermission(['articles']), async (_req, res) => {
+  try {
+    const tips = await Tip.find().sort({ createdAt: -1 }).lean();
+    res.json(tips);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+const tipRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3, // limit each IP to 3 tips per hour
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post('/api/tips', tipRateLimiter, (req, res) => {
+  upload.single('image')(req, res, async (err) => {
+    try {
+      if (err) return res.status(400).json({ error: err.message });
+
+      let imageUrl = '';
+      let imageMeta = null;
+
+      if (req.file) {
+        if (!Buffer.isBuffer(req.file.buffer) || req.file.buffer.byteLength === 0) {
+          return res.status(400).json({ error: 'Upload buffer is empty' });
+        }
+
+        const sharp = await loadSharp();
+        const mimeType = normalizeText(req.file.mimetype || '', 120).toLowerCase();
+
+        let finalBuffer = req.file.buffer;
+        let finalName = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+        let finalMime = mimeType;
+
+        if (sharp) {
+          finalBuffer = await sharp(req.file.buffer).rotate().webp({ quality: 82, effort: 4 }).toBuffer();
+          finalName += '.webp';
+          finalMime = 'image/webp';
+        } else {
+          finalName += (imageMimeToExt[mimeType] || '.jpg');
+        }
+
+        await putStorageObject(finalName, finalBuffer, finalMime || 'application/octet-stream');
+        const pipelineManifest = await ensureImagePipeline(finalName, { sourceBuffer: finalBuffer });
+
+        imageUrl = getOriginalUploadUrl(finalName);
+        imageMeta = toImageMetaFromManifest(pipelineManifest);
+      }
+
+      // Allow either text OR image
+      const text = normalizeText(req.body.text || '', 2000);
+      if (!text && !imageUrl) {
+        return res.status(400).json({ error: 'Моля, добавете текст или снимка към сигнала.' });
+      }
+
+      const ipRaw = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '0.0.0.0';
+      const ipHash = createHash('sha256').update(String(ipRaw)).digest('hex');
+
+      const newTip = new Tip({
+        id: Date.now(),
+        text,
+        location: normalizeText(req.body.location || '', 300),
+        image: imageUrl,
+        imageMeta,
+        ipHash,
+      });
+      await newTip.save();
+
+      res.json({ ok: true, id: newTip.id });
+    } catch (e) {
+      res.status(500).json({ error: publicError(e) });
+    }
+  });
+});
+
+app.patch('/api/tips/:id', requireAuth, requireAnyPermission(['articles']), async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!['new', 'processed', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    const tip = await Tip.findOneAndUpdate(
+      { id: Number(req.params.id) },
+      { status },
+      { new: true }
+    );
+    if (!tip) return res.status(404).json({ error: 'Not found' });
+    res.json(tip);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+app.delete('/api/tips/:id', requireAuth, requireAnyPermission(['articles']), async (req, res) => {
+  try {
+    const tip = await Tip.findOneAndDelete({ id: Number(req.params.id) });
+    if (!tip) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
 });
 
 // ─── Media Library (uploads folder) ───

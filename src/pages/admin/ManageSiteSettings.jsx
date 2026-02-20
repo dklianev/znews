@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Save, Plus, Trash2, RotateCcw, ShieldAlert, History, AlertTriangle } from 'lucide-react';
+import { Save, Plus, Trash2, RotateCcw, ShieldAlert, History, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { COMIC_LAYOUT_PRESET_OPTIONS } from '../../utils/comicCardDesign';
 import { useToast } from '../../components/admin/Toast';
 
@@ -167,6 +167,22 @@ export default function ManageSiteSettings() {
     }));
   };
 
+  const moveListItem = (key, index, direction) => {
+    setForm((prev) => {
+      const arr = prev[key] ? [...prev[key]] : [];
+      if (direction === 'up' && index > 0) {
+        const temp = arr[index];
+        arr[index] = arr[index - 1];
+        arr[index - 1] = temp;
+      } else if (direction === 'down' && index < arr.length - 1) {
+        const temp = arr[index];
+        arr[index] = arr[index + 1];
+        arr[index + 1] = temp;
+      }
+      return { ...prev, [key]: arr };
+    });
+  };
+
   const addListItem = (key, template) => {
     setForm((prev) => ({
       ...prev,
@@ -315,22 +331,42 @@ export default function ManageSiteSettings() {
           </button>
         </div>
         {form.navbarLinks.map((item, index) => (
-          <div key={`navbar-${index}`} className="grid grid-cols-1 md:grid-cols-[1.2fr_2fr_auto_auto] gap-2 items-end">
-            <div>
-              <label className={tinyLabelCls}>Label</label>
-              <input className={inputCls} value={item.label || ''} onChange={(e) => updateListItem('navbarLinks', index, 'label', e.target.value)} />
+          <div key={`navbar-${index}`} className="flex items-end gap-2">
+            <div className="flex flex-col gap-0.5 mt-auto mb-1">
+              <button
+                type="button"
+                onClick={() => moveListItem('navbarLinks', index, 'up')}
+                disabled={index === 0}
+                className="p-1 text-gray-400 hover:text-zn-purple disabled:opacity-30 disabled:hover:text-gray-400"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => moveListItem('navbarLinks', index, 'down')}
+                disabled={index === form.navbarLinks.length - 1}
+                className="p-1 text-gray-400 hover:text-zn-purple disabled:opacity-30 disabled:hover:text-gray-400"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
             </div>
-            <div>
-              <label className={tinyLabelCls}>Path</label>
-              <input className={inputCls} value={item.to || ''} onChange={(e) => updateListItem('navbarLinks', index, 'to', e.target.value)} />
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-[1.2fr_2fr_auto_auto] gap-2 items-end">
+              <div>
+                <label className={tinyLabelCls}>Label</label>
+                <input className={inputCls} value={item.label || ''} onChange={(e) => updateListItem('navbarLinks', index, 'label', e.target.value)} />
+              </div>
+              <div>
+                <label className={tinyLabelCls}>Path</label>
+                <input className={inputCls} value={item.to || ''} onChange={(e) => updateListItem('navbarLinks', index, 'to', e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 text-sm font-sans text-gray-700 px-2 pb-2">
+                <input type="checkbox" checked={Boolean(item.hot)} onChange={(e) => updateListItem('navbarLinks', index, 'hot', e.target.checked)} className="w-4 h-4 accent-zn-purple" />
+                Hot
+              </label>
+              <button onClick={() => removeListItem('navbarLinks', index)} className="mb-1 p-2 text-gray-400 hover:text-red-600">
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
-            <label className="flex items-center gap-2 text-sm font-sans text-gray-700 px-2 pb-2">
-              <input type="checkbox" checked={Boolean(item.hot)} onChange={(e) => updateListItem('navbarLinks', index, 'hot', e.target.checked)} className="w-4 h-4 accent-zn-purple" />
-              Hot
-            </label>
-            <button onClick={() => removeListItem('navbarLinks', index)} className="mb-1 p-2 text-gray-400 hover:text-red-600">
-              <Trash2 className="w-4 h-4" />
-            </button>
           </div>
         ))}
       </section>
@@ -380,32 +416,52 @@ export default function ManageSiteSettings() {
           </button>
         </div>
         {form.spotlightLinks.map((item, index) => (
-          <div key={`spot-${index}`} className="grid grid-cols-1 md:grid-cols-[1fr_1.6fr_1fr_1fr_auto_auto] gap-2 items-end">
-            <div>
-              <label className={tinyLabelCls}>Label</label>
-              <input className={inputCls} value={item.label || ''} onChange={(e) => updateListItem('spotlightLinks', index, 'label', e.target.value)} />
+          <div key={`spot-${index}`} className="flex items-end gap-2">
+            <div className="flex flex-col gap-0.5 mt-auto mb-1">
+              <button
+                type="button"
+                onClick={() => moveListItem('spotlightLinks', index, 'up')}
+                disabled={index === 0}
+                className="p-1 text-gray-400 hover:text-zn-purple disabled:opacity-30 disabled:hover:text-gray-400"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => moveListItem('spotlightLinks', index, 'down')}
+                disabled={index === form.spotlightLinks.length - 1}
+                className="p-1 text-gray-400 hover:text-zn-purple disabled:opacity-30 disabled:hover:text-gray-400"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
             </div>
-            <div>
-              <label className={tinyLabelCls}>Path</label>
-              <input className={inputCls} value={item.to || ''} onChange={(e) => updateListItem('spotlightLinks', index, 'to', e.target.value)} />
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-[1fr_1.6fr_1fr_1fr_auto_auto] gap-2 items-end">
+              <div>
+                <label className={tinyLabelCls}>Label</label>
+                <input className={inputCls} value={item.label || ''} onChange={(e) => updateListItem('spotlightLinks', index, 'label', e.target.value)} />
+              </div>
+              <div>
+                <label className={tinyLabelCls}>Path</label>
+                <input className={inputCls} value={item.to || ''} onChange={(e) => updateListItem('spotlightLinks', index, 'to', e.target.value)} />
+              </div>
+              <div>
+                <label className={tinyLabelCls}>Icon</label>
+                <select className={inputCls} value={item.icon || 'Flame'} onChange={(e) => updateListItem('spotlightLinks', index, 'icon', e.target.value)}>
+                  {SPOTLIGHT_ICON_OPTIONS.map((icon) => <option key={icon} value={icon}>{icon}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={tinyLabelCls}>Tilt</label>
+                <input className={inputCls} value={item.tilt || '0deg'} onChange={(e) => updateListItem('spotlightLinks', index, 'tilt', e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 text-sm font-sans text-gray-700 px-2 pb-2">
+                <input type="checkbox" checked={Boolean(item.hot)} onChange={(e) => updateListItem('spotlightLinks', index, 'hot', e.target.checked)} className="w-4 h-4 accent-zn-purple" />
+                Hot
+              </label>
+              <button onClick={() => removeListItem('spotlightLinks', index)} className="mb-1 p-2 text-gray-400 hover:text-red-600">
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
-            <div>
-              <label className={tinyLabelCls}>Icon</label>
-              <select className={inputCls} value={item.icon || 'Flame'} onChange={(e) => updateListItem('spotlightLinks', index, 'icon', e.target.value)}>
-                {SPOTLIGHT_ICON_OPTIONS.map((icon) => <option key={icon} value={icon}>{icon}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={tinyLabelCls}>Tilt</label>
-              <input className={inputCls} value={item.tilt || '0deg'} onChange={(e) => updateListItem('spotlightLinks', index, 'tilt', e.target.value)} />
-            </div>
-            <label className="flex items-center gap-2 text-sm font-sans text-gray-700 px-2 pb-2">
-              <input type="checkbox" checked={Boolean(item.hot)} onChange={(e) => updateListItem('spotlightLinks', index, 'hot', e.target.checked)} className="w-4 h-4 accent-zn-purple" />
-              Hot
-            </label>
-            <button onClick={() => removeListItem('spotlightLinks', index)} className="mb-1 p-2 text-gray-400 hover:text-red-600">
-              <Trash2 className="w-4 h-4" />
-            </button>
           </div>
         ))}
       </section>

@@ -9,6 +9,7 @@ import { ToastProvider } from '../../components/admin/Toast';
 const navItems = [
   { to: '/admin', label: 'Табло', icon: LayoutDashboard, exact: true },
   { to: '/admin/profiles', label: 'Профили', icon: Users, permission: 'profiles' },
+  { to: '/admin/tips', label: 'Сигнали', icon: AlertTriangle, permission: 'articles' },
   { to: '/admin/articles', label: 'Статии', icon: FileText, permission: 'articles' },
   { to: '/admin/editorial-queue', label: 'Editorial Queue', icon: Clock3, permission: 'articles' },
   { to: '/admin/media', label: 'Media Library', icon: Image, permission: ['articles', 'ads', 'gallery', 'events'] },

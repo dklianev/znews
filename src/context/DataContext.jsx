@@ -26,6 +26,7 @@ export function DataProvider({ children }) {
   const [articleRevisions, setArticleRevisions] = useState({});
   const [users, setUsers] = useState([]);
   const [permissions, setPermissions] = useState([]);
+  const [tips, setTips] = useState([]);
   const [session, setSession] = useState(getSession);
   const [loading, setLoading] = useState(true);
 
@@ -127,7 +128,7 @@ export function DataProvider({ children }) {
     }
 
     if (session?.token) {
-      const [usersResult, permsResult, commentsResult, mediaResult, mediaPipelineResult, heroRevisionsResult, siteRevisionsResult] = await Promise.allSettled([
+      const [usersResult, permsResult, commentsResult, mediaResult, mediaPipelineResult, heroRevisionsResult, siteRevisionsResult, tipsResult] = await Promise.allSettled([
         api.users.getAll(),
         api.permissions.getAll(),
         api.comments.getAll(),
@@ -135,6 +136,7 @@ export function DataProvider({ children }) {
         api.media.getPipelineStatus(),
         api.heroSettings.getRevisions(),
         api.siteSettings.getRevisions(),
+        api.tips.getAll(),
       ]);
       setUsers(usersResult.status === 'fulfilled' ? usersResult.value : []);
       setPermissions(permsResult.status === 'fulfilled' ? permsResult.value : []);
@@ -143,6 +145,7 @@ export function DataProvider({ children }) {
       setMediaPipelineStatus(mediaPipelineResult.status === 'fulfilled' ? mediaPipelineResult.value : null);
       setHeroSettingsRevisions(heroRevisionsResult.status === 'fulfilled' ? heroRevisionsResult.value : []);
       setSiteSettingsRevisions(siteRevisionsResult.status === 'fulfilled' ? siteRevisionsResult.value : []);
+      setTips(tipsResult.status === 'fulfilled' ? tipsResult.value : []);
 
       if (usersResult.status === 'rejected') console.error('Failed to load users:', usersResult.reason);
       if (permsResult.status === 'rejected') console.error('Failed to load permissions:', permsResult.reason);
@@ -158,6 +161,7 @@ export function DataProvider({ children }) {
       setHeroSettingsRevisions([]);
       setSiteSettingsRevisions([]);
       setComments([]);
+      setTips([]);
     }
     setLoading(false);
   }, [session?.token]);
@@ -174,7 +178,7 @@ export function DataProvider({ children }) {
         saveSession(restoredSession);
         setSession(restoredSession);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       cancelled = true;
@@ -192,7 +196,7 @@ export function DataProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
-    api.auth.logout().catch(() => {});
+    api.auth.logout().catch(() => { });
     clearSession();
     setSession(null);
     setUsers([]);
@@ -203,6 +207,7 @@ export function DataProvider({ children }) {
     setHeroSettingsRevisions([]);
     setSiteSettingsRevisions([]);
     setComments([]);
+    setTips([]);
   }, []);
 
   // ─── Articles ───
@@ -471,6 +476,26 @@ export function DataProvider({ children }) {
     await fetchAll();
   }, [fetchAll]);
 
+  // ─── Tips ───
+  const refreshTips = useCallback(async () => {
+    if (!session?.token) return;
+    try {
+      const ts = await api.tips.getAll();
+      setTips(ts);
+    } catch { }
+  }, [session?.token]);
+  const deleteTip = useCallback(async (id) => {
+    await api.tips.delete(id);
+    setTips(prev => prev.filter(t => t.id !== id));
+  }, []);
+  const updateTip = useCallback(async (id, status) => {
+    const updated = await api.tips.update(id, status);
+    setTips(prev => prev.map(t => t.id === id ? updated : t));
+  }, []);
+  const createTip = useCallback(async (formData) => {
+    return await api.tips.create(formData);
+  }, []);
+
   const contextValue = useMemo(() => ({
     loading,
     articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
@@ -491,6 +516,7 @@ export function DataProvider({ children }) {
     media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
     users, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
+    tips, refreshTips, deleteTip, updateTip, createTip,
     session, login, logout,
     refresh: fetchAll, resetAll,
   }), [
@@ -513,6 +539,7 @@ export function DataProvider({ children }) {
     media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
     users, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
+    tips, refreshTips, deleteTip, updateTip, createTip,
     session, login, logout,
     fetchAll, resetAll,
   ]);
