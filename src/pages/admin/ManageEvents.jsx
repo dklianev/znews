@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 const EVENT_TYPES = [
   { value: 'race', label: 'Рали / Състезание' },
@@ -21,6 +22,7 @@ export default function ManageEvents() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const toast = useToast();
 
   const handleSave = async () => {
     if (!form.title) return;
@@ -31,8 +33,10 @@ export default function ManageEvents() {
       else await updateEvent(editing, form);
       setEditing(null);
       setForm(emptyForm);
+      toast.success(editing === 'new' ? 'Събитието е добавено' : 'Събитието е обновено');
     } catch (e) {
       setError(e?.message || 'Грешка при запис');
+      toast.error('Грешка при запис');
     } finally {
       setSaving(false);
     }
@@ -43,8 +47,10 @@ export default function ManageEvents() {
     setError('');
     try {
       await deleteEvent(id);
+      toast.success('Събитието е изтрито');
     } catch (e) {
       setError(e?.message || 'Грешка при изтриване');
+      toast.error('Грешка при изтриване');
     }
   };
 

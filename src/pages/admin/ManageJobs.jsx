@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 const JOB_TYPES = [
   { value: 'police', label: 'Полиция' },
@@ -20,6 +21,7 @@ export default function ManageJobs() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const toast = useToast();
 
   const handleSave = async () => {
     if (!form.title) return;
@@ -30,8 +32,10 @@ export default function ManageJobs() {
       else await updateJob(editing, form);
       setEditing(null);
       setForm(emptyForm);
+      toast.success(editing === 'new' ? 'Обявата е добавена' : 'Обявата е обновена');
     } catch (e) {
       setError(e?.message || 'Грешка при запис на обявата');
+      toast.error('Грешка при запис');
     } finally {
       setSaving(false);
     }
@@ -41,8 +45,10 @@ export default function ManageJobs() {
     setError('');
     try {
       await updateJob(job.id, { active: !job.active });
+      toast.success(job.active ? 'Обявата е деактивирана' : 'Обявата е активирана');
     } catch (e) {
       setError(e?.message || 'Грешка при промяна на статуса');
+      toast.error('Грешка при промяна');
     }
   };
 
@@ -51,8 +57,10 @@ export default function ManageJobs() {
     setError('');
     try {
       await deleteJob(id);
+      toast.success('Обявата е изтрита');
     } catch (e) {
       setError(e?.message || 'Грешка при изтриване');
+      toast.error('Грешка при изтриване');
     }
   };
 

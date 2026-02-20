@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, CalendarClock, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 const SEVERITIES = [
   { value: 'heavy', label: 'Тежко', color: 'bg-red-600 text-white' },
@@ -22,6 +23,7 @@ export default function ManageCourt() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const toast = useToast();
 
   const handleSave = async () => {
     if (!form.title) return;
@@ -32,8 +34,10 @@ export default function ManageCourt() {
       else await updateCourtCase(editing, form);
       setEditing(null);
       setForm(emptyForm);
+      toast.success(editing === 'new' ? 'Делото е добавено' : 'Делото е обновено');
     } catch (e) {
       setError(e?.message || 'Грешка при запис');
+      toast.error('Грешка при запис');
     } finally {
       setSaving(false);
     }
@@ -44,8 +48,10 @@ export default function ManageCourt() {
     setError('');
     try {
       await deleteCourtCase(id);
+      toast.success('Делото е изтрито');
     } catch (e) {
       setError(e?.message || 'Грешка при изтриване');
+      toast.error('Грешка при изтриване');
     }
   };
 

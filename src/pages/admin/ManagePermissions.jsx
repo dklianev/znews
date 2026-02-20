@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Shield, Save, Check, X, AlertTriangle } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 const SECTION_LABELS = {
     articles: 'Статии',
@@ -45,6 +46,7 @@ export default function ManagePermissions() {
     const [error, setError] = useState('');
     const [newRoleKey, setNewRoleKey] = useState('');
     const [creatingRole, setCreatingRole] = useState(false);
+    const toast = useToast();
 
     // Use local copy for editing, fall back to fetched data
     const permsToShow = ensureRoleRows(localPerms || permissions);
@@ -82,8 +84,10 @@ export default function ManagePermissions() {
         setError('');
         try {
             await updatePermission(role, roleObj.permissions);
+            toast.success(`Правата за ${role} са запазени`);
         } catch (e) {
             setError(e?.message || 'Неуспешен запис на права');
+            toast.error('Грешка при запис на права');
             console.error('Failed to save permissions:', e);
         } finally {
             setSaving(null);
@@ -116,8 +120,10 @@ export default function ManagePermissions() {
                 return [...base, ensured];
             });
             setNewRoleKey('');
+            toast.success(`Ролята "${role}" е добавена`);
         } catch (e) {
             setError(e?.message || 'Неуспешно добавяне на роля');
+            toast.error('Грешка при добавяне');
         } finally {
             setCreatingRole(false);
         }
@@ -194,8 +200,8 @@ export default function ManagePermissions() {
                                                     onClick={() => toggle(rolePerm.role, s)}
                                                     disabled={isAdmin}
                                                     className={`w-7 h-7 inline-flex items-center justify-center border transition-colors ${allowed
-                                                            ? 'bg-green-100 border-green-300 text-green-700'
-                                                            : 'bg-red-50 border-red-200 text-red-400'
+                                                        ? 'bg-green-100 border-green-300 text-green-700'
+                                                        : 'bg-red-50 border-red-200 text-red-400'
                                                         } ${isAdmin ? 'opacity-60 cursor-not-allowed' : 'hover:scale-110 cursor-pointer'}`}
                                                 >
                                                     {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}

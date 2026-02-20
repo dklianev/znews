@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Plus, Trash2, X, Save, ToggleLeft, ToggleRight, Pencil, AlertTriangle } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 function createOption(text = '', votes = 0) {
   return {
@@ -20,6 +21,7 @@ export default function ManagePolls() {
   const [editOptions, setEditOptions] = useState([createOption(), createOption()]);
   const [togglingId, setTogglingId] = useState(null);
   const [error, setError] = useState('');
+  const toast = useToast();
 
   const handleCreate = async () => {
     if (!question || options.filter(Boolean).length < 2) return;
@@ -34,8 +36,10 @@ export default function ManagePolls() {
       setCreating(false);
       setQuestion('');
       setOptions(['', '']);
+      toast.success('Анкетата е създадена');
     } catch (e) {
       setError(e?.message || 'Грешка при създаване на анкета');
+      toast.error('Грешка при създаване');
     }
   };
 
@@ -45,11 +49,13 @@ export default function ManagePolls() {
     try {
       if (poll.active) {
         await updatePoll(poll.id, { active: false });
+        toast.success('Анкетата е деактивирана');
         return;
       }
 
       // Activate first, then best-effort deactivate others so we never end up with 0 active polls.
       await updatePoll(poll.id, { active: true });
+      toast.success('Анкетата е активирана');
       const otherActives = polls.filter(p => p.id !== poll.id && p.active);
       if (otherActives.length === 0) return;
       const results = await Promise.allSettled(
@@ -103,8 +109,10 @@ export default function ManagePolls() {
         options: nextOptions,
       });
       cancelEdit();
+      toast.success('Анкетата е обновена');
     } catch (e) {
       setError(e?.message || 'Грешка при редакция на анкета');
+      toast.error('Грешка при редакция');
     }
 
   };

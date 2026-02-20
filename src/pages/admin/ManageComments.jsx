@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { MessageCircle, Check, Trash2, XCircle, Eye, AlertTriangle } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 export default function ManageComments() {
   const { comments, articles, updateComment, deleteComment } = useData();
   const [filter, setFilter] = useState('all'); // all | pending | approved
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');
+  const toast = useToast();
 
   const filtered = filter === 'all' ? comments
     : filter === 'pending' ? comments.filter(c => !c.approved)
-    : comments.filter(c => c.approved);
+      : comments.filter(c => c.approved);
 
   const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
   const pendingCount = comments.filter(c => !c.approved).length;
@@ -22,8 +24,10 @@ export default function ManageComments() {
     setError('');
     try {
       await updateComment(id, { approved: true });
+      toast.success('Коментарът е одобрен');
     } catch (e) {
       setError(e?.message || 'Грешка при одобрение');
+      toast.error('Грешка при одобрение');
     } finally {
       setBusyId(null);
     }
@@ -34,8 +38,10 @@ export default function ManageComments() {
     setError('');
     try {
       await updateComment(id, { approved: false });
+      toast.success('Коментарът е скрит');
     } catch (e) {
       setError(e?.message || 'Грешка при скриване');
+      toast.error('Грешка при скриване');
     } finally {
       setBusyId(null);
     }
@@ -47,8 +53,10 @@ export default function ManageComments() {
     setError('');
     try {
       await deleteComment(id);
+      toast.success('Коментарът е изтрит');
     } catch (e) {
       setError(e?.message || 'Грешка при изтриване');
+      toast.error('Грешка при изтриване');
     } finally {
       setBusyId(null);
     }
@@ -57,9 +65,8 @@ export default function ManageComments() {
   const filterBtn = (value, label, count) => (
     <button
       onClick={() => setFilter(value)}
-      className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${
-        filter === value ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
-      }`}
+      className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filter === value ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
+        }`}
     >
       {label} ({count})
     </button>
@@ -98,9 +105,8 @@ export default function ManageComments() {
       {/* Comments list */}
       <div className="space-y-2">
         {sorted.map(comment => (
-          <div key={comment.id} className={`bg-white border p-4 flex items-start gap-4 group ${
-            comment.approved ? 'border-gray-200' : 'border-amber-300 bg-amber-50/30'
-          }`}>
+          <div key={comment.id} className={`bg-white border p-4 flex items-start gap-4 group ${comment.approved ? 'border-gray-200' : 'border-amber-300 bg-amber-50/30'
+            }`}>
             <div className="text-2xl shrink-0">{comment.avatar}</div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">

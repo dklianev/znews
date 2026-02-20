@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Save, Plus, Trash2, RotateCcw, ShieldAlert, History, AlertTriangle } from 'lucide-react';
 import { COMIC_LAYOUT_PRESET_OPTIONS } from '../../utils/comicCardDesign';
+import { useToast } from '../../components/admin/Toast';
 
 const DEFAULT_SETTINGS = {
   navbarLinks: [
@@ -122,6 +123,7 @@ export default function ManageSiteSettings() {
   const [error, setError] = useState('');
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [restoringHistory, setRestoringHistory] = useState(null);
+  const toast = useToast();
 
   useEffect(() => {
     setForm(resolveSettings(siteSettings));
@@ -180,8 +182,10 @@ export default function ManageSiteSettings() {
       await saveSiteSettings(form);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+      toast.success('Site настройките са запазени');
     } catch (e) {
       setError(e?.message || 'Грешка при запазване на Site настройките');
+      toast.error('Грешка при запис');
       console.error('Failed to save site settings:', e);
     } finally {
       setSaving(false);
@@ -195,8 +199,10 @@ export default function ManageSiteSettings() {
     setError('');
     try {
       await restoreSiteSettingsRevision(revisionId);
+      toast.success('Site версията е възстановена');
     } catch (e) {
       setError(e?.message || 'Грешка при възстановяване на Site версия');
+      toast.error('Грешка при възстановяване');
       console.error('Failed to restore site settings revision:', e);
     } finally {
       setRestoringHistory(null);

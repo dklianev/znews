@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Image, Plus, Trash2, Edit3, Star, StarOff, X, AlertTriangle } from 'lucide-react';
 import AdminImageField from '../../components/admin/AdminImageField';
+import { useToast } from '../../components/admin/Toast';
 
 const emptyItem = { title: '', description: '', image: '', category: '', featured: false };
 
@@ -30,6 +31,7 @@ export default function ManageGallery() {
   const [form, setForm] = useState(emptyItem);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const toast = useToast();
 
   const categories = [...new Set(gallery.map(g => g.category))];
 
@@ -48,8 +50,10 @@ export default function ManageGallery() {
         await updateGalleryItem(editing, form);
       }
       close();
+      toast.success(editing === 'new' ? 'Снимката е добавена' : 'Снимката е обновена');
     } catch (e) {
       setError(e?.message || 'Грешка при запис');
+      toast.error('Грешка при запис');
     } finally {
       setSaving(false);
     }
@@ -60,8 +64,10 @@ export default function ManageGallery() {
     setError('');
     try {
       await deleteGalleryItem(id);
+      toast.success('Снимката е изтрита');
     } catch (e) {
       setError(e?.message || 'Грешка при изтриване');
+      toast.error('Грешка при изтриване');
     }
   };
 
@@ -69,8 +75,10 @@ export default function ManageGallery() {
     setError('');
     try {
       await updateGalleryItem(item.id, { featured: !item.featured });
+      toast.success(item.featured ? 'Премахната от избрани' : 'Маркирана като избрана');
     } catch (e) {
       setError(e?.message || 'Грешка при запис');
+      toast.error('Грешка при промяна');
     }
   };
 
@@ -106,11 +114,11 @@ export default function ManageGallery() {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-sans font-semibold text-gray-600 mb-1">Заглавие *</label>
-                <input value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full border border-gray-200 px-3 py-2 text-sm font-sans focus:ring-1 focus:ring-zn-purple outline-none" />
+                <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="w-full border border-gray-200 px-3 py-2 text-sm font-sans focus:ring-1 focus:ring-zn-purple outline-none" />
               </div>
               <div>
                 <label className="block text-xs font-sans font-semibold text-gray-600 mb-1">Описание</label>
-                <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} className="w-full border border-gray-200 px-3 py-2 text-sm font-sans focus:ring-1 focus:ring-zn-purple outline-none" />
+                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} className="w-full border border-gray-200 px-3 py-2 text-sm font-sans focus:ring-1 focus:ring-zn-purple outline-none" />
               </div>
               <div>
                 <AdminImageField
@@ -124,13 +132,13 @@ export default function ManageGallery() {
               </div>
               <div>
                 <label className="block text-xs font-sans font-semibold text-gray-600 mb-1">Категория *</label>
-                <input value={form.category} onChange={e => setForm({...form, category: e.target.value})} list="gallery-categories" className="w-full border border-gray-200 px-3 py-2 text-sm font-sans focus:ring-1 focus:ring-zn-purple outline-none" />
+                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} list="gallery-categories" className="w-full border border-gray-200 px-3 py-2 text-sm font-sans focus:ring-1 focus:ring-zn-purple outline-none" />
                 <datalist id="gallery-categories">
                   {categories.map(c => <option key={c} value={c} />)}
                 </datalist>
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.featured} onChange={e => setForm({...form, featured: e.target.checked})} className="accent-zn-purple" />
+                <input type="checkbox" checked={form.featured} onChange={e => setForm({ ...form, featured: e.target.checked })} className="accent-zn-purple" />
                 <span className="text-sm font-sans text-gray-700">Избрана (Featured)</span>
               </label>
             </div>

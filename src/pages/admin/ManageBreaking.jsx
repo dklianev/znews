@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Plus, Trash2, X, Save, AlertTriangle } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 export default function ManageBreaking() {
   const { breaking, saveBreaking } = useData();
@@ -9,6 +10,7 @@ export default function ManageBreaking() {
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const toast = useToast();
 
   const addItem = () => {
     if (!newItem.trim()) return;
@@ -44,8 +46,10 @@ export default function ManageBreaking() {
     try {
       await saveBreaking(items.filter(Boolean));
       setHasChanges(false);
+      toast.success('Тикерът е запазен');
     } catch (e) {
       setError(e?.message || 'Грешка при запис на тикера');
+      toast.error('Грешка при запис');
     } finally {
       setSaving(false);
     }

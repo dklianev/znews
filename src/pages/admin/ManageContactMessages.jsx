@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Mail, AlertTriangle, Trash2, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
 import { api } from '../../utils/api';
 import { useData } from '../../context/DataContext';
+import { useToast } from '../../components/admin/Toast';
 
 const STATUS_LABELS = Object.freeze({
   new: 'Ново',
@@ -23,6 +24,7 @@ export default function ManageContactMessages() {
   const [filter, setFilter] = useState('all'); // all | new | read | archived
   const [busyId, setBusyId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const toast = useToast();
 
   const canView = Boolean(session?.token && hasPermission('contact'));
 
@@ -70,8 +72,10 @@ export default function ManageContactMessages() {
     try {
       const updated = await api.contactMessages.update(numericId, { status });
       setItems((prev) => prev.map((m) => m.id === numericId ? updated : m));
+      toast.success(status === 'read' ? 'Маркирано като прочетено' : 'Архивирано');
     } catch (e) {
       setError(e?.message || 'Грешка при запис');
+      toast.error('Грешка при промяна на статуса');
     } finally {
       setBusyId(null);
     }
@@ -87,8 +91,10 @@ export default function ManageContactMessages() {
       await api.contactMessages.delete(numericId);
       setItems((prev) => prev.filter((m) => m.id !== numericId));
       if (expandedId === numericId) setExpandedId(null);
+      toast.success('Съобщението е изтрито');
     } catch (e) {
       setError(e?.message || 'Грешка при изтриване');
+      toast.error('Грешка при изтриване');
     } finally {
       setBusyId(null);
     }
@@ -98,9 +104,8 @@ export default function ManageContactMessages() {
     <button
       type="button"
       onClick={() => setFilter(value)}
-      className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${
-        filter === value ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
-      }`}
+      className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filter === value ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
+        }`}
     >
       {label}
     </button>
