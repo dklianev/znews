@@ -59,7 +59,7 @@ export default function HomePage() {
     const horizontalAds = safeAds.filter(a => a.type === 'horizontal');
     const sideAds = safeAds.filter(a => a.type === 'side');
     const latestShowcase = latestArticles.slice(0, 5);
-    const latestWire = latestArticles.slice(5, 13);
+    const latestWire = latestArticles.slice(5);
 
     const headlineBoardWords = (heroSettings?.headlineBoardText || 'ШОК И СЕНЗАЦИЯ!')
       .trim()
