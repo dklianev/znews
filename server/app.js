@@ -3164,6 +3164,7 @@ articlesRouter.post('/', requireAuth, requirePermission('articles'), async (req,
     // Invalidate articles cache
     clearApiCacheKeys('api_cache_/api/articles');
     clearApiCacheKeys('api_cache_/api/breaking');
+    clearApiCacheKeys('api_cache_/api/bootstrap');
 
     res.json(obj);
   } catch (e) {
@@ -3212,6 +3213,7 @@ articlesRouter.put('/:id', requireAuth, requirePermission('articles'), async (re
     // Invalidate articles cache
     clearApiCacheKeys('api_cache_/api/articles');
     clearApiCacheKeys('api_cache_/api/breaking');
+    clearApiCacheKeys('api_cache_/api/bootstrap');
 
     res.json(updated);
   } catch (e) {
@@ -3337,6 +3339,7 @@ articlesRouter.post('/:id/revisions/restore', requireAuth, requirePermission('ar
 
     clearApiCacheKeys('api_cache_/api/articles');
     clearApiCacheKeys('api_cache_/api/breaking');
+    clearApiCacheKeys('api_cache_/api/bootstrap');
 
     res.json(restoredObj);
   } catch (e) {
@@ -3364,6 +3367,7 @@ articlesRouter.delete('/:id', requireAuth, requirePermission('articles'), async 
 
     clearApiCacheKeys('api_cache_/api/articles');
     clearApiCacheKeys('api_cache_/api/breaking');
+    clearApiCacheKeys('api_cache_/api/bootstrap');
 
     res.json({ ok: true });
   } catch (e) {
@@ -4165,6 +4169,8 @@ app.put('/api/site-settings', requireAuth, requirePermission('permissions'), asy
       resourceId: 1,
       details: 'save',
     }).catch(() => { });
+
+    clearApiCacheKeys('api_cache_/api/bootstrap');
 
     res.json(serialized);
   } catch (e) {
