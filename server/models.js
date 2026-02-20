@@ -370,6 +370,17 @@ const tipSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now, index: true },
 }, opts);
 
+// ─── Web Push Subscription ───
+const pushSubscriptionSchema = new mongoose.Schema({
+  endpoint: { type: String, required: true, unique: true },
+  expirationTime: { type: Date, default: null },
+  keys: {
+    p256dh: { type: String, required: true },
+    auth: { type: String, required: true }
+  },
+  createdAt: { type: Date, default: Date.now, index: true }
+}, opts);
+
 export const Article = mongoose.model('Article', articleSchema);
 export const Author = mongoose.model('Author', authorSchema);
 export const Category = mongoose.model('Category', categorySchema);
@@ -394,3 +405,4 @@ export const PollVote = mongoose.model('PollVote', pollVoteSchema);
 export const AuthSession = mongoose.model('AuthSession', authSessionSchema);
 export const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 export const Tip = mongoose.model('Tip', tipSchema);
+export const PushSubscription = mongoose.model('PushSubscription', pushSubscriptionSchema);

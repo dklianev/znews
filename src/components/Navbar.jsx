@@ -47,6 +47,62 @@ export default function Navbar() {
   const { isDark, toggleDark } = useTheme();
   const { siteSettings } = useData();
 
+  const [pushStatus, setPushStatus] = useState('idle');
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushStatus('unsupported');
+    } else {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.pushManager.getSubscription().then(sub => {
+          if (sub) setPushStatus('subscribed');
+        }).catch(() => { });
+      }).catch(() => { });
+    }
+  }, []);
+
+  const handleSubscribePush = async () => {
+    if (pushStatus === 'subscribed' || pushStatus === 'loading') return;
+    try {
+      setPushStatus('loading');
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setPushStatus('idle');
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const res = await fetch('/api/push/vapid-public-key');
+      const vapidPublicKey = await res.text();
+
+      function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+      }
+
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+      });
+
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscription)
+      });
+
+      setPushStatus('subscribed');
+    } catch (e) {
+      console.error('Push subscription failed:', e);
+      setPushStatus('idle');
+    }
+  };
+
   const navLinksRaw = Array.isArray(siteSettings?.navbarLinks) && siteSettings.navbarLinks.length > 0
     ? siteSettings.navbarLinks
     : DEFAULT_NAV_LINKS;
@@ -168,6 +224,19 @@ export default function Navbar() {
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Подай Сигнал</span>
               </Link>
+              {pushStatus !== 'unsupported' && (
+                <button
+                  onClick={handleSubscribePush}
+                  disabled={pushStatus === 'loading' || pushStatus === 'subscribed'}
+                  className={`flex items-center gap-1.5 transition-colors font-bold ${pushStatus === 'subscribed' ? 'text-green-400' : 'text-yellow-400 hover:text-white'}`}
+                  title="Известия за Извънредни Новини"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">
+                    {pushStatus === 'subscribed' ? 'Абониран' : 'Известия'}
+                  </span>
+                </button>
+              )}
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
                 className="hover:text-white transition-colors flex items-center gap-1.5"

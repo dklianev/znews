@@ -28,6 +28,9 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
+      },
+      workbox: {
+        importScripts: ['/custom-sw.js']
       }
     })
   ],

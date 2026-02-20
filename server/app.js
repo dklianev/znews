@@ -12,6 +12,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
+import webpush from 'web-push';
 import { isIP } from 'node:net';
 import {
   S3Client,
@@ -41,12 +42,24 @@ if (mongoDnsServersEnv && mongoDnsServersEnv.trim()) {
 
 import {
   Article, Author, Category, Ad, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip
+  Wanted, Job, Court, Event, Poll, Comment, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription
 } from './models.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 dotenv.config({ path: path.join(__dirname, '.env'), override: true });
+
+// ─── Web Push Configuration ───
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:admin@znews.live',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+  console.log('✓ Web Push Configured');
+} else {
+  console.warn('⚠ Web Push VAPID keys missing in .env');
+}
 
 // ─── Bundled font for Sharp share card rendering ───
 // On Azure/Linux servers there are no Cyrillic system fonts.
@@ -2999,6 +3012,34 @@ articlesRouter.get('/:id/share.png', async (req, res) => {
     return res.status(500).json({ error: publicError(e) });
   }
 });
+// ─── Push Notification Helper ───
+async function sendPushNotificationForArticle(article) {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+  try {
+    const payload = JSON.stringify({
+      title: '🚨 ИЗВЪНРЕДНО',
+      body: article.title || 'Гореща новина от zNews',
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+      url: `/articles/${article.id}`
+    });
+
+    const subscriptions = await PushSubscription.find({});
+    const pushPromises = subscriptions.map(async (sub) => {
+      try {
+        await webpush.sendNotification(sub, payload);
+      } catch (err) {
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          await PushSubscription.deleteOne({ _id: sub._id });
+        }
+      }
+    });
+    await Promise.allSettled(pushPromises);
+    console.log(`Sent push notification to ${subscriptions.length} devices.`);
+  } catch (e) {
+    console.error('Failed to trigger push notifications:', e);
+  }
+}
 
 articlesRouter.post('/', requireAuth, requirePermission('articles'), async (req, res) => {
   try {
@@ -3031,6 +3072,12 @@ articlesRouter.post('/', requireAuth, requirePermission('articles'), async (req,
       details: obj.title || '',
     }).catch(() => { });
     await createArticleRevision(id, obj, { source: 'create', user: req.user });
+
+    // Trigger push for immediate breaking news
+    if (obj.breaking && obj.status === 'published' && (!obj.publishAt || new Date(obj.publishAt) <= new Date())) {
+      sendPushNotificationForArticle(obj);
+    }
+
     res.json(obj);
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -3063,6 +3110,12 @@ articlesRouter.put('/:id', requireAuth, requirePermission('articles'), async (re
 
     const updated = item.toJSON();
     await createArticleRevision(id, updated, { source: 'update', user: req.user });
+
+    // Trigger push for immediate breaking news on update (if it just became published/breaking)
+    if (updated.breaking && updated.status === 'published' && (!updated.publishAt || new Date(updated.publishAt) <= new Date())) {
+      sendPushNotificationForArticle(updated);
+    }
+
     res.json(updated);
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -4373,17 +4426,37 @@ app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'g
         });
       }
 
-      // Convert ALL uploads to highly optimized WebP format
-      const webpBuffer = await sharp(req.file.buffer)
-        .rotate()
-        .webp({ quality: 82, effort: 4 })
-        .toBuffer();
+      // Convert ALL uploads to highly optimized WebP format with Watermark
+      const imgSharp = sharp(req.file.buffer).rotate();
+      const metadata = await imgSharp.metadata();
+
+      const watermarkPath = path.join(__dirname, 'fonts', 'brand-logo.png');
+      let finalBuffer;
+      try {
+        // Watermark size: 20% of image width
+        const wmWidth = Math.max(100, Math.round((metadata.width || 800) * 0.20));
+        const wmBuffer = await sharp(watermarkPath).resize({ width: wmWidth }).toBuffer();
+        const wmMeta = await sharp(wmBuffer).metadata();
+
+        // 3% margin from bottom right
+        const margin = Math.round((metadata.width || 800) * 0.03);
+        const left = (metadata.width || 800) - (wmMeta.width || wmWidth) - margin;
+        const top = (metadata.height || 600) - (wmMeta.height || wmWidth / 4) - margin;
+
+        finalBuffer = await imgSharp
+          .composite([{ input: wmBuffer, left: Math.max(0, left), top: Math.max(0, top), blend: 'over' }])
+          .webp({ quality: 82, effort: 4 })
+          .toBuffer();
+      } catch (e) {
+        console.error('Watermark failed, falling back to simple WebP:', e);
+        finalBuffer = await imgSharp.webp({ quality: 82, effort: 4 }).toBuffer();
+      }
 
       const fileName = `${Date.now()}-${Math.round(Math.random() * 1e6)}.webp`;
 
-      await putStorageObject(fileName, webpBuffer, 'image/webp');
+      await putStorageObject(fileName, finalBuffer, 'image/webp');
 
-      const pipelineManifest = await ensureImagePipeline(fileName, { sourceBuffer: webpBuffer });
+      const pipelineManifest = await ensureImagePipeline(fileName, { sourceBuffer: finalBuffer });
       return res.json({
         url: getOriginalUploadUrl(fileName),
         imageMeta: toImageMetaFromManifest(pipelineManifest),
@@ -4498,6 +4571,41 @@ app.delete('/api/tips/:id', requireAuth, requireAnyPermission(['articles']), asy
     const tip = await Tip.findOneAndDelete({ id: Number(req.params.id) });
     if (!tip) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+// ─── Web Push Notifications ───
+app.get('/api/push/vapid-public-key', (_req, res) => {
+  res.send(process.env.VAPID_PUBLIC_KEY || '');
+});
+
+app.post('/api/push/subscribe', async (req, res) => {
+  try {
+    const subscription = req.body;
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({ error: 'Invalid subscription' });
+    }
+
+    await PushSubscription.findOneAndUpdate(
+      { endpoint: subscription.endpoint },
+      subscription,
+      { upsert: true, new: true }
+    );
+
+    res.status(201).json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+app.post('/api/push/unsubscribe', async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (!endpoint) return res.status(400).json({ error: 'Invalid operation' });
+    await PushSubscription.findOneAndDelete({ endpoint });
+    res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
   }
