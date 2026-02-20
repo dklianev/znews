@@ -798,10 +798,12 @@
       transform: scale(1);
       box-shadow: 0 0 0 0 rgba(255, 224, 130, 0.55);
     }
+
     70% {
       transform: scale(1.15);
       box-shadow: 0 0 0 8px rgba(255, 224, 130, 0);
     }
+
     100% {
       transform: scale(1);
       box-shadow: 0 0 0 0 rgba(255, 224, 130, 0);
@@ -812,6 +814,7 @@
     0% {
       transform: translateX(-120%);
     }
+
     100% {
       transform: translateX(140%);
     }
@@ -2007,6 +2010,8 @@ div.bg-zn-bg.text-white {
 .admin-rich-editor {
   border: 1px solid #d5d1cb;
   background: #fff;
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-rich-editor-toolbar {
@@ -2097,6 +2102,8 @@ div.bg-zn-bg.text-white {
   line-height: 1.7;
   color: #1c1428;
   outline: none;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .admin-rich-editor-content:empty::before {
@@ -2458,8 +2465,15 @@ div.bg-zn-bg.text-white {
   }
 
   @keyframes yapperFadeIn {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(-6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .yapper-popup-title {

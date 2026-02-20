@@ -66,6 +66,7 @@ export default function RichTextEditor({
   value,
   onChange,
   placeholder = 'Напиши съдържанието на статията...',
+  className = '',
 }) {
   const editorRef = useRef(null);
   const [selectionTick, setSelectionTick] = useState(0);
@@ -170,7 +171,7 @@ export default function RichTextEditor({
   const isOl = queryState('insertOrderedList');
 
   return (
-    <div className="admin-rich-editor" data-selection-tick={selectionTick}>
+    <div className={`admin-rich-editor ${className}`} data-selection-tick={selectionTick}>
       <div className="admin-rich-editor-toolbar">
         <div className="admin-rich-editor-group">
           <label className="admin-rich-editor-label" htmlFor="rt-block-style">Стил</label>
