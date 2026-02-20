@@ -42,6 +42,7 @@ const REVISION_COMPARE_FIELDS = [
   { key: 'date', label: 'Дата' },
   { key: 'readTime', label: 'Време за четене' },
   { key: 'image', label: 'Снимка URL' },
+  { key: 'youtubeUrl', label: 'YouTube Линк' },
   { key: 'featured', label: 'Водеща' },
   { key: 'breaking', label: 'Breaking' },
   { key: 'hero', label: 'Hero' },
@@ -97,6 +98,7 @@ const emptyForm = {
   readTime: 3,
   views: 0,
   image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800',
+  youtubeUrl: '',
   featured: false,
   breaking: false,
   hero: false,
@@ -169,6 +171,7 @@ export default function ManageArticles() {
     const ref = initialFormRef.current;
     return ref.title !== form.title || ref.excerpt !== form.excerpt || ref.content !== form.content
       || ref.category !== form.category || ref.image !== form.image || ref.tags !== form.tags
+      || ref.youtubeUrl !== form.youtubeUrl
       || JSON.stringify(ref.imageMeta || null) !== JSON.stringify(form.imageMeta || null);
   }, [editing, form]);
 
@@ -218,6 +221,7 @@ export default function ManageArticles() {
     readTime: Number(form.readTime) || 0,
     image: form.image,
     imageMeta: form.imageMeta || null,
+    youtubeUrl: form.youtubeUrl || '',
     featured: Boolean(form.featured),
     breaking: Boolean(form.breaking),
     hero: Boolean(form.hero),
@@ -1018,9 +1022,21 @@ export default function ManageArticles() {
                   onChange={(nextValue) => setForm({ ...form, image: nextValue })}
                   imageMeta={form.imageMeta}
                   onChangeMeta={(nextMeta) => setForm({ ...form, imageMeta: nextMeta })}
-                  helperText="Избери снимка (16:9 препоръчително)."
+                  helperText="Избери снимка (16:9 препоръчително) или качи нова от компютъра."
                   previewClassName="h-40"
                 />
+              </div>
+
+              {/* YouTube Video */}
+              <div className="p-4 border border-gray-200 bg-gray-50/30">
+                <label className={labelCls}>YouTube Линк (Опционално)</label>
+                <input
+                  className={inputCls}
+                  value={form.youtubeUrl || ''}
+                  onChange={e => setForm({ ...form, youtubeUrl: e.target.value })}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                />
+                <p className="text-[10px] text-gray-500 mt-1">Ако добавиш линк, видеото ще се покаже вместо или над основната снимка.</p>
               </div>
 
               <div className="p-4 border border-gray-200 bg-gray-50/30 space-y-4">

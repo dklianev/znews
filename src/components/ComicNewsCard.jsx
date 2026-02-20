@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Eye } from 'lucide-react';
+import { Eye, Play } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import ResponsiveImage from './ResponsiveImage';
 import { COMIC_CARD_VARIANTS } from '../utils/comicCardDesign';
@@ -50,6 +50,13 @@ export default function ComicNewsCard({
           pictureClassName="block w-full h-full"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
+        {article.youtubeUrl && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-12 h-10 bg-zn-hot/90 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg group-hover:bg-[#ff0000] group-hover:scale-110 transition-all duration-300 border-2 border-white/30">
+              <Play className="w-5 h-5 text-white fill-white ml-0.5" />
+            </div>
+          </div>
+        )}
         <div className="absolute bottom-2 left-2 px-2 py-1 text-[10px] font-display font-black uppercase tracking-[0.12em] text-white border border-white/40 bg-black/35">
           {article.date}
         </div>

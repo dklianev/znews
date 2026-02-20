@@ -11,6 +11,7 @@ import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
+import YouTubeEmbed from '../components/YouTubeEmbed';
 
 const categoryColors = {
   crime: 'bg-zn-purple text-white',
@@ -554,19 +555,28 @@ export default function ArticlePage() {
             </div>
           </div>
 
-          {/* Featured image */}
-          <div className="mb-6 comic-panel comic-dots relative p-2 bg-white">
-            <ResponsiveImage
-              src={article.image}
-              pipeline={article.imageMeta}
-              alt={article.title}
-              loading="eager"
-              fetchPriority="high"
-              decoding="async"
-              sizes="(max-width: 1024px) 100vw, 66vw"
-              className="w-full h-auto relative z-[2]"
-              pictureClassName="block"
-            />
+          {/* Featured image or Video */}
+          <div className="mb-6 comic-panel comic-dots relative p-2 bg-white flex justify-center">
+            {article.youtubeUrl ? (
+              <YouTubeEmbed
+                url={article.youtubeUrl}
+                title={article.title}
+                thumbnailUrl={article.image}
+                className="relative z-[2]"
+              />
+            ) : (
+              <ResponsiveImage
+                src={article.image}
+                pipeline={article.imageMeta}
+                alt={article.title}
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                sizes="(max-width: 1024px) 100vw, 66vw"
+                className="w-full h-auto relative z-[2]"
+                pictureClassName="block"
+              />
+            )}
           </div>
 
           {/* Inline ad */}

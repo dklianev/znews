@@ -2007,6 +2007,9 @@ function sanitizeArticlePayload(payload, { partial = false } = {}) {
   if (!partial || hasOwn(payload, 'imageMeta')) {
     out.imageMeta = payload.imageMeta && typeof payload.imageMeta === 'object' ? payload.imageMeta : null;
   }
+  if (!partial || hasOwn(payload, 'youtubeUrl')) {
+    out.youtubeUrl = payload.youtubeUrl ? normalizeText(payload.youtubeUrl, 500) : '';
+  }
   if (!partial || hasOwn(payload, 'featured')) out.featured = Boolean(payload.featured);
   if (!partial || hasOwn(payload, 'breaking')) out.breaking = Boolean(payload.breaking);
   if (!partial || hasOwn(payload, 'hero')) out.hero = Boolean(payload.hero);
