@@ -72,6 +72,13 @@ const DEFAULT_SETTINGS = {
     categoryListing: 'default',
     searchListing: 'default',
   },
+  tipLinePromo: {
+    enabled: true,
+    title: 'Имаш ли новина за нас?',
+    description: 'Стана ли свидетел на нещо скандално, незаконно или просто интересно? Прати ни ексклузивен сигнал и снимки напълно анонимно!',
+    buttonLabel: 'ПОДАЙ СИГНАЛ',
+    buttonLink: '/tipline',
+  },
 };
 
 const SPOTLIGHT_ICON_OPTIONS = ['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'Newspaper', 'ShieldAlert'];
@@ -103,6 +110,10 @@ function resolveSettings(raw) {
     layoutPresets: {
       ...DEFAULT_SETTINGS.layoutPresets,
       ...(input.layoutPresets || {}),
+    },
+    tipLinePromo: {
+      ...DEFAULT_SETTINGS.tipLinePromo,
+      ...(input.tipLinePromo || {}),
     },
   };
 }
@@ -583,6 +594,34 @@ export default function ManageSiteSettings() {
       </section>
 
       <section className={listSectionCls}>
+        <h2 className="font-sans font-semibold text-gray-900">Футер: Гореща линия (Tip Line Promo)</h2>
+        <p className="text-xs font-sans text-gray-500">Големият рекламен блок за сигнали над същинския футер.</p>
+        <div className="space-y-4 pt-2">
+          <label className="flex items-center gap-2 text-sm font-sans text-gray-700">
+            <input type="checkbox" checked={Boolean(form.tipLinePromo?.enabled)} onChange={(e) => setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, enabled: e.target.checked } }))} className="w-4 h-4 accent-zn-purple" />
+            Показвай този блок на сайта
+          </label>
+          <div>
+            <label className={tinyLabelCls}>Заглавие</label>
+            <input className={inputCls} value={form.tipLinePromo?.title || ''} onChange={(e) => setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, title: e.target.value } }))} />
+          </div>
+          <div>
+            <label className={tinyLabelCls}>Описание</label>
+            <textarea className={`${inputCls} h-16 resize-y`} value={form.tipLinePromo?.description || ''} onChange={(e) => setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, description: e.target.value } }))} />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={tinyLabelCls}>Текст на бутона</label>
+              <input className={inputCls} value={form.tipLinePromo?.buttonLabel || ''} onChange={(e) => setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, buttonLabel: e.target.value } }))} />
+            </div>
+            <div>
+              <label className={tinyLabelCls}>Линка на бутона (URL)</label>
+              <input className={inputCls} value={form.tipLinePromo?.buttonLink || ''} onChange={(e) => setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, buttonLink: e.target.value } }))} />
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className={listSectionCls}>
         <div className="flex items-center justify-between">
           <h2 className="font-sans font-semibold text-gray-900">About рекламни планове</h2>
           <button onClick={() => setForm((prev) => ({ ...prev, about: { ...prev.about, adPlans: [...prev.about.adPlans, { name: '', price: '', desc: '' }] } }))} className="text-xs font-sans text-zn-hot inline-flex items-center gap-1">
@@ -609,6 +648,6 @@ export default function ManageSiteSettings() {
           </div>
         ))}
       </section>
-    </div>
+    </div >
   );
 }

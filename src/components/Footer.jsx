@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Flame, Megaphone, MapPin, Phone, Mail } from 'lucide-react';
+import { Flame, Megaphone, MapPin, Phone, Mail, AlertTriangle } from 'lucide-react';
 import { useData } from '../context/DataContext';
 
 const DEFAULT_FOOTER_PILLS = [
@@ -49,9 +49,43 @@ export default function Footer() {
     ...DEFAULT_CONTACT,
     ...(siteSettings?.contact || {}),
   };
+  const tipLinePromo = siteSettings?.tipLinePromo || {
+    enabled: true,
+    title: 'Имаш ли новина за нас?',
+    description: 'Стана ли свидетел на нещо скандално, незаконно или просто интересно? Прати ни ексклузивен сигнал и снимки напълно анонимно!',
+    buttonLabel: 'ПОДАЙ СИГНАЛ',
+    buttonLink: '/tipline',
+  };
 
   return (
     <footer className="mt-10">
+      {/* ── TIP LINE PROMO ── */}
+      {tipLinePromo.enabled && (
+        <div className="bg-zn-hot comic-dots border-t-8 border-b-8 border-zn-black relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
+          <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="text-3xl md:text-5xl font-comic text-white text-shadow-comic mb-4 flex flex-col md:flex-row items-center justify-center md:justify-start gap-4">
+                <AlertTriangle className="w-12 h-12 md:w-16 md:h-16 text-black drop-shadow-md animate-pulse" />
+                <span className="-skew-y-2 inline-block transform">{tipLinePromo.title}</span>
+              </h3>
+              <p className="text-white text-lg md:text-xl font-sans font-black max-w-3xl leading-snug drop-shadow-md border-l-4 border-black pl-4 py-1 mx-auto md:mx-0">
+                {tipLinePromo.description}
+              </p>
+            </div>
+            <div className="shrink-0 mt-4 md:mt-0 relative group/btn">
+              <Link
+                to={tipLinePromo.buttonLink}
+                className="inline-flex items-center justify-center bg-white border-4 border-black px-8 py-4 text-2xl font-comic uppercase text-zn-hot transition-transform active:scale-95 shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-2 hover:translate-y-2"
+              >
+                <Flame className="w-6 h-6 mr-2 animate-bounce" />
+                {tipLinePromo.buttonLabel}
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── TOP GRADIENT BAR ── */}
       <div className="h-3 bg-gradient-to-r from-zn-hot via-zn-purple to-zn-navy" />
       <div className="h-2 bg-zn-black" />
