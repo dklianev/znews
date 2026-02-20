@@ -77,10 +77,10 @@ export default function AboutPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
         {[
-          { icon: Newspaper, label: 'Публикации', value: '1,200+' },
-          { icon: Users, label: 'Читатели', value: '50,000+' },
-          { icon: Award, label: 'Награди', value: '12' },
-          { icon: Shield, label: 'Години', value: '5+' },
+          { icon: Newspaper, label: 'Покритие', value: '24/7' },
+          { icon: Users, label: 'Читатели', value: 'Целият Град' },
+          { icon: Award, label: 'Нашата Цел', value: 'Истината' },
+          { icon: Shield, label: 'Статус', value: 'Независими' },
         ].map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -98,7 +98,7 @@ export default function AboutPage() {
 
       {/* Mission */}
       <section className="newspaper-page comic-panel comic-dots p-8 mb-12 relative">
-        <div className="absolute -top-2 right-8 w-14 h-5 bg-yellow-200/70 border border-black/5 transform rotate-3 z-10" style={{boxShadow:'1px 1px 2px rgba(0,0,0,0.1)'}} />
+        <div className="absolute -top-2 right-8 w-14 h-5 bg-yellow-200/70 border border-black/5 transform rotate-3 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
         <h2 className="font-display text-2xl font-black text-zn-text mb-4 tracking-wider uppercase relative z-[2]">{about.missionTitle}</h2>
         <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-4 relative z-[2]" />
         <p className="font-sans text-zn-text leading-relaxed mb-4 relative z-[2]">
@@ -125,7 +125,7 @@ export default function AboutPage() {
               transition={{ duration: 0.3, delay: index * 0.08 }}
               className="comic-panel comic-panel-hover bg-white p-6 text-center"
             >
-              <div className={`w-16 h-16 ${AVATAR_COLORS[index % AVATAR_COLORS.length]} text-white flex items-center justify-center font-display font-black text-2xl border-3 border-[#1C1428] mx-auto mb-3`} style={{boxShadow:'3px 3px 0 #1C1428'}}>
+              <div className={`w-16 h-16 ${AVATAR_COLORS[index % AVATAR_COLORS.length]} text-white flex items-center justify-center font-display font-black text-2xl border-3 border-[#1C1428] mx-auto mb-3`} style={{ boxShadow: '3px 3px 0 #1C1428' }}>
                 {author.name?.charAt(0)}
               </div>
               <h3 className="font-display font-black text-lg text-zn-text tracking-wider uppercase">{author.name}</h3>
@@ -137,7 +137,7 @@ export default function AboutPage() {
 
       {/* Contact */}
       <section className="newspaper-page comic-panel comic-dots p-8 relative">
-        <div className="absolute -top-2 left-8 w-16 h-5 bg-yellow-200/70 border border-black/5 transform -rotate-4 z-10" style={{boxShadow:'1px 1px 2px rgba(0,0,0,0.1)'}} />
+        <div className="absolute -top-2 left-8 w-16 h-5 bg-yellow-200/70 border border-black/5 transform -rotate-4 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
         <h2 className="font-display text-2xl font-black text-zn-text mb-2 tracking-wider uppercase relative z-[2]">Свържи се с нас</h2>
         <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-6 relative z-[2]" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-[2]">
@@ -173,7 +173,7 @@ export default function AboutPage() {
               type="text"
               placeholder="Име"
               value={contactForm.name}
-              onChange={e => setContactForm({...contactForm, name: e.target.value})}
+              onChange={e => setContactForm({ ...contactForm, name: e.target.value })}
               required
               className="w-full px-4 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple transition-colors"
             />
@@ -181,7 +181,7 @@ export default function AboutPage() {
               type="email"
               placeholder="Email"
               value={contactForm.email}
-              onChange={e => setContactForm({...contactForm, email: e.target.value})}
+              onChange={e => setContactForm({ ...contactForm, email: e.target.value })}
               required
               className="w-full px-4 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple transition-colors"
             />
@@ -189,7 +189,7 @@ export default function AboutPage() {
               placeholder="Съобщение..."
               rows="3"
               value={contactForm.message}
-              onChange={e => setContactForm({...contactForm, message: e.target.value})}
+              onChange={e => setContactForm({ ...contactForm, message: e.target.value })}
               required
               className="w-full px-4 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple resize-none transition-colors"
             />
