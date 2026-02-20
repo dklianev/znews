@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Clock3, FilePenLine, Search, Send, CalendarClock, CirclePause } from 'lucide-react';
+import { Clock3, FilePenLine, Search, Send, CalendarClock, CirclePause, Loader2 } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 function isScheduledArticle(article) {
   if (article?.status !== 'published') return false;
@@ -23,6 +24,7 @@ export default function EditorialQueue() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
   const [workingId, setWorkingId] = useState(null);
+  const toast = useToast();
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const byStatus = useMemo(() => {
@@ -67,10 +69,13 @@ export default function EditorialQueue() {
     [authors],
   );
 
-  const runQuickAction = async (articleId, payload) => {
+  const runQuickAction = async (articleId, payload, successMsg) => {
     setWorkingId(articleId);
     try {
       await updateArticle(articleId, payload);
+      if (successMsg) toast.success(successMsg);
+    } catch (e) {
+      toast.error(e?.message || 'Грешка при действието');
     } finally {
       setWorkingId(null);
     }
@@ -158,10 +163,10 @@ export default function EditorialQueue() {
                   <button
                     type="button"
                     disabled={isWorking}
-                    onClick={() => runQuickAction(article.id, { status: 'published', publishAt: null, date: new Date().toISOString().slice(0, 10) })}
+                    onClick={() => runQuickAction(article.id, { status: 'published', publishAt: null, date: new Date().toISOString().slice(0, 10) }, 'Статията е публикувана')}
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-sans font-semibold uppercase tracking-wider bg-zn-hot text-white border border-zn-hot hover:bg-red-700 transition-colors disabled:opacity-60"
                   >
-                    <Send className="w-3 h-3" />
+                    {isWorking ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                     Публикувай
                   </button>
                 )}
@@ -170,10 +175,10 @@ export default function EditorialQueue() {
                   <button
                     type="button"
                     disabled={isWorking}
-                    onClick={() => runQuickAction(article.id, { status: 'draft' })}
+                    onClick={() => runQuickAction(article.id, { status: 'draft' }, 'Статията е в чернова')}
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-sans font-semibold uppercase tracking-wider text-gray-600 border border-gray-300 hover:bg-gray-50 transition-colors disabled:opacity-60"
                   >
-                    <CirclePause className="w-3 h-3" />
+                    {isWorking ? <Loader2 className="w-3 h-3 animate-spin" /> : <CirclePause className="w-3 h-3" />}
                     Към чернова
                   </button>
                 )}
@@ -182,10 +187,10 @@ export default function EditorialQueue() {
                   <button
                     type="button"
                     disabled={isWorking}
-                    onClick={() => runQuickAction(article.id, { publishAt: null })}
+                    onClick={() => runQuickAction(article.id, { publishAt: null }, 'Планирането е премахнато')}
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-sans font-semibold uppercase tracking-wider text-blue-700 border border-blue-300 hover:bg-blue-50 transition-colors disabled:opacity-60"
                   >
-                    <Clock3 className="w-3 h-3" />
+                    {isWorking ? <Loader2 className="w-3 h-3 animate-spin" /> : <Clock3 className="w-3 h-3" />}
                     Премахни час
                   </button>
                 ) : (
@@ -194,11 +199,11 @@ export default function EditorialQueue() {
                     disabled={isWorking}
                     onClick={() => {
                       const inHour = new Date(Date.now() + (60 * 60 * 1000));
-                      runQuickAction(article.id, { status: 'published', publishAt: inHour.toISOString() });
+                      runQuickAction(article.id, { status: 'published', publishAt: inHour.toISOString() }, 'Планирано за след 1 час');
                     }}
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-sans font-semibold uppercase tracking-wider text-blue-700 border border-blue-300 hover:bg-blue-50 transition-colors disabled:opacity-60"
                   >
-                    <CalendarClock className="w-3 h-3" />
+                    {isWorking ? <Loader2 className="w-3 h-3 animate-spin" /> : <CalendarClock className="w-3 h-3" />}
                     +1ч
                   </button>
                 )}

@@ -1,16 +1,20 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Upload, Trash2, Copy, RefreshCw, Search, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
+import { useToast } from '../../components/admin/Toast';
 
 export default function ManageMedia() {
   const { media, mediaPipelineStatus, uploadMedia, deleteMedia, refreshMedia, backfillMediaPipeline } = useData();
+  const toast = useToast();
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadCount, setUploadCount] = useState(0);
   const [workingFile, setWorkingFile] = useState(null);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillForce, setBackfillForce] = useState(false);
   const [backfillLimit, setBackfillLimit] = useState('');
   const [lastBackfillSummary, setLastBackfillSummary] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
   const fileRef = useRef(null);
 
   const filtered = useMemo(() => {
@@ -19,18 +23,45 @@ export default function ManageMedia() {
     return media.filter(item => (item.name || '').toLowerCase().includes(q));
   }, [media, query]);
 
-  const handleUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      await uploadMedia(file);
-    } catch (error) {
-      alert(`Грешка при качване: ${error.message}`);
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
+  const totalSize = useMemo(() => {
+    const bytes = media.reduce((acc, item) => acc + (item.size || 0), 0);
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }, [media]);
+
+  const processFiles = useCallback(async (files) => {
+    if (!files || files.length === 0) return;
+    const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      toast.warning('Моля, изберете само изображения');
+      return;
     }
+    setUploading(true);
+    setUploadCount(imageFiles.length);
+    let uploaded = 0;
+    let failed = 0;
+    for (const file of imageFiles) {
+      try {
+        await uploadMedia(file);
+        uploaded++;
+      } catch {
+        failed++;
+      }
+    }
+    setUploading(false);
+    setUploadCount(0);
+    if (failed > 0) {
+      toast.warning(`Качени: ${uploaded}, грешки: ${failed}`);
+    } else if (uploaded === 1) {
+      toast.success('Снимката е качена');
+    } else {
+      toast.success(`${uploaded} снимки качени`);
+    }
+    if (fileRef.current) fileRef.current.value = '';
+  }, [uploadMedia, toast]);
+
+  const handleUpload = async (event) => {
+    await processFiles(event.target.files);
   };
 
   const handleDelete = async (item) => {
@@ -38,8 +69,9 @@ export default function ManageMedia() {
     setWorkingFile(item.name);
     try {
       await deleteMedia(item.name);
+      toast.success('Файлът е изтрит');
     } catch (error) {
-      alert(`Не може да се изтрие: ${error.message}`);
+      toast.error(`Не може да се изтрие: ${error.message}`);
     } finally {
       setWorkingFile(null);
     }
@@ -48,8 +80,9 @@ export default function ManageMedia() {
   const copyUrl = async (url) => {
     try {
       await navigator.clipboard.writeText(url);
+      toast.success('URL е копиран');
     } catch {
-      // ignore clipboard errors in unsupported environments
+      // ignore
     }
   };
 
@@ -62,19 +95,48 @@ export default function ManageMedia() {
         limit: Number.isInteger(limitNumber) && limitNumber > 0 ? limitNumber : 0,
       });
       setLastBackfillSummary(summary);
+      toast.success(`Backfill: +${summary.generated} нови, ${summary.regenerated} regen`);
     } catch (error) {
-      alert(`Грешка при backfill: ${error.message}`);
+      toast.error(`Грешка при backfill: ${error.message}`);
     } finally {
       setBackfilling(false);
     }
   };
 
+  // DnD handlers
+  const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setDragActive(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); };
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    await processFiles(e.dataTransfer.files);
+  };
+
   return (
-    <div className="p-8">
+    <div
+      className="p-8 min-h-full"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* DnD overlay */}
+      {dragActive && (
+        <div className="fixed inset-0 z-50 bg-zn-purple/10 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+          <div className="bg-white border-2 border-dashed border-zn-purple px-12 py-10 flex flex-col items-center gap-3">
+            <Upload className="w-12 h-12 text-zn-purple" />
+            <p className="text-lg font-sans font-bold text-gray-900">Пусни снимките тук</p>
+            <p className="text-sm font-sans text-gray-500">Поддържа множество файлове</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-display font-bold text-gray-900">Media Library</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">Качване и управление на снимки за статии, реклами и галерия</p>
+          <p className="text-sm font-sans text-gray-500 mt-1">
+            {media.length} файла · {totalSize} общо — провлачи снимки навсякъде на страницата
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -93,12 +155,13 @@ export default function ManageMedia() {
             {backfilling ? 'Backfill...' : 'Pipeline backfill'}
           </button>
           <label className={`flex items-center gap-2 px-3 py-2 bg-zn-purple text-white text-sm font-sans font-semibold cursor-pointer hover:bg-zn-purple-dark transition-colors ${uploading ? 'opacity-70 pointer-events-none' : ''}`}>
-            <Upload className="w-4 h-4" />
-            {uploading ? 'Качване...' : 'Качи снимка'}
+            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {uploading ? `Качване (${uploadCount})...` : 'Качи снимки'}
             <input
               ref={fileRef}
               type="file"
               accept="image/jpeg,image/png,image/gif,image/webp"
+              multiple
               className="hidden"
               onChange={handleUpload}
             />
@@ -158,9 +221,12 @@ export default function ManageMedia() {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-14 border border-dashed border-gray-300 bg-white">
-          <ImageIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm font-sans text-gray-400">Няма качени снимки</p>
+        <div className="text-center py-14 border-2 border-dashed border-gray-300 bg-white cursor-pointer hover:border-zn-purple/40 transition-colors"
+          onClick={() => fileRef.current?.click()}
+        >
+          <Upload className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+          <p className="text-sm font-sans text-gray-500 font-semibold">Провлачи снимки тук или натисни за качване</p>
+          <p className="text-xs font-sans text-gray-400 mt-1">JPEG, PNG, GIF, WebP</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">

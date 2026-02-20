@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save, ExternalLink, ImageIcon, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, ExternalLink, ImageIcon, AlertTriangle, Loader2, Eye } from 'lucide-react';
 import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
+import { AdBannerHorizontal, AdBannerSide, AdBannerInline } from '../../components/AdBanner';
 
 const AD_TYPES = [
   { value: 'horizontal', label: 'Хоризонтален банер' },
@@ -47,6 +48,7 @@ export default function ManageAds() {
       setForm(emptyForm);
     } catch (e) {
       setError(e?.message || 'Грешка при запис');
+      toast.error('Грешка при запис');
     } finally {
       setSaving(false);
     }
@@ -60,18 +62,22 @@ export default function ManageAds() {
       toast.success('Рекламата е изтрита');
     } catch (e) {
       setError(e?.message || 'Грешка при изтриване');
+      toast.error('Грешка при изтриване');
     }
   };
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
   const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
 
+  // Build a mock ad object for live preview
+  const previewAd = { ...form, id: editing || 'preview' };
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-bold text-gray-900">Реклами</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">Управление на рекламни банери</p>
+          <p className="text-sm font-sans text-gray-500 mt-1">Управление на рекламни банери · {ads.length} реклами</p>
         </div>
         <button
           onClick={() => { setError(''); setEditing('new'); setForm(emptyForm); }}
@@ -91,100 +97,115 @@ export default function ManageAds() {
 
       {/* Editor */}
       {editing && (
-        <div className="bg-white border border-gray-200 p-6 mb-6">
-          <h3 className="font-sans font-semibold text-gray-900 mb-4">
-            {editing === 'new' ? 'Нова реклама' : 'Редактирай реклама'}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls}>Заглавие</label>
-              <input className={inputCls} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Име на бизнеса" />
-            </div>
-            <div>
-              <label className={labelCls}>Подзаглавие</label>
-              <input className={inputCls} value={form.subtitle} onChange={e => setForm({ ...form, subtitle: e.target.value })} placeholder="Кратко описание" />
-            </div>
-            <div>
-              <label className={labelCls}>CTA бутон текст</label>
-              <input className={inputCls} value={form.cta} onChange={e => setForm({ ...form, cta: e.target.value })} placeholder="Научи повече" />
-            </div>
-            <div>
-              <label className={labelCls}>Тип</label>
-              <select className={inputCls} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
-                {AD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Линк (URL)</label>
-              <input className={inputCls} value={form.link} onChange={e => setForm({ ...form, link: e.target.value })} placeholder="https://..." />
-            </div>
-            <div>
-              <label className={labelCls}>Цвят</label>
-              <div className="flex items-center gap-2">
-                <input type="color" value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} className="w-10 h-10 border border-gray-200 cursor-pointer" />
-                <input className={inputCls + ' flex-1'} value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} />
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
-              <AdminImageField
-                label="Снимка на банера"
-                value={form.image}
-                onChange={(nextValue) => setForm(prev => ({ ...prev, image: nextValue }))}
-                helperText="Качи изображение или избери налично от Media Library."
-                previewClassName="h-36"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className={labelCls}>Икона</label>
-              <div className="flex flex-wrap gap-1.5">
-                {AD_ICONS.map(icon => (
-                  <button
-                    key={icon}
-                    onClick={() => setForm({ ...form, icon })}
-                    className={`w-10 h-10 text-xl flex items-center justify-center border transition-colors ${form.icon === icon ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200 hover:border-gray-400'
-                      }`}
-                  >
-                    {icon}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Preview */}
-          <div className="mt-5 p-4 rounded border border-dashed border-gray-300 bg-gray-50">
-            <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-gray-400 mb-2">Преглед</p>
-            <div
-              className="p-4 text-white flex items-center justify-between relative overflow-hidden"
-              style={{ backgroundColor: form.color || '#990F3D' }}
-            >
-              {form.image && (
-                <img
-                  src={form.image}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover opacity-30"
-                />
-              )}
-              <div className="flex items-center gap-3 relative z-10">
-                <span className="text-2xl">{form.icon}</span>
+        <div className="mb-6 space-y-6">
+          {/* 2-column: Form + Live demo */}
+          <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-6">
+            {/* LEFT: Form */}
+            <div className="bg-white border border-gray-200 p-6">
+              <h3 className="font-sans font-semibold text-gray-900 mb-4">
+                {editing === 'new' ? 'Нова реклама' : 'Редактирай реклама'}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="font-sans font-bold text-sm">{form.title || 'Заглавие'}</p>
-                  <p className="text-xs opacity-80">{form.subtitle || 'Подзаглавие'}</p>
+                  <label className={labelCls}>Заглавие</label>
+                  <input className={inputCls} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Име на бизнеса" />
+                </div>
+                <div>
+                  <label className={labelCls}>Подзаглавие</label>
+                  <input className={inputCls} value={form.subtitle} onChange={e => setForm({ ...form, subtitle: e.target.value })} placeholder="Кратко описание" />
+                </div>
+                <div>
+                  <label className={labelCls}>CTA бутон текст</label>
+                  <input className={inputCls} value={form.cta} onChange={e => setForm({ ...form, cta: e.target.value })} placeholder="Научи повече" />
+                </div>
+                <div>
+                  <label className={labelCls}>Тип</label>
+                  <select className={inputCls} value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
+                    {AD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Линк (URL)</label>
+                  <input className={inputCls} value={form.link} onChange={e => setForm({ ...form, link: e.target.value })} placeholder="https://..." />
+                </div>
+                <div>
+                  <label className={labelCls}>Цвят</label>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} className="w-10 h-10 border border-gray-200 cursor-pointer" />
+                    <input className={inputCls + ' flex-1'} value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2">
+                  <AdminImageField
+                    label="Снимка на банера"
+                    value={form.image}
+                    onChange={(nextValue) => setForm(prev => ({ ...prev, image: nextValue }))}
+                    helperText="Качи изображение или избери налично от Media Library."
+                    previewClassName="h-36"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className={labelCls}>Икона</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {AD_ICONS.map(icon => (
+                      <button
+                        key={icon}
+                        onClick={() => setForm({ ...form, icon })}
+                        className={`w-10 h-10 text-xl flex items-center justify-center border transition-colors ${form.icon === icon ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200 hover:border-gray-400'}`}
+                      >
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <span className="px-3 py-1 bg-white/20 text-xs font-sans font-semibold relative z-10">{form.cta}</span>
-            </div>
-          </div>
 
-          <div className="flex gap-2 mt-5">
-            <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50">
-              <Save className="w-4 h-4" /> Запази
-            </button>
-            <button onClick={() => { setEditing(null); setError(''); }} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
-              <X className="w-4 h-4" /> Откажи
-            </button>
+              <div className="flex gap-2 mt-5">
+                <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {saving ? 'Запис...' : 'Запази'}
+                </button>
+                <button onClick={() => { setEditing(null); setError(''); }} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
+                  <X className="w-4 h-4" /> Откажи
+                </button>
+              </div>
+            </div>
+
+            {/* RIGHT: Live demo of all 3 ad types */}
+            <div className="space-y-4">
+              <div className="bg-white border border-gray-200 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Eye className="w-3.5 h-3.5 text-gray-500" />
+                  <p className={labelCls + ' !mb-0'}>Демо — как изглежда на сайта</p>
+                </div>
+
+                {/* Horizontal */}
+                <div className="mb-4">
+                  <p className="text-[9px] font-sans font-bold uppercase tracking-wider text-gray-400 mb-2">Хоризонтален банер</p>
+                  <div className="newspaper-page bg-[#EDE6DA] p-3 overflow-visible">
+                    <AdBannerHorizontal ad={previewAd} />
+                  </div>
+                </div>
+
+                {/* Side */}
+                <div className="mb-4">
+                  <p className="text-[9px] font-sans font-bold uppercase tracking-wider text-gray-400 mb-2">Страничен банер</p>
+                  <div className="newspaper-page bg-[#EDE6DA] p-3 max-w-[280px] overflow-visible">
+                    <AdBannerSide ad={previewAd} />
+                  </div>
+                </div>
+
+                {/* Inline */}
+                <div>
+                  <p className="text-[9px] font-sans font-bold uppercase tracking-wider text-gray-400 mb-2">В текста</p>
+                  <div className="newspaper-page bg-[#EDE6DA] p-3 overflow-visible">
+                    <AdBannerInline ad={previewAd} />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
