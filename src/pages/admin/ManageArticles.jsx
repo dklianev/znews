@@ -727,8 +727,26 @@ export default function ManageArticles() {
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
   const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
 
+  // Scroll-to-top
+  const topRef = useRef(null);
+  const mainRef = useRef(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const main = document.querySelector('main');
+    if (!main) return;
+    mainRef.current = main;
+    const onScroll = () => setShowScrollTop(main.scrollTop > 400);
+    main.addEventListener('scroll', onScroll, { passive: true });
+    return () => main.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    if (mainRef.current) mainRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
-    <div className="p-8">
+    <div className="p-8" ref={topRef}>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-bold text-gray-900">Статии</h1>
@@ -1159,8 +1177,8 @@ export default function ManageArticles() {
           </div>
         </div>
       )}
-      {/* Search + Category filter */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+      {/* Search + Category filter — sticky */}
+      <div className="sticky top-0 z-[5] bg-gray-50 -mx-8 px-8 pt-4 pb-3 border-b border-gray-200 mb-4">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <input
@@ -1228,15 +1246,12 @@ export default function ManageArticles() {
                 {isSelected ? <CheckSquare className="w-4 h-4 text-zn-purple" /> : <Square className="w-4 h-4" />}
               </button>
               {article.image && (
-                <img src={article.image} alt="" className="w-20 h-14 object-cover flex-shrink-0 border border-gray-100" loading="lazy" decoding="async" />
+                <img src={article.image} alt="" className="w-16 h-12 object-cover border border-gray-200 shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="px-1.5 py-0.5 text-[9px] font-sans font-bold uppercase tracking-wider bg-gray-100 text-gray-600">
-                    {getCategoryLabel(article.category)}
-                  </span>
-                  {article.hero && <span className="text-[9px] font-sans font-bold uppercase text-orange-600 bg-orange-50 px-1 py-0.5">HERO</span>}
-                  {article.featured && <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />}
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                  <span className={`px-1.5 py-0.5 text-[9px] font-sans font-bold uppercase ${getCategoryLabel(article.category)?.includes('Криминални') ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'}`}>{getCategoryLabel(article.category)}</span>
+                  {article.featured && <span className="text-[9px] font-sans font-bold uppercase text-amber-600">★ FEATURED</span>}
                   {article.breaking && <span className="text-[9px] font-sans font-bold uppercase text-red-600">BREAKING</span>}
                   {article.status === 'draft' && <span className="text-[9px] font-sans font-bold uppercase text-gray-500 bg-gray-200 px-1 py-0.5 rounded">ЧЕРНОВА</span>}
                   {isScheduled && <span className="text-[9px] font-sans font-bold uppercase text-blue-700 bg-blue-50 px-1 py-0.5 rounded">ПЛАНИРАНА</span>}
@@ -1294,6 +1309,17 @@ export default function ManageArticles() {
           </button>
           <span className="text-xs font-sans text-gray-400 ml-2">({sorted.length} статии)</span>
         </div>
+      )}
+
+      {/* Scroll to top FAB */}
+      {showScrollTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 z-50 w-10 h-10 bg-zn-purple text-white rounded-full shadow-lg flex items-center justify-center hover:bg-zn-purple-dark transition-all hover:scale-110"
+          title="Нагоре"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
       )}
     </div>
   );
