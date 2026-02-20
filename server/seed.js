@@ -132,6 +132,7 @@ const DEFAULT_SITE_SETTINGS = {
     { to: '/category/politics', label: 'Политика' },
     { to: '/category/business', label: 'Бизнес' },
     { to: '/category/society', label: 'Общество' },
+    { to: '/tipline', label: 'Сигнали', hot: true },
     { to: '/jobs', label: 'Работа' },
     { to: '/court', label: 'Съд' },
     { to: '/events', label: 'Събития' },
@@ -189,6 +190,13 @@ const DEFAULT_SITE_SETTINGS = {
     articleRelated: 'default',
     categoryListing: 'default',
     searchListing: 'default',
+  },
+  tipLinePromo: {
+    enabled: true,
+    title: 'Имаш ли новина за нас?',
+    description: 'Стана ли свидетел на нещо скандално, незаконно или просто интересно? Прати ни ексклузивен сигнал и снимки напълно анонимно!',
+    buttonLabel: 'ПОДАЙ СИГНАЛ',
+    buttonLink: '/tipline',
   },
 };
 

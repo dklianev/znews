@@ -238,6 +238,7 @@ const DEFAULT_SITE_SETTINGS = Object.freeze({
     { to: '/category/politics', label: 'Политика' },
     { to: '/category/business', label: 'Бизнес' },
     { to: '/category/society', label: 'Общество' },
+    { to: '/tipline', label: 'Сигнали', hot: true },
     { to: '/jobs', label: 'Работа' },
     { to: '/court', label: 'Съд' },
     { to: '/events', label: 'Събития' },
@@ -295,6 +296,13 @@ const DEFAULT_SITE_SETTINGS = Object.freeze({
     articleRelated: 'default',
     categoryListing: 'default',
     searchListing: 'default',
+  },
+  tipLinePromo: {
+    enabled: true,
+    title: 'Имаш ли новина за нас?',
+    description: 'Стана ли свидетел на нещо скандално, незаконно или просто интересно? Прати ни ексклузивен сигнал и снимки напълно анонимно!',
+    buttonLabel: 'ПОДАЙ СИГНАЛ',
+    buttonLink: '/tipline',
   },
 });
 
@@ -2331,6 +2339,17 @@ function sanitizeSiteSettingsPayload(payload) {
     return acc;
   }, {});
 
+  const tipLinePromoInput = source.tipLinePromo && typeof source.tipLinePromo === 'object'
+    ? source.tipLinePromo
+    : {};
+  const tipLinePromo = {
+    enabled: Boolean(tipLinePromoInput.enabled ?? DEFAULT_SITE_SETTINGS.tipLinePromo.enabled),
+    title: normalizeText(tipLinePromoInput.title ?? DEFAULT_SITE_SETTINGS.tipLinePromo.title, 120) || DEFAULT_SITE_SETTINGS.tipLinePromo.title,
+    description: normalizeText(tipLinePromoInput.description ?? DEFAULT_SITE_SETTINGS.tipLinePromo.description, 600) || DEFAULT_SITE_SETTINGS.tipLinePromo.description,
+    buttonLabel: normalizeText(tipLinePromoInput.buttonLabel ?? DEFAULT_SITE_SETTINGS.tipLinePromo.buttonLabel, 60) || DEFAULT_SITE_SETTINGS.tipLinePromo.buttonLabel,
+    buttonLink: sanitizeInternalPath(tipLinePromoInput.buttonLink, DEFAULT_SITE_SETTINGS.tipLinePromo.buttonLink),
+  };
+
   return {
     navbarLinks: navbarLinks.length > 0 ? navbarLinks : DEFAULT_SITE_SETTINGS.navbarLinks,
     spotlightLinks: spotlightLinks.length > 0 ? spotlightLinks : DEFAULT_SITE_SETTINGS.spotlightLinks,
@@ -2340,6 +2359,7 @@ function sanitizeSiteSettingsPayload(payload) {
     contact,
     about,
     layoutPresets,
+    tipLinePromo,
   };
 }
 
@@ -3065,15 +3085,23 @@ articlesRouter.get('/:id/share.png', async (req, res) => {
   }
 });
 // ─── Push Notification Helper ───
+function isImmediateBreakingArticle(article, now = new Date()) {
+  if (!article || !article.breaking || article.status !== 'published') return false;
+  if (!article.publishAt) return true;
+  const publishAtTs = new Date(article.publishAt).getTime();
+  if (Number.isNaN(publishAtTs)) return false;
+  return publishAtTs <= now.getTime();
+}
+
 async function sendPushNotificationForArticle(article) {
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
   try {
     const payload = JSON.stringify({
       title: '🚨 ИЗВЪНРЕДНО',
       body: article.title || 'Гореща новина от zNews',
-      icon: '/pwa-192x192.png',
-      badge: '/pwa-192x192.png',
-      url: `/articles/${article.id}`
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      url: `/article/${article.id}`
     });
 
     const subscriptions = await PushSubscription.find({});
@@ -3149,6 +3177,9 @@ articlesRouter.put('/:id', requireAuth, requirePermission('articles'), async (re
     await enrichArticlePayloadWithImageMeta(data, { partial: true });
     if (Object.keys(data).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
+    const previous = await Article.findOne({ id }).lean();
+    if (!previous) return res.status(404).json({ error: 'Not found' });
+
     const item = await Article.findOneAndUpdate({ id }, { $set: data }, { new: true });
     if (!item) return res.status(404).json({ error: 'Not found' });
     if (item.hero) {
@@ -3167,8 +3198,11 @@ articlesRouter.put('/:id', requireAuth, requirePermission('articles'), async (re
     const updated = item.toJSON();
     await createArticleRevision(id, updated, { source: 'update', user: req.user });
 
-    // Trigger push for immediate breaking news on update (if it just became published/breaking)
-    if (updated.breaking && updated.status === 'published' && (!updated.publishAt || new Date(updated.publishAt) <= new Date())) {
+    // Trigger push only when the article transitions into immediate breaking state.
+    const now = new Date();
+    const wasImmediateBreaking = isImmediateBreakingArticle(previous, now);
+    const isNowImmediateBreaking = isImmediateBreakingArticle(updated, now);
+    if (isNowImmediateBreaking && !wasImmediateBreaking) {
       sendPushNotificationForArticle(updated);
     }
 
@@ -3298,6 +3332,9 @@ articlesRouter.post('/:id/revisions/restore', requireAuth, requirePermission('ar
       details: `restore:${revisionId}`,
     }).catch(() => { });
 
+    clearApiCacheKeys('api_cache_/api/articles');
+    clearApiCacheKeys('api_cache_/api/breaking');
+
     res.json(restoredObj);
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -3321,6 +3358,9 @@ articlesRouter.delete('/:id', requireAuth, requirePermission('articles'), async 
       resourceId: id,
       details: '',
     }).catch(() => { });
+
+    clearApiCacheKeys('api_cache_/api/articles');
+    clearApiCacheKeys('api_cache_/api/breaking');
 
     res.json({ ok: true });
   } catch (e) {

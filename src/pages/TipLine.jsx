@@ -61,9 +61,10 @@ export default function TipLine() {
             }
 
             await createTip(formData);
+            setSubmitting(false);
             setSuccess(true);
         } catch (err) {
-            setError(err.message || 'Възникна грешка при изпращането. Моляпитайте отново.');
+            setError(err.message || 'Възникна грешка при изпращането. Моля, опитайте отново.');
             setSubmitting(false);
         }
     };
@@ -82,6 +83,8 @@ export default function TipLine() {
                     <button
                         onClick={() => {
                             setSuccess(false);
+                            setSubmitting(false);
+                            setError('');
                             setText('');
                             setLocation('');
                             removeImage();
@@ -205,7 +208,7 @@ export default function TipLine() {
                         </p>
                         <button
                             type="submit"
-                            disabled={submitting || (!text && !image)}
+                            disabled={submitting || (!text.trim() && !image)}
                             className="comic-button flex items-center gap-2 text-xl w-full md:w-auto justify-center"
                         >
                             {submitting ? (

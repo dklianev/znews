@@ -287,6 +287,13 @@ const siteSettingsSchema = new mongoose.Schema({
     categoryListing: String,
     searchListing: String,
   },
+  tipLinePromo: {
+    enabled: { type: Boolean, default: true },
+    title: String,
+    description: String,
+    buttonLabel: String,
+    buttonLink: String,
+  },
 }, opts);
 
 // ─── Article Revisions ───
