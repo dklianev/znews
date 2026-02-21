@@ -331,6 +331,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ revisionId }),
     }),
+    forceRefreshHomepageCache: () => request('/site-settings/cache/homepage/refresh', { method: 'POST' }),
   },
 
   auth: {

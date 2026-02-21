@@ -132,6 +132,7 @@ function clearApiCacheKeys(pattern) {
     apiCache.del(keysToDelete);
     console.log(`Cache cleared for pattern: ${pattern} (${keysToDelete.length} keys)`);
   }
+  return keysToDelete.length;
 }
 
 // Simple readiness health endpoint (returns 200 only when Mongo is connected).
@@ -4263,6 +4264,35 @@ app.put('/api/site-settings', requireAuth, requirePermission('permissions'), asy
     clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(serialized);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+app.post('/api/site-settings/cache/homepage/refresh', requireAuth, requirePermission('permissions'), async (req, res) => {
+  try {
+    const homepageCleared = clearApiCacheKeys('api_cache_/api/homepage');
+    const bootstrapCleared = clearApiCacheKeys('api_cache_/api/bootstrap');
+    const totalCleared = homepageCleared + bootstrapCleared;
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'site-settings',
+      resourceId: 1,
+      details: `refresh-homepage-cache:${totalCleared}`,
+    }).catch(() => { });
+
+    res.json({
+      ok: true,
+      refreshedAt: new Date().toISOString(),
+      cleared: {
+        homepage: homepageCleared,
+        bootstrap: bootstrapCleared,
+        total: totalCleared,
+      },
+    });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
   }

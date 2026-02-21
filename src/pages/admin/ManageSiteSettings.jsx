@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../../context/DataContext';
-import { Save, Plus, Trash2, RotateCcw, ShieldAlert, History, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
+import { Save, Plus, Trash2, RotateCcw, RefreshCw, ShieldAlert, History, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { COMIC_LAYOUT_PRESET_OPTIONS } from '../../utils/comicCardDesign';
 import { useToast } from '../../components/admin/Toast';
 
@@ -128,10 +128,12 @@ export default function ManageSiteSettings() {
     saveSiteSettings,
     loadSiteSettingsRevisions,
     restoreSiteSettingsRevision,
+    forceRefreshHomepageCache,
     hasPermission,
   } = useData();
   const [form, setForm] = useState(resolveSettings(siteSettings));
   const [saving, setSaving] = useState(false);
+  const [refreshingHomepageCache, setRefreshingHomepageCache] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [loadingHistory, setLoadingHistory] = useState(false);
@@ -238,6 +240,27 @@ export default function ManageSiteSettings() {
     }
   };
 
+  const handleForceHomepageCacheRefresh = async () => {
+    setRefreshingHomepageCache(true);
+    setError('');
+    try {
+      const result = await forceRefreshHomepageCache();
+      const totalCleared = Number(result?.cleared?.total || 0);
+      if (totalCleared > 0) {
+        toast.success(`Homepage cache обновен (${totalCleared} ключа)`);
+      } else {
+        toast.success('Homepage cache обновен');
+      }
+    } catch (e) {
+      const message = e?.message || 'Грешка при обновяване на Homepage cache';
+      setError(message);
+      toast.error('Грешка при обновяване на кеша');
+      console.error('Failed to force refresh homepage cache:', e);
+    } finally {
+      setRefreshingHomepageCache(false);
+    }
+  };
+
   if (!canEdit) {
     return (
       <div className="p-8">
@@ -258,6 +281,15 @@ export default function ManageSiteSettings() {
           <p className="text-sm font-sans text-gray-500 mt-1">Navbar, Footer и About съдържание от админ панела</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleForceHomepageCacheRefresh}
+            disabled={refreshingHomepageCache}
+            className="flex items-center gap-2 px-4 py-2 border border-zn-hot/40 text-zn-hot text-sm font-sans hover:bg-zn-hot/5 transition-colors disabled:opacity-50"
+            title="Изчиства API кеша за началната страница и bootstrap"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshingHomepageCache ? 'animate-spin' : ''}`} />
+            {refreshingHomepageCache ? 'Обновяване кеш...' : 'Force cache refresh'}
+          </button>
           <button
             onClick={() => setForm(resolveSettings(DEFAULT_SETTINGS))}
             className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors"

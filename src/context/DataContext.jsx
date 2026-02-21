@@ -374,6 +374,9 @@ export function DataProvider({ children }) {
     await loadSiteSettingsRevisions();
     return restored;
   }, [loadSiteSettingsRevisions]);
+  const forceRefreshHomepageCache = useCallback(async () => {
+    return await api.siteSettings.forceRefreshHomepageCache();
+  }, []);
 
   // ─── Categories ───
   const addCategory = useCallback(async (c) => { const n = await api.categories.create(c); setCategories(prev => [...prev, n]); }, []);
@@ -582,7 +585,7 @@ export function DataProvider({ children }) {
     ads, addAd, updateAd, deleteAd,
     breaking, saveBreaking,
     heroSettings, heroSettingsRevisions, saveHeroSettings, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
-    siteSettings, siteSettingsRevisions, saveSiteSettings, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
+    siteSettings, siteSettingsRevisions, saveSiteSettings, loadSiteSettingsRevisions, restoreSiteSettingsRevision, forceRefreshHomepageCache,
     wanted, addWanted, updateWanted, deleteWanted,
     jobs, addJob, updateJob, deleteJob,
     court, addCourtCase, updateCourtCase, deleteCourtCase,
@@ -605,7 +608,7 @@ export function DataProvider({ children }) {
     ads, addAd, updateAd, deleteAd,
     breaking, saveBreaking,
     heroSettings, heroSettingsRevisions, saveHeroSettings, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
-    siteSettings, siteSettingsRevisions, saveSiteSettings, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
+    siteSettings, siteSettingsRevisions, saveSiteSettings, loadSiteSettingsRevisions, restoreSiteSettingsRevision, forceRefreshHomepageCache,
     wanted, addWanted, updateWanted, deleteWanted,
     jobs, addJob, updateJob, deleteJob,
     court, addCourtCase, updateCourtCase, deleteCourtCase,
