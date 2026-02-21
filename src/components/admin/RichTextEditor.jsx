@@ -237,6 +237,22 @@ export default function RichTextEditor({
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  const handleInsertImage = useCallback((mediaUrl, mediaName = '') => {
+    if (!mediaUrl || !editorRef.current) return;
+    editorRef.current.focus();
+    restoreSelectionRange();
+
+    const src = escapeHtmlAttribute(mediaUrl);
+    const alt = escapeHtmlAttribute(String(mediaName || '').trim().slice(0, 180));
+    const imageHtml = `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" data-width="100" data-align="center"><p><br></p>`;
+    document.execCommand('insertHTML', false, imageHtml);
+
+    emitChange();
+    refreshSelectionState();
+    setPickerOpen(false);
+    setMediaQuery('');
+  }, [emitChange, refreshSelectionState, restoreSelectionRange]);
+
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -309,22 +325,6 @@ export default function RichTextEditor({
       setIsUploading(false);
     }
   }, [uploadMedia, refreshMedia, handleInsertImage, captureSelectionRange]);
-
-  const handleInsertImage = useCallback((mediaUrl, mediaName = '') => {
-    if (!mediaUrl || !editorRef.current) return;
-    editorRef.current.focus();
-    restoreSelectionRange();
-
-    const src = escapeHtmlAttribute(mediaUrl);
-    const alt = escapeHtmlAttribute(String(mediaName || '').trim().slice(0, 180));
-    const imageHtml = `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" data-width="100" data-align="center"><p><br></p>`;
-    document.execCommand('insertHTML', false, imageHtml);
-
-    emitChange();
-    refreshSelectionState();
-    setPickerOpen(false);
-    setMediaQuery('');
-  }, [emitChange, refreshSelectionState, restoreSelectionRange]);
 
   const handleInsertEmbed = useCallback((event) => {
     event.preventDefault();
