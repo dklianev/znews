@@ -153,7 +153,8 @@ function LoadingScreen() {
 
 function AppContent() {
   const { loading } = useData();
-  if (loading) return <LoadingScreen />;
+  const isHomePath = typeof window !== 'undefined' && window.location.pathname === '/';
+  if (loading && !isHomePath) return <LoadingScreen />;
   return (
     <Router>
       <ScrollToTop />

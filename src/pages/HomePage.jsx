@@ -7,7 +7,7 @@ import PollWidget from '../components/PollWidget';
 import { AdBannerHorizontal, AdBannerSide } from '../components/AdBanner';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
-import { Flame, Megaphone, Bell, Siren, TrendingUp, Eye } from 'lucide-react';
+import { Flame, Megaphone, Bell, Siren, TrendingUp, Eye, RefreshCw, AlertTriangle, Zap, Newspaper, ShieldAlert } from 'lucide-react';
 import ComicNewsCard from '../components/ComicNewsCard';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
@@ -15,8 +15,73 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const fallbackLatestImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EDE4D0"/><stop offset="1" stop-color="#DDD3C2"/></linearGradient></defs><rect width="1200" height="700" fill="url(#g)"/><text x="600" y="360" text-anchor="middle" font-family="Oswald,sans-serif" font-size="64" font-weight="900" fill="#C4B49A">LOS SANTOS NEWSWIRE</text></svg>');
 
+const SPOTLIGHT_ICON_MAP = {
+  Flame,
+  Megaphone,
+  Bell,
+  Siren,
+  Zap,
+  Newspaper,
+  ShieldAlert,
+};
+
+const DEFAULT_HOME_SPOTLIGHT_LINKS = [
+  { to: '/category/crime', label: 'Горещи Новини', icon: 'Flame', hot: true, tilt: '-1.3deg' },
+  { to: '/category/underground', label: 'Скандали', icon: 'Megaphone', hot: true, tilt: '1deg' },
+  { to: '/category/society', label: 'Слухове', icon: 'Bell', hot: false, tilt: '-0.8deg' },
+];
+
+const NAV_PILL_VARIANTS = ['nav-pill-hot', 'nav-pill-purple', 'nav-pill-navy'];
+
+function getArticleTimestamp(article) {
+  if (!article || typeof article !== 'object') return 0;
+
+  if (article.publishAt) {
+    const publishAtTs = new Date(article.publishAt).getTime();
+    if (Number.isFinite(publishAtTs)) return publishAtTs;
+  }
+
+  if (article.date) {
+    const dateTs = new Date(article.date).getTime();
+    if (Number.isFinite(dateTs)) return dateTs;
+  }
+
+  return Number(article.id) || 0;
+}
+
+function formatArticleDateLabel(article) {
+  if (article?.publishAt) {
+    const publishDate = new Date(article.publishAt);
+    if (!Number.isNaN(publishDate.getTime())) {
+      return publishDate.toLocaleDateString('bg-BG');
+    }
+  }
+  return article?.date || '';
+}
+
+function HomePageSkeleton() {
+  return (
+    <div className="max-w-6xl mx-auto px-3 md:px-4 py-5 space-y-6 animate-pulse">
+      <div className="h-10 w-72 mx-auto bg-zn-text/10 rounded" />
+      <div className="comic-panel comic-dots bg-white p-4">
+        <div className="h-72 md:h-[420px] w-full bg-zn-text/10 rounded" />
+      </div>
+      <div className="h-20 bg-zn-text/10 rounded" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="comic-panel comic-dots bg-white p-4">
+            <div className="h-44 w-full bg-zn-text/10 rounded mb-3" />
+            <div className="h-5 w-11/12 bg-zn-text/10 rounded mb-2" />
+            <div className="h-3 w-8/12 bg-zn-text/10 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
-  const { articles, ads, categories, heroSettings, siteSettings } = useData();
+  const { articles, ads, categories, heroSettings, siteSettings, loading, loadError, refresh } = useData();
   const layoutPresets = siteSettings?.layoutPresets || {};
 
   useDocumentTitle();
@@ -24,17 +89,17 @@ export default function HomePage() {
   const {
     heroArticle,
     featuredArticles,
-    latestArticles,
     crimeArticles,
     breakingArticles,
     emergencyArticles,
     reportageArticles,
-    activeCategories,
     categoryById,
     horizontalAds,
     sideAds,
     latestShowcase,
     latestWire,
+    quickCategoryLinks,
+    bottomPills,
     headlineBoardWords,
     heroPrimaryPhoto,
     heroSiblings,
@@ -43,54 +108,118 @@ export default function HomePage() {
     const safeCategories = Array.isArray(categories) ? categories : [];
     const safeAds = Array.isArray(ads) ? ads : [];
 
-    const heroArticle = safeArticles.find(a => a.hero) || safeArticles.find(a => a.breaking) || safeArticles[0] || null;
+    const sortedArticles = [...safeArticles].sort((left, right) => {
+      const timestampDiff = getArticleTimestamp(right) - getArticleTimestamp(left);
+      if (timestampDiff !== 0) return timestampDiff;
+      return (Number(right.id) || 0) - (Number(left.id) || 0);
+    });
 
-    // Базови новини: Hero и Featured (тези никога няма да се повтарят никъде надолу)
-    const usedTopIds = new Set();
-    if (heroArticle) usedTopIds.add(heroArticle.id);
+    const usedIds = new Set();
+    const claimArticle = (article) => {
+      if (!article || !Number.isFinite(Number(article.id))) return false;
+      const normalizedId = Number(article.id);
+      if (usedIds.has(normalizedId)) return false;
+      usedIds.add(normalizedId);
+      return true;
+    };
 
-    const featuredArticles = safeArticles.filter(a => a.featured && !usedTopIds.has(a.id)).slice(0, 3);
-    featuredArticles.forEach(a => usedTopIds.add(a.id));
+    const takeFromPool = (predicate, limit) => {
+      const result = [];
+      for (const article of sortedArticles) {
+        if (result.length >= limit) break;
+        if (!predicate(article)) continue;
+        if (!claimArticle(article)) continue;
+        result.push(article);
+      }
+      return result;
+    };
 
-    // Секция "Последни Новини": тук трябва да тече всичко ново хронологично, 
-    // с изключение на вече показаните огромни банери най-горе (Hero/Featured).
-    const latestArticles = safeArticles.filter(a => !usedTopIds.has(a.id));
+    const heroArticle = sortedArticles.find((article) => article.hero)
+      || sortedArticles.find((article) => article.breaking)
+      || sortedArticles[0]
+      || null;
+    claimArticle(heroArticle);
 
-    // Тематични секции: те просто си дърпат съответната категория (без Hero/Featured)
-    const crimeArticles = safeArticles.filter(a => (a.category === 'crime' || a.category === 'underground') && !usedTopIds.has(a.id)).slice(0, 4);
-    const breakingArticles = safeArticles.filter(a => a.category === 'breaking' && !usedTopIds.has(a.id)).slice(0, 2);
-    const emergencyArticles = safeArticles.filter(a => a.category === 'emergency' && !usedTopIds.has(a.id)).slice(0, 2);
-    const reportageArticles = safeArticles.filter(a => a.category === 'reportage' && !usedTopIds.has(a.id)).slice(0, 3);
-    const activeCategories = safeCategories.filter(c => c.id !== 'all');
+    const featuredArticles = takeFromPool((article) => article.featured, 3);
+    const crimeArticles = takeFromPool((article) => article.category === 'crime' || article.category === 'underground', 4);
+    const breakingArticles = takeFromPool((article) => article.category === 'breaking', 2);
+    const emergencyArticles = takeFromPool((article) => article.category === 'emergency', 2);
+    const reportageArticles = takeFromPool((article) => article.category === 'reportage', 3);
+    const latestArticles = sortedArticles.filter((article) => !usedIds.has(Number(article.id)));
+
     const categoryById = new Map(safeCategories.map(c => [c.id, c.name]));
+    const articleById = new Map(safeArticles.map((article) => [Number(article.id), article]));
 
     const horizontalAds = safeAds.filter(a => a.type === 'horizontal');
     const sideAds = safeAds.filter(a => a.type === 'side');
-    // The grid for showcase needs up to 5. If we have fewer, they still go here.
-    // The rest go to the wire. If we want all of them in a simple list when there are few, we can do that,
-    // but the current logic is: first 5 go to showcase, rest go to wire.
     const latestShowcase = latestArticles.slice(0, 5);
     const latestWire = latestArticles.slice(5);
+
+    const navbarCategoryLinks = Array.isArray(siteSettings?.navbarLinks)
+      ? siteSettings.navbarLinks.filter((item) => typeof item?.to === 'string' && item.to.startsWith('/category/'))
+      : [];
+    const quickHotCategoryIds = new Set(
+      navbarCategoryLinks
+        .filter((item) => item?.hot)
+        .map((item) => item.to.replace(/^\/category\//, '').split('/')[0])
+        .filter(Boolean)
+    );
+    const quickOrderedCategoryIds = new Set();
+    const quickCategoriesFromNavbar = navbarCategoryLinks.map((item) => {
+      const categoryId = item.to.replace(/^\/category\//, '').split('/')[0];
+      if (!categoryId || quickOrderedCategoryIds.has(categoryId)) return null;
+      const matchingCategory = safeCategories.find((category) => category.id === categoryId && category.id !== 'all');
+      if (!matchingCategory) return null;
+      quickOrderedCategoryIds.add(categoryId);
+      return {
+        id: matchingCategory.id,
+        name: matchingCategory.name,
+        to: `/category/${matchingCategory.id}`,
+        hot: quickHotCategoryIds.has(matchingCategory.id),
+      };
+    }).filter(Boolean);
+    const quickCategoryRemainder = safeCategories
+      .filter((category) => category.id !== 'all' && !quickOrderedCategoryIds.has(category.id))
+      .map((category) => ({
+        id: category.id,
+        name: category.name,
+        to: `/category/${category.id}`,
+        hot: false,
+      }));
+    const quickCategoryLinks = [...quickCategoriesFromNavbar, ...quickCategoryRemainder];
+
+    const spotlightSource = Array.isArray(siteSettings?.spotlightLinks) && siteSettings.spotlightLinks.length > 0
+      ? siteSettings.spotlightLinks
+      : DEFAULT_HOME_SPOTLIGHT_LINKS;
+    const bottomPills = (spotlightSource.length > 0 ? spotlightSource : DEFAULT_HOME_SPOTLIGHT_LINKS)
+      .slice(0, 3)
+      .map((item, index) => ({
+        to: typeof item?.to === 'string' && item.to ? item.to : DEFAULT_HOME_SPOTLIGHT_LINKS[index]?.to || '/',
+        label: item?.label || DEFAULT_HOME_SPOTLIGHT_LINKS[index]?.label || 'Виж повече',
+        hot: Boolean(item?.hot),
+        tilt: item?.tilt || DEFAULT_HOME_SPOTLIGHT_LINKS[index]?.tilt || '0deg',
+        className: NAV_PILL_VARIANTS[index] || NAV_PILL_VARIANTS[NAV_PILL_VARIANTS.length - 1],
+        Icon: SPOTLIGHT_ICON_MAP[item?.icon] || SPOTLIGHT_ICON_MAP[DEFAULT_HOME_SPOTLIGHT_LINKS[index]?.icon] || Flame,
+      }));
 
     const headlineBoardWords = (heroSettings?.headlineBoardText || 'ШОК И СЕНЗАЦИЯ!')
       .trim()
       .split(/\s+/)
       .filter(Boolean);
 
-    /* Hero photos can be manually selected from admin hero settings */
     const selectedMainPhotoId = Number.parseInt(heroSettings?.mainPhotoArticleId, 10);
     const selectedMainPhotoArticle = Number.isInteger(selectedMainPhotoId) && selectedMainPhotoId > 0
-      ? safeArticles.find((a) => a.id === selectedMainPhotoId)
+      ? articleById.get(selectedMainPhotoId) || null
       : null;
     const heroPrimaryPhoto = selectedMainPhotoArticle || heroArticle;
 
     const selectedHeroSiblingIds = Array.isArray(heroSettings?.photoArticleIds) ? heroSettings.photoArticleIds : [];
     const selectedHeroSiblings = selectedHeroSiblingIds
-      .map((id) => safeArticles.find((a) => a.id === id))
+      .map((id) => articleById.get(Number(id)) || null)
       .filter(Boolean)
       .filter((a, index, arr) => a.id !== heroPrimaryPhoto?.id && arr.findIndex((x) => x.id === a.id) === index)
       .slice(0, 2);
-    const autoHeroSiblings = [...featuredArticles, ...latestArticles]
+    const autoHeroSiblings = sortedArticles
       .filter((a) => a.id !== heroPrimaryPhoto?.id && a.image)
       .slice(0, 2);
     const heroSiblings = [...selectedHeroSiblings, ...autoHeroSiblings.filter((a) => !selectedHeroSiblings.find((s) => s.id === a.id))].slice(0, 2);
@@ -98,28 +227,55 @@ export default function HomePage() {
     return {
       heroArticle,
       featuredArticles,
-      latestArticles,
       crimeArticles,
       breakingArticles,
       emergencyArticles,
       reportageArticles,
-      activeCategories,
       categoryById,
       horizontalAds,
       sideAds,
       latestShowcase,
       latestWire,
+      quickCategoryLinks,
+      bottomPills,
       headlineBoardWords,
       heroPrimaryPhoto,
       heroSiblings,
     };
-  }, [articles, ads, categories, heroSettings]);
+  }, [articles, ads, categories, heroSettings, siteSettings]);
+
+  if (loading) {
+    return <HomePageSkeleton />;
+  }
+
+  if (loadError && (!articles || articles.length === 0)) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
+        <div className="comic-headline-board mb-6 inline-flex">
+          <span className="comic-headline-board-word comic-headline-board-word-hot">ГРЕШКА</span>
+        </div>
+        <h1 className="font-display text-4xl font-black text-zn-black mb-4 uppercase">Проблем при зареждане</h1>
+        <p className="font-display text-zn-text-muted uppercase tracking-wider mb-6 inline-flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-zn-hot" />
+          {loadError}
+        </p>
+        <button
+          type="button"
+          onClick={() => refresh()}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Опитай отново
+        </button>
+      </div>
+    );
+  }
 
   if (!articles || articles.length === 0) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
         <div className="comic-headline-board mb-6 inline-flex">
-          <span className="comic-headline-board-word comic-headline-board-word-hot">ВНИМАНИЕ!</span>
+          <span className="comic-headline-board-word comic-headline-board-word-hot">ПРАЗНО</span>
         </div>
         <h1 className="font-display text-4xl font-black text-zn-black mb-4 uppercase">Няма публикации</h1>
         <p className="font-display text-zn-text-muted uppercase tracking-wider">Добавете статии от администраторския панел.</p>
@@ -246,11 +402,11 @@ export default function HomePage() {
       {/* ═══ Quick Categories ═══ */}
       <section>
         <div className="flex flex-wrap gap-2 justify-center">
-          {activeCategories.map((cat, index) => (
+          {quickCategoryLinks.map((cat, index) => (
             <Link
               key={cat.id}
-              to={`/category/${cat.id}`}
-              className={`comic-chip ${['crime', 'underground', 'emergency', 'breaking'].includes(cat.id) ? 'comic-chip-hot' : ''}`}
+              to={cat.to}
+              className={`comic-chip ${cat.hot ? 'comic-chip-hot' : ''}`}
               style={{ '--chip-tilt': `${index % 2 === 0 ? -1.4 : 1.2}deg` }}
             >
               {cat.name}
@@ -305,7 +461,7 @@ export default function HomePage() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
                       <div className="absolute bottom-3 left-3 px-2 py-1 text-[10px] font-display font-black uppercase tracking-[0.16em] text-white border border-white/40 bg-black/35">
-                        {article.date}
+                        {formatArticleDateLabel(article)}
                       </div>
                     </div>
 
@@ -354,7 +510,7 @@ export default function HomePage() {
                     <span className={`trending-number ${rankClass}`}>{rank}</span>
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-display font-black uppercase tracking-[0.14em] text-zn-text-dim mb-1">
-                        {categoryName} • {article.date}
+                        {categoryName} • {formatArticleDateLabel(article)}
                       </p>
                       <h4 className="font-display font-black uppercase text-sm leading-snug text-zn-black line-clamp-2 hover:text-zn-hot transition-colors">
                         {article.title}
@@ -464,15 +620,17 @@ export default function HomePage() {
       {/* ═══ BOTTOM TABLOID PILLS — rounded, exactly like the images ═══ */}
       <section className="py-4">
         <div className="flex flex-col sm:flex-row justify-center gap-4">
-          <Link to="/category/crime" className="nav-pill-hot text-base justify-center flex-1 sm:flex-initial" style={{ '--pill-tilt': '-1.3deg' }}>
-            <Flame className="w-5 h-5" /> Горещи Новини
-          </Link>
-          <Link to="/category/underground" className="nav-pill-purple text-base justify-center flex-1 sm:flex-initial" style={{ '--pill-tilt': '1deg' }}>
-            <Megaphone className="w-5 h-5" /> Скандали
-          </Link>
-          <Link to="/category/society" className="nav-pill-navy text-base justify-center flex-1 sm:flex-initial" style={{ '--pill-tilt': '-0.8deg' }}>
-            <Bell className="w-5 h-5" /> Слухове
-          </Link>
+          {bottomPills.map((pill, index) => (
+            <Link
+              key={`${pill.to}-${pill.label}-${index}`}
+              to={pill.to}
+              className={`${pill.className} text-base justify-center flex-1 sm:flex-initial`}
+              style={{ '--pill-tilt': pill.tilt }}
+            >
+              <pill.Icon className="w-5 h-5" />
+              {pill.label}
+            </Link>
+          ))}
         </div>
       </section>
 

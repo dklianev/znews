@@ -2006,6 +2006,32 @@ function getArticleSectionFilter(section) {
   return ARTICLE_SECTION_FILTERS[key] || null;
 }
 
+function getArticleRecencyTimestamp(article) {
+  if (!article || typeof article !== 'object') return 0;
+
+  if (article.publishAt) {
+    const publishAtTs = new Date(article.publishAt).getTime();
+    if (Number.isFinite(publishAtTs)) return publishAtTs;
+  }
+
+  if (article.date) {
+    const dateTs = new Date(article.date).getTime();
+    if (Number.isFinite(dateTs)) return dateTs;
+  }
+
+  const numericId = Number.parseInt(article.id, 10);
+  return Number.isFinite(numericId) ? numericId : 0;
+}
+
+function sortArticlesByRecency(items) {
+  if (!Array.isArray(items) || items.length <= 1) return Array.isArray(items) ? items : [];
+  return [...items].sort((left, right) => {
+    const tsDiff = getArticleRecencyTimestamp(right) - getArticleRecencyTimestamp(left);
+    if (tsDiff !== 0) return tsDiff;
+    return (Number(right?.id) || 0) - (Number(left?.id) || 0);
+  });
+}
+
 function sanitizeSafeHtml(value) {
   if (typeof value !== 'string') return '';
   let html = value.replace(/\u0000/g, '').slice(0, 50000);
@@ -2930,6 +2956,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
 
       clearApiCacheKeys(`api_cache_/api/${resourceName}`);
       clearApiCacheKeys('api_cache_/api/bootstrap');
+      clearApiCacheKeys('api_cache_/api/homepage');
 
       res.status(201).json(obj);
     } catch (e) {
@@ -2958,6 +2985,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
 
       clearApiCacheKeys(`api_cache_/api/${resourceName}`);
       clearApiCacheKeys('api_cache_/api/bootstrap');
+      clearApiCacheKeys('api_cache_/api/homepage');
 
       res.json(item.toJSON());
     } catch (e) {
@@ -2982,6 +3010,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
 
       clearApiCacheKeys(`api_cache_/api/${resourceName}`);
       clearApiCacheKeys('api_cache_/api/bootstrap');
+      clearApiCacheKeys('api_cache_/api/homepage');
 
       res.json({ ok: true });
     } catch (e) {
@@ -3208,6 +3237,7 @@ articlesRouter.post('/', requireAuth, requirePermission('articles'), async (req,
     clearApiCacheKeys('api_cache_/api/articles');
     clearApiCacheKeys('api_cache_/api/breaking');
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(obj);
   } catch (e) {
@@ -3257,6 +3287,7 @@ articlesRouter.put('/:id', requireAuth, requirePermission('articles'), async (re
     clearApiCacheKeys('api_cache_/api/articles');
     clearApiCacheKeys('api_cache_/api/breaking');
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(updated);
   } catch (e) {
@@ -3383,6 +3414,7 @@ articlesRouter.post('/:id/revisions/restore', requireAuth, requirePermission('ar
     clearApiCacheKeys('api_cache_/api/articles');
     clearApiCacheKeys('api_cache_/api/breaking');
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(restoredObj);
   } catch (e) {
@@ -3411,6 +3443,7 @@ articlesRouter.delete('/:id', requireAuth, requirePermission('articles'), async 
     clearApiCacheKeys('api_cache_/api/articles');
     clearApiCacheKeys('api_cache_/api/breaking');
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json({ ok: true });
   } catch (e) {
@@ -3972,6 +4005,7 @@ catRouter.post('/', requireAuth, requirePermission('categories'), async (req, re
     const item = await Category.create({ id, name, icon });
 
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(item.toJSON());
   } catch (e) {
@@ -3994,6 +4028,7 @@ catRouter.put('/:id', requireAuth, requirePermission('categories'), async (req, 
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(item.toJSON());
   } catch (e) {
@@ -4016,6 +4051,7 @@ catRouter.delete('/:id', requireAuth, requirePermission('categories'), async (re
     if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
 
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json({ ok: true });
   } catch (e) {
@@ -4046,6 +4082,7 @@ app.put('/api/breaking', requireAuth, requirePermission('breaking'), async (req,
     // Invalidate breaking cache & bootstrap
     clearApiCacheKeys('api_cache_/api/breaking');
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(doc.items);
   } catch (e) {
@@ -4084,6 +4121,7 @@ app.put('/api/hero-settings', requireAuth, requirePermission('articles'), async 
     }).catch(() => { });
 
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(serialized);
   } catch (e) {
@@ -4130,6 +4168,7 @@ app.post('/api/hero-settings/revisions/restore', requireAuth, requirePermission(
     }).catch(() => { });
 
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(serialized);
   } catch (e) {
@@ -4176,6 +4215,7 @@ app.post('/api/site-settings/revisions/restore', requireAuth, requirePermission(
     }).catch(() => { });
 
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(serialized);
   } catch (e) {
@@ -4214,8 +4254,93 @@ app.put('/api/site-settings', requireAuth, requirePermission('permissions'), asy
     }).catch(() => { });
 
     clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
 
     res.json(serialized);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+// ─── Homepage payload (public initial homepage data only) ───
+app.get('/api/homepage', cacheMiddleware, async (req, res) => {
+  try {
+    const maybeUser = decodeTokenFromRequest(req);
+    const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
+    const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
+    const fieldsProjection = buildArticleProjection(req.query.fields);
+
+    const stripMongooseFields = (item) => {
+      if (!item || typeof item !== 'object') return item;
+      delete item._id;
+      delete item.__v;
+      return item;
+    };
+
+    const tasks = {
+      articles: (async () => {
+        let query = Article.find(articleFilter).sort({ id: -1 });
+        if (fieldsProjection) query = query.select(fieldsProjection);
+        else query = query.select({ _id: 0, __v: 0 });
+
+        const items = await query.lean();
+        await Promise.all(items.map(async (item) => {
+          if (!item?.imageMeta && item?.image) {
+            const resolved = await resolveImageMetaFromUrl(item.image);
+            if (resolved) {
+              item.imageMeta = resolved;
+              Article.updateOne({ id: item.id }, { $set: { imageMeta: resolved } }).catch(() => { });
+            }
+          }
+          stripMongooseFields(item);
+        }));
+        return sortArticlesByRecency(items);
+      })(),
+      authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
+      ads: Ad.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      breaking: Breaking.findOne().lean().then((doc) => doc?.items || []),
+      heroSettings: HeroSettings.findOne({ key: 'main' }).lean().then((doc) => serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS)),
+      siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),
+      wanted: Wanted.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      polls: Poll.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+    };
+
+    const entries = Object.entries(tasks);
+    const settled = await Promise.allSettled(entries.map(([, promise]) => promise));
+    const payload = {};
+    const errors = {};
+
+    settled.forEach((result, idx) => {
+      const key = entries[idx][0];
+      if (result.status === 'fulfilled') {
+        payload[key] = result.value;
+        return;
+      }
+
+      errors[key] = publicError(result.reason, `Failed to load ${key}`);
+      payload[key] = Array.isArray(tasks[key]) ? [] : null;
+    });
+
+    if (!Array.isArray(payload.articles)) payload.articles = [];
+    if (!Array.isArray(payload.authors)) payload.authors = [];
+    if (!Array.isArray(payload.categories)) payload.categories = [];
+    if (!Array.isArray(payload.ads)) payload.ads = [];
+    if (!Array.isArray(payload.breaking)) payload.breaking = [];
+    if (!Array.isArray(payload.wanted)) payload.wanted = [];
+    if (!Array.isArray(payload.polls)) payload.polls = [];
+
+    payload.authors.forEach(stripMongooseFields);
+    payload.categories.forEach(stripMongooseFields);
+    payload.ads.forEach(stripMongooseFields);
+    payload.wanted.forEach(stripMongooseFields);
+    payload.polls.forEach(stripMongooseFields);
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({
+      ...payload,
+      ...(Object.keys(errors).length ? { errors } : {}),
+    });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
   }

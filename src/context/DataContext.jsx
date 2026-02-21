@@ -29,6 +29,7 @@ export function DataProvider({ children }) {
   const [tips, setTips] = useState([]);
   const [session, setSession] = useState(getSession);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -42,36 +43,60 @@ export function DataProvider({ children }) {
   // ─── Initial fetch ───
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     setArticleRevisions({});
+    const isHomePath = typeof window !== 'undefined' && window.location.pathname === '/';
+    const shouldUseHomepagePayload = !session?.token && isHomePath;
 
-    // Consolidate public bootstrap data into a single request.
-    // Fallback to the legacy parallel requests if bootstrap fails (older server, network edge cases).
-    try {
-      const payload = await api.bootstrap.get({ fields: ARTICLE_LIST_FIELDS });
-      setArticles(Array.isArray(payload?.articles) ? payload.articles : []);
-      setAuthors(Array.isArray(payload?.authors) ? payload.authors : []);
-      setCategories(Array.isArray(payload?.categories) ? payload.categories : []);
-      setAds(Array.isArray(payload?.ads) ? payload.ads : []);
-      setBreaking(Array.isArray(payload?.breaking) ? payload.breaking : []);
+    const toArray = (value) => (Array.isArray(value) ? value : []);
+    const logPartialErrors = (errors) => {
+      if (!errors || typeof errors !== 'object') return;
+      Object.entries(errors).forEach(([key, message]) => {
+        if (!message) return;
+        console.error(`Failed to load ${key}:`, message);
+      });
+    };
+
+    const applyHomepagePayload = (payload) => {
+      setArticles(toArray(payload?.articles));
+      setAuthors(toArray(payload?.authors));
+      setCategories(toArray(payload?.categories));
+      setAds(toArray(payload?.ads));
+      setBreaking(toArray(payload?.breaking));
       setHeroSettings(payload?.heroSettings || null);
       setSiteSettings(payload?.siteSettings || null);
-      setWanted(Array.isArray(payload?.wanted) ? payload.wanted : []);
-      setJobs(Array.isArray(payload?.jobs) ? payload.jobs : []);
-      setCourt(Array.isArray(payload?.court) ? payload.court : []);
-      setEvents(Array.isArray(payload?.events) ? payload.events : []);
-      setPolls(Array.isArray(payload?.polls) ? payload.polls : []);
+      setWanted(toArray(payload?.wanted));
+      setPolls(toArray(payload?.polls));
+      // Not part of /api/homepage (loaded in background or on non-home routes).
+      setJobs([]);
+      setCourt([]);
+      setEvents([]);
+      setGallery([]);
       // Comments are loaded on-demand per article (public) or fully for admins (see below).
       setComments([]);
-      setGallery(Array.isArray(payload?.gallery) ? payload.gallery : []);
+      logPartialErrors(payload?.errors);
+    };
 
-      if (payload?.errors && typeof payload.errors === 'object') {
-        Object.entries(payload.errors).forEach(([key, message]) => {
-          if (!message) return;
-          console.error(`Failed to load ${key}:`, message);
-        });
-      }
-    } catch (error) {
-      console.error('Failed to load bootstrap:', error);
+    const applyBootstrapPayload = (payload) => {
+      setArticles(toArray(payload?.articles));
+      setAuthors(toArray(payload?.authors));
+      setCategories(toArray(payload?.categories));
+      setAds(toArray(payload?.ads));
+      setBreaking(toArray(payload?.breaking));
+      setHeroSettings(payload?.heroSettings || null);
+      setSiteSettings(payload?.siteSettings || null);
+      setWanted(toArray(payload?.wanted));
+      setJobs(toArray(payload?.jobs));
+      setCourt(toArray(payload?.court));
+      setEvents(toArray(payload?.events));
+      setPolls(toArray(payload?.polls));
+      // Comments are loaded on-demand per article (public) or fully for admins (see below).
+      setComments([]);
+      setGallery(toArray(payload?.gallery));
+      logPartialErrors(payload?.errors);
+    };
+
+    const loadLegacyPublicData = async () => {
       const publicResultKeys = [
         'articles',
         'authors',
@@ -116,7 +141,6 @@ export function DataProvider({ children }) {
       setCourt(pick(publicResults[9], []));
       setEvents(pick(publicResults[10], []));
       setPolls(pick(publicResults[11], []));
-      // Comments are loaded on-demand per article (public) or fully for admins (see below).
       setComments([]);
       setGallery(pick(publicResults[12], []));
 
@@ -125,6 +149,55 @@ export function DataProvider({ children }) {
           console.error(`Failed to load ${publicResultKeys[idx]}:`, result.reason);
         }
       });
+    };
+
+    const loadDeferredPublicData = async () => {
+      const deferred = await Promise.allSettled([
+        api.jobs.getAll(),
+        api.court.getAll(),
+        api.events.getAll(),
+        api.gallery.getAll(),
+      ]);
+
+      if (deferred[0].status === 'fulfilled') setJobs(Array.isArray(deferred[0].value) ? deferred[0].value : []);
+      else console.error('Failed to load jobs:', deferred[0].reason);
+
+      if (deferred[1].status === 'fulfilled') setCourt(Array.isArray(deferred[1].value) ? deferred[1].value : []);
+      else console.error('Failed to load court:', deferred[1].reason);
+
+      if (deferred[2].status === 'fulfilled') setEvents(Array.isArray(deferred[2].value) ? deferred[2].value : []);
+      else console.error('Failed to load events:', deferred[2].reason);
+
+      if (deferred[3].status === 'fulfilled') setGallery(Array.isArray(deferred[3].value) ? deferred[3].value : []);
+      else console.error('Failed to load gallery:', deferred[3].reason);
+    };
+
+    let loadedFromHomepagePayload = false;
+    if (shouldUseHomepagePayload) {
+      try {
+        const homepagePayload = await api.homepage.get({ fields: ARTICLE_LIST_FIELDS });
+        applyHomepagePayload(homepagePayload);
+        loadedFromHomepagePayload = true;
+      } catch (error) {
+        console.error('Failed to load homepage payload:', error);
+        setLoadError(error?.message || 'Неуспешно зареждане на началната страница.');
+      }
+    }
+
+    if (!loadedFromHomepagePayload) {
+      // Consolidate public data into a single request.
+      // Fallback to the legacy parallel requests if bootstrap fails (older server/network edge cases).
+      try {
+        const payload = await api.bootstrap.get({ fields: ARTICLE_LIST_FIELDS });
+        applyBootstrapPayload(payload);
+        setLoadError('');
+      } catch (error) {
+        console.error('Failed to load bootstrap:', error);
+        setLoadError(error?.message || 'Неуспешно зареждане на сайта.');
+        await loadLegacyPublicData();
+      }
+    } else {
+      setLoadError('');
     }
 
     if (session?.token) {
@@ -164,6 +237,10 @@ export function DataProvider({ children }) {
       setTips([]);
     }
     setLoading(false);
+
+    if (loadedFromHomepagePayload) {
+      void loadDeferredPublicData();
+    }
   }, [session?.token]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -497,7 +574,7 @@ export function DataProvider({ children }) {
   }, []);
 
   const contextValue = useMemo(() => ({
-    loading,
+    loading, loadError,
     articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
     articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
     authors, addAuthor, updateAuthor, deleteAuthor,
@@ -520,7 +597,7 @@ export function DataProvider({ children }) {
     session, login, logout,
     refresh: fetchAll, resetAll,
   }), [
-    loading,
+    loading, loadError,
     articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
     articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
     authors, addAuthor, updateAuthor, deleteAuthor,

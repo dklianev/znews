@@ -243,6 +243,9 @@ export const api = {
   bootstrap: {
     get: (params) => request(`/bootstrap${toQuery(params)}`),
   },
+  homepage: {
+    get: (params) => request(`/homepage${toQuery(params)}`),
+  },
   articles: {
     ...crudEndpoints('articles'),
     getById: (id, params) => request(`/articles/${id}${toQuery(params)}`),
