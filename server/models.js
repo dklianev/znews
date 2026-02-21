@@ -36,6 +36,7 @@ const articleSchema = new mongoose.Schema({
   shareBadge: { type: String, default: '' },
   shareAccent: { type: String, default: 'auto' },
   shareImage: { type: String, default: '' },
+  cardSticker: { type: String, default: '' },
 }, opts);
 
 // Full-text search for /api/articles?q=...

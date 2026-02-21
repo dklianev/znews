@@ -55,6 +55,7 @@ const REVISION_COMPARE_FIELDS = [
   { key: 'shareTitle', label: 'Share заглавие' },
   { key: 'shareSubtitle', label: 'Share подзаглавие' },
   { key: 'shareBadge', label: 'Share badge' },
+  { key: 'cardSticker', label: 'Card етикет' },
   { key: 'shareAccent', label: 'Share акцент' },
   { key: 'shareImage', label: 'Share снимка' },
   { key: 'relatedArticles', label: 'Свързани статии' },
@@ -110,6 +111,7 @@ const emptyForm = {
   relatedArticles: [],
   status: 'published',
   publishAt: '',
+  cardSticker: '',
   shareTitle: '',
   shareSubtitle: '',
   shareBadge: '',
@@ -207,6 +209,7 @@ export default function ManageArticles() {
       || localInputToIso(ref.publishAt) !== localInputToIso(form.publishAt)
       || ref.tags?.join(', ') !== form.tags
       || JSON.stringify(ref.imageMeta || null) !== JSON.stringify(form.imageMeta || null)
+      || ref.cardSticker !== form.cardSticker
       || ref.shareTitle !== form.shareTitle || ref.shareSubtitle !== form.shareSubtitle
       || ref.shareBadge !== form.shareBadge || ref.shareAccent !== form.shareAccent
       || ref.shareImage !== form.shareImage
@@ -270,6 +273,7 @@ export default function ManageArticles() {
     status: form.status === 'draft' ? 'draft' : 'published',
     publishAt: localInputToIso(form.publishAt),
     views: Number(form.views) || 0,
+    cardSticker: form.cardSticker || '',
     shareTitle: form.shareTitle || '',
     shareSubtitle: form.shareSubtitle || '',
     shareBadge: form.shareBadge || '',
@@ -462,6 +466,7 @@ export default function ManageArticles() {
           status: form.status,
           publishAt: localInputToIso(form.publishAt),
           views: Number(form.views) || 0,
+          cardSticker: form.cardSticker || '',
         });
       } catch {
         // ignore autosave network errors to avoid blocking editing
@@ -628,6 +633,7 @@ export default function ManageArticles() {
         readTime: Number(form.readTime) > 0 ? Number(form.readTime) : autoReadTime,
         views: Number(form.views) || 0,
         publishAt: localInputToIso(form.publishAt),
+        cardSticker: (form.cardSticker || '').trim(),
       };
 
       if (editing === 'new') {
@@ -712,6 +718,7 @@ export default function ManageArticles() {
       content: resolvedArticle.content || '<p></p>',
       tags: Array.isArray(resolvedArticle.tags) ? resolvedArticle.tags.join(', ') : resolvedArticle.tags || '',
       publishAt: dateTimeToLocalInput(resolvedArticle.publishAt),
+      cardSticker: resolvedArticle.cardSticker || '',
       shareTitle: resolvedArticle.shareTitle || '',
       shareSubtitle: resolvedArticle.shareSubtitle || '',
       shareBadge: resolvedArticle.shareBadge || '',
@@ -762,6 +769,7 @@ export default function ManageArticles() {
         content: restored.content || '<p></p>',
         tags: Array.isArray(restored.tags) ? restored.tags.join(', ') : restored.tags || '',
         publishAt: dateTimeToLocalInput(restored.publishAt),
+        cardSticker: restored.cardSticker || '',
         shareTitle: restored.shareTitle || '',
         shareSubtitle: restored.shareSubtitle || '',
         shareBadge: restored.shareBadge || '',
@@ -1245,6 +1253,19 @@ export default function ManageArticles() {
                         </div>
                       </div>
                     )}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className={labelCls}>Етикет за картите (Опционално)</label>
+                    <input
+                      className={inputCls}
+                      value={form.cardSticker || ''}
+                      onChange={e => setForm({ ...form, cardSticker: e.target.value })}
+                      placeholder="Напр. Фронт, Досие, Акцент"
+                      maxLength={24}
+                    />
+                    <p className="text-[10px] text-gray-500 mt-1 font-sans">
+                      Ако е празно, сайтът ползва автоматичен етикет според секцията.
+                    </p>
                   </div>
                   <div>
                     <label className={labelCls}>Оригинална дата</label>

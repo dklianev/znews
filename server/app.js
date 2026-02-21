@@ -1970,6 +1970,7 @@ const ARTICLE_FIELD_ALLOWLIST = new Set([
   'shareBadge',
   'shareAccent',
   'shareImage',
+  'cardSticker',
 ]);
 
 const ARTICLE_SECTION_FILTERS = Object.freeze({
@@ -2176,6 +2177,10 @@ function sanitizeArticlePayload(payload, { partial = false } = {}) {
     out.shareImage = sanitizeMediaUrl(payload?.shareImage);
   }
 
+  if (!partial || hasOwn(payload, 'cardSticker')) {
+    out.cardSticker = normalizeText(payload?.cardSticker, 24);
+  }
+
   return out;
 }
 
@@ -2202,6 +2207,7 @@ function buildArticleSnapshot(articleLike) {
     shareBadge: normalizeText(articleLike?.shareBadge, 36),
     shareAccent: sanitizeShareAccent(articleLike?.shareAccent),
     shareImage: sanitizeMediaUrl(articleLike?.shareImage),
+    cardSticker: normalizeText(articleLike?.cardSticker, 24),
   };
 }
 

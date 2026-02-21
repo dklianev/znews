@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo } 
 import { api, getSession, saveSession, clearSession } from '../utils/api';
 
 const DataContext = createContext();
-const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage';
+const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 
 export function DataProvider({ children }) {
   const [articles, setArticles] = useState([]);

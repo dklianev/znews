@@ -8,7 +8,7 @@ import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
-const ARTICLE_SEARCH_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage';
+const ARTICLE_SEARCH_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 
 export default function SearchPage() {
   const { articles, jobs, court, events, wanted, siteSettings } = useData();

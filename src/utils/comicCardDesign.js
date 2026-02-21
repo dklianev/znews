@@ -86,6 +86,11 @@ function pickFromList(list, seed, fallbackValue) {
   return list[seed % list.length];
 }
 
+function resolveArticleSticker(article, fallbackSticker) {
+  const customSticker = typeof article?.cardSticker === 'string' ? article.cardSticker.trim() : '';
+  return customSticker || fallbackSticker;
+}
+
 function mergeRecipe(baseRecipe, presetKey) {
   const presetRecipe = presetRecipes[presetKey] || presetRecipes.default;
   return {
@@ -110,7 +115,10 @@ export function getComicCardStyle(sectionKey, index, article, preset = 'default'
   const articleId = Math.abs(Number(article?.id) || 0);
   const seed = (articleId * 13 + index * 7) % 997;
   const variant = pickFromList(effectiveRecipe.variants, seed, fallbackRecipe.variants[0]);
-  const sticker = pickFromList(effectiveRecipe.stickers, seed, fallbackRecipe.stickers[0]);
+  const sticker = resolveArticleSticker(
+    article,
+    pickFromList(effectiveRecipe.stickers, seed, fallbackRecipe.stickers[0])
+  );
   const stripe = pickFromList(effectiveRecipe.stripes, seed, fallbackRecipe.stripes[0]);
   const tilt = pickFromList(effectiveRecipe.tilts, seed, fallbackRecipe.tilts[0]);
 

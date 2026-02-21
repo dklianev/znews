@@ -301,7 +301,7 @@ export default function HomePage() {
     ];
     return [
       { span: 'col-span-1 md:col-span-8 md:row-span-2', tilt: '-1.2deg', sticker: 'Фронт' },
-      { span: 'col-span-1 md:col-span-4', tilt: '1deg', sticker: 'Досиe' },
+      { span: 'col-span-1 md:col-span-4', tilt: '1deg', sticker: 'Досие' },
       { span: 'col-span-1 md:col-span-4', tilt: '-0.9deg', sticker: 'Радар' },
       { span: 'col-span-1 md:col-span-4', tilt: '0.8deg', sticker: 'Сигнал' },
       { span: 'col-span-1 md:col-span-8', tilt: '-0.8deg', sticker: 'Ключово' },
@@ -431,6 +431,9 @@ export default function HomePage() {
               const isLead = index === 0;
               const categoryName = categoryById.get(article.category) || 'Новини';
 
+              const customSticker = typeof article.cardSticker === 'string' ? article.cardSticker.trim() : '';
+              const stickerLabel = customSticker || slot.sticker;
+
               return (
                 <Link
                   key={article.id}
@@ -443,7 +446,7 @@ export default function HomePage() {
                     <span className="comic-kicker">{categoryName}</span>
                   </div>
                   <div className="absolute -top-3 -right-2 z-30">
-                    <span className="comic-sticker">{slot.sticker}</span>
+                    <span className="comic-sticker">{stickerLabel}</span>
                   </div>
 
                   <div className="flex flex-col h-full">
