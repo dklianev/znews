@@ -59,6 +59,83 @@ function formatArticleDateLabel(article) {
   return article?.date || '';
 }
 
+function getLatestImageSizes(mdCols) {
+  switch (mdCols) {
+    case 12:
+      return '(max-width: 767px) 100vw, (max-width: 1023px) 96vw, 56vw';
+    case 8:
+      return '(max-width: 767px) 100vw, (max-width: 1023px) 64vw, 38vw';
+    case 6:
+      return '(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 29vw';
+    case 4:
+      return '(max-width: 767px) 100vw, (max-width: 1023px) 34vw, 20vw';
+    default:
+      return '(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 29vw';
+  }
+}
+
+function getLatestCardLayout({ count, index, mdCols }) {
+  const normalizedCols = Number.isFinite(Number(mdCols)) ? Number(mdCols) : 6;
+
+  if (count === 1) {
+    return {
+      cardModeClass: 'comic-latest-card-lead',
+      imageHeightClass: 'h-72 md:h-[420px]',
+      titleSizeClass: 'text-2xl md:text-3xl',
+      excerptSizeClass: 'line-clamp-4 text-base',
+      imageSizes: getLatestImageSizes(12),
+    };
+  }
+
+  if (count === 2) {
+    return {
+      cardModeClass: 'comic-latest-card-balanced',
+      imageHeightClass: 'h-60 md:h-[320px]',
+      titleSizeClass: 'text-xl md:text-2xl',
+      excerptSizeClass: 'line-clamp-3 text-base',
+      imageSizes: getLatestImageSizes(6),
+    };
+  }
+
+  if (index === 0) {
+    return {
+      cardModeClass: 'comic-latest-card-lead',
+      imageHeightClass: 'h-64 md:h-[360px]',
+      titleSizeClass: 'text-2xl md:text-3xl',
+      excerptSizeClass: 'line-clamp-3 text-base',
+      imageSizes: getLatestImageSizes(normalizedCols),
+    };
+  }
+
+  if (normalizedCols >= 8) {
+    return {
+      cardModeClass: 'comic-latest-card-wide',
+      imageHeightClass: 'h-52 md:h-[280px]',
+      titleSizeClass: 'text-xl md:text-2xl',
+      excerptSizeClass: 'line-clamp-3 text-base',
+      imageSizes: getLatestImageSizes(normalizedCols),
+    };
+  }
+
+  if (normalizedCols === 6) {
+    return {
+      cardModeClass: 'comic-latest-card-half',
+      imageHeightClass: 'h-48 md:h-56',
+      titleSizeClass: 'text-xl',
+      excerptSizeClass: 'line-clamp-3 text-base',
+      imageSizes: getLatestImageSizes(6),
+    };
+  }
+
+  return {
+    cardModeClass: 'comic-latest-card-brief',
+    imageHeightClass: 'h-44 md:h-48',
+    titleSizeClass: 'text-lg',
+    excerptSizeClass: 'line-clamp-3 text-sm',
+    imageSizes: getLatestImageSizes(normalizedCols),
+  };
+}
+
 function HomePageSkeleton() {
   return (
     <div className="max-w-6xl mx-auto px-3 md:px-4 py-5 space-y-6 animate-pulse">
@@ -283,28 +360,28 @@ export default function HomePage() {
     );
   }
   const getDynamicSlots = (count) => {
-    if (count === 1) return [{ span: 'col-span-1 md:col-span-12', tilt: '-1.2deg', sticker: 'Фронт' }];
+    if (count === 1) return [{ span: 'col-span-1 md:col-span-12', mdCols: 12, tilt: '-1.2deg', sticker: 'Фронт' }];
     if (count === 2) return [
-      { span: 'col-span-1 md:col-span-6', tilt: '-1.2deg', sticker: 'Фронт' },
-      { span: 'col-span-1 md:col-span-6', tilt: '1deg', sticker: 'Досие' }
+      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '-1.2deg', sticker: 'Фронт' },
+      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '1deg', sticker: 'Досие' }
     ];
     if (count === 3) return [
-      { span: 'col-span-1 md:col-span-12', tilt: '-1.2deg', sticker: 'Фронт' },
-      { span: 'col-span-1 md:col-span-6', tilt: '1deg', sticker: 'Досие' },
-      { span: 'col-span-1 md:col-span-6', tilt: '-0.9deg', sticker: 'Радар' }
+      { span: 'col-span-1 md:col-span-12', mdCols: 12, tilt: '-1.2deg', sticker: 'Фронт' },
+      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '1deg', sticker: 'Досие' },
+      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '-0.9deg', sticker: 'Радар' }
     ];
     if (count === 4) return [
-      { span: 'col-span-1 md:col-span-12', tilt: '-1.2deg', sticker: 'Фронт' },
-      { span: 'col-span-1 md:col-span-4', tilt: '1deg', sticker: 'Досие' },
-      { span: 'col-span-1 md:col-span-4', tilt: '-0.9deg', sticker: 'Радар' },
-      { span: 'col-span-1 md:col-span-4', tilt: '0.8deg', sticker: 'Сигнал' }
+      { span: 'col-span-1 md:col-span-12', mdCols: 12, tilt: '-1.2deg', sticker: 'Фронт' },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '1deg', sticker: 'Досие' },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '-0.9deg', sticker: 'Радар' },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '0.8deg', sticker: 'Сигнал' }
     ];
     return [
-      { span: 'col-span-1 md:col-span-8 md:row-span-2', tilt: '-1.2deg', sticker: 'Фронт' },
-      { span: 'col-span-1 md:col-span-4', tilt: '1deg', sticker: 'Досие' },
-      { span: 'col-span-1 md:col-span-4', tilt: '-0.9deg', sticker: 'Радар' },
-      { span: 'col-span-1 md:col-span-4', tilt: '0.8deg', sticker: 'Сигнал' },
-      { span: 'col-span-1 md:col-span-8', tilt: '-0.8deg', sticker: 'Ключово' },
+      { span: 'col-span-1 md:col-span-8 md:row-span-2', mdCols: 8, tilt: '-1.2deg', sticker: 'Фронт' },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '1deg', sticker: 'Досие' },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '-0.9deg', sticker: 'Радар' },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '0.8deg', sticker: 'Сигнал' },
+      { span: 'col-span-1 md:col-span-8', mdCols: 8, tilt: '-0.8deg', sticker: 'Ключово' },
     ];
   };
   const latestSlots = getDynamicSlots(latestShowcase.length);
@@ -425,10 +502,14 @@ export default function HomePage() {
             <div className="flex-1 h-1 bg-gradient-to-r from-zn-purple/40 to-transparent" />
           </div>
 
-          <div className="comic-latest-wall grid grid-cols-1 md:grid-cols-12 gap-4 auto-rows-[minmax(140px,auto)]">
+          <div className="comic-latest-wall grid grid-cols-1 md:grid-cols-12 gap-4 auto-rows-[minmax(140px,auto)] md:items-start">
             {latestShowcase.map((article, index) => {
-              const slot = latestSlots[index] || { span: 'md:col-span-6', tilt: '0deg', sticker: 'Новина' };
-              const isLead = index === 0;
+              const slot = latestSlots[index] || { span: 'md:col-span-6', mdCols: 6, tilt: '0deg', sticker: 'Новина' };
+              const latestCardLayout = getLatestCardLayout({
+                count: latestShowcase.length,
+                index,
+                mdCols: slot.mdCols,
+              });
               const categoryName = categoryById.get(article.category) || 'Новини';
 
               const customSticker = typeof article.cardSticker === 'string' ? article.cardSticker.trim() : '';
@@ -438,7 +519,7 @@ export default function HomePage() {
                 <Link
                   key={article.id}
                   to={`/article/${article.id}`}
-                  className={`group comic-latest-card ${isLead ? 'comic-latest-card-lead' : 'comic-latest-card-brief'} comic-panel comic-dots bg-white overflow-visible relative ${slot.span}`}
+                  className={`group comic-latest-card ${latestCardLayout.cardModeClass} comic-panel comic-dots bg-white overflow-visible relative ${slot.span}`}
                   style={{ '--latest-tilt': slot.tilt }}
                 >
                   <div className={`absolute inset-x-0 top-0 h-2 bg-gradient-to-r ${index % 2 === 0 ? 'from-zn-hot to-zn-orange' : 'from-zn-purple to-zn-blue'}`} />
@@ -450,7 +531,7 @@ export default function HomePage() {
                   </div>
 
                   <div className="flex flex-col h-full">
-                    <div className={`relative overflow-hidden shrink-0 ${isLead ? 'h-64 md:h-[360px]' : 'h-44'}`}>
+                    <div className={`relative overflow-hidden shrink-0 ${latestCardLayout.imageHeightClass}`}>
                       <ResponsiveImage
                         src={article.image}
                         pipeline={article.imageMeta}
@@ -458,7 +539,7 @@ export default function HomePage() {
                         alt={article.title}
                         loading="lazy"
                         decoding="async"
-                        sizes={isLead ? '(max-width: 768px) 100vw, 66vw' : '(max-width: 768px) 100vw, 33vw'}
+                        sizes={latestCardLayout.imageSizes}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         pictureClassName="block w-full h-full"
                       />
@@ -469,10 +550,10 @@ export default function HomePage() {
                     </div>
 
                     <div className={`p-4 flex flex-col justify-between gap-3 flex-1`}>
-                      <h3 className={`font-display font-black uppercase leading-tight text-zn-black group-hover:text-zn-hot transition-colors ${isLead ? 'text-2xl md:text-3xl' : 'text-lg'} line-clamp-4`}>
+                      <h3 className={`font-display font-black uppercase leading-tight text-zn-black group-hover:text-zn-hot transition-colors ${latestCardLayout.titleSizeClass} line-clamp-4`}>
                         {article.title}
                       </h3>
-                      <p className={`text-zn-text-muted italic ${isLead ? 'line-clamp-3 text-base' : 'line-clamp-3 text-sm'}`}>
+                      <p className={`text-zn-text-muted italic ${latestCardLayout.excerptSizeClass}`}>
                         {article.excerpt}
                       </p>
                       <div className="flex items-center justify-between border-t-2 border-zn-border/50 pt-2 text-xs font-display font-black uppercase tracking-[0.08em] text-zn-text-dim mt-auto">

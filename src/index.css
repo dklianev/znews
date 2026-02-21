@@ -1118,6 +1118,18 @@
   min-height: 270px;
 }
 
+.comic-latest-card-balanced {
+  min-height: 0;
+}
+
+.comic-latest-card-half {
+  min-height: 300px;
+}
+
+.comic-latest-card-wide {
+  min-height: 320px;
+}
+
 .comic-card-tape {
   position: absolute;
   top: -10px;
@@ -1318,7 +1330,9 @@
     letter-spacing: 0.02em;
   }
 
-  .comic-latest-card-brief {
+  .comic-latest-card-brief,
+  .comic-latest-card-half,
+  .comic-latest-card-wide {
     min-height: 0;
   }
 }
