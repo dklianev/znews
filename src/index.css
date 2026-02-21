@@ -2191,6 +2191,12 @@ div.bg-zn-bg.text-white {
   height: auto;
 }
 
+.article-body::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
 .article-body img:not([data-width]),
 .article-body img[data-width="100"] {
   width: 100% !important;

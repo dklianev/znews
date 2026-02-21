@@ -52,7 +52,7 @@ function normalizeImageAlt(value) {
 }
 
 function sanitizeImageWidth(value) {
-  const normalized = String(value || '').trim();
+  const normalized = String(value || '').trim().replace('%', '');
   return IMAGE_WIDTH_VALUES.has(normalized) ? normalized : '100';
 }
 
