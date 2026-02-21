@@ -44,17 +44,26 @@ export default function HomePage() {
     const safeAds = Array.isArray(ads) ? ads : [];
 
     const heroArticle = safeArticles.find(a => a.hero) || safeArticles.find(a => a.breaking) || safeArticles[0] || null;
-    const featuredArticles = heroArticle
-      ? safeArticles.filter(a => a.featured && a.id !== heroArticle.id).slice(0, 3)
-      : [];
-    const latestArticles = heroArticle
-      ? safeArticles.filter(a => a.id !== heroArticle.id && !featuredArticles.find(f => f.id === a.id))
-      : safeArticles;
 
-    const crimeArticles = safeArticles.filter(a => a.category === 'crime' || a.category === 'underground').slice(0, 4);
-    const breakingArticles = safeArticles.filter(a => a.category === 'breaking').slice(0, 2);
-    const emergencyArticles = safeArticles.filter(a => a.category === 'emergency').slice(0, 2);
-    const reportageArticles = safeArticles.filter(a => a.category === 'reportage').slice(0, 3);
+    const usedIds = new Set();
+    if (heroArticle) usedIds.add(heroArticle.id);
+
+    const featuredArticles = safeArticles.filter(a => a.featured && !usedIds.has(a.id)).slice(0, 3);
+    featuredArticles.forEach(a => usedIds.add(a.id));
+
+    const crimeArticles = safeArticles.filter(a => (a.category === 'crime' || a.category === 'underground') && !usedIds.has(a.id)).slice(0, 4);
+    crimeArticles.forEach(a => usedIds.add(a.id));
+
+    const breakingArticles = safeArticles.filter(a => a.category === 'breaking' && !usedIds.has(a.id)).slice(0, 2);
+    breakingArticles.forEach(a => usedIds.add(a.id));
+
+    const emergencyArticles = safeArticles.filter(a => a.category === 'emergency' && !usedIds.has(a.id)).slice(0, 2);
+    emergencyArticles.forEach(a => usedIds.add(a.id));
+
+    const reportageArticles = safeArticles.filter(a => a.category === 'reportage' && !usedIds.has(a.id)).slice(0, 3);
+    reportageArticles.forEach(a => usedIds.add(a.id));
+
+    const latestArticles = safeArticles.filter(a => !usedIds.has(a.id));
     const activeCategories = safeCategories.filter(c => c.id !== 'all');
     const categoryById = new Map(safeCategories.map(c => [c.id, c.name]));
 
