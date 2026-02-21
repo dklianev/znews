@@ -14,6 +14,7 @@ const ALLOWED_TAGS = new Set([
   'h2', 'h3', 'h4',
   'a',
   'img',
+  'iframe'
 ]);
 
 const IMAGE_WIDTH_VALUES = new Set(['25', '50', '75', '100']);
@@ -161,6 +162,21 @@ function normalizeNodes(root) {
       activeNode.setAttribute('data-width', sanitizeImageWidth(widthSource));
       activeNode.setAttribute('data-align', sanitizeImageAlign(alignSource));
     }
+
+    if (tag === 'iframe') {
+      const src = activeNode.getAttribute('src') || node.getAttribute('src') || '';
+      const safeSrc = sanitizeHref(src);
+      if (!safeSrc || safeSrc === '#' || (!safeSrc.includes('youtube.com') && !safeSrc.includes('youtu.be') && !safeSrc.includes('vimeo.com') && !safeSrc.includes('facebook.com/plugins'))) {
+        activeNode.remove();
+        return;
+      }
+      activeNode.setAttribute('src', safeSrc);
+      activeNode.setAttribute('width', '100%');
+      activeNode.setAttribute('height', '400');
+      activeNode.setAttribute('frameborder', '0');
+      activeNode.setAttribute('allowfullscreen', 'true');
+      activeNode.setAttribute('class', 'rounded-md shadow-md border-2 border-[#1C1428] my-6');
+    }
   });
 }
 
@@ -215,7 +231,7 @@ export function cleanPastedHtml(inputHtml) {
   const root = doc.getElementById('rt-paste-root');
   if (!root) return '';
 
-  root.querySelectorAll('meta, style, script, link, iframe, object, embed, svg, canvas, form, input, textarea, button, select').forEach((node) => {
+  root.querySelectorAll('meta, style, script, link, object, embed, svg, canvas, form, input, textarea, button, select').forEach((node) => {
     node.remove();
   });
 
@@ -239,6 +255,7 @@ export function cleanPastedHtml(inputHtml) {
       if (name === 'href' && tagName === 'a') return;
       if ((name === 'src' || name === 'alt') && tagName === 'img') return;
       if ((name === 'data-width' || name === 'data-align') && tagName === 'img') return;
+      if ((name === 'src' || name === 'width' || name === 'height' || name === 'frameborder' || name === 'allowfullscreen') && tagName === 'iframe') return;
       node.removeAttribute(attr.name);
     });
   });

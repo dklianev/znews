@@ -24,6 +24,7 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
+  Video,
 } from 'lucide-react';
 import {
   cleanPastedHtml,
@@ -95,6 +96,8 @@ export default function RichTextEditor({
   const [selectionTick, setSelectionTick] = useState(0);
   const [blockTag, setBlockTag] = useState('P');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const [embedUrl, setEmbedUrl] = useState('');
   const [mediaQuery, setMediaQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const selectedImageRef = useRef(null);
@@ -225,6 +228,12 @@ export default function RichTextEditor({
     setPickerOpen(true);
   }, [captureSelectionRange]);
 
+  const handleOpenEmbedPrompt = useCallback(() => {
+    captureSelectionRange();
+    setEmbedOpen(true);
+    setEmbedUrl('');
+  }, [captureSelectionRange]);
+
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -253,6 +262,54 @@ export default function RichTextEditor({
     }
   };
 
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  const handleDrop = useCallback(async (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+
+    // Try to focus where the user dropped
+    if (document.caretRangeFromPoint) {
+      const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+      if (range) {
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        captureSelectionRange();
+      }
+    } else if (document.caretPositionFromPoint) {
+      const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+      if (pos) {
+        const range = document.createRange();
+        range.setStart(pos.offsetNode, pos.offset);
+        range.collapse(true);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        captureSelectionRange();
+      }
+    }
+
+    setIsUploading(true);
+    try {
+      const uploaded = await uploadMedia(file);
+      if (uploaded && uploaded.url) {
+        handleInsertImage(uploaded.url, uploaded.name || file.name);
+      } else {
+        await refreshMedia();
+      }
+    } catch (err) {
+      console.error('Failed to upload dropped file:', err);
+      alert('Грешка при качване на файла');
+    } finally {
+      setIsUploading(false);
+    }
+  }, [uploadMedia, refreshMedia, handleInsertImage, captureSelectionRange]);
+
   const handleInsertImage = useCallback((mediaUrl, mediaName = '') => {
     if (!mediaUrl || !editorRef.current) return;
     editorRef.current.focus();
@@ -268,6 +325,38 @@ export default function RichTextEditor({
     setPickerOpen(false);
     setMediaQuery('');
   }, [emitChange, refreshSelectionState, restoreSelectionRange]);
+
+  const handleInsertEmbed = useCallback((event) => {
+    event.preventDefault();
+    if (!embedUrl || !editorRef.current) return;
+
+    let processedUrl = embedUrl.trim();
+    try {
+      const parsed = new URL(processedUrl);
+      if (parsed.hostname.includes('youtube.com') && parsed.searchParams.has('v')) {
+        processedUrl = `https://www.youtube.com/embed/${parsed.searchParams.get('v')}`;
+      } else if (parsed.hostname.includes('youtu.be')) {
+        processedUrl = `https://www.youtube.com/embed${parsed.pathname}`;
+      } else if (parsed.hostname.includes('vimeo.com')) {
+        const match = parsed.pathname.match(/^\/(\d+)/);
+        if (match) processedUrl = `https://player.vimeo.com/video/${match[1]}`;
+      }
+    } catch {
+      // Ignored
+    }
+
+    editorRef.current.focus();
+    restoreSelectionRange();
+
+    const src = escapeHtmlAttribute(processedUrl);
+    const iframeHtml = `<iframe src="${src}" width="100%" height="400" frameborder="0" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" class="rounded-md shadow-md border-2 border-[#1C1428] my-6"></iframe><p><br></p>`;
+    document.execCommand('insertHTML', false, iframeHtml);
+
+    emitChange();
+    refreshSelectionState();
+    setEmbedOpen(false);
+    setEmbedUrl('');
+  }, [embedUrl, emitChange, refreshSelectionState, restoreSelectionRange]);
 
   const handleImageResize = (width) => {
     if (!selectedImage) return;
@@ -401,6 +490,9 @@ export default function RichTextEditor({
           <ToolbarButton onClick={handleOpenImagePicker} title="Вмъкни снимка от Media Library">
             <ImageIcon className="w-4 h-4" />
           </ToolbarButton>
+          <ToolbarButton onClick={handleOpenEmbedPrompt} title="Вмъкни видео (YouTube, Vimeo)">
+            <Video className="w-4 h-4" />
+          </ToolbarButton>
         </div>
 
         <span className="admin-rich-editor-divider" />
@@ -421,7 +513,7 @@ export default function RichTextEditor({
       <div className="relative">
         <div
           ref={editorRef}
-          className="admin-rich-editor-content"
+          className={`admin-rich-editor-content ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
           contentEditable
           suppressContentEditableWarning
           data-placeholder={placeholder}
@@ -430,7 +522,17 @@ export default function RichTextEditor({
           onPaste={handlePaste}
           onKeyUp={refreshSelectionState}
           onMouseUp={refreshSelectionState}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
         />
+
+        {isUploading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/50 z-20">
+            <div className="flex items-center gap-2 px-4 py-2 bg-white shadow-lg rounded-full border border-gray-200 text-sm font-sans font-semibold text-zn-purple">
+              <Loader2 className="w-4 h-4 animate-spin" /> Качване на изображение...
+            </div>
+          </div>
+        )}
 
         {selectedImage && (
           <div
@@ -458,10 +560,14 @@ export default function RichTextEditor({
         )}
       </div>
 
-      <div className="admin-rich-editor-meta">
-        <span>{wordCount} думи</span>
-        <span>{readTime} мин четене</span>
-        <span className="admin-rich-editor-shortcuts">Shortcut: Ctrl+B / Ctrl+I / Ctrl+U</span>
+      <div className="admin-rich-editor-meta flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <span className={wordCount < 100 ? 'text-red-500 font-bold font-sans' : wordCount < 300 ? 'text-orange-500 font-sans font-semibold' : 'text-green-600 font-sans font-semibold'}>
+            {wordCount} думи {wordCount < 100 ? '(Твърде кратко)' : wordCount < 300 ? '(Препоръка: 300+ за SEO)' : '✓ Отлична дължина'}
+          </span>
+          <span className="text-gray-500 font-sans">{readTime} мин четене</span>
+        </div>
+        <span className="admin-rich-editor-shortcuts hidden sm:inline">Shortcut: Ctrl+B / Ctrl+I / Ctrl+U</span>
       </div>
 
       {pickerOpen && (
@@ -554,6 +660,40 @@ export default function RichTextEditor({
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {embedOpen && (
+        <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-4" onClick={() => setEmbedOpen(false)}>
+          <div className="bg-white max-w-md w-full border border-gray-200 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="font-display text-base font-bold text-gray-900 uppercase tracking-wider">Вграждане на видео</h3>
+              <button type="button" onClick={() => setEmbedOpen(false)} className="text-gray-400 hover:text-gray-700">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleInsertEmbed} className="p-4">
+              <label className="block text-sm font-sans font-semibold text-gray-700 mb-2">
+                URL адрес на видеото (YouTube, Vimeo)
+              </label>
+              <input
+                type="url"
+                required
+                value={embedUrl}
+                onChange={(e) => setEmbedUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="w-full px-3 py-2 border border-gray-300 mb-4 focus:outline-none focus:border-zn-purple font-sans text-sm"
+              />
+              <div className="flex justify-end gap-2 text-sm font-sans">
+                <button type="button" onClick={() => setEmbedOpen(false)} className="px-4 py-2 border border-gray-200 text-gray-600 hover:bg-gray-50">
+                  Отказ
+                </button>
+                <button type="submit" className="px-4 py-2 bg-zn-purple text-white font-semibold hover:bg-zn-purple-dark transition-colors">
+                  Вмъкни
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

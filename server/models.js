@@ -13,6 +13,7 @@ const opts = {
 // ─── Article ───
 const articleSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
+  slug: String,
   title: String,
   excerpt: String,
   content: String,
@@ -27,6 +28,7 @@ const articleSchema = new mongoose.Schema({
   hero: { type: Boolean, default: false, index: true },
   views: { type: Number, default: 0 },
   tags: [String],
+  relatedArticles: [{ type: Number }],
   status: { type: String, default: 'published', enum: ['published', 'draft'] },
   publishAt: { type: Date, default: null, index: true },
   shareTitle: { type: String, default: '' },
