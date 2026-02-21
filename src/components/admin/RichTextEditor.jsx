@@ -19,6 +19,8 @@ import {
   Eraser,
   Undo2,
   Redo2,
+  Loader2,
+  Upload,
 } from 'lucide-react';
 import {
   cleanPastedHtml,
@@ -187,6 +189,34 @@ export default function RichTextEditor({
     captureSelectionRange();
     setPickerOpen(true);
   }, [captureSelectionRange]);
+
+  const fileInputRef = useRef(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const uploaded = await uploadMedia(file);
+      // DataContext.uploadMedia doesn't necessarily return the full object in all paths, let's refresh instead if needed,
+      // but it currently returns the uploaded object summary from api.media.upload.
+      // If uploadMedia throws no error, let's just refresh the list and maybe pick the file later, 
+      // or if it returns { url, name } we can insert right away.
+      if (uploaded && uploaded.url) {
+        handleInsertImage(uploaded.url, uploaded.name || file.name);
+      } else {
+        await refreshMedia();
+      }
+    } catch (err) {
+      console.error('Failed to upload via RichTextEditor:', err);
+      alert('Грешка при качване на файла');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleInsertImage = useCallback((mediaUrl, mediaName = '') => {
     if (!mediaUrl || !editorRef.current) return;
@@ -360,6 +390,23 @@ export default function RichTextEditor({
             <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
               <h3 className="font-display text-lg font-black text-gray-900 uppercase tracking-wider">Media Library</h3>
               <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  onChange={handleUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  disabled={isUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zn-purple text-white text-xs font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50"
+                  title="Качи нова снимка от компютъра"
+                >
+                  {isUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  {isUploading ? 'Качване...' : 'Качи снимка'}
+                </button>
                 <button
                   type="button"
                   onClick={refreshMedia}
