@@ -83,7 +83,7 @@ export default function RichTextEditor({
   placeholder = 'Напиши съдържанието на статията...',
   className = '',
 }) {
-  const { media, refreshMedia } = useData();
+  const { media, refreshMedia, uploadMedia } = useData();
   const editorRef = useRef(null);
   const savedRangeRef = useRef(null);
   const [selectionTick, setSelectionTick] = useState(0);
