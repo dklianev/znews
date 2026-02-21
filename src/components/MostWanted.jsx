@@ -10,6 +10,10 @@ const dangerColors = {
 
 export default function MostWanted() {
   const { wanted } = useData();
+  const safeWanted = Array.isArray(wanted) ? wanted : [];
+
+  if (safeWanted.length === 0) return null;
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -32,7 +36,7 @@ export default function MostWanted() {
       <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-4 mt-2 relative z-[2]" />
 
       <div className="space-y-1 relative z-[2]">
-        {wanted.map((person, index) => (
+        {safeWanted.map((person, index) => (
           <motion.div
             key={person.id}
             initial={{ opacity: 0, x: 10 }}
@@ -56,7 +60,7 @@ export default function MostWanted() {
                 <span className="inline-flex items-center px-2 py-0.5 border border-zn-gold/40 bg-zn-gold/10 text-xs font-display font-black text-zn-gold uppercase tracking-wider">
                   {person.bounty}
                 </span>
-                <span className={`px-1.5 py-0.5 border border-current/20 text-[10px] font-display font-black uppercase tracking-widest ${dangerColors[person.danger]} ${person.danger === 'high' ? 'animate-pulse' : ''}`}>
+                <span className={`px-1.5 py-0.5 border border-current/20 text-[10px] font-display font-black uppercase tracking-widest ${dangerColors[person.danger] || dangerColors.low} ${person.danger === 'high' ? 'animate-pulse' : ''}`}>
                   {person.danger === 'high' ? 'ОПАСЕН!' : 'ВНИМАНИЕ'}
                 </span>
               </div>

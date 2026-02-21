@@ -13,8 +13,18 @@ const numberClasses = [
 
 export default function TrendingSidebar() {
   const { articles } = useData();
-  const trending = [...articles].sort((a, b) => b.views - a.views).slice(0, 5);
-  const maxViews = trending[0]?.views || 1;
+  const safeArticles = Array.isArray(articles) ? articles : [];
+  const trending = safeArticles
+    .map((article) => ({
+      ...article,
+      safeViews: Number.isFinite(Number(article?.views)) ? Number(article.views) : 0,
+    }))
+    .sort((a, b) => b.safeViews - a.safeViews)
+    .slice(0, 5);
+
+  if (trending.length === 0) return null;
+
+  const maxViews = Math.max(1, ...trending.map((article) => article.safeViews));
 
   return (
     <motion.div
@@ -59,12 +69,12 @@ export default function TrendingSidebar() {
                   {article.title}
                 </h4>
                 <div className="comic-heat-track mt-2">
-                  <div className="comic-heat-fill" style={{ width: `${Math.max(8, Math.round((article.views / maxViews) * 100))}%` }} />
+                  <div className="comic-heat-fill" style={{ width: `${Math.max(8, Math.round((article.safeViews / maxViews) * 100))}%` }} />
                 </div>
                 <div className="flex items-center gap-3 mt-1.5">
                   <div className="inline-flex items-center gap-1.5 text-xs font-display text-zn-text-dim uppercase tracking-wider bg-zn-bg px-2 py-0.5 border border-zn-border">
                     <Eye className="w-3 h-3" />
-                    {article.views.toLocaleString()} прегледа
+                    {article.safeViews.toLocaleString('bg-BG')} прегледа
                   </div>
                   {index === 0 && (
                     <span className="text-[10px] font-display font-black text-zn-hot uppercase tracking-widest">HOT</span>

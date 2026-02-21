@@ -190,6 +190,7 @@ export default function HomePage() {
       if (timestampDiff !== 0) return timestampDiff;
       return (Number(right.id) || 0) - (Number(left.id) || 0);
     });
+    const articleById = new Map(safeArticles.map((article) => [Number(article.id), article]));
 
     const usedIds = new Set();
     const claimArticle = (article) => {
@@ -215,7 +216,28 @@ export default function HomePage() {
       || sortedArticles.find((article) => article.breaking)
       || sortedArticles[0]
       || null;
+
+    const selectedMainPhotoId = Number.parseInt(heroSettings?.mainPhotoArticleId, 10);
+    const selectedMainPhotoArticle = Number.isInteger(selectedMainPhotoId) && selectedMainPhotoId > 0
+      ? articleById.get(selectedMainPhotoId) || null
+      : null;
+    const heroPrimaryPhoto = selectedMainPhotoArticle || heroArticle;
+
+    const selectedHeroSiblingIds = Array.isArray(heroSettings?.photoArticleIds) ? heroSettings.photoArticleIds : [];
+    const selectedHeroSiblings = selectedHeroSiblingIds
+      .map((id) => articleById.get(Number(id)) || null)
+      .filter(Boolean)
+      .filter((a, index, arr) => a.id !== heroPrimaryPhoto?.id && arr.findIndex((x) => x.id === a.id) === index)
+      .slice(0, 2);
+    const autoHeroSiblings = sortedArticles
+      .filter((a) => a.id !== heroPrimaryPhoto?.id && a.image)
+      .slice(0, 2);
+    const heroSiblings = [...selectedHeroSiblings, ...autoHeroSiblings.filter((a) => !selectedHeroSiblings.find((s) => s.id === a.id))].slice(0, 2);
+
+    // Reserve hero entries first so they cannot be reused in section grids or latest feed.
     claimArticle(heroArticle);
+    claimArticle(heroPrimaryPhoto);
+    heroSiblings.forEach((article) => claimArticle(article));
 
     const featuredArticles = takeFromPool((article) => article.featured, 3);
     const crimeArticles = takeFromPool((article) => article.category === 'crime' || article.category === 'underground', 4);
@@ -225,7 +247,6 @@ export default function HomePage() {
     const latestArticles = sortedArticles.filter((article) => !usedIds.has(Number(article.id)));
 
     const categoryById = new Map(safeCategories.map(c => [c.id, c.name]));
-    const articleById = new Map(safeArticles.map((article) => [Number(article.id), article]));
 
     const horizontalAds = safeAds.filter(a => a.type === 'horizontal');
     const sideAds = safeAds.filter(a => a.type === 'side');
@@ -283,23 +304,6 @@ export default function HomePage() {
       .trim()
       .split(/\s+/)
       .filter(Boolean);
-
-    const selectedMainPhotoId = Number.parseInt(heroSettings?.mainPhotoArticleId, 10);
-    const selectedMainPhotoArticle = Number.isInteger(selectedMainPhotoId) && selectedMainPhotoId > 0
-      ? articleById.get(selectedMainPhotoId) || null
-      : null;
-    const heroPrimaryPhoto = selectedMainPhotoArticle || heroArticle;
-
-    const selectedHeroSiblingIds = Array.isArray(heroSettings?.photoArticleIds) ? heroSettings.photoArticleIds : [];
-    const selectedHeroSiblings = selectedHeroSiblingIds
-      .map((id) => articleById.get(Number(id)) || null)
-      .filter(Boolean)
-      .filter((a, index, arr) => a.id !== heroPrimaryPhoto?.id && arr.findIndex((x) => x.id === a.id) === index)
-      .slice(0, 2);
-    const autoHeroSiblings = sortedArticles
-      .filter((a) => a.id !== heroPrimaryPhoto?.id && a.image)
-      .slice(0, 2);
-    const heroSiblings = [...selectedHeroSiblings, ...autoHeroSiblings.filter((a) => !selectedHeroSiblings.find((s) => s.id === a.id))].slice(0, 2);
 
     return {
       heroArticle,
@@ -502,73 +506,92 @@ export default function HomePage() {
             <div className="flex-1 h-1 bg-gradient-to-r from-zn-purple/40 to-transparent" />
           </div>
 
-          <div className="comic-latest-wall grid grid-cols-1 md:grid-cols-12 gap-4 auto-rows-[minmax(140px,auto)] md:items-start">
-            {latestShowcase.map((article, index) => {
-              const slot = latestSlots[index] || { span: 'md:col-span-6', mdCols: 6, tilt: '0deg', sticker: 'Новина' };
-              const latestCardLayout = getLatestCardLayout({
-                count: latestShowcase.length,
-                index,
-                mdCols: slot.mdCols,
-              });
-              const categoryName = categoryById.get(article.category) || 'Новини';
+          {latestShowcase.length > 0 ? (
+            <div className="comic-latest-wall grid grid-cols-1 md:grid-cols-12 gap-4 auto-rows-[minmax(140px,auto)] md:items-start">
+              {latestShowcase.map((article, index) => {
+                const slot = latestSlots[index] || { span: 'md:col-span-6', mdCols: 6, tilt: '0deg', sticker: 'Новина' };
+                const latestCardLayout = getLatestCardLayout({
+                  count: latestShowcase.length,
+                  index,
+                  mdCols: slot.mdCols,
+                });
+                const categoryName = categoryById.get(article.category) || 'Новини';
 
-              const customSticker = typeof article.cardSticker === 'string' ? article.cardSticker.trim() : '';
-              const stickerLabel = customSticker || slot.sticker;
+                const customSticker = typeof article.cardSticker === 'string' ? article.cardSticker.trim() : '';
+                const stickerLabel = customSticker || slot.sticker;
 
-              return (
-                <Link
-                  key={article.id}
-                  to={`/article/${article.id}`}
-                  className={`group comic-latest-card ${latestCardLayout.cardModeClass} comic-panel comic-dots bg-white overflow-visible relative ${slot.span}`}
-                  style={{ '--latest-tilt': slot.tilt }}
-                >
-                  <div className={`absolute inset-x-0 top-0 h-2 bg-gradient-to-r ${index % 2 === 0 ? 'from-zn-hot to-zn-orange' : 'from-zn-purple to-zn-blue'}`} />
-                  <div className="absolute top-3 left-3 z-20">
-                    <span className="comic-kicker">{categoryName}</span>
-                  </div>
-                  <div className="absolute -top-3 -right-2 z-30">
-                    <span className="comic-sticker">{stickerLabel}</span>
-                  </div>
-
-                  <div className="flex flex-col h-full">
-                    <div className={`relative overflow-hidden shrink-0 ${latestCardLayout.imageHeightClass}`}>
-                      <ResponsiveImage
-                        src={article.image}
-                        pipeline={article.imageMeta}
-                        fallbackSrc={fallbackLatestImage}
-                        alt={article.title}
-                        loading="lazy"
-                        decoding="async"
-                        sizes={latestCardLayout.imageSizes}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        pictureClassName="block w-full h-full"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
-                      <div className="absolute bottom-3 left-3 px-2 py-1 text-[10px] font-display font-black uppercase tracking-[0.16em] text-white border border-white/40 bg-black/35">
-                        {formatArticleDateLabel(article)}
-                      </div>
+                return (
+                  <Link
+                    key={article.id}
+                    to={`/article/${article.id}`}
+                    className={`group comic-latest-card ${latestCardLayout.cardModeClass} comic-panel comic-dots bg-white overflow-visible relative ${slot.span}`}
+                    style={{ '--latest-tilt': slot.tilt }}
+                  >
+                    <div className={`absolute inset-x-0 top-0 h-2 bg-gradient-to-r ${index % 2 === 0 ? 'from-zn-hot to-zn-orange' : 'from-zn-purple to-zn-blue'}`} />
+                    <div className="absolute top-3 left-3 z-20">
+                      <span className="comic-kicker">{categoryName}</span>
+                    </div>
+                    <div className="absolute -top-3 -right-2 z-30">
+                      <span className="comic-sticker">{stickerLabel}</span>
                     </div>
 
-                    <div className={`p-4 flex flex-col justify-between gap-3 flex-1`}>
-                      <h3 className={`font-display font-black uppercase leading-tight text-zn-black group-hover:text-zn-hot transition-colors ${latestCardLayout.titleSizeClass} line-clamp-4`}>
-                        {article.title}
-                      </h3>
-                      <p className={`text-zn-text-muted italic ${latestCardLayout.excerptSizeClass}`}>
-                        {article.excerpt}
-                      </p>
-                      <div className="flex items-center justify-between border-t-2 border-zn-border/50 pt-2 text-xs font-display font-black uppercase tracking-[0.08em] text-zn-text-dim mt-auto">
-                        <span>{categoryName}</span>
-                        <span className="inline-flex items-center gap-1 text-zn-hot">
-                          <Eye className="w-3.5 h-3.5" />
-                          {(article.views || 0).toLocaleString()}
-                        </span>
+                    <div className="flex flex-col h-full">
+                      <div className={`relative overflow-hidden shrink-0 ${latestCardLayout.imageHeightClass}`}>
+                        <ResponsiveImage
+                          src={article.image}
+                          pipeline={article.imageMeta}
+                          fallbackSrc={fallbackLatestImage}
+                          alt={article.title}
+                          loading="lazy"
+                          decoding="async"
+                          sizes={latestCardLayout.imageSizes}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          pictureClassName="block w-full h-full"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
+                        <div className="absolute bottom-3 left-3 px-2 py-1 text-[10px] font-display font-black uppercase tracking-[0.16em] text-white border border-white/40 bg-black/35">
+                          {formatArticleDateLabel(article)}
+                        </div>
+                      </div>
+
+                      <div className={`p-4 flex flex-col justify-between gap-3 flex-1`}>
+                        <h3 className={`font-display font-black uppercase leading-tight text-zn-black group-hover:text-zn-hot transition-colors ${latestCardLayout.titleSizeClass} line-clamp-4`}>
+                          {article.title}
+                        </h3>
+                        <p className={`text-zn-text-muted italic ${latestCardLayout.excerptSizeClass}`}>
+                          {article.excerpt}
+                        </p>
+                        <div className="flex items-center justify-between border-t-2 border-zn-border/50 pt-2 text-xs font-display font-black uppercase tracking-[0.08em] text-zn-text-dim mt-auto">
+                          <span>{categoryName}</span>
+                          <span className="inline-flex items-center gap-1 text-zn-hot">
+                            <Eye className="w-3.5 h-3.5" />
+                            {(article.views || 0).toLocaleString()}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="comic-panel comic-dots bg-white border-2 border-zn-border/60 p-6 text-center">
+              <p className="font-display font-black uppercase tracking-[0.08em] text-zn-text mb-2">
+                Няма още публикации за тази секция
+              </p>
+              <p className="text-sm text-zn-text-muted mb-4">
+                Добавете нова статия или обновете данните.
+              </p>
+              <button
+                type="button"
+                onClick={() => refresh()}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-xs font-sans font-semibold uppercase tracking-[0.06em] hover:bg-zn-purple-dark transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Обнови
+              </button>
+            </div>
+          )}
 
           {horizontalAds[1] && (
             <div className="pt-1">
