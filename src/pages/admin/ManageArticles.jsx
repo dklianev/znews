@@ -203,17 +203,26 @@ export default function ManageArticles() {
     if (editing === 'new') return form.title !== '' || form.content !== '<p></p>';
     if (!lastServerVersion) return false;
     const ref = lastServerVersion;
+    const refTags = Array.isArray(ref.tags)
+      ? ref.tags.join(', ')
+      : (typeof ref.tags === 'string' ? ref.tags : '');
+    const formTags = Array.isArray(form.tags)
+      ? form.tags.join(', ')
+      : (typeof form.tags === 'string' ? form.tags : '');
+    const refRelated = Array.isArray(ref.relatedArticles) ? ref.relatedArticles.join(',') : '';
+    const formRelated = Array.isArray(form.relatedArticles) ? form.relatedArticles.join(',') : '';
+
     return ref.title !== form.title || ref.slug !== form.slug || ref.excerpt !== form.excerpt || ref.content !== form.content
       || ref.category !== form.category || ref.authorId !== form.authorId
       || ref.image !== form.image || ref.status !== form.status
       || localInputToIso(ref.publishAt) !== localInputToIso(form.publishAt)
-      || ref.tags?.join(', ') !== form.tags
+      || refTags !== formTags
       || JSON.stringify(ref.imageMeta || null) !== JSON.stringify(form.imageMeta || null)
       || ref.cardSticker !== form.cardSticker
       || ref.shareTitle !== form.shareTitle || ref.shareSubtitle !== form.shareSubtitle
       || ref.shareBadge !== form.shareBadge || ref.shareAccent !== form.shareAccent
       || ref.shareImage !== form.shareImage
-      || (ref.relatedArticles?.join(',') || '') !== (form.relatedArticles?.join(',') || '');
+      || refRelated !== formRelated;
   }, [editing, form, lastServerVersion]);
 
   const computedReadTime = useMemo(

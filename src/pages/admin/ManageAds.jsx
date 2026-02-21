@@ -11,6 +11,11 @@ const AD_TYPES = [
   { value: 'inline', label: 'В текста' },
 ];
 
+const AD_IMAGE_PLACEMENTS = [
+  { value: 'circle', label: 'Икона/снимка в кръга' },
+  { value: 'cover', label: 'Снимка на целия банер' },
+];
+
 const AD_ICONS = ['🏪', '🎰', '🏎️', '💰', '🍔', '🏠', '🔧', '💊', '🎮', '📱', '🛡️', '⚖️', '🎵', '🍺', '✈️', '🏦'];
 
 const emptyForm = {
@@ -22,7 +27,17 @@ const emptyForm = {
   link: '#',
   color: '#990F3D',
   image: '',
+  imagePlacement: 'circle',
 };
+
+function normalizeAdForm(value) {
+  return {
+    ...emptyForm,
+    ...(value || {}),
+    image: value?.image || '',
+    imagePlacement: value?.imagePlacement === 'cover' ? 'cover' : 'circle',
+  };
+}
 
 export default function ManageAds() {
   const { ads, addAd, updateAd, deleteAd } = useData();
@@ -36,16 +51,17 @@ export default function ManageAds() {
     if (!form.title) return;
     setSaving(true);
     setError('');
+    const payload = normalizeAdForm(form);
     try {
       if (editing === 'new') {
-        await addAd(form);
+        await addAd(payload);
         toast.success('Рекламата е добавена');
       } else {
-        await updateAd(editing, form);
+        await updateAd(editing, payload);
         toast.success('Рекламата е актуализирана');
       }
       setEditing(null);
-      setForm(emptyForm);
+      setForm({ ...emptyForm });
     } catch (e) {
       setError(e?.message || 'Грешка при запис');
       toast.error('Грешка при запис');
@@ -70,7 +86,7 @@ export default function ManageAds() {
   const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
 
   // Build a mock ad object for live preview
-  const previewAd = { ...form, id: editing || 'preview' };
+  const previewAd = { ...normalizeAdForm(form), id: editing || 'preview' };
 
   return (
     <div className="p-8">
@@ -80,7 +96,7 @@ export default function ManageAds() {
           <p className="text-sm font-sans text-gray-500 mt-1">Управление на рекламни банери · {ads.length} реклами</p>
         </div>
         <button
-          onClick={() => { setError(''); setEditing('new'); setForm(emptyForm); }}
+          onClick={() => { setError(''); setEditing('new'); setForm({ ...emptyForm }); }}
           className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -144,6 +160,24 @@ export default function ManageAds() {
                     helperText="Качи изображение или избери налично от Media Library."
                     previewClassName="h-36"
                   />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className={labelCls}>Как да се показва снимката</label>
+                  <select
+                    className={inputCls}
+                    value={form.imagePlacement || 'circle'}
+                    onChange={e => setForm({ ...form, imagePlacement: e.target.value })}
+                  >
+                    {AD_IMAGE_PLACEMENTS.map((mode) => (
+                      <option key={mode.value} value={mode.value}>{mode.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-gray-500 mt-1 font-sans">
+                    {form.imagePlacement === 'cover'
+                      ? 'Снимката ще бъде фон на целия рекламен бокс.'
+                      : 'Снимката ще стои само в кръглия медальон.'}
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">
@@ -212,35 +246,45 @@ export default function ManageAds() {
 
       {/* Ads grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {ads.map(ad => (
-          <div key={ad.id} className="bg-white border border-gray-200 overflow-hidden group">
+        {ads.map(ad => {
+          const coverPreview = Boolean(ad.image) && ad.imagePlacement === 'cover';
+          return (
+            <div key={ad.id} className="bg-white border border-gray-200 overflow-hidden group">
             {/* Ad preview */}
-            <div className="p-4 text-white relative overflow-hidden" style={{ backgroundColor: ad.color || '#990F3D' }}>
+            <div className="p-4 text-white relative overflow-hidden" style={{ backgroundColor: coverPreview ? '#1C1428' : (ad.color || '#990F3D') }}>
               {ad.image && (
                 <img
                   src={ad.image}
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover opacity-30"
+                  className={`absolute inset-0 w-full h-full object-cover ${coverPreview ? 'opacity-100' : 'opacity-30'}`}
                 />
               )}
+              {coverPreview && <div className="absolute inset-0 bg-black/45" />}
               <div className="flex items-center gap-2 mb-2 relative z-10">
-                <span className="text-xl">{ad.icon}</span>
+                {coverPreview ? (
+                  <span className="text-sm px-2 py-0.5 border border-white/40 bg-black/35 font-display font-bold uppercase tracking-wider">Фон</span>
+                ) : (
+                  <span className="text-xl">{ad.icon}</span>
+                )}
                 <div>
                   <p className="font-sans font-bold text-sm">{ad.title}</p>
-                  <p className="text-xs opacity-80">{ad.subtitle}</p>
+                  <p className="text-xs opacity-90">{ad.subtitle}</p>
                 </div>
               </div>
-              <span className="px-3 py-1 bg-white/20 text-xs font-sans font-semibold relative z-10">{ad.cta}</span>
+              <span className="px-3 py-1 bg-white/20 backdrop-blur-[1px] text-xs font-sans font-semibold relative z-10">{ad.cta}</span>
             </div>
             {/* Info + actions */}
             <div className="p-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="px-1.5 py-0.5 text-[9px] font-sans font-bold uppercase tracking-wider bg-gray-100 text-gray-600">
-                  {AD_TYPES.find(t => t.value === ad.type)?.label || ad.type}
-                </span>
-                {ad.image && (
-                  <span className="px-1.5 py-0.5 text-[9px] font-sans font-bold uppercase tracking-wider bg-green-100 text-green-700">
-                    <ImageIcon className="w-3 h-3 inline mr-0.5" />Снимка
+                    {AD_TYPES.find(t => t.value === ad.type)?.label || ad.type}
+                  </span>
+                  <span className={`px-1.5 py-0.5 text-[9px] font-sans font-bold uppercase tracking-wider ${ad.imagePlacement === 'cover' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {ad.imagePlacement === 'cover' ? 'Пълен фон' : 'Кръг'}
+                  </span>
+                  {ad.image && (
+                    <span className="px-1.5 py-0.5 text-[9px] font-sans font-bold uppercase tracking-wider bg-green-100 text-green-700">
+                      <ImageIcon className="w-3 h-3 inline mr-0.5" />Снимка
                   </span>
                 )}
                 {ad.link && ad.link !== '#' && (
@@ -251,7 +295,7 @@ export default function ManageAds() {
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={() => { setError(''); setEditing(ad.id); setForm(ad); }}
+                  onClick={() => { setError(''); setEditing(ad.id); setForm(normalizeAdForm(ad)); }}
                   className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors"
                 >
                   <Pencil className="w-4 h-4" />
@@ -264,8 +308,9 @@ export default function ManageAds() {
                 </button>
               </div>
             </div>
-          </div>
-        ))}
+            </div>
+          );
+        })}
         {ads.length === 0 && (
           <div className="col-span-full text-center py-12 text-sm font-sans text-gray-400">Няма реклами</div>
         )}

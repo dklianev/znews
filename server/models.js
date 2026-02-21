@@ -77,6 +77,7 @@ const adSchema = new mongoose.Schema({
   link: String,
   color: String,
   image: String,
+  imagePlacement: { type: String, enum: ['circle', 'cover'], default: 'circle' },
 }, opts);
 
 // ─── Breaking ───
