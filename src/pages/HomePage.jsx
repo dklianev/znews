@@ -45,25 +45,22 @@ export default function HomePage() {
 
     const heroArticle = safeArticles.find(a => a.hero) || safeArticles.find(a => a.breaking) || safeArticles[0] || null;
 
-    const usedIds = new Set();
-    if (heroArticle) usedIds.add(heroArticle.id);
+    // Базови новини: Hero и Featured (тези никога няма да се повтарят никъде надолу)
+    const usedTopIds = new Set();
+    if (heroArticle) usedTopIds.add(heroArticle.id);
 
-    const featuredArticles = safeArticles.filter(a => a.featured && !usedIds.has(a.id)).slice(0, 3);
-    featuredArticles.forEach(a => usedIds.add(a.id));
+    const featuredArticles = safeArticles.filter(a => a.featured && !usedTopIds.has(a.id)).slice(0, 3);
+    featuredArticles.forEach(a => usedTopIds.add(a.id));
 
-    const crimeArticles = safeArticles.filter(a => (a.category === 'crime' || a.category === 'underground') && !usedIds.has(a.id)).slice(0, 4);
-    crimeArticles.forEach(a => usedIds.add(a.id));
+    // Секция "Последни Новини": тук трябва да тече всичко ново хронологично, 
+    // с изключение на вече показаните огромни банери най-горе (Hero/Featured).
+    const latestArticles = safeArticles.filter(a => !usedTopIds.has(a.id));
 
-    const breakingArticles = safeArticles.filter(a => a.category === 'breaking' && !usedIds.has(a.id)).slice(0, 2);
-    breakingArticles.forEach(a => usedIds.add(a.id));
-
-    const emergencyArticles = safeArticles.filter(a => a.category === 'emergency' && !usedIds.has(a.id)).slice(0, 2);
-    emergencyArticles.forEach(a => usedIds.add(a.id));
-
-    const reportageArticles = safeArticles.filter(a => a.category === 'reportage' && !usedIds.has(a.id)).slice(0, 3);
-    reportageArticles.forEach(a => usedIds.add(a.id));
-
-    const latestArticles = safeArticles.filter(a => !usedIds.has(a.id));
+    // Тематични секции: те просто си дърпат съответната категория (без Hero/Featured)
+    const crimeArticles = safeArticles.filter(a => (a.category === 'crime' || a.category === 'underground') && !usedTopIds.has(a.id)).slice(0, 4);
+    const breakingArticles = safeArticles.filter(a => a.category === 'breaking' && !usedTopIds.has(a.id)).slice(0, 2);
+    const emergencyArticles = safeArticles.filter(a => a.category === 'emergency' && !usedTopIds.has(a.id)).slice(0, 2);
+    const reportageArticles = safeArticles.filter(a => a.category === 'reportage' && !usedTopIds.has(a.id)).slice(0, 3);
     const activeCategories = safeCategories.filter(c => c.id !== 'all');
     const categoryById = new Map(safeCategories.map(c => [c.id, c.name]));
 
