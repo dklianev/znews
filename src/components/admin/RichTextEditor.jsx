@@ -510,10 +510,10 @@ export default function RichTextEditor({
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative flex-1 min-h-0">
         <div
           ref={editorRef}
-          className={`admin-rich-editor-content ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+          className={`admin-rich-editor-content h-full ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
           contentEditable
           suppressContentEditableWarning
           data-placeholder={placeholder}

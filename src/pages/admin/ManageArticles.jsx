@@ -968,7 +968,7 @@ export default function ManageArticles() {
           <div className="p-6">
             {/* CONTENT TAB */}
             <div className={activeTab === 'content' ? 'block' : 'hidden'}>
-              <div className="space-y-6 max-w-5xl">
+              <div className="space-y-6 max-w-full">
                 <div>
                   <div className="flex items-center justify-between">
                     <label className={labelCls}>Заглавие <span className="text-red-500">*</span></label>
@@ -1007,25 +1007,27 @@ export default function ManageArticles() {
                   </div>
 
                   {contentMode === 'write' ? (
-                    <div className={`h-[600px] overflow-hidden border ${validationErrors.content ? 'border-red-400' : 'border-gray-200'}`}>
+                    <div className={`overflow-hidden border rounded-sm shadow-sm ${validationErrors.content ? 'border-red-400' : 'border-gray-200'}`}>
                       <RichTextEditor
-                        className="!h-full border-none"
+                        className="min-h-[500px] border-none"
                         value={form.content}
                         onChange={(nextHtml) => { setForm(prev => ({ ...prev, content: nextHtml })); if (validationErrors.content) setValidationErrors(prev => ({ ...prev, content: undefined })); }}
                         placeholder="Напиши текста на статията..."
                       />
                     </div>
                   ) : (
-                    <div className="border border-gray-200 min-h-[600px] p-6 bg-white overflow-auto">
+                    <div className="border border-gray-200 min-h-[500px] p-6 bg-white overflow-auto shadow-sm">
                       <div
                         className="article-body prose prose-lg max-w-none [&_p]:font-sans [&_p]:leading-relaxed [&_p]:mb-4 [&_h2]:font-display [&_h2]:font-black [&_h2]:uppercase [&_h2]:mt-6 [&_h2]:mb-2 [&_h3]:font-display [&_h3]:font-bold [&_h3]:uppercase [&_h3]:mt-5 [&_h3]:mb-2 [&_h4]:font-display [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:mt-4 [&_h4]:mb-2 [&_blockquote]:border-l-4 [&_blockquote]:border-zn-purple [&_blockquote]:pl-4 [&_blockquote]:italic [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_a]:text-zn-hot [&_a]:underline [&_img]:w-full [&_img]:h-auto [&_img]:my-6 [&_img]:rounded-sm [&_img]:border [&_img]:border-gray-200"
                         dangerouslySetInnerHTML={{ __html: normalizedPreviewContent }}
                       />
                     </div>
                   )}
-                  <p className="mt-2 text-xs font-sans text-gray-500">
-                    Разрешени формати: bold, italic, underline, strike, H2/H3/H4, списъци, цитат, линк и снимки от Media Library.
-                  </p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-[11px] font-sans text-gray-400">
+                      Разрешени формати: bold, italic, underline, strike, H2/H3/H4, списъци, цитат, линк и снимки от Media Library.
+                    </p>
+                  </div>
                   {validationErrors.content && <p className="text-xs text-red-500 mt-1 font-sans">{validationErrors.content}</p>}
                 </div>
 
@@ -1145,7 +1147,7 @@ export default function ManageArticles() {
 
             {/* MEDIA TAB */}
             <div className={activeTab === 'media' ? 'block' : 'hidden'}>
-              <div className="space-y-6 max-w-2xl">
+              <div className="space-y-6 max-w-4xl">
                 <div className="p-4 border border-gray-200 bg-gray-50/30">
                   <AdminImageField
                     label="Основна Снимка"
@@ -1174,7 +1176,7 @@ export default function ManageArticles() {
 
             {/* SETTINGS TAB */}
             <div className={activeTab === 'settings' ? 'block' : 'hidden'}>
-              <div className="space-y-6 max-w-2xl">
+              <div className="space-y-6 max-w-4xl">
                 <div className="p-4 border border-gray-200 bg-gray-50/30 grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className={labelCls}>Статус на публикацията</label>
@@ -1333,7 +1335,7 @@ export default function ManageArticles() {
 
             {/* SEO TAB */}
             <div className={activeTab === 'seo' ? 'block' : 'hidden'}>
-              <div className="space-y-6 max-w-4xl">
+              <div className="space-y-6 max-w-5xl">
 
                 <div className="mb-8 border-b border-gray-100 pb-6">
                   <h3 className="font-sans font-semibold text-gray-900 mb-4 items-center flex gap-2">
