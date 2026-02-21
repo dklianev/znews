@@ -21,6 +21,9 @@ import {
   Redo2,
   Loader2,
   Upload,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
 } from 'lucide-react';
 import {
   cleanPastedHtml,
@@ -90,6 +93,7 @@ export default function RichTextEditor({
   const [blockTag, setBlockTag] = useState('P');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [mediaQuery, setMediaQuery] = useState('');
+  const [selectedImage, setSelectedImage] = useState(null);
 
   const filteredMedia = useMemo(() => {
     const q = mediaQuery.trim().toLowerCase();
@@ -108,7 +112,10 @@ export default function RichTextEditor({
   const refreshSelectionState = useCallback(() => {
     setSelectionTick((prev) => prev + 1);
     setBlockTag(getCurrentBlockTag());
-  }, []);
+    if (selectedImage && !document.body.contains(selectedImage)) {
+      setSelectedImage(null);
+    }
+  }, [selectedImage]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -120,9 +127,25 @@ export default function RichTextEditor({
         refreshSelectionState();
       }
     };
+    const handleEditorClick = (e) => {
+      if (e.target.tagName === 'IMG') {
+        setSelectedImage(e.target);
+      } else {
+        setSelectedImage(null);
+      }
+    };
     document.addEventListener('selectionchange', handleSelectionChange);
+    const editor = editorRef.current;
+    if (editor) {
+      editor.addEventListener('click', handleEditorClick);
+      editor.addEventListener('input', () => setSelectedImage(null));
+    }
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
+      if (editor) {
+        editor.removeEventListener('click', handleEditorClick);
+        editor.removeEventListener('input', () => setSelectedImage(null));
+      }
     };
   }, [refreshSelectionState]);
 
@@ -225,7 +248,7 @@ export default function RichTextEditor({
 
     const src = escapeHtmlAttribute(mediaUrl);
     const alt = escapeHtmlAttribute(String(mediaName || '').trim().slice(0, 180));
-    const imageHtml = `<img src="${src}" alt="${alt}" loading="lazy" decoding="async"><p><br></p>`;
+    const imageHtml = `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" style="width: 100%; height: auto; display: block; margin-left: auto; margin-right: auto;"><p><br></p>`;
     document.execCommand('insertHTML', false, imageHtml);
 
     emitChange();
@@ -233,6 +256,35 @@ export default function RichTextEditor({
     setPickerOpen(false);
     setMediaQuery('');
   }, [emitChange, refreshSelectionState, restoreSelectionRange]);
+
+  const handleImageResize = (width) => {
+    if (!selectedImage) return;
+    selectedImage.style.width = width;
+    selectedImage.style.height = 'auto';
+    emitChange();
+    setSelectionTick((prev) => prev + 1);
+  };
+
+  const handleImageAlign = (align) => {
+    if (!selectedImage) return;
+    if (align === 'left') {
+      selectedImage.style.float = 'left';
+      selectedImage.style.margin = '0 1rem 1rem 0';
+      selectedImage.style.display = '';
+    } else if (align === 'right') {
+      selectedImage.style.float = 'right';
+      selectedImage.style.margin = '0 0 1rem 1rem';
+      selectedImage.style.display = '';
+    } else {
+      selectedImage.style.float = 'none';
+      selectedImage.style.display = 'block';
+      selectedImage.style.marginLeft = 'auto';
+      selectedImage.style.marginRight = 'auto';
+      selectedImage.style.margin = '0 auto 1rem auto';
+    }
+    emitChange();
+    setSelectionTick((prev) => prev + 1);
+  };
 
   const handlePaste = (event) => {
     const html = event.clipboardData?.getData('text/html');
@@ -365,18 +417,45 @@ export default function RichTextEditor({
         </div>
       </div>
 
-      <div
-        ref={editorRef}
-        className="admin-rich-editor-content"
-        contentEditable
-        suppressContentEditableWarning
-        data-placeholder={placeholder}
-        onInput={emitChange}
-        onBlur={handleBlur}
-        onPaste={handlePaste}
-        onKeyUp={refreshSelectionState}
-        onMouseUp={refreshSelectionState}
-      />
+      <div className="relative">
+        <div
+          ref={editorRef}
+          className="admin-rich-editor-content"
+          contentEditable
+          suppressContentEditableWarning
+          data-placeholder={placeholder}
+          onInput={emitChange}
+          onBlur={handleBlur}
+          onPaste={handlePaste}
+          onKeyUp={refreshSelectionState}
+          onMouseUp={refreshSelectionState}
+        />
+
+        {selectedImage && (
+          <div
+            className="absolute z-10 bg-white border border-gray-200 shadow-xl rounded-md p-1.5 flex items-center gap-1"
+            style={{
+              top: Math.max(0, selectedImage.offsetTop - 45) + 'px',
+              left: Math.max(0, selectedImage.offsetLeft) + 'px',
+            }}
+          >
+            <button type="button" onClick={() => handleImageResize('25%')} className="px-2 py-1 text-xs font-sans font-semibold text-gray-700 hover:bg-gray-100 rounded">25%</button>
+            <button type="button" onClick={() => handleImageResize('50%')} className="px-2 py-1 text-xs font-sans font-semibold text-gray-700 hover:bg-gray-100 rounded">50%</button>
+            <button type="button" onClick={() => handleImageResize('75%')} className="px-2 py-1 text-xs font-sans font-semibold text-gray-700 hover:bg-gray-100 rounded">75%</button>
+            <button type="button" onClick={() => handleImageResize('100%')} className="px-2 py-1 text-xs font-sans font-semibold text-gray-700 hover:bg-gray-100 rounded">100%</button>
+            <div className="w-px h-4 bg-gray-300 mx-1" />
+            <button type="button" onClick={() => handleImageAlign('left')} className="p-1 text-gray-600 hover:text-zn-purple hover:bg-gray-100 rounded" title="Вляво">
+              <AlignLeft className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={() => handleImageAlign('center')} className="p-1 text-gray-600 hover:text-zn-purple hover:bg-gray-100 rounded" title="В центъра">
+              <AlignCenter className="w-4 h-4" />
+            </button>
+            <button type="button" onClick={() => handleImageAlign('right')} className="p-1 text-gray-600 hover:text-zn-purple hover:bg-gray-100 rounded" title="Вдясно">
+              <AlignRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
 
       <div className="admin-rich-editor-meta">
         <span>{wordCount} думи</span>
