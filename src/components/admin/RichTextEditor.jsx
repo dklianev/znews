@@ -33,6 +33,9 @@ import {
 } from '../../utils/richText';
 import { useData } from '../../context/DataContext';
 
+const IMAGE_WIDTH_VALUES = new Set(['25', '50', '75', '100']);
+const IMAGE_ALIGN_VALUES = new Set(['left', 'center', 'right']);
+
 function ToolbarButton({ onClick, title, children, active = false, disabled = false }) {
   return (
     <button
@@ -94,6 +97,7 @@ export default function RichTextEditor({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [mediaQuery, setMediaQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
+  const selectedImageRef = useRef(null);
 
   const filteredMedia = useMemo(() => {
     const q = mediaQuery.trim().toLowerCase();
@@ -109,13 +113,20 @@ export default function RichTextEditor({
     }
   }, [value]);
 
+  useEffect(() => {
+    selectedImageRef.current = selectedImage;
+  }, [selectedImage]);
+
   const refreshSelectionState = useCallback(() => {
     setSelectionTick((prev) => prev + 1);
     setBlockTag(getCurrentBlockTag());
-    if (selectedImage && !document.body.contains(selectedImage)) {
+    if (typeof document === 'undefined') return;
+    const activeImage = selectedImageRef.current;
+    if (activeImage && !document.body.contains(activeImage)) {
+      selectedImageRef.current = null;
       setSelectedImage(null);
     }
-  }, [selectedImage]);
+  }, []);
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
@@ -134,17 +145,18 @@ export default function RichTextEditor({
         setSelectedImage(null);
       }
     };
+    const handleEditorInput = () => setSelectedImage(null);
     document.addEventListener('selectionchange', handleSelectionChange);
     const editor = editorRef.current;
     if (editor) {
       editor.addEventListener('click', handleEditorClick);
-      editor.addEventListener('input', () => setSelectedImage(null));
+      editor.addEventListener('input', handleEditorInput);
     }
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
       if (editor) {
         editor.removeEventListener('click', handleEditorClick);
-        editor.removeEventListener('input', () => setSelectedImage(null));
+        editor.removeEventListener('input', handleEditorInput);
       }
     };
   }, [refreshSelectionState]);
@@ -248,7 +260,7 @@ export default function RichTextEditor({
 
     const src = escapeHtmlAttribute(mediaUrl);
     const alt = escapeHtmlAttribute(String(mediaName || '').trim().slice(0, 180));
-    const imageHtml = `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" style="width: 100%; height: auto; display: block; margin-left: auto; margin-right: auto;"><p><br></p>`;
+    const imageHtml = `<img src="${src}" alt="${alt}" loading="lazy" decoding="async" data-width="100" data-align="center"><p><br></p>`;
     document.execCommand('insertHTML', false, imageHtml);
 
     emitChange();
@@ -259,29 +271,18 @@ export default function RichTextEditor({
 
   const handleImageResize = (width) => {
     if (!selectedImage) return;
-    selectedImage.style.width = width;
-    selectedImage.style.height = 'auto';
+    const normalizedWidth = String(width || '').replace('%', '').trim();
+    if (!IMAGE_WIDTH_VALUES.has(normalizedWidth)) return;
+    selectedImage.setAttribute('data-width', normalizedWidth);
     emitChange();
     setSelectionTick((prev) => prev + 1);
   };
 
   const handleImageAlign = (align) => {
     if (!selectedImage) return;
-    if (align === 'left') {
-      selectedImage.style.float = 'left';
-      selectedImage.style.margin = '0 1rem 1rem 0';
-      selectedImage.style.display = '';
-    } else if (align === 'right') {
-      selectedImage.style.float = 'right';
-      selectedImage.style.margin = '0 0 1rem 1rem';
-      selectedImage.style.display = '';
-    } else {
-      selectedImage.style.float = 'none';
-      selectedImage.style.display = 'block';
-      selectedImage.style.marginLeft = 'auto';
-      selectedImage.style.marginRight = 'auto';
-      selectedImage.style.margin = '0 auto 1rem auto';
-    }
+    const normalizedAlign = String(align || '').trim().toLowerCase();
+    if (!IMAGE_ALIGN_VALUES.has(normalizedAlign)) return;
+    selectedImage.setAttribute('data-align', normalizedAlign);
     emitChange();
     setSelectionTick((prev) => prev + 1);
   };

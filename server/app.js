@@ -1927,6 +1927,16 @@ function sanitizeExternalUrl(value) {
   return '#';
 }
 
+function sanitizeImageWidth(value) {
+  const normalized = normalizeText(String(value || ''), 8).replace('%', '');
+  return ['25', '50', '75', '100'].includes(normalized) ? normalized : '100';
+}
+
+function sanitizeImageAlign(value) {
+  const normalized = normalizeText(String(value || ''), 16).toLowerCase();
+  return ['left', 'center', 'right'].includes(normalized) ? normalized : 'center';
+}
+
 function sanitizeTags(value) {
   const rawTags = Array.isArray(value)
     ? value
@@ -2021,21 +2031,33 @@ function sanitizeSafeHtml(value) {
     if (tagName === 'img') {
       let src = '';
       let alt = '';
+      let width = '';
+      let align = '';
 
       const quotedSrcMatch = rawAttrs.match(/\ssrc\s*=\s*(['"])(.*?)\1/i);
       const bareSrcMatch = rawAttrs.match(/\ssrc\s*=\s*([^\s>]+)/i);
       const quotedAltMatch = rawAttrs.match(/\salt\s*=\s*(['"])(.*?)\1/i);
       const bareAltMatch = rawAttrs.match(/\salt\s*=\s*([^\s>]+)/i);
+      const quotedWidthMatch = rawAttrs.match(/\sdata-width\s*=\s*(['"])(.*?)\1/i);
+      const bareWidthMatch = rawAttrs.match(/\sdata-width\s*=\s*([^\s>]+)/i);
+      const quotedAlignMatch = rawAttrs.match(/\sdata-align\s*=\s*(['"])(.*?)\1/i);
+      const bareAlignMatch = rawAttrs.match(/\sdata-align\s*=\s*([^\s>]+)/i);
 
       if (quotedSrcMatch) src = quotedSrcMatch[2];
       else if (bareSrcMatch) src = bareSrcMatch[1];
       if (quotedAltMatch) alt = quotedAltMatch[2];
       else if (bareAltMatch) alt = bareAltMatch[1];
+      if (quotedWidthMatch) width = quotedWidthMatch[2];
+      else if (bareWidthMatch) width = bareWidthMatch[1];
+      if (quotedAlignMatch) align = quotedAlignMatch[2];
+      else if (bareAlignMatch) align = bareAlignMatch[1];
 
       const safeSrc = sanitizeMediaUrl(src);
       if (!safeSrc) return '';
       const safeAlt = normalizeText(alt, 180);
-      return `<img src="${escapeHtml(safeSrc)}" alt="${escapeHtml(safeAlt)}" loading="lazy" decoding="async">`;
+      const safeWidth = sanitizeImageWidth(width);
+      const safeAlign = sanitizeImageAlign(align);
+      return `<img src="${escapeHtml(safeSrc)}" alt="${escapeHtml(safeAlt)}" loading="lazy" decoding="async" data-width="${escapeHtml(safeWidth)}" data-align="${escapeHtml(safeAlign)}">`;
     }
     if (tagName !== 'a') return `<${tagName}>`;
 

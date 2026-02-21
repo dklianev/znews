@@ -16,6 +16,9 @@ const ALLOWED_TAGS = new Set([
   'img',
 ]);
 
+const IMAGE_WIDTH_VALUES = new Set(['25', '50', '75', '100']);
+const IMAGE_ALIGN_VALUES = new Set(['left', 'center', 'right']);
+
 function sanitizeHref(value) {
   if (typeof value !== 'string') return '#';
   const trimmed = value.trim();
@@ -45,6 +48,16 @@ function normalizeImageAlt(value) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 180);
+}
+
+function sanitizeImageWidth(value) {
+  const normalized = String(value || '').trim();
+  return IMAGE_WIDTH_VALUES.has(normalized) ? normalized : '100';
+}
+
+function sanitizeImageAlign(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return IMAGE_ALIGN_VALUES.has(normalized) ? normalized : 'center';
 }
 
 function unwrapElement(element) {
@@ -106,6 +119,8 @@ function normalizeNodes(root) {
     const hrefSource = tag === 'a' ? (activeNode.getAttribute('href') || node.getAttribute('href') || '') : '';
     const srcSource = tag === 'img' ? (activeNode.getAttribute('src') || node.getAttribute('src') || '') : '';
     const altSource = tag === 'img' ? (activeNode.getAttribute('alt') || node.getAttribute('alt') || '') : '';
+    const widthSource = tag === 'img' ? (activeNode.getAttribute('data-width') || node.getAttribute('data-width') || '') : '';
+    const alignSource = tag === 'img' ? (activeNode.getAttribute('data-align') || node.getAttribute('data-align') || '') : '';
 
     if ((tag === 'span' || tag === 'font') && applyInlineStyleSemantics(activeNode)) {
       unwrapElement(activeNode);
@@ -143,6 +158,8 @@ function normalizeNodes(root) {
       activeNode.setAttribute('alt', normalizeImageAlt(altSource));
       activeNode.setAttribute('loading', 'lazy');
       activeNode.setAttribute('decoding', 'async');
+      activeNode.setAttribute('data-width', sanitizeImageWidth(widthSource));
+      activeNode.setAttribute('data-align', sanitizeImageAlign(alignSource));
     }
   });
 }
@@ -221,6 +238,7 @@ export function cleanPastedHtml(inputHtml) {
       }
       if (name === 'href' && tagName === 'a') return;
       if ((name === 'src' || name === 'alt') && tagName === 'img') return;
+      if ((name === 'data-width' || name === 'data-align') && tagName === 'img') return;
       node.removeAttribute(attr.name);
     });
   });
