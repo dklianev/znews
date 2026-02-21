@@ -26,6 +26,7 @@ export default function HomePage() {
     featuredArticles,
     latestArticles,
     crimeArticles,
+    breakingArticles,
     emergencyArticles,
     reportageArticles,
     activeCategories,
@@ -51,6 +52,7 @@ export default function HomePage() {
       : safeArticles;
 
     const crimeArticles = safeArticles.filter(a => a.category === 'crime' || a.category === 'underground').slice(0, 4);
+    const breakingArticles = safeArticles.filter(a => a.category === 'breaking').slice(0, 2);
     const emergencyArticles = safeArticles.filter(a => a.category === 'emergency').slice(0, 2);
     const reportageArticles = safeArticles.filter(a => a.category === 'reportage').slice(0, 3);
     const activeCategories = safeCategories.filter(c => c.id !== 'all');
@@ -92,6 +94,7 @@ export default function HomePage() {
       featuredArticles,
       latestArticles,
       crimeArticles,
+      breakingArticles,
       emergencyArticles,
       reportageArticles,
       activeCategories,
@@ -241,7 +244,7 @@ export default function HomePage() {
             <Link
               key={cat.id}
               to={`/category/${cat.id}`}
-              className={`comic-chip ${['crime', 'underground', 'emergency'].includes(cat.id) ? 'comic-chip-hot' : ''}`}
+              className={`comic-chip ${['crime', 'underground', 'emergency', 'breaking'].includes(cat.id) ? 'comic-chip-hot' : ''}`}
               style={{ '--chip-tilt': `${index % 2 === 0 ? -1.4 : 1.2}deg` }}
             >
               {cat.name}
@@ -372,6 +375,33 @@ export default function HomePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {reportageArticles.map((article, index) => {
                   const design = getComicCardStyle('homeReportage', index, article, layoutPresets.homeReportage);
+                  return (
+                    <ComicNewsCard
+                      key={article.id}
+                      article={article}
+                      tilt={design.tilt}
+                      variant={design.variant}
+                      sticker={design.sticker}
+                      stripe={design.stripe}
+                    />
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* ═══ Breaking Category ═══ */}
+          {breakingArticles.length > 0 && (
+            <section className="pt-1">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="comic-ribbon-hot" style={{ transform: 'rotate(-0.4deg)' }}>
+                  Спешни
+                </div>
+                <div className="flex-1 h-1 bg-gradient-to-r from-zn-hot/40 to-transparent" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {breakingArticles.map((article, index) => {
+                  const design = getComicCardStyle('homeEmergency', index, article, layoutPresets.homeEmergency);
                   return (
                     <ComicNewsCard
                       key={article.id}

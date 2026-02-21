@@ -10,6 +10,7 @@ const DEFAULT_NAV_LINKS = [
   { to: '/category/crime', label: 'Криминални', hot: true },
   { to: '/category/underground', label: 'Подземен свят', hot: true },
   { to: '/category/emergency', label: 'Полиция' },
+  { to: '/category/breaking', label: 'Спешни', hot: true },
   { to: '/category/reportage', label: 'Репортажи' },
   { to: '/category/politics', label: 'Политика' },
   { to: '/category/business', label: 'Бизнес' },
@@ -45,7 +46,7 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleDark } = useTheme();
-  const { siteSettings } = useData();
+  const { siteSettings, categories } = useData();
 
   const [pushStatus, setPushStatus] = useState('idle');
 
@@ -106,7 +107,20 @@ export default function Navbar() {
   const navLinksRaw = Array.isArray(siteSettings?.navbarLinks) && siteSettings.navbarLinks.length > 0
     ? siteSettings.navbarLinks
     : DEFAULT_NAV_LINKS;
-  const navLinks = navLinksRaw.filter((item) => item?.to !== '/category/sports');
+  const navLinksBase = navLinksRaw.filter((item) => item?.to !== '/category/sports');
+  const hasBreakingCategory = Array.isArray(categories) && categories.some((item) => item?.id === 'breaking');
+  const hasBreakingLink = navLinksBase.some((item) => item?.to === '/category/breaking');
+  const navLinks = (() => {
+    if (!hasBreakingCategory || hasBreakingLink) return navLinksBase;
+    const breakingLink = { to: '/category/breaking', label: 'Спешни', hot: true };
+    const emergencyIndex = navLinksBase.findIndex((item) => item?.to === '/category/emergency');
+    if (emergencyIndex === -1) return [...navLinksBase, breakingLink];
+    return [
+      ...navLinksBase.slice(0, emergencyIndex + 1),
+      breakingLink,
+      ...navLinksBase.slice(emergencyIndex + 1),
+    ];
+  })();
 
   const spotlightLinksRaw = Array.isArray(siteSettings?.spotlightLinks) && siteSettings.spotlightLinks.length > 0
     ? siteSettings.spotlightLinks

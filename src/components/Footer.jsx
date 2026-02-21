@@ -14,6 +14,7 @@ const DEFAULT_FOOTER_QUICK_LINKS = [
   { label: 'Криминални', to: '/category/crime' },
   { label: 'Подземен свят', to: '/category/underground' },
   { label: 'Полиция', to: '/category/emergency' },
+  { label: 'Спешни', to: '/category/breaking' },
   { label: 'Политика', to: '/category/politics' },
   { label: 'Бизнес', to: '/category/business' },
   { label: 'Общество', to: '/category/society' },
@@ -34,14 +35,19 @@ const DEFAULT_CONTACT = {
 };
 
 export default function Footer() {
-  const { siteSettings } = useData();
+  const { siteSettings, categories } = useData();
   const footerPills = Array.isArray(siteSettings?.footerPills) && siteSettings.footerPills.length > 0
     ? siteSettings.footerPills
     : DEFAULT_FOOTER_PILLS;
   const quickLinksRaw = Array.isArray(siteSettings?.footerQuickLinks) && siteSettings.footerQuickLinks.length > 0
     ? siteSettings.footerQuickLinks
     : DEFAULT_FOOTER_QUICK_LINKS;
-  const quickLinks = quickLinksRaw.filter((item) => item?.to !== '/category/sports');
+  const quickLinksBase = quickLinksRaw.filter((item) => item?.to !== '/category/sports');
+  const hasBreakingCategory = Array.isArray(categories) && categories.some((item) => item?.id === 'breaking');
+  const hasBreakingLink = quickLinksBase.some((item) => item?.to === '/category/breaking');
+  const quickLinks = hasBreakingCategory && !hasBreakingLink
+    ? [...quickLinksBase, { label: 'Спешни', to: '/category/breaking' }]
+    : quickLinksBase;
   const infoLinks = Array.isArray(siteSettings?.footerInfoLinks) && siteSettings.footerInfoLinks.length > 0
     ? siteSettings.footerInfoLinks
     : DEFAULT_FOOTER_INFO_LINKS;
