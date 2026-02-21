@@ -2152,6 +2152,14 @@ div.bg-zn-bg.text-white {
   text-decoration: underline;
 }
 
+.admin-rich-editor-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1rem 0;
+  border: 1px solid #e4ddd4;
+}
+
 .admin-rich-editor-meta {
   display: flex;
   flex-wrap: wrap;

@@ -281,8 +281,8 @@ export default function HomePage() {
                     <span className="comic-sticker">{slot.sticker}</span>
                   </div>
 
-                  <div className={isLead ? 'md:grid md:grid-cols-[1.15fr_0.85fr] md:min-h-[330px] md:h-full md:items-stretch' : ''}>
-                    <div className={`relative overflow-hidden ${isLead ? 'h-64 md:h-full' : 'h-44'}`}>
+                  <div className="flex flex-col h-full">
+                    <div className={`relative overflow-hidden shrink-0 ${isLead ? 'h-64 md:h-[360px]' : 'h-44'}`}>
                       <ResponsiveImage
                         src={article.image}
                         pipeline={article.imageMeta}
@@ -290,7 +290,7 @@ export default function HomePage() {
                         alt={article.title}
                         loading="lazy"
                         decoding="async"
-                        sizes={isLead ? '(max-width: 768px) 100vw, 56vw' : '(max-width: 768px) 100vw, 28vw'}
+                        sizes={isLead ? '(max-width: 768px) 100vw, 66vw' : '(max-width: 768px) 100vw, 33vw'}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         pictureClassName="block w-full h-full"
                       />
@@ -300,14 +300,14 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <div className={`p-4 flex flex-col justify-between gap-3 ${isLead ? 'md:h-full' : ''}`}>
-                      <h3 className={`font-display font-black uppercase leading-tight text-zn-black group-hover:text-zn-hot transition-colors ${isLead ? 'text-2xl md:text-[2rem]' : 'text-lg'}`}>
+                    <div className={`p-4 flex flex-col justify-between gap-3 flex-1`}>
+                      <h3 className={`font-display font-black uppercase leading-tight text-zn-black group-hover:text-zn-hot transition-colors ${isLead ? 'text-2xl md:text-3xl' : 'text-lg'} line-clamp-4`}>
                         {article.title}
                       </h3>
-                      <p className={`text-zn-text-muted italic ${isLead ? 'line-clamp-5 text-sm' : 'line-clamp-3 text-sm'}`}>
+                      <p className={`text-zn-text-muted italic ${isLead ? 'line-clamp-3 text-base' : 'line-clamp-3 text-sm'}`}>
                         {article.excerpt}
                       </p>
-                      <div className="flex items-center justify-between border-t-2 border-zn-border/50 pt-2 text-xs font-display font-black uppercase tracking-[0.08em] text-zn-text-dim">
+                      <div className="flex items-center justify-between border-t-2 border-zn-border/50 pt-2 text-xs font-display font-black uppercase tracking-[0.08em] text-zn-text-dim mt-auto">
                         <span>{categoryName}</span>
                         <span className="inline-flex items-center gap-1 text-zn-hot">
                           <Eye className="w-3.5 h-3.5" />

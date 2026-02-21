@@ -12,6 +12,10 @@ import {
   Quote,
   Link as LinkIcon,
   Unlink,
+  Image as ImageIcon,
+  Search,
+  RefreshCw,
+  X,
   Eraser,
   Undo2,
   Redo2,
@@ -22,6 +26,7 @@ import {
   countWordsFromHtml,
   estimateReadTimeFromHtml,
 } from '../../utils/richText';
+import { useData } from '../../context/DataContext';
 
 function ToolbarButton({ onClick, title, children, active = false, disabled = false }) {
   return (
@@ -62,15 +67,33 @@ function queryState(command) {
   }
 }
 
+function escapeHtmlAttribute(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 export default function RichTextEditor({
   value,
   onChange,
   placeholder = 'Напиши съдържанието на статията...',
   className = '',
 }) {
+  const { media, refreshMedia } = useData();
   const editorRef = useRef(null);
+  const savedRangeRef = useRef(null);
   const [selectionTick, setSelectionTick] = useState(0);
   const [blockTag, setBlockTag] = useState('P');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [mediaQuery, setMediaQuery] = useState('');
+
+  const filteredMedia = useMemo(() => {
+    const q = mediaQuery.trim().toLowerCase();
+    if (!q) return media;
+    return media.filter((item) => (item.name || '').toLowerCase().includes(q));
+  }, [media, mediaQuery]);
 
   useEffect(() => {
     if (!editorRef.current) return;
@@ -131,6 +154,55 @@ export default function RichTextEditor({
     if (!href) return;
     execCommand('createLink', href.trim());
   }, [execCommand]);
+
+  const captureSelectionRange = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return;
+    savedRangeRef.current = range.cloneRange();
+  }, []);
+
+  const restoreSelectionRange = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection) return;
+
+    selection.removeAllRanges();
+    if (savedRangeRef.current) {
+      selection.addRange(savedRangeRef.current);
+      return;
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    selection.addRange(range);
+  }, []);
+
+  const handleOpenImagePicker = useCallback(() => {
+    captureSelectionRange();
+    setPickerOpen(true);
+  }, [captureSelectionRange]);
+
+  const handleInsertImage = useCallback((mediaUrl, mediaName = '') => {
+    if (!mediaUrl || !editorRef.current) return;
+    editorRef.current.focus();
+    restoreSelectionRange();
+
+    const src = escapeHtmlAttribute(mediaUrl);
+    const alt = escapeHtmlAttribute(String(mediaName || '').trim().slice(0, 180));
+    const imageHtml = `<img src="${src}" alt="${alt}" loading="lazy" decoding="async"><p><br></p>`;
+    document.execCommand('insertHTML', false, imageHtml);
+
+    emitChange();
+    refreshSelectionState();
+    setPickerOpen(false);
+    setMediaQuery('');
+  }, [emitChange, refreshSelectionState, restoreSelectionRange]);
 
   const handlePaste = (event) => {
     const html = event.clipboardData?.getData('text/html');
@@ -243,6 +315,14 @@ export default function RichTextEditor({
         <span className="admin-rich-editor-divider" />
 
         <div className="admin-rich-editor-group">
+          <ToolbarButton onClick={handleOpenImagePicker} title="Вмъкни снимка от Media Library">
+            <ImageIcon className="w-4 h-4" />
+          </ToolbarButton>
+        </div>
+
+        <span className="admin-rich-editor-divider" />
+
+        <div className="admin-rich-editor-group">
           <ToolbarButton onClick={() => execCommand('undo')} title="Undo (Ctrl+Z)">
             <Undo2 className="w-4 h-4" />
           </ToolbarButton>
@@ -273,6 +353,83 @@ export default function RichTextEditor({
         <span>{readTime} мин четене</span>
         <span className="admin-rich-editor-shortcuts">Shortcut: Ctrl+B / Ctrl+I / Ctrl+U</span>
       </div>
+
+      {pickerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-4" onClick={() => setPickerOpen(false)}>
+          <div className="bg-white max-w-5xl w-full max-h-[80vh] overflow-hidden border border-gray-200 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
+              <h3 className="font-display text-lg font-black text-gray-900 uppercase tracking-wider">Media Library</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={refreshMedia}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 text-xs font-sans text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Обнови
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(false)}
+                  className="p-1.5 text-gray-400 hover:text-gray-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 border-b border-gray-200">
+              <div className="relative max-w-md">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  value={mediaQuery}
+                  onChange={(event) => setMediaQuery(event.target.value)}
+                  placeholder="Търси по име на файл..."
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
+                />
+              </div>
+            </div>
+
+            <div className="p-4 overflow-y-auto max-h-[58vh]">
+              {filteredMedia.length === 0 ? (
+                <div className="text-center py-14 border border-dashed border-gray-300 bg-gray-50">
+                  <ImageIcon className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm font-sans text-gray-400">Няма снимки в библиотеката</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {filteredMedia.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleInsertImage(item.url, item.name)}
+                      className="text-left border border-gray-200 hover:border-zn-purple/50 transition-colors overflow-hidden"
+                    >
+                      <div className="aspect-[4/3] bg-gray-100 overflow-hidden">
+                        <img
+                          src={item.url}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                      <div className="px-2.5 py-2">
+                        <p className="text-[11px] font-sans font-semibold text-gray-700 truncate" title={item.name}>
+                          {item.name}
+                        </p>
+                        <p className="text-[10px] font-sans text-gray-400 mt-0.5">
+                          {(item.size / 1024).toFixed(1)} KB
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

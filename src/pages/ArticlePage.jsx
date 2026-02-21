@@ -603,6 +603,7 @@ export default function ArticlePage() {
                   [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ul]:font-sans
                   [&_li]:mb-1
                   [&_a]:text-zn-hot [&_a]:underline
+                  [&_img]:w-full [&_img]:h-auto [&_img]:my-6 [&_img]:rounded-sm [&_img]:border [&_img]:border-zn-border
                 "
                 dangerouslySetInnerHTML={{ __html: articlePresentation.html }}
               />

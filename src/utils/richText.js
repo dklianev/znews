@@ -13,6 +13,7 @@ const ALLOWED_TAGS = new Set([
   'blockquote',
   'h2', 'h3', 'h4',
   'a',
+  'img',
 ]);
 
 function sanitizeHref(value) {
@@ -25,6 +26,25 @@ function sanitizeHref(value) {
     if (url.protocol === 'http:' || url.protocol === 'https:') return url.toString();
   } catch { }
   return '#';
+}
+
+function sanitizeImageSrc(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('/')) return trimmed;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol === 'http:' || url.protocol === 'https:') return url.toString();
+  } catch { }
+  return '';
+}
+
+function normalizeImageAlt(value) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
 }
 
 function unwrapElement(element) {
@@ -84,6 +104,8 @@ function normalizeNodes(root) {
     const activeNode = mappedTag !== originalTag ? replaceTag(node, mappedTag) : node;
     const tag = activeNode.tagName.toLowerCase();
     const hrefSource = tag === 'a' ? (activeNode.getAttribute('href') || node.getAttribute('href') || '') : '';
+    const srcSource = tag === 'img' ? (activeNode.getAttribute('src') || node.getAttribute('src') || '') : '';
+    const altSource = tag === 'img' ? (activeNode.getAttribute('alt') || node.getAttribute('alt') || '') : '';
 
     if ((tag === 'span' || tag === 'font') && applyInlineStyleSemantics(activeNode)) {
       unwrapElement(activeNode);
@@ -108,6 +130,19 @@ function normalizeNodes(root) {
       activeNode.setAttribute('href', href);
       activeNode.setAttribute('target', '_blank');
       activeNode.setAttribute('rel', 'noopener noreferrer');
+      return;
+    }
+
+    if (tag === 'img') {
+      const src = sanitizeImageSrc(srcSource);
+      if (!src) {
+        activeNode.remove();
+        return;
+      }
+      activeNode.setAttribute('src', src);
+      activeNode.setAttribute('alt', normalizeImageAlt(altSource));
+      activeNode.setAttribute('loading', 'lazy');
+      activeNode.setAttribute('decoding', 'async');
     }
   });
 }
@@ -168,6 +203,7 @@ export function cleanPastedHtml(inputHtml) {
   });
 
   root.querySelectorAll('*').forEach((node) => {
+    const tagName = node.tagName?.toLowerCase() || '';
     [...node.attributes].forEach((attr) => {
       const name = attr.name.toLowerCase();
       if (name.startsWith('on')) {
@@ -183,7 +219,8 @@ export function cleanPastedHtml(inputHtml) {
         else node.removeAttribute('style');
         return;
       }
-      if (name === 'href') return;
+      if (name === 'href' && tagName === 'a') return;
+      if ((name === 'src' || name === 'alt') && tagName === 'img') return;
       node.removeAttribute(attr.name);
     });
   });

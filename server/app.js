@@ -2007,7 +2007,7 @@ function sanitizeSafeHtml(value) {
   html = html.replace(/\sstyle\s*=\s*(['"]).*?\1/gi, '');
   html = html.replace(/\sstyle\s*=\s*[^\s>]+/gi, '');
 
-  const allowedTags = new Set(['p', 'br', 'strong', 'em', 'u', 's', 'ul', 'ol', 'li', 'blockquote', 'h2', 'h3', 'h4', 'hr', 'a']);
+  const allowedTags = new Set(['p', 'br', 'strong', 'em', 'u', 's', 'ul', 'ol', 'li', 'blockquote', 'h2', 'h3', 'h4', 'hr', 'a', 'img']);
 
   html = html.replace(/<\/?([a-z0-9-]+)([^>]*)>/gi, (fullMatch, rawTagName, rawAttrs) => {
     const tagName = rawTagName.toLowerCase();
@@ -2016,6 +2016,25 @@ function sanitizeSafeHtml(value) {
     if (!allowedTags.has(tagName)) return '';
     if (isClosing) return `</${tagName}>`;
     if (tagName === 'br' || tagName === 'hr') return `<${tagName}>`;
+    if (tagName === 'img') {
+      let src = '';
+      let alt = '';
+
+      const quotedSrcMatch = rawAttrs.match(/\ssrc\s*=\s*(['"])(.*?)\1/i);
+      const bareSrcMatch = rawAttrs.match(/\ssrc\s*=\s*([^\s>]+)/i);
+      const quotedAltMatch = rawAttrs.match(/\salt\s*=\s*(['"])(.*?)\1/i);
+      const bareAltMatch = rawAttrs.match(/\salt\s*=\s*([^\s>]+)/i);
+
+      if (quotedSrcMatch) src = quotedSrcMatch[2];
+      else if (bareSrcMatch) src = bareSrcMatch[1];
+      if (quotedAltMatch) alt = quotedAltMatch[2];
+      else if (bareAltMatch) alt = bareAltMatch[1];
+
+      const safeSrc = sanitizeMediaUrl(src);
+      if (!safeSrc) return '';
+      const safeAlt = normalizeText(alt, 180);
+      return `<img src="${escapeHtml(safeSrc)}" alt="${escapeHtml(safeAlt)}" loading="lazy" decoding="async">`;
+    }
     if (tagName !== 'a') return `<${tagName}>`;
 
     let href = '';
@@ -2027,7 +2046,7 @@ function sanitizeSafeHtml(value) {
     const safeHref = sanitizeExternalUrl(href);
     if (safeHref === '#') return '<a>';
 
-    return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer">`;
+    return `<a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer">`;
   });
 
   return html;
@@ -4783,14 +4802,22 @@ app.delete('/api/media/:fileName', requireAuth, requireAnyPermission(['articles'
       getOriginalUploadUrl(fileName),
     ])];
 
-    const [articleUse, adUse, galleryUse, eventUse] = await Promise.all([
+    const escapedContentUrls = candidateMediaUrls
+      .map((candidateUrl) => String(candidateUrl).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .filter(Boolean);
+    const contentUsageRegex = escapedContentUrls.length > 0
+      ? new RegExp(escapedContentUrls.join('|'))
+      : null;
+
+    const [articleUse, articleContentUse, adUse, galleryUse, eventUse] = await Promise.all([
       Article.exists({ image: { $in: candidateMediaUrls } }),
+      contentUsageRegex ? Article.exists({ content: contentUsageRegex }) : Promise.resolve(false),
       Ad.exists({ image: { $in: candidateMediaUrls } }),
       Gallery.exists({ image: { $in: candidateMediaUrls } }),
       Event.exists({ image: { $in: candidateMediaUrls } }),
     ]);
 
-    if (articleUse || adUse || galleryUse || eventUse) {
+    if (articleUse || articleContentUse || adUse || galleryUse || eventUse) {
       return res.status(409).json({ error: 'File is used in content and cannot be deleted' });
     }
 
