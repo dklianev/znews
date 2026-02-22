@@ -162,14 +162,18 @@ export default function ArticlePage() {
   const articleMetaTags = useMemo(() => {
     if (!article) return null;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const rawImg = article.image || article.shareImage || '';
+    const image = rawImg
+      ? (rawImg.startsWith('http') ? rawImg : `${origin}${rawImg.startsWith('/') ? '' : '/'}${rawImg}`)
+      : `${origin}/og.png`;
     return {
       title: article.title,
       description: article.excerpt || article.title,
-      image: article.image?.startsWith('http') ? article.image : `${origin}${article.image || ''}`,
+      image,
       url: `${origin}/article/${article.id}`,
       type: 'article',
     };
-  }, [article?.id, article?.title, article?.excerpt, article?.image]);
+  }, [article?.id, article?.title, article?.excerpt, article?.image, article?.shareImage]);
   useDocumentMeta(articleMetaTags);
 
   useEffect(() => {
@@ -328,12 +332,16 @@ export default function ArticlePage() {
   const jsonLd = useMemo(() => {
     if (!article) return null;
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const rawImg = article.image || article.shareImage || '';
+    const ldImage = rawImg
+      ? (rawImg.startsWith('http') ? rawImg : `${origin}${rawImg.startsWith('/') ? '' : '/'}${rawImg}`)
+      : `${origin}/og.png`;
     return {
       '@context': 'https://schema.org',
       '@type': 'NewsArticle',
       headline: article.title,
       description: article.excerpt || '',
-      image: article.image?.startsWith('http') ? article.image : `${origin}${article.image || ''}`,
+      image: ldImage,
       datePublished: article.date || '',
       dateModified: article.updatedAt || article.date || '',
       author: author ? { '@type': 'Person', name: author.name } : undefined,
@@ -347,7 +355,7 @@ export default function ArticlePage() {
         '@id': `${origin}/article/${article.id}`,
       },
     };
-  }, [article?.id, article?.title, article?.excerpt, article?.image, article?.date, article?.updatedAt, author?.name]);
+  }, [article?.id, article?.title, article?.excerpt, article?.image, article?.shareImage, article?.date, article?.updatedAt, author?.name]);
 
   const horizontalAds = ads.filter(a => a.type === 'horizontal');
   const sideAds = ads.filter(a => a.type === 'side');

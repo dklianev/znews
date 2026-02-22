@@ -10,6 +10,7 @@ export default function GalleryPage() {
   useDocumentTitle(makeTitle('Галерия'));
   const [selected, setSelected] = useState(null);
   const [filterCat, setFilterCat] = useState('all');
+  const dialogRef = useRef(null);
   const closeBtnRef = useRef(null);
 
   const safeGallery = Array.isArray(gallery) ? gallery : [];
@@ -30,13 +31,42 @@ export default function GalleryPage() {
     setSelected(sorted[selectedIndex - 1]);
   }, [selectedIndex, sorted]);
 
-  // Keyboard handler for lightbox: ESC, ArrowLeft, ArrowRight
+  // Keyboard handler for lightbox: ESC, ArrowLeft, ArrowRight + focus trap
   useEffect(() => {
     if (!selected) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') setSelected(null);
       else if (e.key === 'ArrowLeft') goToPrev();
       else if (e.key === 'ArrowRight') goToNext();
+      else if (e.key === 'Tab') {
+        const dialog = dialogRef.current;
+        if (!dialog) return;
+        const focusable = Array.from(
+          dialog.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+        );
+        if (focusable.length === 0) {
+          e.preventDefault();
+          closeBtnRef.current?.focus();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        const active = document.activeElement;
+        const activeInsideDialog = active instanceof HTMLElement && dialog.contains(active);
+
+        if (e.shiftKey) {
+          if (!activeInsideDialog || active === first) {
+            e.preventDefault();
+            last.focus();
+          }
+          return;
+        }
+
+        if (!activeInsideDialog || active === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
@@ -157,6 +187,7 @@ export default function GalleryPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            ref={dialogRef}
             className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
             onClick={() => setSelected(null)}
             role="dialog"

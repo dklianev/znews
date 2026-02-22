@@ -92,11 +92,16 @@ export default function SearchPage() {
 
   const q = trimmedQuery.toLowerCase();
 
-  const localArticleResults = useMemo(() => !q ? [] : articles.filter(article =>
-    String(article?.title || '').toLowerCase().includes(q) ||
-    String(article?.excerpt || '').toLowerCase().includes(q) ||
-    (Array.isArray(article?.tags) && article.tags.some(t => String(t).toLowerCase().includes(q)))
-  ), [q, articles]);
+  const localArticleResults = useMemo(() => {
+    if (!q) return [];
+    const includeContentSearch = Boolean(trimmedQuery) && Boolean(remoteError);
+    return articles.filter((article) => (
+      String(article?.title || '').toLowerCase().includes(q)
+      || String(article?.excerpt || '').toLowerCase().includes(q)
+      || (Array.isArray(article?.tags) && article.tags.some((t) => String(t).toLowerCase().includes(q)))
+      || (includeContentSearch && String(article?.content || '').toLowerCase().includes(q))
+    ));
+  }, [q, articles, trimmedQuery, remoteError]);
 
   const localJobResults = useMemo(() => !q ? [] : jobs.filter(j =>
     String(j?.title || '').toLowerCase().includes(q) ||
