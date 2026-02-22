@@ -68,7 +68,7 @@ export default function ManageBreaking() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Тикер / Спешни новини</h1>
+          <h1 className="text-2xl font-display font-bold text-gray-900">Тикер / Извънредни новини</h1>
           <p className="text-sm font-sans text-gray-500 mt-1">Управление на бягащия ред с новини</p>
         </div>
         {hasChanges && (
@@ -120,7 +120,7 @@ export default function ManageBreaking() {
           value={newItem}
           onChange={e => setNewItem(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && addItem()}
-          placeholder="Нова спешна новина..."
+          placeholder="Нова извънредна новина..."
         />
         <button
           onClick={addItem}
@@ -165,7 +165,7 @@ export default function ManageBreaking() {
           </div>
         ))}
         {items.length === 0 && (
-          <div className="text-center py-12 text-sm font-sans text-gray-400">Няма спешни новини в тикера</div>
+          <div className="text-center py-12 text-sm font-sans text-gray-400">Няма извънредни новини в тикера</div>
         )}
       </div>
 

@@ -235,7 +235,7 @@ const DEFAULT_SITE_SETTINGS = Object.freeze({
     { to: '/category/crime', label: 'Криминални', hot: true },
     { to: '/category/underground', label: 'Подземен свят', hot: true },
     { to: '/category/emergency', label: 'Полиция' },
-    { to: '/category/breaking', label: 'Спешни', hot: true },
+    { to: '/category/breaking', label: 'Извънредни', hot: true },
     { to: '/category/reportage', label: 'Репортажи' },
     { to: '/category/politics', label: 'Политика' },
     { to: '/category/business', label: 'Бизнес' },
@@ -262,7 +262,7 @@ const DEFAULT_SITE_SETTINGS = Object.freeze({
     { label: 'Криминални', to: '/category/crime' },
     { label: 'Подземен свят', to: '/category/underground' },
     { label: 'Полиция', to: '/category/emergency' },
-    { label: 'Спешни', to: '/category/breaking' },
+    { label: 'Извънредни', to: '/category/breaking' },
     { label: 'Политика', to: '/category/politics' },
     { label: 'Бизнес', to: '/category/business' },
     { label: 'Общество', to: '/category/society' },
@@ -308,6 +308,8 @@ const DEFAULT_SITE_SETTINGS = Object.freeze({
     buttonLink: '/tipline',
   },
 });
+
+const BREAKING_CATEGORY_LABEL = 'Извънредни';
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
@@ -416,7 +418,15 @@ const spacesS3Client = isSpacesStorage
   })
   : null;
 
-app.set('trust proxy', 1);
+const trustProxyRaw = String(process.env.TRUST_PROXY || '').trim();
+if (!trustProxyRaw) {
+  app.set('trust proxy', 1);
+} else if (/^(true|false)$/i.test(trustProxyRaw)) {
+  app.set('trust proxy', trustProxyRaw.toLowerCase() === 'true');
+} else {
+  const trustProxyAsNumber = Number.parseInt(trustProxyRaw, 10);
+  app.set('trust proxy', Number.isFinite(trustProxyAsNumber) ? trustProxyAsNumber : trustProxyRaw);
+}
 
 // ─── Security & Performance Middleware ───
 app.use(compression());
@@ -490,6 +500,20 @@ function stripPortFromIpMaybe(value) {
 }
 
 function getClientIpForRateLimit(req) {
+  const directHeaders = [
+    'cf-connecting-ip',
+    'x-real-ip',
+    'x-client-ip',
+    'true-client-ip',
+    'x-arr-clientip',
+  ];
+  for (const headerName of directHeaders) {
+    const headerValue = req.headers?.[headerName];
+    if (typeof headerValue !== 'string' || !headerValue.trim()) continue;
+    const parsed = stripPortFromIpMaybe(headerValue);
+    if (isIP(parsed)) return parsed;
+  }
+
   const xff = req.headers['x-forwarded-for'];
   if (typeof xff === 'string' && xff.trim()) {
     const fromXff = stripPortFromIpMaybe(xff);
@@ -525,22 +549,50 @@ function rateLimitKeyGenerator(req) {
   return isIP(ip) ? ipKeyGenerator(ip, 56) : String(ip || 'unknown');
 }
 
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
+function parseRateLimitPositiveInt(value, fallback, min = 1) {
+  const parsed = Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed) || parsed < min) return fallback;
+  return parsed;
+}
+
+const rateLimitEnabledInDev = process.env.ENABLE_RATE_LIMIT_IN_DEV === 'true';
+const shouldSkipRateLimit = () => !isProd && !rateLimitEnabledInDev;
+const apiRateLimitWindowMs = parseDurationToMs(process.env.RATE_LIMIT_WINDOW, 15 * 60 * 1000);
+const apiReadRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_READ_MAX, 1200, 100);
+const apiWriteRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_WRITE_MAX, 300, 30);
+const isReadOnlyMethod = (method) => {
+  const normalized = String(method || '').toUpperCase();
+  return normalized === 'GET' || normalized === 'HEAD' || normalized === 'OPTIONS';
+};
+
+const apiReadLimiter = rateLimit({
+  windowMs: apiRateLimitWindowMs,
+  max: apiReadRateLimitMax,
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+  skip: (req) => shouldSkipRateLimit() || !isReadOnlyMethod(req.method),
   keyGenerator: rateLimitKeyGenerator,
 });
-app.use('/api/', generalLimiter);
+
+const apiWriteLimiter = rateLimit({
+  windowMs: apiRateLimitWindowMs,
+  max: apiWriteRateLimitMax,
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => shouldSkipRateLimit() || isReadOnlyMethod(req.method),
+  keyGenerator: rateLimitKeyGenerator,
+});
+
+app.use('/api/', apiReadLimiter);
+app.use('/api/', apiWriteLimiter);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { error: 'Too many login attempts, please try again later.' },
-  skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+  skip: shouldSkipRateLimit,
   keyGenerator: rateLimitKeyGenerator,
 });
 
@@ -548,7 +600,7 @@ const pollVoteLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 30,
   message: { error: 'Too many poll votes from this IP. Please try again later.' },
-  skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+  skip: shouldSkipRateLimit,
   keyGenerator: rateLimitKeyGenerator,
 });
 
@@ -556,7 +608,7 @@ const commentCreateLimiter = rateLimit({
   windowMs: 2 * 60 * 1000,
   max: 3,
   message: { error: 'Too many comments from this IP. Please try again later.' },
-  skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+  skip: shouldSkipRateLimit,
   keyGenerator: rateLimitKeyGenerator,
 });
 
@@ -564,7 +616,7 @@ const contactMessageLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message: { error: 'Too many contact messages from this IP. Please try again later.' },
-  skip: () => !isProd && process.env.ENABLE_RATE_LIMIT_IN_DEV !== 'true',
+  skip: shouldSkipRateLimit,
   keyGenerator: rateLimitKeyGenerator,
 });
 
@@ -2310,16 +2362,26 @@ function sanitizeTilt(value, fallback = '0deg') {
   return /^-?\d+(\.\d+)?deg$/i.test(tilt) ? tilt : fallback;
 }
 
+function normalizeBreakingCategoryLabel(route, rawLabel, maxLen = 50) {
+  const normalizedLabel = normalizeText(rawLabel, maxLen);
+  if (route !== '/category/breaking') return normalizedLabel;
+  if (!normalizedLabel || normalizedLabel.toLowerCase() === 'спешни') return BREAKING_CATEGORY_LABEL;
+  return normalizedLabel;
+}
+
 function sanitizeSiteSettingsPayload(payload) {
   const source = payload && typeof payload === 'object' ? payload : {};
 
   const navbarLinksInput = Array.isArray(source.navbarLinks) ? source.navbarLinks : DEFAULT_SITE_SETTINGS.navbarLinks;
   const navbarLinks = navbarLinksInput
-    .map((item) => ({
-      to: sanitizeInternalPath(item?.to, '/'),
-      label: normalizeText(item?.label, 50),
-      hot: Boolean(item?.hot),
-    }))
+    .map((item) => {
+      const to = sanitizeInternalPath(item?.to, '/');
+      return {
+        to,
+        label: normalizeBreakingCategoryLabel(to, item?.label, 50),
+        hot: Boolean(item?.hot),
+      };
+    })
     .filter((item) => item.label)
     .slice(0, 16);
 
@@ -2357,9 +2419,11 @@ function sanitizeSiteSettingsPayload(payload) {
   const footerQuickLinks = footerQuickLinksInput
     .map((item, idx) => {
       const fallback = DEFAULT_SITE_SETTINGS.footerQuickLinks[idx] || DEFAULT_SITE_SETTINGS.footerQuickLinks[0];
+      const to = sanitizeInternalPath(item?.to, fallback.to);
       return {
-        to: sanitizeInternalPath(item?.to, fallback.to),
-        label: normalizeText(item?.label, 50) || fallback.label,
+        to,
+        label: normalizeBreakingCategoryLabel(to, item?.label, 50)
+          || normalizeBreakingCategoryLabel(to, fallback.label, 50),
       };
     })
     .filter((item) => item.label)
@@ -2823,6 +2887,55 @@ async function ensureDefaultPermissionDocs() {
     );
   } catch (error) {
     console.warn('⚠ Failed to ensure default permissions:', error?.message || error);
+  }
+}
+
+async function migrateBreakingCategoryLabels() {
+  try {
+    await Category.updateOne(
+      {
+        id: 'breaking',
+        $or: [
+          { name: { $exists: false } },
+          { name: null },
+          { name: '' },
+          { name: /^\s*спешни\s*$/i },
+        ],
+      },
+      { $set: { name: BREAKING_CATEGORY_LABEL } }
+    );
+  } catch (error) {
+    console.warn('⚠ Failed to migrate breaking category label:', error?.message || error);
+  }
+
+  try {
+    const doc = await SiteSettings.findOne({ key: 'main' }).lean();
+    if (!doc) return;
+
+    const normalizeBreakingLinks = (links) => {
+      if (!Array.isArray(links)) return { next: null, changed: false };
+      let changed = false;
+      const next = links.map((item) => {
+        if (!item || item.to !== '/category/breaking') return item;
+        const normalizedLabel = normalizeText(item.label, 50);
+        if (normalizedLabel && normalizedLabel.toLowerCase() !== 'спешни') return item;
+        changed = true;
+        return { ...item, label: BREAKING_CATEGORY_LABEL };
+      });
+      return { next, changed };
+    };
+
+    const navbarLinks = normalizeBreakingLinks(doc.navbarLinks);
+    const footerQuickLinks = normalizeBreakingLinks(doc.footerQuickLinks);
+
+    const updates = {};
+    if (navbarLinks.changed) updates.navbarLinks = navbarLinks.next;
+    if (footerQuickLinks.changed) updates.footerQuickLinks = footerQuickLinks.next;
+    if (Object.keys(updates).length === 0) return;
+
+    await SiteSettings.updateOne({ key: 'main' }, { $set: updates });
+  } catch (error) {
+    console.warn('⚠ Failed to migrate breaking labels in site settings:', error?.message || error);
   }
 }
 
@@ -4731,9 +4844,59 @@ app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
   }
 });
 
+const uploadRequestInFlight = new Map();
+const recentUploadResults = new Map();
+const recentUploadTtlMs = 2 * 60 * 1000;
+const recentUploadCacheMax = 300;
+
+function makeUploadFingerprint(buffer, mimeType = '') {
+  return createHash('sha256')
+    .update(buffer)
+    .update('|')
+    .update(String(mimeType || ''))
+    .digest('hex');
+}
+
+function pruneRecentUploadResults() {
+  const now = Date.now();
+  for (const [key, value] of recentUploadResults.entries()) {
+    if (!value || now - value.createdAt > recentUploadTtlMs) {
+      recentUploadResults.delete(key);
+    }
+  }
+  if (recentUploadResults.size <= recentUploadCacheMax) return;
+  const ordered = [...recentUploadResults.entries()]
+    .sort((a, b) => Number(a[1]?.createdAt || 0) - Number(b[1]?.createdAt || 0));
+  const overflow = recentUploadResults.size - recentUploadCacheMax;
+  for (let idx = 0; idx < overflow; idx += 1) {
+    const key = ordered[idx]?.[0];
+    if (key) recentUploadResults.delete(key);
+  }
+}
+
+function getRecentUploadPayload(fingerprint) {
+  pruneRecentUploadResults();
+  const item = recentUploadResults.get(fingerprint);
+  if (!item) return null;
+  if (Date.now() - item.createdAt > recentUploadTtlMs) {
+    recentUploadResults.delete(fingerprint);
+    return null;
+  }
+  return item.payload || null;
+}
+
+function rememberRecentUploadPayload(fingerprint, payload) {
+  recentUploadResults.set(fingerprint, {
+    createdAt: Date.now(),
+    payload,
+  });
+  pruneRecentUploadResults();
+}
+
 // ─── Image Upload Endpoint ───
 app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), (req, res) => {
   upload.single('image')(req, res, async (err) => {
+    let uploadFingerprint = null;
     try {
       if (err) return res.status(400).json({ error: err.message });
       if (!req.file) return res.status(400).json({ error: 'No file provided' });
@@ -4741,64 +4904,83 @@ app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'g
         return res.status(400).json({ error: 'Upload buffer is empty' });
       }
 
-      const sharp = await loadSharp();
-      if (!sharp) {
-        // Fallback if sharp is not installed: save original file
-        const mimeType = normalizeText(req.file.mimetype || '', 120).toLowerCase();
-        const fallbackExt = imageMimeToExt[mimeType] || '.jpg';
-        const fallbackName = `${Date.now()}-${Math.round(Math.random() * 1e6)}${fallbackExt}`;
+      const mimeType = normalizeText(req.file.mimetype || '', 120).toLowerCase();
+      uploadFingerprint = makeUploadFingerprint(req.file.buffer, mimeType);
 
-        await putStorageObject(fallbackName, req.file.buffer, mimeType || 'application/octet-stream');
+      const cachedPayload = getRecentUploadPayload(uploadFingerprint);
+      if (cachedPayload) return res.json(cachedPayload);
 
-        const pipelineManifest = await ensureImagePipeline(fallbackName, { sourceBuffer: req.file.buffer });
-        return res.json({
-          url: getOriginalUploadUrl(fallbackName),
+      const inFlightPayload = uploadRequestInFlight.get(uploadFingerprint);
+      if (inFlightPayload) {
+        const payload = await inFlightPayload;
+        return res.json(payload);
+      }
+
+      const processUpload = (async () => {
+        const sharp = await loadSharp();
+        if (!sharp) {
+          // Fallback if sharp is not installed: save original file
+          const fallbackExt = imageMimeToExt[mimeType] || '.jpg';
+          const fallbackName = `${Date.now()}-${Math.round(Math.random() * 1e6)}${fallbackExt}`;
+
+          await putStorageObject(fallbackName, req.file.buffer, mimeType || 'application/octet-stream');
+
+          const pipelineManifest = await ensureImagePipeline(fallbackName, { sourceBuffer: req.file.buffer });
+          return {
+            url: getOriginalUploadUrl(fallbackName),
+            imageMeta: toImageMetaFromManifest(pipelineManifest),
+            pipelineReady: Boolean(pipelineManifest),
+            pipelineEngine: 'disabled',
+          };
+        }
+
+        // Convert ALL uploads to highly optimized WebP format with Watermark
+        const imgSharp = sharp(req.file.buffer).rotate();
+        const metadata = await imgSharp.metadata();
+
+        const watermarkPath = path.join(__dirname, 'fonts', 'brand-logo.png');
+        let finalBuffer;
+        try {
+          // Watermark size: 20% of image width
+          const wmWidth = Math.max(100, Math.round((metadata.width || 800) * 0.20));
+          const wmBuffer = await sharp(watermarkPath).resize({ width: wmWidth }).toBuffer();
+          const wmMeta = await sharp(wmBuffer).metadata();
+
+          // 3% margin from bottom right
+          const margin = Math.round((metadata.width || 800) * 0.03);
+          const left = (metadata.width || 800) - (wmMeta.width || wmWidth) - margin;
+          const top = (metadata.height || 600) - (wmMeta.height || wmWidth / 4) - margin;
+
+          finalBuffer = await imgSharp
+            .composite([{ input: wmBuffer, left: Math.max(0, left), top: Math.max(0, top), blend: 'over' }])
+            .webp({ quality: 82, effort: 4 })
+            .toBuffer();
+        } catch (e) {
+          console.error('Watermark failed, falling back to simple WebP:', e);
+          finalBuffer = await imgSharp.webp({ quality: 82, effort: 4 }).toBuffer();
+        }
+
+        const fileName = `${Date.now()}-${Math.round(Math.random() * 1e6)}.webp`;
+        await putStorageObject(fileName, finalBuffer, 'image/webp');
+
+        const pipelineManifest = await ensureImagePipeline(fileName, { sourceBuffer: finalBuffer });
+        return {
+          url: getOriginalUploadUrl(fileName),
           imageMeta: toImageMetaFromManifest(pipelineManifest),
           pipelineReady: Boolean(pipelineManifest),
-          pipelineEngine: 'disabled',
-        });
-      }
+          pipelineEngine: 'sharp',
+        };
+      })();
 
-      // Convert ALL uploads to highly optimized WebP format with Watermark
-      const imgSharp = sharp(req.file.buffer).rotate();
-      const metadata = await imgSharp.metadata();
-
-      const watermarkPath = path.join(__dirname, 'fonts', 'brand-logo.png');
-      let finalBuffer;
-      try {
-        // Watermark size: 20% of image width
-        const wmWidth = Math.max(100, Math.round((metadata.width || 800) * 0.20));
-        const wmBuffer = await sharp(watermarkPath).resize({ width: wmWidth }).toBuffer();
-        const wmMeta = await sharp(wmBuffer).metadata();
-
-        // 3% margin from bottom right
-        const margin = Math.round((metadata.width || 800) * 0.03);
-        const left = (metadata.width || 800) - (wmMeta.width || wmWidth) - margin;
-        const top = (metadata.height || 600) - (wmMeta.height || wmWidth / 4) - margin;
-
-        finalBuffer = await imgSharp
-          .composite([{ input: wmBuffer, left: Math.max(0, left), top: Math.max(0, top), blend: 'over' }])
-          .webp({ quality: 82, effort: 4 })
-          .toBuffer();
-      } catch (e) {
-        console.error('Watermark failed, falling back to simple WebP:', e);
-        finalBuffer = await imgSharp.webp({ quality: 82, effort: 4 }).toBuffer();
-      }
-
-      const fileName = `${Date.now()}-${Math.round(Math.random() * 1e6)}.webp`;
-
-      await putStorageObject(fileName, finalBuffer, 'image/webp');
-
-      const pipelineManifest = await ensureImagePipeline(fileName, { sourceBuffer: finalBuffer });
-      return res.json({
-        url: getOriginalUploadUrl(fileName),
-        imageMeta: toImageMetaFromManifest(pipelineManifest),
-        pipelineReady: Boolean(pipelineManifest),
-        pipelineEngine: 'sharp',
-      });
+      uploadRequestInFlight.set(uploadFingerprint, processUpload);
+      const payload = await processUpload;
+      rememberRecentUploadPayload(uploadFingerprint, payload);
+      return res.json(payload);
     } catch (error) {
       console.error('Upload processing error:', error);
       return res.status(500).json({ error: error?.message || 'Upload failed' });
+    } finally {
+      if (uploadFingerprint) uploadRequestInFlight.delete(uploadFingerprint);
     }
   });
 });
@@ -4816,8 +4998,11 @@ app.get('/api/tips', requireAuth, requireAnyPermission(['articles']), async (_re
 const tipRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 3, // limit each IP to 3 tips per hour
+  message: { error: 'Too many tip submissions from this IP. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: shouldSkipRateLimit,
+  keyGenerator: rateLimitKeyGenerator,
 });
 
 app.post('/api/tips', tipRateLimiter, (req, res) => {
@@ -5238,6 +5423,7 @@ export async function startServer() {
     await connectDB();
     await ensureDbIndexes();
     await ensureDefaultPermissionDocs();
+    await migrateBreakingCategoryLabels();
   } catch (err) {
     console.error('✗ MongoDB error:', err.message);
     process.exit(1);

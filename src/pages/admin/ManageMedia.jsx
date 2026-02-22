@@ -18,6 +18,7 @@ export default function ManageMedia() {
   const [dragActive, setDragActive] = useState(false);
   const [cropCandidate, setCropCandidate] = useState(null);
   const fileRef = useRef(null);
+  const uploadLockRef = useRef(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -32,37 +33,45 @@ export default function ManageMedia() {
   }, [media]);
 
   const processFiles = useCallback(async (files) => {
+    if (uploadLockRef.current) return;
     if (!files || files.length === 0) return;
     const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (imageFiles.length === 0) {
       toast.warning('Моля, изберете само изображения');
       return;
     }
+    uploadLockRef.current = true;
     setUploading(true);
     setUploadCount(imageFiles.length);
     let uploaded = 0;
     let failed = 0;
-    for (const file of imageFiles) {
-      try {
-        await uploadMedia(file);
-        uploaded++;
-      } catch {
-        failed++;
+    try {
+      for (const file of imageFiles) {
+        try {
+          await uploadMedia(file, { skipRefresh: true });
+          uploaded++;
+        } catch {
+          failed++;
+        }
       }
+      await refreshMedia();
+      if (failed > 0) {
+        toast.warning(`Качени: ${uploaded}, грешки: ${failed}`);
+      } else if (uploaded === 1) {
+        toast.success('Снимката е качена');
+      } else {
+        toast.success(`${uploaded} снимки качени`);
+      }
+    } finally {
+      uploadLockRef.current = false;
+      setUploading(false);
+      setUploadCount(0);
+      if (fileRef.current) fileRef.current.value = '';
     }
-    setUploading(false);
-    setUploadCount(0);
-    if (failed > 0) {
-      toast.warning(`Качени: ${uploaded}, грешки: ${failed}`);
-    } else if (uploaded === 1) {
-      toast.success('Снимката е качена');
-    } else {
-      toast.success(`${uploaded} снимки качени`);
-    }
-    if (fileRef.current) fileRef.current.value = '';
-  }, [uploadMedia, toast]);
+  }, [uploadMedia, refreshMedia, toast]);
 
   const handleUpload = async (event) => {
+    if (uploadLockRef.current) return;
     const files = event.target.files;
     if (!files || files.length === 0) return;
     const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
@@ -120,6 +129,7 @@ export default function ManageMedia() {
   const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); setDragActive(true); };
   const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); };
   const handleDrop = async (e) => {
+    if (uploadLockRef.current) return;
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);

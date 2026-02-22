@@ -14,7 +14,7 @@ const DEFAULT_FOOTER_QUICK_LINKS = [
   { label: 'Криминални', to: '/category/crime' },
   { label: 'Подземен свят', to: '/category/underground' },
   { label: 'Полиция', to: '/category/emergency' },
-  { label: 'Спешни', to: '/category/breaking' },
+  { label: 'Извънредни', to: '/category/breaking' },
   { label: 'Политика', to: '/category/politics' },
   { label: 'Бизнес', to: '/category/business' },
   { label: 'Общество', to: '/category/society' },
@@ -46,7 +46,7 @@ export default function Footer() {
   const hasBreakingCategory = Array.isArray(categories) && categories.some((item) => item?.id === 'breaking');
   const hasBreakingLink = quickLinksBase.some((item) => item?.to === '/category/breaking');
   const quickLinks = hasBreakingCategory && !hasBreakingLink
-    ? [...quickLinksBase, { label: 'Спешни', to: '/category/breaking' }]
+    ? [...quickLinksBase, { label: 'Извънредни', to: '/category/breaking' }]
     : quickLinksBase;
   const infoLinks = Array.isArray(siteSettings?.footerInfoLinks) && siteSettings.footerInfoLinks.length > 0
     ? siteSettings.footerInfoLinks

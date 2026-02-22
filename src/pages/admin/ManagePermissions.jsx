@@ -7,7 +7,7 @@ const SECTION_LABELS = {
     articles: 'Статии',
     categories: 'Категории',
     ads: 'Реклами',
-    breaking: 'Тикер / Спешни',
+    breaking: 'Тикер / Извънредни',
     wanted: 'Издирвани',
     jobs: 'Обяви',
     court: 'Съд',

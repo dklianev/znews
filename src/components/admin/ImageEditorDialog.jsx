@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
-import { X, Crop, MousePointerClick, Check } from 'lucide-react';
+import { X, Crop, MousePointerClick, Check, Loader2 } from 'lucide-react';
 
 // Helper to create a cropped image
 const createImage = (url) =>
@@ -48,6 +48,7 @@ export default function ImageEditorDialog({
     onSave
 }) {
     const [mode, setMode] = useState('focal'); // 'focal' | 'crop'
+    const [saving, setSaving] = useState(false);
 
     // Crop state
     const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -67,28 +68,39 @@ export default function ImageEditorDialog({
     const onMediaLoaded = (mediaSize) => setMediaSize(mediaSize);
 
     const handleSave = async () => {
+        if (saving) return;
+        setSaving(true);
         if (mode === 'crop') {
             try {
                 const croppedBlob = await getCroppedImg(imageUrl, croppedAreaPixels);
-                onSave({ action: 'crop', file: croppedBlob, objectPosition: null });
+                await onSave({ action: 'crop', file: croppedBlob, objectPosition: null });
             } catch (e) {
                 console.error(e);
                 alert('Грешка при изрязването');
+            } finally {
+                setSaving(false);
             }
         } else {
             // Calculate focal point based on current transform
             // If the image is at x:0, y:0 and zoom:1, the focal point is 50% 50%
             // We can calculate the absolute center of the viewport relative to the image
-            if (mediaSize.width && croppedAreaPixels) {
-                const centerX = croppedAreaPixels.x + (croppedAreaPixels.width / 2);
-                const centerY = croppedAreaPixels.y + (croppedAreaPixels.height / 2);
-                const percentageX = (centerX / mediaSize.width) * 100;
-                const percentageY = (centerY / mediaSize.height) * 100;
+            try {
+                if (mediaSize.width && croppedAreaPixels) {
+                    const centerX = croppedAreaPixels.x + (croppedAreaPixels.width / 2);
+                    const centerY = croppedAreaPixels.y + (croppedAreaPixels.height / 2);
+                    const percentageX = (centerX / mediaSize.width) * 100;
+                    const percentageY = (centerY / mediaSize.height) * 100;
 
-                onSave({
-                    action: 'focal',
-                    objectPosition: `${percentageX.toFixed(0)}% ${percentageY.toFixed(0)}%`
-                });
+                    await onSave({
+                        action: 'focal',
+                        objectPosition: `${percentageX.toFixed(0)}% ${percentageY.toFixed(0)}%`
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Грешка при записа');
+            } finally {
+                setSaving(false);
             }
         }
     };
@@ -107,7 +119,7 @@ export default function ImageEditorDialog({
                             {mode === 'focal' ? 'Задай център на тежестта (Фокусна точка)' : 'Изрежи конкретна част'}
                         </p>
                     </div>
-                    <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700 transition-colors">
+                    <button onClick={onClose} disabled={saving} className="p-2 text-gray-400 hover:text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -116,15 +128,17 @@ export default function ImageEditorDialog({
                 <div className="flex border-b border-gray-200 bg-white">
                     <button
                         onClick={() => setMode('focal')}
+                        disabled={saving}
                         className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-sans font-bold transition-colors ${mode === 'focal' ? 'text-zn-purple border-b-2 border-zn-purple' : 'text-gray-500 hover:bg-gray-50'
-                            }`}
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         <MousePointerClick className="w-4 h-4" /> Фокусна точка
                     </button>
                     <button
                         onClick={() => setMode('crop')}
+                        disabled={saving}
                         className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-sans font-bold transition-colors ${mode === 'crop' ? 'text-zn-purple border-b-2 border-zn-purple' : 'text-gray-500 hover:bg-gray-50'
-                            }`}
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                         <Crop className="w-4 h-4" /> Изрязване (16:9)
                     </button>
@@ -159,6 +173,7 @@ export default function ImageEditorDialog({
                                 step={0.1}
                                 aria-labelledby="Zoom"
                                 onChange={(e) => setZoom(Number(e.target.value))}
+                                disabled={saving}
                                 className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-zn-purple"
                             />
                         </div>
@@ -169,16 +184,18 @@ export default function ImageEditorDialog({
                 <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 text-sm font-sans font-bold text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                        disabled={saving}
+                        className="px-4 py-2 border border-gray-300 text-sm font-sans font-bold text-gray-700 bg-white hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Отказ
                     </button>
                     <button
                         onClick={handleSave}
-                        className="inline-flex items-center gap-2 px-6 py-2 bg-zn-purple text-white text-sm font-sans font-bold hover:bg-zn-purple/90 transition-colors"
+                        disabled={saving}
+                        className="inline-flex items-center gap-2 px-6 py-2 bg-zn-purple text-white text-sm font-sans font-bold hover:bg-zn-purple/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        <Check className="w-4 h-4" />
-                        Запази промените
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        {saving ? 'Запис...' : 'Запази промените'}
                     </button>
                 </div>
 

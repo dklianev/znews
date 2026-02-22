@@ -664,7 +664,7 @@ export default function HomePage() {
             <section className="pt-1">
               <div className="flex items-center gap-3 mb-4">
                 <div className="comic-ribbon-hot" style={{ transform: 'rotate(-0.4deg)' }}>
-                  Спешни
+                  Извънредни
                 </div>
                 <div className="flex-1 h-1 bg-gradient-to-r from-zn-hot/40 to-transparent" />
               </div>

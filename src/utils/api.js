@@ -184,7 +184,12 @@ async function request(path, options = {}, internal = {}) {
     const message = typeof payload === 'string'
       ? payload
       : payload?.error || `HTTP ${res.status}`;
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = res.status;
+    error.payload = payload;
+    const retryAfter = res.headers.get('retry-after');
+    if (retryAfter) error.retryAfter = retryAfter;
+    throw error;
   }
 
   return readResponsePayload(res);
@@ -224,7 +229,12 @@ async function requestBlob(path, options = {}, internal = {}) {
     const message = typeof payload === 'string'
       ? payload
       : payload?.error || `HTTP ${res.status}`;
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = res.status;
+    error.payload = payload;
+    const retryAfter = res.headers.get('retry-after');
+    if (retryAfter) error.retryAfter = retryAfter;
+    throw error;
   }
 
   return res.blob();

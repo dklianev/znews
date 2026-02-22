@@ -16,7 +16,7 @@ const navItems = [
   { to: '/admin/hero', label: 'Hero секция', icon: Crown, permission: 'articles' },
   { to: '/admin/categories', label: 'Категории', icon: FolderOpen, permission: 'categories' },
   { to: '/admin/ads', label: 'Реклами', icon: Megaphone, permission: 'ads' },
-  { to: '/admin/breaking', label: 'Тикер / Спешни', icon: AlertTriangle, permission: 'breaking' },
+  { to: '/admin/breaking', label: 'Тикер / Извънредни', icon: AlertTriangle, permission: 'breaking' },
   { type: 'divider', label: 'RP Секции' },
   { to: '/admin/wanted', label: 'Най-издирвани', icon: Crosshair, permission: 'wanted' },
   { to: '/admin/jobs', label: 'Обяви за работа', icon: Briefcase, permission: 'jobs' },
@@ -233,4 +233,3 @@ export default function AdminLayout() {
     </ToastProvider>
   );
 }
-

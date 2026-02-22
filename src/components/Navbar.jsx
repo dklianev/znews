@@ -10,7 +10,7 @@ const DEFAULT_NAV_LINKS = [
   { to: '/category/crime', label: 'Криминални', hot: true },
   { to: '/category/underground', label: 'Подземен свят', hot: true },
   { to: '/category/emergency', label: 'Полиция' },
-  { to: '/category/breaking', label: 'Спешни', hot: true },
+  { to: '/category/breaking', label: 'Извънредни', hot: true },
   { to: '/category/reportage', label: 'Репортажи' },
   { to: '/category/politics', label: 'Политика' },
   { to: '/category/business', label: 'Бизнес' },
@@ -112,7 +112,7 @@ export default function Navbar() {
   const hasBreakingLink = navLinksBase.some((item) => item?.to === '/category/breaking');
   const navLinks = (() => {
     if (!hasBreakingCategory || hasBreakingLink) return navLinksBase;
-    const breakingLink = { to: '/category/breaking', label: 'Спешни', hot: true };
+    const breakingLink = { to: '/category/breaking', label: 'Извънредни', hot: true };
     const emergencyIndex = navLinksBase.findIndex((item) => item?.to === '/category/emergency');
     if (emergencyIndex === -1) return [...navLinksBase, breakingLink];
     return [

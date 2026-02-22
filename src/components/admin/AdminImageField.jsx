@@ -23,6 +23,7 @@ export default function AdminImageField({
   const [editorUrl, setEditorUrl] = useState(null);
   const [editorFile, setEditorFile] = useState(null);
   const fileRef = useRef(null);
+  const uploadLockRef = useRef(false);
 
   const filteredMedia = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -43,7 +44,9 @@ export default function AdminImageField({
   };
 
   const processFile = async (file) => {
+    if (uploadLockRef.current) return;
     if (!file.type.startsWith('image/')) return;
+    uploadLockRef.current = true;
     setUploading(true);
     try {
       const uploaded = await uploadMedia(file);
@@ -51,6 +54,7 @@ export default function AdminImageField({
     } catch (error) {
       alert(`Грешка при качване: ${error.message}`);
     } finally {
+      uploadLockRef.current = false;
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
     }

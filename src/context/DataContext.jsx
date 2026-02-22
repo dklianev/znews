@@ -49,6 +49,12 @@ export function DataProvider({ children }) {
     const shouldUseHomepagePayload = !session?.token && isHomePath;
 
     const toArray = (value) => (Array.isArray(value) ? value : []);
+    const isRateLimitedError = (error) => {
+      if (!error) return false;
+      if (Number(error?.status) === 429) return true;
+      const message = String(error?.message || '').toLowerCase();
+      return message.includes('too many requests') || message.includes('429');
+    };
     const logPartialErrors = (errors) => {
       if (!errors || typeof errors !== 'object') return;
       Object.entries(errors).forEach(([key, message]) => {
@@ -173,6 +179,7 @@ export function DataProvider({ children }) {
     };
 
     let loadedFromHomepagePayload = false;
+    let hitRateLimit = false;
     if (shouldUseHomepagePayload) {
       try {
         const homepagePayload = await api.homepage.get({ fields: ARTICLE_LIST_FIELDS });
@@ -181,10 +188,13 @@ export function DataProvider({ children }) {
       } catch (error) {
         console.error('Failed to load homepage payload:', error);
         setLoadError(error?.message || 'Неуспешно зареждане на началната страница.');
+        if (isRateLimitedError(error)) {
+          hitRateLimit = true;
+        }
       }
     }
 
-    if (!loadedFromHomepagePayload) {
+    if (!loadedFromHomepagePayload && !hitRateLimit) {
       // Consolidate public data into a single request.
       // Fallback to the legacy parallel requests if bootstrap fails (older server/network edge cases).
       try {
@@ -194,10 +204,19 @@ export function DataProvider({ children }) {
       } catch (error) {
         console.error('Failed to load bootstrap:', error);
         setLoadError(error?.message || 'Неуспешно зареждане на сайта.');
-        await loadLegacyPublicData();
+        if (isRateLimitedError(error)) {
+          hitRateLimit = true;
+        } else {
+          await loadLegacyPublicData();
+        }
       }
-    } else {
+    } else if (loadedFromHomepagePayload) {
       setLoadError('');
+    }
+
+    if (hitRateLimit) {
+      setLoading(false);
+      return;
     }
 
     if (session?.token) {
@@ -497,9 +516,9 @@ export function DataProvider({ children }) {
       setMediaPipelineStatus(null);
     }
   }, []);
-  const uploadMedia = useCallback(async (file) => {
+  const uploadMedia = useCallback(async (file, options = {}) => {
     const uploaded = await api.media.upload(file);
-    await refreshMedia();
+    if (!options?.skipRefresh) await refreshMedia();
     return uploaded;
   }, [refreshMedia]);
   const deleteMedia = useCallback(async (fileName) => {
