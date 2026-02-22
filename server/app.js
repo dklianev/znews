@@ -45,6 +45,8 @@ import {
   Article, Author, Category, Ad, Breaking, User,
   Wanted, Job, Court, Event, Poll, Comment, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription
 } from './models.js';
+import { sortArticlesByRecency } from '../shared/articleRecency.js';
+import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/homepageSelectors.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -2124,6 +2126,30 @@ const ARTICLE_FIELD_ALLOWLIST = new Set([
   'cardSticker',
 ]);
 
+const HOMEPAGE_DEFAULT_ARTICLE_FIELDS = Object.freeze([
+  'id',
+  'title',
+  'excerpt',
+  'category',
+  'authorId',
+  'date',
+  'readTime',
+  'image',
+  'imageMeta',
+  'featured',
+  'breaking',
+  'hero',
+  'views',
+  'status',
+  'publishAt',
+  'cardSticker',
+]);
+
+const HOMEPAGE_DEFAULT_ARTICLE_PROJECTION = HOMEPAGE_DEFAULT_ARTICLE_FIELDS.reduce((acc, field) => {
+  acc[field] = 1;
+  return acc;
+}, { _id: 0 });
+
 const ARTICLE_SECTION_FILTERS = Object.freeze({
   homeFeatured: { featured: true },
   homeCrime: { category: { $in: ['crime', 'underground'] } },
@@ -2135,6 +2161,10 @@ function parsePositiveInt(value, fallback, { min = 1, max = Number.MAX_SAFE_INTE
   const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed)) return fallback;
   return Math.min(max, Math.max(min, parsed));
+}
+
+function escapeRegexForSearch(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildArticleProjection(fieldsParam) {
@@ -2156,32 +2186,6 @@ function buildArticleProjection(fieldsParam) {
 function getArticleSectionFilter(section) {
   const key = normalizeText(section, 40);
   return ARTICLE_SECTION_FILTERS[key] || null;
-}
-
-function getArticleRecencyTimestamp(article) {
-  if (!article || typeof article !== 'object') return 0;
-
-  if (article.publishAt) {
-    const publishAtTs = new Date(article.publishAt).getTime();
-    if (Number.isFinite(publishAtTs)) return publishAtTs;
-  }
-
-  if (article.date) {
-    const dateTs = new Date(article.date).getTime();
-    if (Number.isFinite(dateTs)) return dateTs;
-  }
-
-  const numericId = Number.parseInt(article.id, 10);
-  return Number.isFinite(numericId) ? numericId : 0;
-}
-
-function sortArticlesByRecency(items) {
-  if (!Array.isArray(items) || items.length <= 1) return Array.isArray(items) ? items : [];
-  return [...items].sort((left, right) => {
-    const tsDiff = getArticleRecencyTimestamp(right) - getArticleRecencyTimestamp(left);
-    if (tsDiff !== 0) return tsDiff;
-    return (Number(right?.id) || 0) - (Number(left?.id) || 0);
-  });
 }
 
 function sanitizeSafeHtml(value) {
@@ -4540,7 +4544,9 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
     const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
-    const fieldsProjection = buildArticleProjection(req.query.fields);
+    const latestShowcaseLimit = parsePositiveInt(req.query.latestShowcaseLimit, 5, { min: 1, max: 12 });
+    const latestWireLimit = parsePositiveInt(req.query.latestWireLimit, 16, { min: 0, max: 48 });
+    const fieldsProjection = buildArticleProjection(req.query.fields) || HOMEPAGE_DEFAULT_ARTICLE_PROJECTION;
 
     const stripMongooseFields = (item) => {
       if (!item || typeof item !== 'object') return item;
@@ -4549,11 +4555,22 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
       return item;
     };
 
+    const homepagePayloadFallbacks = {
+      articles: [],
+      authors: [],
+      categories: [],
+      ads: [],
+      breaking: [],
+      heroSettings: null,
+      siteSettings: null,
+      wanted: [],
+      polls: [],
+    };
+
     const tasks = {
       articles: (async () => {
         let query = Article.find(articleFilter).sort({ id: -1 });
-        if (fieldsProjection) query = query.select(fieldsProjection);
-        else query = query.select({ _id: 0, __v: 0 });
+        query = query.select(fieldsProjection);
 
         const items = await query.lean();
         await Promise.all(items.map(async (item) => {
@@ -4591,7 +4608,7 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
       }
 
       errors[key] = publicError(result.reason, `Failed to load ${key}`);
-      payload[key] = Array.isArray(tasks[key]) ? [] : null;
+      payload[key] = homepagePayloadFallbacks[key] ?? null;
     });
 
     if (!Array.isArray(payload.articles)) payload.articles = [];
@@ -4608,10 +4625,128 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     payload.wanted.forEach(stripMongooseFields);
     payload.polls.forEach(stripMongooseFields);
 
+    const homepageSections = buildHomepageSections({
+      articles: payload.articles,
+      heroSettings: payload.heroSettings || DEFAULT_HERO_SETTINGS,
+      latestShowcaseLimit,
+      latestWireLimit,
+    });
+    const articlePool = Array.isArray(homepageSections.selectedArticles) ? homepageSections.selectedArticles : [];
+    const sections = buildHomepageSectionIdPayload(homepageSections);
+
     res.setHeader('Cache-Control', 'no-store');
     res.json({
-      ...payload,
+      schemaVersion: 2,
+      generatedAt: new Date().toISOString(),
+      totalArticles: payload.articles.length,
+      articlePool,
+      sections,
+      // Backward-compatible key for older clients.
+      articles: articlePool,
+      authors: payload.authors,
+      categories: payload.categories,
+      ads: payload.ads,
+      breaking: payload.breaking,
+      heroSettings: payload.heroSettings,
+      siteSettings: payload.siteSettings,
+      wanted: payload.wanted,
+      polls: payload.polls,
       ...(Object.keys(errors).length ? { errors } : {}),
+    });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+// ─── Search payload (public query data across homepage-related entities) ───
+app.get('/api/search', cacheMiddleware, async (req, res) => {
+  try {
+    const startedAt = Date.now();
+    const q = normalizeText(req.query.q, 160);
+    const trimmedQuery = q.trim();
+    if (!trimmedQuery) {
+      return res.json({
+        query: '',
+        tookMs: 0,
+        articles: [],
+        jobs: [],
+        court: [],
+        events: [],
+        wanted: [],
+      });
+    }
+
+    const maybeUser = decodeTokenFromRequest(req);
+    const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
+    const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
+    const articleLimit = parsePositiveInt(req.query.articleLimit, 24, { min: 1, max: 80 });
+    const sectionLimit = parsePositiveInt(req.query.sectionLimit, 12, { min: 1, max: 40 });
+    const articleFieldsProjection = buildArticleProjection(req.query.fields) || HOMEPAGE_DEFAULT_ARTICLE_PROJECTION;
+
+    articleFilter.$text = { $search: trimmedQuery };
+
+    const regex = new RegExp(escapeRegexForSearch(trimmedQuery), 'i');
+
+    const [articleMatches, jobMatches, courtMatches, eventMatches, wantedMatches] = await Promise.all([
+      (async () => {
+        let query = Article.find(articleFilter)
+          .sort({ score: { $meta: 'textScore' }, id: -1 })
+          .limit(articleLimit)
+          .select(articleFieldsProjection);
+
+        const items = await query.lean();
+        await Promise.all(items.map(async (item) => {
+          if (!item?.imageMeta && item?.image) {
+            const resolved = await resolveImageMetaFromUrl(item.image);
+            if (resolved) {
+              item.imageMeta = resolved;
+              Article.updateOne({ id: item.id }, { $set: { imageMeta: resolved } }).catch(() => { });
+            }
+          }
+          delete item._id;
+          delete item.__v;
+        }));
+        return sortArticlesByRecency(items);
+      })(),
+      Job.find({
+        $or: [
+          { title: regex },
+          { org: regex },
+          { description: regex },
+        ],
+      }).sort({ id: -1 }).limit(sectionLimit).select({ _id: 0, __v: 0 }).lean(),
+      Court.find({
+        $or: [
+          { title: regex },
+          { details: regex },
+          { defendant: regex },
+          { charge: regex },
+        ],
+      }).sort({ id: -1 }).limit(sectionLimit).select({ _id: 0, __v: 0 }).lean(),
+      Event.find({
+        $or: [
+          { title: regex },
+          { description: regex },
+          { location: regex },
+        ],
+      }).sort({ id: -1 }).limit(sectionLimit).select({ _id: 0, __v: 0 }).lean(),
+      Wanted.find({
+        $or: [
+          { name: regex },
+          { charge: regex },
+        ],
+      }).sort({ id: -1 }).limit(sectionLimit).select({ _id: 0, __v: 0 }).lean(),
+    ]);
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      query: trimmedQuery,
+      tookMs: Math.max(0, Date.now() - startedAt),
+      articles: Array.isArray(articleMatches) ? articleMatches : [],
+      jobs: Array.isArray(jobMatches) ? jobMatches : [],
+      court: Array.isArray(courtMatches) ? courtMatches : [],
+      events: Array.isArray(eventMatches) ? eventMatches : [],
+      wanted: Array.isArray(wantedMatches) ? wantedMatches : [],
     });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -4652,7 +4787,7 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
           }
           stripMongooseFields(item);
         }));
-        return items;
+        return sortArticlesByRecency(items);
       })(),
       authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       categories: Category.find().select({ _id: 0, __v: 0 }).lean(),

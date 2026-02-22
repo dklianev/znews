@@ -3,6 +3,7 @@ import { api, getSession, saveSession, clearSession } from '../utils/api';
 
 const DataContext = createContext();
 const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
+const HOMEPAGE_ARTICLE_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,status,publishAt,cardSticker';
 
 export function DataProvider({ children }) {
   const [articles, setArticles] = useState([]);
@@ -19,6 +20,7 @@ export function DataProvider({ children }) {
   const [court, setCourt] = useState([]);
   const [events, setEvents] = useState([]);
   const [polls, setPolls] = useState([]);
+  const [homepage, setHomepage] = useState(null);
   const [comments, setComments] = useState([]);
   const [gallery, setGallery] = useState([]);
   const [media, setMedia] = useState([]);
@@ -62,9 +64,29 @@ export function DataProvider({ children }) {
         console.error(`Failed to load ${key}:`, message);
       });
     };
+    const normalizeHomepagePayload = (payload) => {
+      const articlePool = toArray(payload?.articlePool).length > 0
+        ? toArray(payload?.articlePool)
+        : toArray(payload?.articles);
+      const sections = payload?.sections && typeof payload.sections === 'object'
+        ? payload.sections
+        : null;
+      const schemaVersion = Number.parseInt(payload?.schemaVersion, 10);
+      const totalArticles = Number.parseInt(payload?.totalArticles, 10);
+
+      return {
+        schemaVersion: Number.isFinite(schemaVersion) ? schemaVersion : 1,
+        generatedAt: typeof payload?.generatedAt === 'string' ? payload.generatedAt : null,
+        totalArticles: Number.isFinite(totalArticles) ? totalArticles : articlePool.length,
+        articlePool,
+        sections,
+      };
+    };
 
     const applyHomepagePayload = (payload) => {
-      setArticles(toArray(payload?.articles));
+      const normalizedHomepage = normalizeHomepagePayload(payload);
+      setHomepage(normalizedHomepage);
+      setArticles(normalizedHomepage.articlePool);
       setAuthors(toArray(payload?.authors));
       setCategories(toArray(payload?.categories));
       setAds(toArray(payload?.ads));
@@ -84,6 +106,7 @@ export function DataProvider({ children }) {
     };
 
     const applyBootstrapPayload = (payload) => {
+      setHomepage(null);
       setArticles(toArray(payload?.articles));
       setAuthors(toArray(payload?.authors));
       setCategories(toArray(payload?.categories));
@@ -103,6 +126,7 @@ export function DataProvider({ children }) {
     };
 
     const loadLegacyPublicData = async () => {
+      setHomepage(null);
       const publicResultKeys = [
         'articles',
         'authors',
@@ -182,7 +206,11 @@ export function DataProvider({ children }) {
     let hitRateLimit = false;
     if (shouldUseHomepagePayload) {
       try {
-        const homepagePayload = await api.homepage.get({ fields: ARTICLE_LIST_FIELDS });
+        const homepagePayload = await api.homepage.get({
+          fields: HOMEPAGE_ARTICLE_FIELDS,
+          latestShowcaseLimit: 5,
+          latestWireLimit: 16,
+        });
         applyHomepagePayload(homepagePayload);
         loadedFromHomepagePayload = true;
       } catch (error) {
@@ -295,6 +323,7 @@ export function DataProvider({ children }) {
     api.auth.logout().catch(() => { });
     clearSession();
     setSession(null);
+    setHomepage(null);
     setUsers([]);
     setPermissions([]);
     setMedia([]);
@@ -597,6 +626,7 @@ export function DataProvider({ children }) {
 
   const contextValue = useMemo(() => ({
     loading, loadError,
+    homepage,
     articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
     articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
     authors, addAuthor, updateAuthor, deleteAuthor,
@@ -620,6 +650,7 @@ export function DataProvider({ children }) {
     refresh: fetchAll, resetAll,
   }), [
     loading, loadError,
+    homepage,
     articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
     articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
     authors, addAuthor, updateAuthor, deleteAuthor,

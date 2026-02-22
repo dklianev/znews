@@ -19,8 +19,15 @@ export default function SearchPage() {
   const trimmedQuery = query.trim();
   useDocumentTitle(makeTitle(trimmedQuery ? `Търсене: ${trimmedQuery.slice(0, 80)}` : 'Търсене'));
   const [localQuery, setLocalQuery] = useState(query);
-  const [articleRemoteResults, setArticleRemoteResults] = useState([]);
-  const [articleRemoteLoading, setArticleRemoteLoading] = useState(false);
+  const [remoteResults, setRemoteResults] = useState({
+    articles: [],
+    jobs: [],
+    court: [],
+    events: [],
+    wanted: [],
+  });
+  const [remoteLoading, setRemoteLoading] = useState(false);
+  const [remoteError, setRemoteError] = useState('');
 
   // Sync input when URL query changes (e.g. from Navbar search)
   React.useEffect(() => { setLocalQuery(query); }, [query]);
@@ -29,76 +36,99 @@ export default function SearchPage() {
     let cancelled = false;
     const trimmed = query.trim();
     if (!trimmed) {
-      setArticleRemoteResults([]);
-      setArticleRemoteLoading(false);
+      setRemoteResults({
+        articles: [],
+        jobs: [],
+        court: [],
+        events: [],
+        wanted: [],
+      });
+      setRemoteLoading(false);
+      setRemoteError('');
       return () => { cancelled = true; };
     }
 
-    setArticleRemoteLoading(true);
-    api.articles.getAll({ q: trimmed, fields: ARTICLE_SEARCH_FIELDS })
-      .then((items) => {
-        if (cancelled) return;
-        setArticleRemoteResults(Array.isArray(items) ? items : []);
+    const timer = setTimeout(() => {
+      setRemoteLoading(true);
+      setRemoteError('');
+      api.search.query({
+        q: trimmed,
+        fields: ARTICLE_SEARCH_FIELDS,
+        articleLimit: 24,
+        sectionLimit: 12,
       })
-      .catch(() => {
-        if (cancelled) return;
-        setArticleRemoteResults([]);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setArticleRemoteLoading(false);
-      });
+        .then((payload) => {
+          if (cancelled) return;
+          setRemoteResults({
+            articles: Array.isArray(payload?.articles) ? payload.articles : [],
+            jobs: Array.isArray(payload?.jobs) ? payload.jobs : [],
+            court: Array.isArray(payload?.court) ? payload.court : [],
+            events: Array.isArray(payload?.events) ? payload.events : [],
+            wanted: Array.isArray(payload?.wanted) ? payload.wanted : [],
+          });
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          setRemoteError(error?.message || 'Грешка при търсенето.');
+          setRemoteResults({
+            articles: [],
+            jobs: [],
+            court: [],
+            events: [],
+            wanted: [],
+          });
+        })
+        .finally(() => {
+          if (cancelled) return;
+          setRemoteLoading(false);
+        });
+    }, 250);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [query]);
 
-  const q = query.toLowerCase();
+  const q = trimmedQuery.toLowerCase();
 
   const localArticleResults = !q ? [] : articles.filter(article =>
-    article.title.toLowerCase().includes(q) ||
-    article.excerpt.toLowerCase().includes(q) ||
-    (article.tags && article.tags.some(t => t.toLowerCase().includes(q))) ||
+    String(article?.title || '').toLowerCase().includes(q) ||
+    String(article?.excerpt || '').toLowerCase().includes(q) ||
+    (Array.isArray(article?.tags) && article.tags.some(t => String(t).toLowerCase().includes(q))) ||
     String(article.content || '').toLowerCase().includes(q)
   );
 
-  const articleResults = !q ? [] : (() => {
-    const byId = new Map();
-    articleRemoteResults.forEach((a) => {
-      if (a && a.id !== undefined && a.id !== null) byId.set(a.id, a);
-    });
-    localArticleResults.forEach((a) => {
-      if (!a || a.id === undefined || a.id === null) return;
-      if (!byId.has(a.id)) byId.set(a.id, a);
-    });
-    return Array.from(byId.values());
-  })();
-
-  const jobResults = !q ? [] : jobs.filter(j =>
-    j.title?.toLowerCase().includes(q) ||
-    j.org?.toLowerCase().includes(q) ||
-    j.description?.toLowerCase().includes(q)
+  const localJobResults = !q ? [] : jobs.filter(j =>
+    String(j?.title || '').toLowerCase().includes(q) ||
+    String(j?.org || '').toLowerCase().includes(q) ||
+    String(j?.description || '').toLowerCase().includes(q)
   );
 
-  const courtResults = !q ? [] : court.filter(c =>
-    c.title?.toLowerCase().includes(q) ||
-    c.details?.toLowerCase().includes(q) ||
-    c.defendant?.toLowerCase().includes(q) ||
-    c.charge?.toLowerCase().includes(q)
+  const localCourtResults = !q ? [] : court.filter(c =>
+    String(c?.title || '').toLowerCase().includes(q) ||
+    String(c?.details || '').toLowerCase().includes(q) ||
+    String(c?.defendant || '').toLowerCase().includes(q) ||
+    String(c?.charge || '').toLowerCase().includes(q)
   );
 
-  const eventResults = !q ? [] : events.filter(e =>
-    e.title?.toLowerCase().includes(q) ||
-    e.description?.toLowerCase().includes(q) ||
-    e.location?.toLowerCase().includes(q)
+  const localEventResults = !q ? [] : events.filter(e =>
+    String(e?.title || '').toLowerCase().includes(q) ||
+    String(e?.description || '').toLowerCase().includes(q) ||
+    String(e?.location || '').toLowerCase().includes(q)
   );
 
-  const wantedResults = !q ? [] : wanted.filter(w =>
-    w.name?.toLowerCase().includes(q) ||
-    w.charge?.toLowerCase().includes(q)
+  const localWantedResults = !q ? [] : wanted.filter(w =>
+    String(w?.name || '').toLowerCase().includes(q) ||
+    String(w?.charge || '').toLowerCase().includes(q)
   );
 
+  const useLocalFallback = Boolean(trimmedQuery) && Boolean(remoteError);
+  const articleResults = useLocalFallback ? localArticleResults : (Array.isArray(remoteResults.articles) ? remoteResults.articles : []);
+  const jobResults = useLocalFallback ? localJobResults : (Array.isArray(remoteResults.jobs) ? remoteResults.jobs : []);
+  const courtResults = useLocalFallback ? localCourtResults : (Array.isArray(remoteResults.court) ? remoteResults.court : []);
+  const eventResults = useLocalFallback ? localEventResults : (Array.isArray(remoteResults.events) ? remoteResults.events : []);
+  const wantedResults = useLocalFallback ? localWantedResults : (Array.isArray(remoteResults.wanted) ? remoteResults.wanted : []);
   const totalResults = articleResults.length + jobResults.length + courtResults.length + eventResults.length + wantedResults.length;
 
   return (
@@ -143,11 +173,12 @@ export default function SearchPage() {
       {query && (
         <p className="mb-6 font-display font-bold text-sm text-zn-text-muted uppercase tracking-wider">
           {totalResults} резултата за &ldquo;<span className="text-zn-hot">{query}</span>&rdquo;
-          {articleRemoteLoading && <span className="ml-2 text-zn-text-dim">Търсене...</span>}
+          {remoteLoading && <span className="ml-2 text-zn-text-dim">Търсене...</span>}
+          {useLocalFallback && <span className="ml-2 text-zn-hot">Показани са локални резултати.</span>}
         </p>
       )}
 
-      {query && totalResults === 0 && !articleRemoteLoading && (
+      {query && totalResults === 0 && !remoteLoading && (
         <div className="newspaper-page comic-panel comic-dots p-10 text-center relative">
           <div className="comic-stamp-circle absolute -top-5 -right-3 z-20 animate-wiggle text-[10px]">ПРАЗНО!</div>
           <p className="font-display font-black text-base text-zn-text mb-2 uppercase tracking-wider relative z-[2]">Няма намерени резултати.</p>
@@ -156,7 +187,7 @@ export default function SearchPage() {
       )}
 
       {/* Article results (loading skeleton) */}
-      {query && articleRemoteLoading && articleResults.length === 0 && (
+      {query && remoteLoading && articleResults.length === 0 && (
         <section className="mb-8" aria-label="Зареждане на резултати">
           <div className="flex items-center gap-2 mb-4">
             <div className="h-1 w-6 bg-zn-hot" />

@@ -12,6 +12,7 @@ import ComicNewsCard from '../components/ComicNewsCard';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { buildHomepageSections } from '../../shared/homepageSelectors.js';
 
 const fallbackLatestImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EDE4D0"/><stop offset="1" stop-color="#DDD3C2"/></linearGradient></defs><rect width="1200" height="700" fill="url(#g)"/><text x="600" y="360" text-anchor="middle" font-family="Oswald,sans-serif" font-size="64" font-weight="900" fill="#C4B49A">LOS SANTOS NEWSWIRE</text></svg>');
 
@@ -32,22 +33,6 @@ const DEFAULT_HOME_SPOTLIGHT_LINKS = [
 ];
 
 const NAV_PILL_VARIANTS = ['nav-pill-hot', 'nav-pill-purple', 'nav-pill-navy'];
-
-function getArticleTimestamp(article) {
-  if (!article || typeof article !== 'object') return 0;
-
-  if (article.publishAt) {
-    const publishAtTs = new Date(article.publishAt).getTime();
-    if (Number.isFinite(publishAtTs)) return publishAtTs;
-  }
-
-  if (article.date) {
-    const dateTs = new Date(article.date).getTime();
-    if (Number.isFinite(dateTs)) return dateTs;
-  }
-
-  return Number(article.id) || 0;
-}
 
 function formatArticleDateLabel(article) {
   if (article?.publishAt) {
@@ -158,7 +143,7 @@ function HomePageSkeleton() {
 }
 
 export default function HomePage() {
-  const { articles, ads, categories, heroSettings, siteSettings, loading, loadError, refresh } = useData();
+  const { articles, ads, categories, heroSettings, siteSettings, loading, loadError, refresh, homepage } = useData();
   const layoutPresets = siteSettings?.layoutPresets || {};
 
   useDocumentTitle();
@@ -181,77 +166,74 @@ export default function HomePage() {
     heroPrimaryPhoto,
     heroSiblings,
   } = useMemo(() => {
-    const safeArticles = Array.isArray(articles) ? articles : [];
+    const homepageArticlePool = Array.isArray(homepage?.articlePool) && homepage.articlePool.length > 0
+      ? homepage.articlePool
+      : null;
+    const safeArticles = homepageArticlePool || (Array.isArray(articles) ? articles : []);
     const safeCategories = Array.isArray(categories) ? categories : [];
     const safeAds = Array.isArray(ads) ? ads : [];
-
-    const sortedArticles = [...safeArticles].sort((left, right) => {
-      const timestampDiff = getArticleTimestamp(right) - getArticleTimestamp(left);
-      if (timestampDiff !== 0) return timestampDiff;
-      return (Number(right.id) || 0) - (Number(left.id) || 0);
-    });
-    const articleById = new Map(safeArticles.map((article) => [Number(article.id), article]));
-
-    const usedIds = new Set();
-    const claimArticle = (article) => {
-      if (!article || !Number.isFinite(Number(article.id))) return false;
-      const normalizedId = Number(article.id);
-      if (usedIds.has(normalizedId)) return false;
-      usedIds.add(normalizedId);
-      return true;
-    };
-
-    const takeFromPool = (predicate, limit) => {
-      const result = [];
-      for (const article of sortedArticles) {
-        if (result.length >= limit) break;
-        if (!predicate(article)) continue;
-        if (!claimArticle(article)) continue;
-        result.push(article);
-      }
-      return result;
-    };
-
-    const heroArticle = sortedArticles.find((article) => article.hero)
-      || sortedArticles.find((article) => article.breaking)
-      || sortedArticles[0]
-      || null;
-
-    const selectedMainPhotoId = Number.parseInt(heroSettings?.mainPhotoArticleId, 10);
-    const selectedMainPhotoArticle = Number.isInteger(selectedMainPhotoId) && selectedMainPhotoId > 0
-      ? articleById.get(selectedMainPhotoId) || null
+    const articleById = new Map(
+      safeArticles
+        .map((article) => [Number(article?.id), article])
+        .filter(([id, article]) => Number.isFinite(id) && id > 0 && article)
+    );
+    const sectionPayload = homepage?.sections && typeof homepage.sections === 'object'
+      ? homepage.sections
       : null;
-    const heroPrimaryPhoto = selectedMainPhotoArticle || heroArticle;
-
-    const selectedHeroSiblingIds = Array.isArray(heroSettings?.photoArticleIds) ? heroSettings.photoArticleIds : [];
-    const selectedHeroSiblings = selectedHeroSiblingIds
-      .map((id) => articleById.get(Number(id)) || null)
-      .filter(Boolean)
-      .filter((a, index, arr) => a.id !== heroPrimaryPhoto?.id && arr.findIndex((x) => x.id === a.id) === index)
-      .slice(0, 2);
-    const autoHeroSiblings = sortedArticles
-      .filter((a) => a.id !== heroPrimaryPhoto?.id && a.image)
-      .slice(0, 2);
-    const heroSiblings = [...selectedHeroSiblings, ...autoHeroSiblings.filter((a) => !selectedHeroSiblings.find((s) => s.id === a.id))].slice(0, 2);
-
-    // Reserve hero entries first so they cannot be reused in section grids or latest feed.
-    claimArticle(heroArticle);
-    claimArticle(heroPrimaryPhoto);
-    heroSiblings.forEach((article) => claimArticle(article));
-
-    const featuredArticles = takeFromPool((article) => article.featured, 3);
-    const crimeArticles = takeFromPool((article) => article.category === 'crime' || article.category === 'underground', 4);
-    const breakingArticles = takeFromPool((article) => article.category === 'breaking', 2);
-    const emergencyArticles = takeFromPool((article) => article.category === 'emergency', 2);
-    const reportageArticles = takeFromPool((article) => article.category === 'reportage', 3);
-    const latestArticles = sortedArticles.filter((article) => !usedIds.has(Number(article.id)));
+    const hasSectionKey = (key) => Boolean(sectionPayload) && Object.prototype.hasOwnProperty.call(sectionPayload, key);
+    const pickArticle = (id) => articleById.get(Number(id)) || null;
+    const pickArticleList = (ids) => {
+      const seen = new Set();
+      return (Array.isArray(ids) ? ids : [])
+        .map((id) => pickArticle(id))
+        .filter((article) => {
+          const articleId = Number(article?.id);
+          if (!Number.isFinite(articleId) || articleId <= 0 || seen.has(articleId)) return false;
+          seen.add(articleId);
+          return true;
+        });
+    };
+    const derivedSections = buildHomepageSections({
+      articles: safeArticles,
+      heroSettings,
+      latestShowcaseLimit: 5,
+      latestWireLimit: 16,
+    });
+    const heroArticle = hasSectionKey('heroArticleId')
+      ? (pickArticle(sectionPayload.heroArticleId) || derivedSections.heroArticle)
+      : derivedSections.heroArticle;
+    const heroPrimaryPhoto = hasSectionKey('heroPrimaryPhotoId')
+      ? (pickArticle(sectionPayload.heroPrimaryPhotoId) || derivedSections.heroPrimaryPhoto)
+      : derivedSections.heroPrimaryPhoto;
+    const heroSiblings = hasSectionKey('heroSiblingIds')
+      ? pickArticleList(sectionPayload.heroSiblingIds)
+      : derivedSections.heroSiblings;
+    const featuredArticles = hasSectionKey('featuredIds')
+      ? pickArticleList(sectionPayload.featuredIds)
+      : derivedSections.featuredArticles;
+    const crimeArticles = hasSectionKey('crimeIds')
+      ? pickArticleList(sectionPayload.crimeIds)
+      : derivedSections.crimeArticles;
+    const breakingArticles = hasSectionKey('breakingIds')
+      ? pickArticleList(sectionPayload.breakingIds)
+      : derivedSections.breakingArticles;
+    const emergencyArticles = hasSectionKey('emergencyIds')
+      ? pickArticleList(sectionPayload.emergencyIds)
+      : derivedSections.emergencyArticles;
+    const reportageArticles = hasSectionKey('reportageIds')
+      ? pickArticleList(sectionPayload.reportageIds)
+      : derivedSections.reportageArticles;
+    const latestShowcase = hasSectionKey('latestShowcaseIds')
+      ? pickArticleList(sectionPayload.latestShowcaseIds)
+      : derivedSections.latestShowcase;
+    const latestWire = hasSectionKey('latestWireIds')
+      ? pickArticleList(sectionPayload.latestWireIds)
+      : derivedSections.latestWire;
 
     const categoryById = new Map(safeCategories.map(c => [c.id, c.name]));
 
     const horizontalAds = safeAds.filter(a => a.type === 'horizontal');
     const sideAds = safeAds.filter(a => a.type === 'side');
-    const latestShowcase = latestArticles.slice(0, 5);
-    const latestWire = latestArticles.slice(5);
 
     const navbarCategoryLinks = Array.isArray(siteSettings?.navbarLinks)
       ? siteSettings.navbarLinks.filter((item) => typeof item?.to === 'string' && item.to.startsWith('/category/'))
@@ -323,7 +305,7 @@ export default function HomePage() {
       heroPrimaryPhoto,
       heroSiblings,
     };
-  }, [articles, ads, categories, heroSettings, siteSettings]);
+  }, [articles, ads, categories, heroSettings, siteSettings, homepage]);
 
   if (loading) {
     return <HomePageSkeleton />;

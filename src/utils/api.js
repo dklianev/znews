@@ -341,6 +341,9 @@ export const api = {
   homepage: {
     get: (params) => request(`/homepage${toQuery(params)}`),
   },
+  search: {
+    query: (params) => request(`/search${toQuery(params)}`),
+  },
   articles: {
     ...crudEndpoints('articles'),
     getById: (id, params) => request(`/articles/${id}${toQuery(params)}`),
