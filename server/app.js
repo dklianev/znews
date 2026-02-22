@@ -546,7 +546,21 @@ function getClientIpForRateLimit(req) {
 function rateLimitKeyGenerator(req) {
   const ip = getClientIpForRateLimit(req);
   // Use helper so IPv6 users can't bypass limits by rotating addresses within a subnet.
-  return isIP(ip) ? ipKeyGenerator(ip, 56) : String(ip || 'unknown');
+  if (isIP(ip)) return ipKeyGenerator(ip, 56);
+
+  const normalized = String(ip || '').trim();
+  if (normalized && normalized !== 'unknown') return normalized;
+
+  const fallbackFingerprint = [
+    String(req.headers?.['x-forwarded-for'] || ''),
+    String(req.headers?.['x-arr-clientip'] || ''),
+    String(req.headers?.['cf-connecting-ip'] || ''),
+    String(req.ip || ''),
+    String(req.socket?.remoteAddress || ''),
+    String(req.headers?.['user-agent'] || ''),
+  ].join('|');
+
+  return `fp:${createHash('sha1').update(fallbackFingerprint || 'unknown').digest('hex').slice(0, 32)}`;
 }
 
 function parseRateLimitPositiveInt(value, fallback, min = 1) {
@@ -560,9 +574,30 @@ const shouldSkipRateLimit = () => !isProd && !rateLimitEnabledInDev;
 const apiRateLimitWindowMs = parseDurationToMs(process.env.RATE_LIMIT_WINDOW, 15 * 60 * 1000);
 const apiReadRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_READ_MAX, 1200, 100);
 const apiWriteRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_WRITE_MAX, 300, 30);
+const apiAuthRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_AUTH_MAX, 180, 30);
+const apiAdminReadRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_ADMIN_READ_MAX, 1000, 100);
+const apiAdminWriteRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_ADMIN_WRITE_MAX, 300, 30);
+const apiMediaReadRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_MEDIA_READ_MAX, 1800, 100);
+const apiMediaWriteRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_MEDIA_WRITE_MAX, 120, 10);
 const isReadOnlyMethod = (method) => {
   const normalized = String(method || '').toUpperCase();
   return normalized === 'GET' || normalized === 'HEAD' || normalized === 'OPTIONS';
+};
+const getApiPath = (req) => String(req.path || '').toLowerCase();
+const isAuthApiPath = (req) => getApiPath(req).startsWith('/auth');
+const isMediaApiPath = (req) => {
+  const pathValue = getApiPath(req);
+  return pathValue.startsWith('/upload') || pathValue.startsWith('/media');
+};
+const isAdminApiPath = (req) => {
+  const pathValue = getApiPath(req);
+  return pathValue.startsWith('/users')
+    || pathValue.startsWith('/permissions')
+    || pathValue.startsWith('/audit-log')
+    || pathValue.startsWith('/tips')
+    || pathValue.startsWith('/hero-settings/revisions')
+    || pathValue.startsWith('/site-settings/revisions')
+    || pathValue.startsWith('/site-settings/cache/homepage/refresh');
 };
 
 const apiReadLimiter = rateLimit({
@@ -571,7 +606,11 @@ const apiReadLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => shouldSkipRateLimit() || !isReadOnlyMethod(req.method),
+  skip: (req) => shouldSkipRateLimit()
+    || !isReadOnlyMethod(req.method)
+    || isAuthApiPath(req)
+    || isAdminApiPath(req)
+    || isMediaApiPath(req),
   keyGenerator: rateLimitKeyGenerator,
 });
 
@@ -581,12 +620,71 @@ const apiWriteLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => shouldSkipRateLimit() || isReadOnlyMethod(req.method),
+  skip: (req) => shouldSkipRateLimit()
+    || isReadOnlyMethod(req.method)
+    || isAuthApiPath(req)
+    || isAdminApiPath(req)
+    || isMediaApiPath(req),
+  keyGenerator: rateLimitKeyGenerator,
+});
+
+const apiAuthLimiter = rateLimit({
+  windowMs: apiRateLimitWindowMs,
+  max: apiAuthRateLimitMax,
+  message: { error: 'Too many authentication requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => shouldSkipRateLimit() || !isAuthApiPath(req),
+  keyGenerator: rateLimitKeyGenerator,
+});
+
+const apiAdminReadLimiter = rateLimit({
+  windowMs: apiRateLimitWindowMs,
+  max: apiAdminReadRateLimitMax,
+  message: { error: 'Too many admin requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => shouldSkipRateLimit() || !isReadOnlyMethod(req.method) || !isAdminApiPath(req),
+  keyGenerator: rateLimitKeyGenerator,
+});
+
+const apiAdminWriteLimiter = rateLimit({
+  windowMs: apiRateLimitWindowMs,
+  max: apiAdminWriteRateLimitMax,
+  message: { error: 'Too many admin write requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => shouldSkipRateLimit() || isReadOnlyMethod(req.method) || !isAdminApiPath(req),
+  keyGenerator: rateLimitKeyGenerator,
+});
+
+const apiMediaReadLimiter = rateLimit({
+  windowMs: apiRateLimitWindowMs,
+  max: apiMediaReadRateLimitMax,
+  message: { error: 'Too many media requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => shouldSkipRateLimit() || !isReadOnlyMethod(req.method) || !isMediaApiPath(req),
+  keyGenerator: rateLimitKeyGenerator,
+});
+
+const apiMediaWriteLimiter = rateLimit({
+  windowMs: apiRateLimitWindowMs,
+  max: apiMediaWriteRateLimitMax,
+  message: { error: 'Too many media uploads, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => shouldSkipRateLimit() || isReadOnlyMethod(req.method) || !isMediaApiPath(req),
   keyGenerator: rateLimitKeyGenerator,
 });
 
 app.use('/api/', apiReadLimiter);
 app.use('/api/', apiWriteLimiter);
+app.use('/api/', apiAuthLimiter);
+app.use('/api/', apiAdminReadLimiter);
+app.use('/api/', apiAdminWriteLimiter);
+app.use('/api/', apiMediaReadLimiter);
+app.use('/api/', apiMediaWriteLimiter);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

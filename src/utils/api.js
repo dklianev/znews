@@ -117,6 +117,47 @@ async function readResponsePayload(res) {
   }
 }
 
+const RETRYABLE_READ_STATUSES = new Set([429, 502, 503, 504]);
+const READ_RETRY_BASE_DELAY_MS = 400;
+const READ_RETRY_MAX_DELAY_MS = 4_000;
+const MAX_READ_RETRIES = 2;
+
+function isReadMethod(method) {
+  const normalized = String(method || 'GET').toUpperCase();
+  return normalized === 'GET' || normalized === 'HEAD' || normalized === 'OPTIONS';
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseRetryAfterToMs(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 0;
+
+  const asSeconds = Number.parseInt(raw, 10);
+  if (Number.isFinite(asSeconds) && asSeconds > 0) return asSeconds * 1000;
+
+  const asDate = Date.parse(raw);
+  if (Number.isFinite(asDate)) {
+    const diff = asDate - Date.now();
+    return diff > 0 ? diff : 0;
+  }
+
+  return 0;
+}
+
+function computeReadRetryDelayMs(retryCount, retryAfterHeader) {
+  const retryAfterMs = parseRetryAfterToMs(retryAfterHeader);
+  if (retryAfterMs > 0) {
+    return Math.min(READ_RETRY_MAX_DELAY_MS, retryAfterMs);
+  }
+
+  const expBackoff = READ_RETRY_BASE_DELAY_MS * (2 ** Math.max(0, retryCount));
+  const jitter = Math.floor(Math.random() * 180);
+  return Math.min(READ_RETRY_MAX_DELAY_MS, expBackoff + jitter);
+}
+
 async function refreshAccessToken() {
   if (refreshInFlight) return refreshInFlight;
 
@@ -150,6 +191,8 @@ async function refreshAccessToken() {
 
 async function request(path, options = {}, internal = {}) {
   const session = getSession();
+  const method = String(options.method || 'GET').toUpperCase();
+  const retryCount = Number(internal.retryCount || 0);
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -160,11 +203,21 @@ async function request(path, options = {}, internal = {}) {
     headers.Authorization = `Bearer ${session.token}`;
   }
 
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: 'include',
-    ...options,
-    headers,
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      credentials: 'include',
+      ...options,
+      headers,
+    });
+  } catch (networkError) {
+    if (!internal.skipRetry && isReadMethod(method) && retryCount < MAX_READ_RETRIES) {
+      const delayMs = computeReadRetryDelayMs(retryCount, '');
+      await wait(delayMs);
+      return request(path, options, { ...internal, retryCount: retryCount + 1 });
+    }
+    throw networkError;
+  }
 
   if (res.status === 401
     && !internal.skipRefresh
@@ -189,6 +242,16 @@ async function request(path, options = {}, internal = {}) {
     error.payload = payload;
     const retryAfter = res.headers.get('retry-after');
     if (retryAfter) error.retryAfter = retryAfter;
+
+    if (!internal.skipRetry
+      && isReadMethod(method)
+      && RETRYABLE_READ_STATUSES.has(res.status)
+      && retryCount < MAX_READ_RETRIES) {
+      const delayMs = computeReadRetryDelayMs(retryCount, retryAfter);
+      await wait(delayMs);
+      return request(path, options, { ...internal, retryCount: retryCount + 1 });
+    }
+
     throw error;
   }
 
@@ -197,6 +260,8 @@ async function request(path, options = {}, internal = {}) {
 
 async function requestBlob(path, options = {}, internal = {}) {
   const session = getSession();
+  const method = String(options.method || 'GET').toUpperCase();
+  const retryCount = Number(internal.retryCount || 0);
   const headers = {
     ...(options.headers || {}),
   };
@@ -205,11 +270,21 @@ async function requestBlob(path, options = {}, internal = {}) {
     headers.Authorization = `Bearer ${session.token}`;
   }
 
-  const res = await fetch(`${BASE}${path}`, {
-    credentials: 'include',
-    ...options,
-    headers,
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      credentials: 'include',
+      ...options,
+      headers,
+    });
+  } catch (networkError) {
+    if (!internal.skipRetry && isReadMethod(method) && retryCount < MAX_READ_RETRIES) {
+      const delayMs = computeReadRetryDelayMs(retryCount, '');
+      await wait(delayMs);
+      return requestBlob(path, options, { ...internal, retryCount: retryCount + 1 });
+    }
+    throw networkError;
+  }
 
   if (res.status === 401
     && !internal.skipRefresh
@@ -234,6 +309,16 @@ async function requestBlob(path, options = {}, internal = {}) {
     error.payload = payload;
     const retryAfter = res.headers.get('retry-after');
     if (retryAfter) error.retryAfter = retryAfter;
+
+    if (!internal.skipRetry
+      && isReadMethod(method)
+      && RETRYABLE_READ_STATUSES.has(res.status)
+      && retryCount < MAX_READ_RETRIES) {
+      const delayMs = computeReadRetryDelayMs(retryCount, retryAfter);
+      await wait(delayMs);
+      return requestBlob(path, options, { ...internal, retryCount: retryCount + 1 });
+    }
+
     throw error;
   }
 
