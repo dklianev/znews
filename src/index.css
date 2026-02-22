@@ -1944,14 +1944,15 @@ div.bg-zn-bg.text-white {
 .article-body .article-lead {
   font-size: 1.16rem;
   line-height: 1.8;
-  overflow: hidden;
+  display: flow-root;
+  overflow: visible;
 }
 
 .article-body .article-lead:first-letter {
   float: left;
   display: block;
-  margin: 0.08rem 0.38rem 0 0;
-  line-height: 0.92;
+  margin: 0 0.38rem 0 0;
+  line-height: 1.08;
   font-family: 'Great Vibes', 'Times New Roman', serif;
   font-weight: 400;
   font-size: 3.2rem;
@@ -2137,7 +2138,6 @@ div.bg-zn-bg.text-white {
   margin: 1.1rem 0 0.55rem;
   font-family: 'Oswald', sans-serif;
   font-weight: 800;
-  text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 

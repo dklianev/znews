@@ -240,6 +240,7 @@ const heroSettingsSchema = new mongoose.Schema({
 // ─── Site Settings (single document) ───
 const siteSettingsSchema = new mongoose.Schema({
   key: { type: String, required: true, unique: true, default: 'main' },
+  breakingBadgeLabel: String,
   navbarLinks: [{
     to: String,
     label: String,

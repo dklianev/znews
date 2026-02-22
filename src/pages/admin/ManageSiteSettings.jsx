@@ -20,6 +20,7 @@ const DEFAULT_SETTINGS = {
     { to: '/events', label: 'Събития', hot: false },
     { to: '/gallery', label: 'Галерия', hot: false },
   ],
+  breakingBadgeLabel: 'ГОРЕЩО!',
   spotlightLinks: [
     { to: '/category/crime', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-2deg' },
     { to: '/category/underground', label: 'Скандали', icon: 'Megaphone', hot: true, tilt: '1.5deg' },
@@ -92,6 +93,9 @@ function resolveSettings(raw) {
     navbarLinks: filterRemovedCategories(
       Array.isArray(input.navbarLinks) && input.navbarLinks.length > 0 ? input.navbarLinks : DEFAULT_SETTINGS.navbarLinks
     ),
+    breakingBadgeLabel: typeof input.breakingBadgeLabel === 'string' && input.breakingBadgeLabel.trim()
+      ? input.breakingBadgeLabel
+      : DEFAULT_SETTINGS.breakingBadgeLabel,
     spotlightLinks: Array.isArray(input.spotlightLinks) && input.spotlightLinks.length > 0 ? input.spotlightLinks : DEFAULT_SETTINGS.spotlightLinks,
     footerPills: Array.isArray(input.footerPills) && input.footerPills.length > 0 ? input.footerPills : DEFAULT_SETTINGS.footerPills,
     footerQuickLinks: filterRemovedCategories(
@@ -414,6 +418,23 @@ export default function ManageSiteSettings() {
             </div>
           </div>
         ))}
+      </section>
+
+      <section className={listSectionCls}>
+        <h2 className="font-sans font-semibold text-gray-900">Card badges</h2>
+        <p className="text-xs font-sans text-gray-500">Текстът на breaking badge в картите на начална страница и листинги.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={tinyLabelCls}>Breaking badge label</label>
+            <input
+              className={inputCls}
+              maxLength={24}
+              value={form.breakingBadgeLabel || ''}
+              onChange={(e) => setForm((prev) => ({ ...prev, breakingBadgeLabel: e.target.value }))}
+              placeholder="ГОРЕЩО!"
+            />
+          </div>
+        </div>
       </section>
 
       <section className={listSectionCls}>

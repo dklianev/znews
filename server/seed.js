@@ -123,6 +123,7 @@ const DEFAULT_HERO_SETTINGS = {
 
 const DEFAULT_SITE_SETTINGS = {
   key: 'main',
+  breakingBadgeLabel: 'ГОРЕЩО!',
   navbarLinks: [
     { to: '/', label: 'Начало' },
     { to: '/category/crime', label: 'Криминални', hot: true },

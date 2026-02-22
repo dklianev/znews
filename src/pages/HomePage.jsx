@@ -223,12 +223,23 @@ export default function HomePage() {
     const reportageArticles = hasSectionKey('reportageIds')
       ? pickArticleList(sectionPayload.reportageIds)
       : derivedSections.reportageArticles;
-    const latestShowcase = hasSectionKey('latestShowcaseIds')
+    const latestShowcaseRaw = hasSectionKey('latestShowcaseIds')
       ? pickArticleList(sectionPayload.latestShowcaseIds)
       : derivedSections.latestShowcase;
-    const latestWire = hasSectionKey('latestWireIds')
+    const latestWireRaw = hasSectionKey('latestWireIds')
       ? pickArticleList(sectionPayload.latestWireIds)
       : derivedSections.latestWire;
+    const latestShowcaseIds = new Set(
+      latestShowcaseRaw
+        .map((article) => Number(article?.id))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    );
+    const latestShowcase = latestShowcaseRaw;
+    const latestWire = latestWireRaw.filter((article) => {
+      const articleId = Number(article?.id);
+      if (!Number.isFinite(articleId) || articleId <= 0) return true;
+      return !latestShowcaseIds.has(articleId);
+    });
 
     const categoryById = new Map(safeCategories.map(c => [c.id, c.name]));
 

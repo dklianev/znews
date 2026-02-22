@@ -233,6 +233,7 @@ const DEFAULT_HERO_SETTINGS = Object.freeze({
 });
 
 const DEFAULT_SITE_SETTINGS = Object.freeze({
+  breakingBadgeLabel: 'ГОРЕЩО!',
   navbarLinks: [
     { to: '/', label: 'Начало' },
     { to: '/category/crime', label: 'Криминални', hot: true },
@@ -2479,6 +2480,10 @@ function normalizeBreakingCategoryLabel(route, rawLabel, maxLen = 50) {
 
 function sanitizeSiteSettingsPayload(payload) {
   const source = payload && typeof payload === 'object' ? payload : {};
+  const breakingBadgeLabel = normalizeText(
+    source.breakingBadgeLabel ?? DEFAULT_SITE_SETTINGS.breakingBadgeLabel,
+    24
+  ) || DEFAULT_SITE_SETTINGS.breakingBadgeLabel;
 
   const navbarLinksInput = Array.isArray(source.navbarLinks) ? source.navbarLinks : DEFAULT_SITE_SETTINGS.navbarLinks;
   const navbarLinks = navbarLinksInput
@@ -2599,6 +2604,7 @@ function sanitizeSiteSettingsPayload(payload) {
   };
 
   return {
+    breakingBadgeLabel,
     navbarLinks: navbarLinks.length > 0 ? navbarLinks : DEFAULT_SITE_SETTINGS.navbarLinks,
     spotlightLinks: spotlightLinks.length > 0 ? spotlightLinks : DEFAULT_SITE_SETTINGS.spotlightLinks,
     footerPills: footerPills.length > 0 ? footerPills : DEFAULT_SITE_SETTINGS.footerPills,

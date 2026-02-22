@@ -182,6 +182,83 @@ export default function RichTextEditor({
     execCommand('formatBlock', tagName);
   }, [execCommand]);
 
+  const transformSelectedText = useCallback((transformer) => {
+    const editor = editorRef.current;
+    if (!editor || typeof window === 'undefined' || typeof document === 'undefined') return;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return;
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) return;
+
+    const intersectsNode = (node) => {
+      if (!node || !node.nodeValue) return false;
+      try {
+        if (typeof range.intersectsNode === 'function') {
+          return range.intersectsNode(node);
+        }
+      } catch {
+        // Fallback below.
+      }
+      const nodeRange = document.createRange();
+      nodeRange.selectNodeContents(node);
+      return range.compareBoundaryPoints(Range.END_TO_START, nodeRange) < 0
+        && range.compareBoundaryPoints(Range.START_TO_END, nodeRange) > 0;
+    };
+
+    const seen = new Set();
+    const textNodes = [];
+    const pushTextNode = (node) => {
+      if (!node || node.nodeType !== Node.TEXT_NODE) return;
+      if (!node.nodeValue || !node.nodeValue.trim()) return;
+      if (!intersectsNode(node) || seen.has(node)) return;
+      seen.add(node);
+      textNodes.push(node);
+    };
+
+    pushTextNode(range.commonAncestorContainer);
+    const walker = document.createTreeWalker(
+      range.commonAncestorContainer,
+      NodeFilter.SHOW_TEXT
+    );
+    let currentNode = walker.nextNode();
+    while (currentNode) {
+      pushTextNode(currentNode);
+      currentNode = walker.nextNode();
+    }
+
+    if (textNodes.length === 0) return;
+
+    textNodes.forEach((node) => {
+      const text = node.nodeValue || '';
+      let start = 0;
+      let end = text.length;
+
+      if (node === range.startContainer) start = range.startOffset;
+      if (node === range.endContainer) end = range.endOffset;
+      if (node === range.startContainer && node === range.endContainer) {
+        start = range.startOffset;
+        end = range.endOffset;
+      }
+      if (end <= start) return;
+
+      const before = text.slice(0, start);
+      const selected = text.slice(start, end);
+      const after = text.slice(end);
+      node.nodeValue = before + transformer(selected) + after;
+    });
+
+    emitChange();
+    refreshSelectionState();
+  }, [emitChange, refreshSelectionState]);
+
+  const handleLowerCase = useCallback(() => {
+    transformSelectedText((text) => text.toLocaleLowerCase('bg-BG'));
+  }, [transformSelectedText]);
+
+  const handleUpperCase = useCallback(() => {
+    transformSelectedText((text) => text.toLocaleUpperCase('bg-BG'));
+  }, [transformSelectedText]);
+
   const handleLink = useCallback(() => {
     if (!editorRef.current) return;
     const selection = window.getSelection();
@@ -413,7 +490,6 @@ export default function RichTextEditor({
   const isStrike = queryState('strikeThrough');
   const isUl = queryState('insertUnorderedList');
   const isOl = queryState('insertOrderedList');
-
   return (
     <div className={`admin-rich-editor ${className}`} data-selection-tick={selectionTick}>
       <div className="admin-rich-editor-toolbar">
@@ -447,6 +523,12 @@ export default function RichTextEditor({
           </ToolbarButton>
           <ToolbarButton onClick={() => execCommand('strikeThrough')} title="Strikethrough" active={isStrike}>
             <Strikethrough className="w-4 h-4" />
+          </ToolbarButton>
+          <ToolbarButton onClick={handleUpperCase} title="UPPERCASE за избрания текст">
+            <span className="text-[11px] font-sans font-bold leading-none">AA</span>
+          </ToolbarButton>
+          <ToolbarButton onClick={handleLowerCase} title="lowercase за избрания текст">
+            <span className="text-[11px] font-sans font-bold leading-none">aa</span>
           </ToolbarButton>
         </div>
 

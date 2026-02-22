@@ -18,10 +18,19 @@ const DEFAULT_HERO_SETTINGS = {
 };
 
 function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhotoArticle = null }) {
-  const { authors, categories, heroSettings } = useData();
-  const author = authors.find(a => a.id === article.authorId);
-  const category = categories.find(c => c.id === article.category);
-  const tilt = ((article.id?.charCodeAt?.(0) || 0) % 5) - 2;
+  const { authors, categories, heroSettings, siteSettings } = useData();
+
+  if (!article || typeof article !== 'object') return null;
+
+  const articleId = Number(article.id);
+  if (!Number.isFinite(articleId) || articleId <= 0) return null;
+
+  const author = (Array.isArray(authors) ? authors : []).find(a => a.id === article.authorId);
+  const category = (Array.isArray(categories) ? categories : []).find(c => c.id === article.category);
+  const tilt = ((String(article.id || '').charCodeAt(0) || 0) % 5) - 2;
+  const breakingBadgeLabel = typeof siteSettings?.breakingBadgeLabel === 'string' && siteSettings.breakingBadgeLabel.trim()
+    ? siteSettings.breakingBadgeLabel.trim()
+    : 'ГОРЕЩО!';
 
   /* ══════════════════════════════════════
      HERO — delegates to HeroSection component
@@ -75,7 +84,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
             {article.breaking && (
               <span className="absolute top-2 left-2 breaking-badge text-[9px] flex items-center gap-1">
-                <Flame className="w-2.5 h-2.5" /> HOT!
+                <Flame className="w-2.5 h-2.5" /> {breakingBadgeLabel}
               </span>
             )}
             {/* Red caption banner on photo */}
@@ -126,7 +135,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
           </div>
           {article.breaking && (
             <span className="absolute top-4 left-4 breaking-badge text-[9px] flex items-center gap-1">
-              <Flame className="w-2.5 h-2.5" /> HOT!
+              <Flame className="w-2.5 h-2.5" /> {breakingBadgeLabel}
             </span>
           )}
           {/* Tape strip */}

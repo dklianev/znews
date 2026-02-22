@@ -90,7 +90,7 @@ export default function LivePreviewModal({ form, onClose }) {
                             <div
                                 className="prose prose-lg md:prose-xl max-w-none mb-8 article-body font-sans text-gray-800
                   [&_p]:font-sans [&_p]:leading-relaxed [&_p]:mb-6
-                  [&_h2]:font-display [&_h2]:text-3xl [&_h2]:font-black [&_h2]:uppercase [&_h2]:mt-10 [&_h2]:mb-4
+                  [&_h2]:font-display [&_h2]:text-3xl [&_h2]:font-black [&_h2]:mt-10 [&_h2]:mb-4
                   [&_h3]:font-display [&_h3]:text-2xl [&_h3]:font-bold [&_h3]:mt-8 [&_h3]:mb-4
                   [&_img]:w-full [&_img]:h-auto [&_img]:my-8 [&_img]:border-4 [&_img]:border-[#1c1428] [&_img]:shadow-[4px_4px_0_#1c1428]
                 "
