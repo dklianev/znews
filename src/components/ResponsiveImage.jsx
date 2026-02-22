@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getOptimizedImageSources } from '../utils/imageOptimization';
 
+function normalizeClassName(...values) {
+  return values
+    .filter((value) => typeof value === 'string' && value.trim().length > 0)
+    .join(' ');
+}
+
 export default function ResponsiveImage({
   src,
   alt = '',
@@ -19,6 +25,14 @@ export default function ResponsiveImage({
 }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const normalizedPictureClassName = useMemo(
+    () => normalizeClassName('block', pictureClassName),
+    [pictureClassName],
+  );
+  const normalizedImgClassName = useMemo(
+    () => normalizeClassName('block', className),
+    [className],
+  );
 
   useEffect(() => {
     setFailed(false);
@@ -79,7 +93,7 @@ export default function ResponsiveImage({
   if (!safeSrc) return null;
 
   return (
-    <picture className={pictureClassName}>
+    <picture className={normalizedPictureClassName}>
       {optimized.avifSrcSet && <source type="image/avif" srcSet={optimized.avifSrcSet} sizes={sizes} />}
       {optimized.webpSrcSet && <source type="image/webp" srcSet={optimized.webpSrcSet} sizes={sizes} />}
       {optimized.srcSet && <source srcSet={optimized.srcSet} sizes={sizes} />}
@@ -88,7 +102,7 @@ export default function ResponsiveImage({
         srcSet={optimized.srcSet || undefined}
         sizes={optimized.srcSet ? sizes : undefined}
         alt={alt}
-        className={className}
+        className={normalizedImgClassName}
         loading={loading}
         decoding={decoding}
         fetchpriority={fetchPriority}

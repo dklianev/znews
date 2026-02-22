@@ -536,7 +536,7 @@ export default function HomePage() {
                     </div>
 
                     <div className="flex flex-col h-full">
-                      <div className={`relative overflow-hidden shrink-0 ${latestCardLayout.imageHeightClass}`}>
+                      <div className={`relative overflow-hidden bg-zn-black leading-none -mb-px shrink-0 ${latestCardLayout.imageHeightClass}`}>
                         <ResponsiveImage
                           src={article.image}
                           pipeline={article.imageMeta}
@@ -546,7 +546,7 @@ export default function HomePage() {
                           decoding="async"
                           sizes={latestCardLayout.imageSizes}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          pictureClassName="block w-full h-full"
+                          pictureClassName="block w-full h-full leading-none"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
                         <div className="absolute bottom-3 left-3 px-2 py-1 text-[10px] font-display font-black uppercase tracking-[0.16em] text-white border border-white/40 bg-black/35">
@@ -554,7 +554,7 @@ export default function HomePage() {
                         </div>
                       </div>
 
-                      <div className={`p-4 flex flex-col justify-between gap-3 flex-1`}>
+                      <div className={`relative z-10 p-4 flex flex-col justify-between gap-3 flex-1`}>
                         <h3 className={`font-display font-black uppercase leading-tight text-zn-black group-hover:text-zn-hot transition-colors ${latestCardLayout.titleSizeClass} line-clamp-4`}>
                           {article.title}
                         </h3>

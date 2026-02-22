@@ -37,7 +37,7 @@ export default function ComicNewsCard({
         <span className={`comic-sticker comic-sticker-${resolvedVariant}`}>{sticker}</span>
       </div>
 
-      <div className={`relative overflow-hidden ${compact ? 'aspect-[16/9]' : 'h-52'}`}>
+      <div className={`relative overflow-hidden bg-zn-black leading-none -mb-px ${compact ? 'aspect-[16/9]' : 'h-52'}`}>
         <ResponsiveImage
           src={article.image}
           pipeline={article.imageMeta}
@@ -47,7 +47,7 @@ export default function ComicNewsCard({
           decoding="async"
           sizes={compact ? '(max-width: 768px) 100vw, 24vw' : '(max-width: 768px) 100vw, 32vw'}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          pictureClassName="block w-full h-full"
+          pictureClassName="block w-full h-full leading-none"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
         {article.youtubeUrl && (
@@ -62,7 +62,7 @@ export default function ComicNewsCard({
         </div>
       </div>
 
-      <div className={`flex flex-col justify-between ${compact ? 'p-3 gap-2' : 'p-4 gap-3'}`}>
+      <div className={`relative z-10 flex flex-col justify-between ${compact ? 'p-3 gap-2' : 'p-4 gap-3'}`}>
         <h3 className={`font-display font-black uppercase text-zn-black group-hover:text-zn-hot transition-colors line-clamp-3 ${compact ? 'text-[1.08rem] leading-[1.1]' : 'text-[1.45rem] leading-[1.05]'}`}>
           {article.title}
         </h3>
