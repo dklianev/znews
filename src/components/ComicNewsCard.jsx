@@ -37,7 +37,7 @@ export default function ComicNewsCard({
         <span className={`comic-sticker comic-sticker-${resolvedVariant}`}>{sticker}</span>
       </div>
 
-      <div className={`relative overflow-hidden ${compact ? 'h-36' : 'h-52'}`}>
+      <div className={`relative overflow-hidden ${compact ? 'aspect-[16/9]' : 'h-52'}`}>
         <ResponsiveImage
           src={article.image}
           pipeline={article.imageMeta}

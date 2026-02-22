@@ -23,7 +23,7 @@ function CategoryCardSkeleton({ compact = true }) {
         <div className="h-6 w-16 bg-zn-text/10 rounded" />
       </div>
 
-      <div className={`relative overflow-hidden ${compact ? 'h-36' : 'h-52'}`}>
+      <div className={`relative overflow-hidden ${compact ? 'aspect-[16/9]' : 'h-52'}`}>
         <div className="w-full h-full bg-zn-text/10" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/10 to-transparent" />
         <div className="absolute bottom-2 left-2 h-4 w-24 bg-zn-text/20 rounded" />
