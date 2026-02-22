@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Clock, Eye, Flame, Megaphone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ResponsiveImage from './ResponsiveImage';
+import { buildScaledClamp, normalizeHeroTitleScale } from '../utils/heroTitleScale';
 
 const defaultFallbackImg = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" fill="%23EDE6DA"><rect width="800" height="450"/><text x="400" y="225" text-anchor="middle" font-family="Oswald,sans-serif" font-size="28" font-weight="900" fill="%23C4B49A">zNews</text></svg>');
 
@@ -27,6 +28,8 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
     const headline = (heroSettings?.headline || 'ТАЙНИ СРЕЩИ НА ПЛАЖА\nИ ПАРКА!').split('\n').filter(Boolean);
     const shockLabel = heroSettings?.shockLabel || 'ШОК!';
     const ctaLabel = heroSettings?.ctaLabel || 'РАЗКРИЙ ВСИЧКО ТУК!';
+    const heroTitleScale = normalizeHeroTitleScale(heroSettings?.heroTitleScale);
+    const heroTitleFontSize = buildScaledClamp('2.8rem', '8vw', '6.5rem', heroTitleScale);
 
     return (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="newspaper-page relative comic-panel comic-dots comic-speed-lines hero-sunset-bg">
@@ -45,7 +48,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                 <Link to={`/article/${article.id}`} className="group">
                     <div className="flex items-start gap-3 mb-4">
                         <Megaphone className="hidden md:inline-block mt-2 w-10 h-10 text-zn-hot" style={{ filter: 'drop-shadow(3px 3px 0 rgba(0,0,0,0.3))', transform: 'rotate(-10deg)' }} aria-hidden="true" />
-                        <h1 className="flex-1 min-w-0 font-display font-black uppercase leading-[0.88] cursor-pointer" style={{ fontSize: 'clamp(2.8rem, 8vw, 6.5rem)', textShadow: '3px 3px 0 rgba(204,10,26,0.25), 5px 5px 0 rgba(0,0,0,0.15)', letterSpacing: '-0.03em' }}>
+                        <h1 className="flex-1 min-w-0 font-display font-black uppercase leading-[0.88] cursor-pointer" style={{ fontSize: heroTitleFontSize, textShadow: '3px 3px 0 rgba(204,10,26,0.25), 5px 5px 0 rgba(0,0,0,0.15)', letterSpacing: '-0.03em' }}>
                             <ColorTitle text={article.title} />
                         </h1>
                         <div className="h-1.5 w-32 bg-gradient-to-r from-red-600 to-orange-500 mt-2 mb-1" />

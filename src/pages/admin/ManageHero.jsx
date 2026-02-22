@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Crown, Search, Save, X, ExternalLink, Flame, History, RotateCcw, AlertTriangle, Loader2, Megaphone, Clock, Eye } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import { buildScaledClamp, normalizeHeroTitleScale } from '../../utils/heroTitleScale';
 
 const heroPreviewFallbackImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="800" height="450" fill="#EDE4D0"/><text x="400" y="240" text-anchor="middle" font-family="Oswald,sans-serif" font-size="42" font-weight="900" fill="#C4B49A">LOS SANTOS NEWSWIRE</text></svg>');
 
@@ -10,6 +11,7 @@ const DEFAULT_COPY = {
   shockLabel: 'ШОК!',
   ctaLabel: 'РАЗКРИЙ ВСИЧКО ТУК!',
   headlineBoardText: 'ШОК И СЕНЗАЦИЯ!',
+  heroTitleScale: 100,
   captions: ['В КОЛАТА НА ПОЛИЦАЯ!', 'ГОРЕЩА ПРЕГРЪДКА!', 'ТАЙНА СРЕЩА В ПАРКА!'],
   mainPhotoArticleId: null,
   photoArticleIds: [],
@@ -41,6 +43,7 @@ export default function ManageHero() {
     shockLabel: DEFAULT_COPY.shockLabel,
     ctaLabel: DEFAULT_COPY.ctaLabel,
     headlineBoardText: DEFAULT_COPY.headlineBoardText,
+    heroTitleScale: DEFAULT_COPY.heroTitleScale,
     caption1: DEFAULT_COPY.captions[0],
     caption2: DEFAULT_COPY.captions[1],
     caption3: DEFAULT_COPY.captions[2],
@@ -61,6 +64,7 @@ export default function ManageHero() {
       photoArticleIds: Array.isArray(heroSettings?.photoArticleIds)
         ? heroSettings.photoArticleIds
         : DEFAULT_COPY.photoArticleIds,
+      heroTitleScale: normalizeHeroTitleScale(heroSettings?.heroTitleScale),
       mainPhotoArticleId: Number.isInteger(Number.parseInt(heroSettings?.mainPhotoArticleId, 10))
         ? Number.parseInt(heroSettings?.mainPhotoArticleId, 10)
         : DEFAULT_COPY.mainPhotoArticleId,
@@ -70,6 +74,7 @@ export default function ManageHero() {
       shockLabel: resolved.shockLabel,
       ctaLabel: resolved.ctaLabel,
       headlineBoardText: resolved.headlineBoardText || DEFAULT_COPY.headlineBoardText,
+      heroTitleScale: normalizeHeroTitleScale(resolved.heroTitleScale),
       caption1: resolved.captions[0],
       caption2: resolved.captions[1],
       caption3: resolved.captions[2],
@@ -101,6 +106,7 @@ export default function ManageHero() {
     const ref = initialCopyRef.current;
     return ref.headline !== copyForm.headline || ref.shockLabel !== copyForm.shockLabel
       || ref.ctaLabel !== copyForm.ctaLabel || ref.headlineBoardText !== copyForm.headlineBoardText
+      || ref.heroTitleScale !== copyForm.heroTitleScale
       || ref.caption1 !== copyForm.caption1 || ref.caption2 !== copyForm.caption2
       || ref.caption3 !== copyForm.caption3 || ref.mainPhotoArticleId !== copyForm.mainPhotoArticleId
       || ref.photoArticleId1 !== copyForm.photoArticleId1 || ref.photoArticleId2 !== copyForm.photoArticleId2;
@@ -153,6 +159,8 @@ export default function ManageHero() {
   const previewHeroArticle = heroArticle || fallbackHero || null;
   const previewTickerItems = Array.isArray(breaking) ? breaking.filter(Boolean) : [];
   const headlineBoardWords = (copyForm.headlineBoardText || DEFAULT_COPY.headlineBoardText).trim().split(/\s+/).filter(Boolean);
+  const previewHeroTitleScale = normalizeHeroTitleScale(copyForm.heroTitleScale);
+  const previewHeroTitleFontSize = buildScaledClamp('2rem', '5vw', '4rem', previewHeroTitleScale);
 
   const previewMainPhoto = useMemo(() => {
     const selectedId = Number.parseInt(copyForm.mainPhotoArticleId, 10);
@@ -233,6 +241,7 @@ export default function ManageHero() {
         shockLabel: copyForm.shockLabel,
         ctaLabel: copyForm.ctaLabel,
         headlineBoardText: copyForm.headlineBoardText,
+        heroTitleScale: normalizeHeroTitleScale(copyForm.heroTitleScale),
         captions: [copyForm.caption1, copyForm.caption2, copyForm.caption3],
         mainPhotoArticleId,
         photoArticleIds,
@@ -402,6 +411,30 @@ export default function ManageHero() {
             <div className="md:col-span-2">
               <label className={labelCls}>Горен board текст (над Hero)</label>
               <input value={copyForm.headlineBoardText} onChange={(e) => setCopyForm(prev => ({ ...prev, headlineBoardText: e.target.value }))} className={inputCls} />
+            </div>
+            <div className="md:col-span-2">
+              <label className={labelCls}>Размер на голямото заглавие в Hero ({normalizeHeroTitleScale(copyForm.heroTitleScale)}%)</label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={70}
+                  max={130}
+                  step={5}
+                  value={normalizeHeroTitleScale(copyForm.heroTitleScale)}
+                  onChange={(e) => setCopyForm(prev => ({ ...prev, heroTitleScale: normalizeHeroTitleScale(e.target.value) }))}
+                  className="flex-1 accent-zn-purple"
+                />
+                <input
+                  type="number"
+                  min={70}
+                  max={130}
+                  step={5}
+                  value={normalizeHeroTitleScale(copyForm.heroTitleScale)}
+                  onChange={(e) => setCopyForm(prev => ({ ...prev, heroTitleScale: normalizeHeroTitleScale(e.target.value) }))}
+                  className="w-20 px-2 py-1.5 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple text-center"
+                />
+              </div>
+              <p className="mt-1 text-[11px] font-sans text-gray-500">100% е текущият default. Можеш да намалиш до 70% или увеличиш до 130%.</p>
             </div>
             <div>
               <label className={labelCls}>Лента върху 1-ва снимка</label>
@@ -578,7 +611,7 @@ export default function ManageHero() {
                 {/* Title */}
                 <div className="flex items-start gap-3 mb-4">
                   <Megaphone className="hidden md:inline-block mt-2 w-10 h-10 text-zn-hot" style={{ filter: 'drop-shadow(3px 3px 0 rgba(0,0,0,0.3))', transform: 'rotate(-10deg)' }} />
-                  <h1 className="flex-1 min-w-0 font-display font-black uppercase leading-[0.88]" style={{ fontSize: 'clamp(2rem, 5vw, 4rem)', textShadow: '3px 3px 0 rgba(204,10,26,0.25), 5px 5px 0 rgba(0,0,0,0.15)', letterSpacing: '-0.03em' }}>
+                  <h1 className="flex-1 min-w-0 font-display font-black uppercase leading-[0.88]" style={{ fontSize: previewHeroTitleFontSize, textShadow: '3px 3px 0 rgba(204,10,26,0.25), 5px 5px 0 rgba(0,0,0,0.15)', letterSpacing: '-0.03em' }}>
                     {previewHeroArticle.title.split(' ').map((word, i) => (
                       <span key={i} style={{ color: i % 3 === 0 ? '#CC0A1A' : '#1C1428', WebkitTextStroke: i % 3 === 0 ? '1px rgba(153,8,19,0.3)' : 'none' }}>
                         {word}{' '}

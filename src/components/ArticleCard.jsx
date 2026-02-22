@@ -11,6 +11,7 @@ const DEFAULT_HERO_SETTINGS = {
   headline: 'ТАЙНИ СРЕЩИ НА ПЛАЖА\nИ ПАРКА!',
   shockLabel: 'ШОК!',
   ctaLabel: 'РАЗКРИЙ ВСИЧКО ТУК!',
+  heroTitleScale: 100,
   captions: ['В КОЛАТА НА ПОЛИЦАЯ!', 'ГОРЕЩА ПРЕГРЪДКА!', 'ТАЙНА СРЕЩА В ПАРКА!'],
   mainPhotoArticleId: null,
   photoArticleIds: [],

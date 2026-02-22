@@ -231,6 +231,7 @@ const heroSettingsSchema = new mongoose.Schema({
   shockLabel: String,
   ctaLabel: String,
   headlineBoardText: String,
+  heroTitleScale: { type: Number, default: 100 },
   captions: [String],
   mainPhotoArticleId: Number,
   photoArticleIds: [Number],

@@ -226,6 +226,7 @@ const DEFAULT_HERO_SETTINGS = Object.freeze({
   shockLabel: 'ШОК!',
   ctaLabel: 'РАЗКРИЙ ВСИЧКО ТУК!',
   headlineBoardText: 'ШОК И СЕНЗАЦИЯ!',
+  heroTitleScale: 100,
   captions: ['В КОЛАТА НА ПОЛИЦАЯ!', 'ГОРЕЩА ПРЕГРЪДКА!', 'ТАЙНА СРЕЩА В ПАРКА!'],
   mainPhotoArticleId: null,
   photoArticleIds: [],
@@ -2414,6 +2415,10 @@ async function createArticleRevision(articleId, snapshot, { source = 'update', u
 
 function sanitizeHeroSettingsPayload(payload) {
   const inputCaptions = Array.isArray(payload?.captions) ? payload.captions : [];
+  const heroTitleScaleRaw = Number.parseInt(payload?.heroTitleScale, 10);
+  const heroTitleScale = Number.isInteger(heroTitleScaleRaw)
+    ? Math.min(130, Math.max(70, heroTitleScaleRaw))
+    : DEFAULT_HERO_SETTINGS.heroTitleScale;
   const mainPhotoArticleIdRaw = Number.parseInt(payload?.mainPhotoArticleId, 10);
   const mainPhotoArticleId = Number.isInteger(mainPhotoArticleIdRaw) && mainPhotoArticleIdRaw > 0
     ? mainPhotoArticleIdRaw
@@ -2435,6 +2440,7 @@ function sanitizeHeroSettingsPayload(payload) {
     shockLabel: normalizeText(payload?.shockLabel ?? DEFAULT_HERO_SETTINGS.shockLabel, 32) || DEFAULT_HERO_SETTINGS.shockLabel,
     ctaLabel: normalizeText(payload?.ctaLabel ?? DEFAULT_HERO_SETTINGS.ctaLabel, 90) || DEFAULT_HERO_SETTINGS.ctaLabel,
     headlineBoardText: normalizeText(payload?.headlineBoardText ?? DEFAULT_HERO_SETTINGS.headlineBoardText, 90) || DEFAULT_HERO_SETTINGS.headlineBoardText,
+    heroTitleScale,
     captions,
     mainPhotoArticleId,
     photoArticleIds,
@@ -2607,6 +2613,10 @@ function sanitizeSiteSettingsPayload(payload) {
 
 function serializeHeroSettings(doc) {
   const source = doc && typeof doc === 'object' ? doc : DEFAULT_HERO_SETTINGS;
+  const heroTitleScaleRaw = Number.parseInt(source.heroTitleScale, 10);
+  const heroTitleScale = Number.isInteger(heroTitleScaleRaw)
+    ? Math.min(130, Math.max(70, heroTitleScaleRaw))
+    : DEFAULT_HERO_SETTINGS.heroTitleScale;
   const mainPhotoArticleIdRaw = Number.parseInt(source.mainPhotoArticleId, 10);
   const mainPhotoArticleId = Number.isInteger(mainPhotoArticleIdRaw) && mainPhotoArticleIdRaw > 0
     ? mainPhotoArticleIdRaw
@@ -2620,6 +2630,7 @@ function serializeHeroSettings(doc) {
     shockLabel: normalizeText(source.shockLabel ?? DEFAULT_HERO_SETTINGS.shockLabel, 32) || DEFAULT_HERO_SETTINGS.shockLabel,
     ctaLabel: normalizeText(source.ctaLabel ?? DEFAULT_HERO_SETTINGS.ctaLabel, 90) || DEFAULT_HERO_SETTINGS.ctaLabel,
     headlineBoardText: normalizeText(source.headlineBoardText ?? DEFAULT_HERO_SETTINGS.headlineBoardText, 90) || DEFAULT_HERO_SETTINGS.headlineBoardText,
+    heroTitleScale,
     captions: Array.isArray(source.captions) && source.captions.length === 3
       ? source.captions.map((caption, idx) => normalizeText(caption, 90) || DEFAULT_HERO_SETTINGS.captions[idx])
       : DEFAULT_HERO_SETTINGS.captions,
