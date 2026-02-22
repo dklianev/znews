@@ -149,7 +149,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
                 {category.name}
               </span>
             )}
-            <h3 className="font-display font-black text-lg mt-1 mb-2 group-hover:text-zn-hot transition-colors line-clamp-2 text-zn-black leading-snug uppercase">
+            <h3 className="font-display font-black text-lg mt-1 mb-2 group-hover:text-zn-hot transition-colors duration-300 line-clamp-2 text-zn-black leading-snug uppercase">
               {article.title}
             </h3>
             <p className="text-sm text-zn-text-muted line-clamp-2 italic font-sans">{article.excerpt}</p>

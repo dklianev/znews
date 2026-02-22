@@ -80,8 +80,13 @@ export default {
         'wiggle-fast': 'wiggleFast 1s ease-in-out infinite',
         'pop-in': 'popIn 0.4s cubic-bezier(.2,.8,.4,1.4) forwards',
         'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+        shimmer: 'shimmer 2s ease-in-out infinite',
       },
       keyframes: {
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
         ticker: {
           '0%': { transform: 'translateX(0)' },
           '100%': { transform: 'translateX(-50%)' },

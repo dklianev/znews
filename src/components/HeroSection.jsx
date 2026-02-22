@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Eye, Flame, Megaphone } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -28,8 +29,8 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
     const headline = (heroSettings?.headline || 'ТАЙНИ СРЕЩИ НА ПЛАЖА\nИ ПАРКА!').split('\n').filter(Boolean);
     const shockLabel = heroSettings?.shockLabel || 'ШОК!';
     const ctaLabel = heroSettings?.ctaLabel || 'РАЗКРИЙ ВСИЧКО ТУК!';
-    const heroTitleScale = normalizeHeroTitleScale(heroSettings?.heroTitleScale);
-    const heroTitleFontSize = buildScaledClamp('2.8rem', '8vw', '6.5rem', heroTitleScale);
+    const heroTitleScale = useMemo(() => normalizeHeroTitleScale(heroSettings?.heroTitleScale), [heroSettings?.heroTitleScale]);
+    const heroTitleFontSize = useMemo(() => buildScaledClamp('2.8rem', '8vw', '6.5rem', heroTitleScale), [heroTitleScale]);
 
     return (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="newspaper-page relative comic-panel comic-dots comic-speed-lines hero-sunset-bg">

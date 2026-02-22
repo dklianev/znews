@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { getOptimizedImageSources } from '../utils/imageOptimization';
 
 function normalizeClassName(...values) {
@@ -7,7 +7,7 @@ function normalizeClassName(...values) {
     .join(' ');
 }
 
-export default function ResponsiveImage({
+export default memo(function ResponsiveImage({
   src,
   alt = '',
   fallbackSrc = '',
@@ -119,4 +119,4 @@ export default function ResponsiveImage({
       />
     </picture>
   );
-}
+})

@@ -68,7 +68,7 @@ export default function Footer() {
       {/* ── TIP LINE PROMO ── */}
       {tipLinePromo.enabled && (
         <div className="bg-zn-hot comic-dots border-t-8 border-b-8 border-zn-black relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
           <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex-1 text-center md:text-left">
               <h3 className="text-3xl md:text-5xl font-comic text-white text-shadow-comic mb-4 flex flex-col md:flex-row items-center justify-center md:justify-start gap-4">

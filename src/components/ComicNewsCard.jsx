@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, Play } from 'lucide-react';
 import { useData } from '../context/DataContext';
@@ -6,7 +7,7 @@ import { COMIC_CARD_VARIANTS } from '../utils/comicCardDesign';
 
 const fallbackImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EDE4D0"/><stop offset="1" stop-color="#DDD3C2"/></linearGradient></defs><rect width="1200" height="700" fill="url(#g)"/><text x="600" y="360" text-anchor="middle" font-family="Oswald,sans-serif" font-size="64" font-weight="900" fill="#C4B49A">LOS SANTOS NEWSWIRE</text></svg>');
 
-export default function ComicNewsCard({
+export default memo(function ComicNewsCard({
   article,
   sticker = 'Новина',
   tilt = '0deg',
@@ -52,7 +53,7 @@ export default function ComicNewsCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
         {article.youtubeUrl && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-12 h-10 bg-zn-hot/90 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg group-hover:bg-[#ff0000] group-hover:scale-110 transition-all duration-300 border-2 border-white/30">
+            <div className="w-12 h-10 bg-zn-hot/90 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg group-hover:bg-[#ff0000] group-hover:scale-110 transition-all duration-500 border-2 border-white/30">
               <Play className="w-5 h-5 text-white fill-white ml-0.5" />
             </div>
           </div>
@@ -79,4 +80,4 @@ export default function ComicNewsCard({
       </div>
     </Link>
   );
-}
+})

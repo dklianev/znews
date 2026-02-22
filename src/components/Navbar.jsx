@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -104,13 +104,13 @@ export default function Navbar() {
     }
   };
 
-  const navLinksRaw = Array.isArray(siteSettings?.navbarLinks) && siteSettings.navbarLinks.length > 0
-    ? siteSettings.navbarLinks
-    : DEFAULT_NAV_LINKS;
-  const navLinksBase = navLinksRaw.filter((item) => item?.to !== '/category/sports');
-  const hasBreakingCategory = Array.isArray(categories) && categories.some((item) => item?.id === 'breaking');
-  const hasBreakingLink = navLinksBase.some((item) => item?.to === '/category/breaking');
-  const navLinks = (() => {
+  const navLinks = useMemo(() => {
+    const navLinksRaw = Array.isArray(siteSettings?.navbarLinks) && siteSettings.navbarLinks.length > 0
+      ? siteSettings.navbarLinks
+      : DEFAULT_NAV_LINKS;
+    const navLinksBase = navLinksRaw.filter((item) => item?.to !== '/category/sports');
+    const hasBreakingCategory = Array.isArray(categories) && categories.some((item) => item?.id === 'breaking');
+    const hasBreakingLink = navLinksBase.some((item) => item?.to === '/category/breaking');
     if (!hasBreakingCategory || hasBreakingLink) return navLinksBase;
     const breakingLink = { to: '/category/breaking', label: 'Извънредни', hot: true };
     const emergencyIndex = navLinksBase.findIndex((item) => item?.to === '/category/emergency');
@@ -120,15 +120,17 @@ export default function Navbar() {
       breakingLink,
       ...navLinksBase.slice(emergencyIndex + 1),
     ];
-  })();
+  }, [siteSettings?.navbarLinks, categories]);
 
-  const spotlightLinksRaw = Array.isArray(siteSettings?.spotlightLinks) && siteSettings.spotlightLinks.length > 0
-    ? siteSettings.spotlightLinks
-    : DEFAULT_SPOTLIGHT_LINKS;
-  const spotlightLinks = spotlightLinksRaw.map((item) => ({
-    ...item,
-    Icon: SPOTLIGHT_ICON_MAP[item.icon] || Flame,
-  }));
+  const spotlightLinks = useMemo(() => {
+    const spotlightLinksRaw = Array.isArray(siteSettings?.spotlightLinks) && siteSettings.spotlightLinks.length > 0
+      ? siteSettings.spotlightLinks
+      : DEFAULT_SPOTLIGHT_LINKS;
+    return spotlightLinksRaw.map((item) => ({
+      ...item,
+      Icon: SPOTLIGHT_ICON_MAP[item.icon] || Flame,
+    }));
+  }, [siteSettings?.spotlightLinks]);
 
   const handleSearch = (e) => {
     e.preventDefault();

@@ -2781,3 +2781,104 @@ div.bg-zn-bg.text-white {
     box-shadow: 6px 7px 0 #0A0812;
   }
 }
+
+/* ═══════════════════════════════════════
+   PRINT STYLES
+   ═══════════════════════════════════════ */
+@media print {
+  /* Hide non-essential elements */
+  nav,
+  footer,
+  aside,
+  .breaking-strip,
+  .comic-ad-horizontal,
+  .comic-ad-side,
+  .comic-ad-inline,
+  .comic-sticker,
+  .comic-stamp-circle,
+  .comic-card-tape,
+  .comic-card-tape-left,
+  .comic-card-tape-right,
+  .comic-headline-board,
+  .comic-speed-lines::before,
+  .comic-dots::after,
+  .comic-dots-red::after,
+  .share-btn,
+  .share-btn-copy,
+  .share-btn-yapper,
+  .yapper-popup,
+  button[type="button"],
+  .comic-sidebar-widget {
+    display: none !important;
+  }
+
+  /* Reset backgrounds and colors */
+  body,
+  .newspaper-page,
+  .comic-panel,
+  .comic-panel-red,
+  .comic-panel-white {
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    transform: none !important;
+  }
+
+  /* Clean article body */
+  .article-body {
+    font-size: 12pt !important;
+    line-height: 1.6 !important;
+    color: #000 !important;
+  }
+
+  .article-body h2,
+  .article-body h3,
+  .article-body h4 {
+    color: #000 !important;
+    page-break-after: avoid;
+  }
+
+  .article-body img {
+    max-width: 100% !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+
+  .article-body blockquote {
+    border-left: 3px solid #666 !important;
+    color: #333 !important;
+    background: none !important;
+  }
+
+  /* Drop cap stays for print elegance */
+  .article-body .article-lead:first-letter {
+    color: #000 !important;
+    text-shadow: none !important;
+  }
+
+  /* Typography cleanup */
+  * {
+    text-shadow: none !important;
+    -webkit-text-stroke: 0 !important;
+  }
+
+  a {
+    color: #000 !important;
+    text-decoration: underline !important;
+  }
+
+  /* Page layout */
+  @page {
+    margin: 2cm;
+  }
+
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+
+  img, blockquote, table {
+    page-break-inside: avoid;
+  }
+}

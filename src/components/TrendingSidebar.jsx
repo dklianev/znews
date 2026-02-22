@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { TrendingUp, Eye, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -13,18 +14,23 @@ const numberClasses = [
 
 export default function TrendingSidebar() {
   const { articles } = useData();
-  const safeArticles = Array.isArray(articles) ? articles : [];
-  const trending = safeArticles
-    .map((article) => ({
-      ...article,
-      safeViews: Number.isFinite(Number(article?.views)) ? Number(article.views) : 0,
-    }))
-    .sort((a, b) => b.safeViews - a.safeViews)
-    .slice(0, 5);
+  const trending = useMemo(() => {
+    const safeArticles = Array.isArray(articles) ? articles : [];
+    return safeArticles
+      .map((article) => ({
+        ...article,
+        safeViews: Number.isFinite(Number(article?.views)) ? Number(article.views) : 0,
+      }))
+      .sort((a, b) => b.safeViews - a.safeViews)
+      .slice(0, 5);
+  }, [articles]);
+
+  const maxViews = useMemo(
+    () => Math.max(1, ...trending.map((article) => article.safeViews)),
+    [trending],
+  );
 
   if (trending.length === 0) return null;
-
-  const maxViews = Math.max(1, ...trending.map((article) => article.safeViews));
 
   return (
     <motion.div
