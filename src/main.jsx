@@ -17,6 +17,7 @@ const updateSW = registerSW({
     msg.textContent = 'Налична е нова версия';
 
     const refreshBtn = document.createElement('button');
+    refreshBtn.className = 'pwa-refresh-btn';
     refreshBtn.textContent = 'Презареди';
     refreshBtn.addEventListener('click', () => {
       updateSW(true);
@@ -24,6 +25,7 @@ const updateSW = registerSW({
     });
 
     const dismissBtn = document.createElement('button');
+    dismissBtn.className = 'pwa-dismiss-btn';
     dismissBtn.textContent = '\u2715';
     dismissBtn.setAttribute('aria-label', 'Затвори');
     dismissBtn.addEventListener('click', () => {
