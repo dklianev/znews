@@ -275,9 +275,9 @@ export default function Navbar() {
 
           {/* COMIC LOGO — big tabloid name */}
           <Link to="/" className="inline-block group overflow-visible">
-            <div className="relative inline-block overflow-visible px-2 sm:px-3 pr-8 sm:pr-10">
+            <div className="relative inline-block overflow-visible px-2 sm:px-3 pr-8 sm:pr-10 transition-transform duration-300 group-hover:scale-[1.03]">
               {/* Background glow */}
-              <div className="absolute -inset-6 bg-gradient-to-br from-yellow-400/15 via-transparent to-orange-400/15 blur-2xl" />
+              <div className="absolute -inset-6 bg-gradient-to-br from-yellow-400/15 via-transparent to-orange-400/15 blur-2xl transition-opacity duration-300 group-hover:from-yellow-400/25 group-hover:to-orange-400/25" />
 
               <div className="relative">
                 {/* "EXCLUSIVE" stamp */}
@@ -353,7 +353,7 @@ export default function Navbar() {
                     {link.hot && <span className="comic-main-nav-hot-dot" aria-hidden="true" />}
                     <span>{link.label}</span>
                     {isActive && (
-                      <motion.span layoutId="navIndicator" className="comic-main-nav-underline" />
+                      <motion.span layoutId="navIndicator" className="comic-main-nav-underline" transition={{ type: 'spring', stiffness: 350, damping: 30 }} />
                     )}
                   </Link>
                 );

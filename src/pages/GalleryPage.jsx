@@ -93,7 +93,7 @@ export default function GalleryPage() {
               src={item.image}
               fallbackSrc="https://placehold.co/600x400/FFF1E5/33302E?text=LS+News"
               alt={item.title}
-              className={`w-full object-cover transition-transform duration-300 group-hover:scale-105 ${
+              className={`w-full object-cover transition-transform duration-500 group-hover:scale-105 ${
                 item.featured ? 'h-80 sm:h-full' : 'h-56'
               }`}
               pictureClassName="block"
@@ -103,8 +103,8 @@ export default function GalleryPage() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="absolute bottom-0 left-0 right-0 p-4 translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all z-[3]">
               <span className="inline-block px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-wider bg-zn-purple text-white mb-1.5 border border-white/30">{item.category}</span>
-              <h3 className="font-display font-black text-white text-lg leading-tight tracking-wider uppercase">{item.title}</h3>
-              {item.description && <p className="text-xs text-white/70 font-sans mt-1 line-clamp-2">{item.description}</p>}
+              <h3 className="font-display font-black text-white text-lg leading-tight tracking-wider uppercase drop-shadow-lg">{item.title}</h3>
+              {item.description && <p className="text-xs text-white/70 font-sans mt-1 line-clamp-2 drop-shadow-md">{item.description}</p>}
             </div>
             {item.featured && (
               <span className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-display font-black uppercase tracking-wider bg-amber-500 text-white border-2 border-white/30 z-[3]" style={{boxShadow:'2px 2px 0 rgba(0,0,0,0.3)'}}>Избрано</span>
@@ -131,9 +131,10 @@ export default function GalleryPage() {
           >
             <button
               onClick={() => setSelected(null)}
-              className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors z-10"
+              className="absolute top-4 right-4 w-12 h-12 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all rounded-full z-10"
+              aria-label="Затвори"
             >
-              <X className="w-8 h-8" />
+              <X className="w-7 h-7" />
             </button>
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}

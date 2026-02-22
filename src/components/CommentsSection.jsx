@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { MessageCircle, Send, User } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useData } from '../context/DataContext';
 
 const AVATAR_COLORS = ['bg-zn-purple', 'bg-zn-hot', 'bg-blue-700', 'bg-emerald-700', 'bg-amber-700', 'bg-violet-700', 'bg-rose-700', 'bg-teal-700'];
@@ -91,16 +91,36 @@ export default function CommentsSection({ articleId }) {
       <form onSubmit={handleSubmit} className="mb-8 newspaper-page comic-panel comic-dots p-5 relative">
         <div className="absolute -top-2 right-6 w-12 h-4 bg-yellow-200/70 border border-black/5 transform rotate-3 z-10" style={{boxShadow:'1px 1px 2px rgba(0,0,0,0.1)'}} />
         <h3 className="font-display font-black uppercase text-sm text-zn-text mb-3 tracking-widest relative z-[2]">Остави коментар</h3>
-        {submitted && (
-          <div className="mb-3 p-3 bg-emerald-50 border-2 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-400/30 dark:text-emerald-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
-            Коментарът е изпратен и очаква одобрение.
-          </div>
-        )}
-        {error && (
-          <div className="mb-3 p-3 bg-red-50 border-2 border-red-300 text-red-700 dark:bg-red-950/30 dark:border-red-400/30 dark:text-red-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
-            {error}
-          </div>
-        )}
+        <AnimatePresence>
+          {submitted && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="mb-3 p-3 bg-emerald-50 border-2 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-400/30 dark:text-emerald-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
+                Коментарът е изпратен и очаква одобрение.
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="overflow-hidden"
+            >
+              <div className="mb-3 p-3 bg-red-50 border-2 border-red-300 text-red-700 dark:bg-red-950/30 dark:border-red-400/30 dark:text-red-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
+                {error}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div className="flex gap-3 mb-3 relative z-[2]">
           <div className="relative flex-1">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-muted" />

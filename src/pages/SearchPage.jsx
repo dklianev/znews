@@ -1,6 +1,6 @@
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search as SearchIcon, FileText, Briefcase, Scale, CalendarDays, Crosshair } from 'lucide-react';
+import { Search as SearchIcon, FileText, Briefcase, Scale, CalendarDays, Crosshair, X } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { api } from '../utils/api';
 import React, { useState } from 'react';
@@ -164,9 +164,22 @@ export default function SearchPage() {
             value={localQuery}
             onChange={(e) => setLocalQuery(e.target.value)}
             placeholder="Търси по ключова дума..."
-            className="w-full pl-12 pr-4 py-3.5 bg-transparent text-zn-text placeholder-zn-text-dim font-display text-sm uppercase tracking-wider outline-none relative z-[2]"
+            className="w-full pl-12 pr-10 py-3.5 bg-transparent text-zn-text placeholder-zn-text-dim font-display text-sm uppercase tracking-wider outline-none relative z-[2]"
             aria-label="Търсене"
           />
+          {localQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setLocalQuery('');
+                navigate('/search');
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-zn-text-muted hover:text-zn-hot transition-colors z-[3]"
+              aria-label="Изчисти търсенето"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </form>
 

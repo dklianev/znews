@@ -193,12 +193,24 @@ export default function CategoryPage() {
                   ))
                 )}
               </div>
-              {page < totalPages && !loadingArticles && (
+              {page < totalPages && (
                 <button
-                  onClick={() => setPage(p => p + 1)}
-                  className="w-full py-3 border-3 border-[#1C1428] text-zn-text text-sm font-display font-black uppercase tracking-wider hover:bg-zn-hot hover:text-white transition-all duration-200 comic-panel comic-panel-hover bg-white"
+                  onClick={() => !loadingArticles && setPage(p => p + 1)}
+                  disabled={loadingArticles}
+                  className={`w-full py-3 border-3 border-[#1C1428] text-sm font-display font-black uppercase tracking-wider transition-all duration-200 comic-panel bg-white ${
+                    loadingArticles
+                      ? 'text-zn-text-muted cursor-wait'
+                      : 'text-zn-text comic-panel-hover hover:bg-zn-hot hover:text-white'
+                  }`}
                 >
-                  Зареди още ({Math.max(totalArticles - categoryArticles.length, 0)} остават)
+                  {loadingArticles ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="w-4 h-4 border-2 border-zn-text-muted border-t-zn-hot rounded-full animate-spin" />
+                      Зареждане...
+                    </span>
+                  ) : (
+                    <>Зареди още ({Math.max(totalArticles - categoryArticles.length, 0)} остават)</>
+                  )}
                 </button>
               )}
             </>

@@ -634,9 +634,12 @@ export default function ArticlePage() {
 
           {/* Related articles */}
           {relatedArticles.length > 0 && (
-            <section className="mt-10">
-              <h2 className="font-display text-xl font-bold text-zn-text tracking-wider">Свързани новини</h2>
-              <div className="h-0.5 bg-gradient-to-r from-zn-hot to-zn-orange mt-2 mb-5" />
+            <section className="mt-10 pt-8 border-t-4 border-zn-border/30 relative">
+              <div className="absolute -top-4 left-6">
+                <span className="comic-sticker">Още</span>
+              </div>
+              <h2 className="font-display text-xl font-black text-zn-text tracking-wider uppercase">Свързани новини</h2>
+              <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mt-2 mb-5" />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {relatedArticles.map(({ article: related, reason }, index) => {
                   const design = getComicCardStyle('articleRelated', index, related, siteSettings?.layoutPresets?.articleRelated);
