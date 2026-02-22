@@ -3021,10 +3021,35 @@ async function connectDB() {
 async function ensureDbIndexes() {
   try {
     // In production Mongoose defaults to autoIndex=false, so ensure the critical indexes exist.
-    await Promise.all([
-      Article.init(),
-      Comment.init(),
-    ]);
+    const modelsWithIndexes = [
+      Article,
+      Author,
+      Category,
+      Ad,
+      Breaking,
+      User,
+      Wanted,
+      Job,
+      Court,
+      Event,
+      Poll,
+      Comment,
+      ContactMessage,
+      Gallery,
+      Permission,
+      HeroSettings,
+      SiteSettings,
+      ArticleRevision,
+      SettingsRevision,
+      ArticleView,
+      PollVote,
+      AuthSession,
+      AuditLog,
+      Tip,
+      PushSubscription,
+    ];
+
+    await Promise.all(modelsWithIndexes.map((Model) => Model.init()));
     console.log('✓ MongoDB indexes ensured');
   } catch (err) {
     console.warn('⚠ MongoDB index init failed:', err?.message || err);
