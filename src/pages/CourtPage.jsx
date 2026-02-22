@@ -43,7 +43,7 @@ export default function CourtPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0 mb-6 border-b-2 border-zn-border/50">
+      <div className="flex gap-0 mb-6 border-b-2 border-zn-border/50 overflow-x-auto scrollbar-hide">
         {[
           { id: 'all', label: 'Всички', count: court.length },
           { id: 'completed', label: 'Приключени', count: completed.length },

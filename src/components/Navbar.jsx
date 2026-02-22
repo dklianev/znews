@@ -180,6 +180,16 @@ export default function Navbar() {
     });
   }, [searchOpen]);
 
+  // Lock body scroll when mobile nav is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isOpen]);
+
   const today = new Date().toLocaleDateString('bg-BG', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
@@ -285,7 +295,7 @@ export default function Navbar() {
                   <span className="comic-sticker">Exclusive</span>
                 </div>
 
-                <h1 className="relative z-20 font-comic text-5xl sm:text-7xl md:text-8xl lg:text-[9.5rem] tracking-tight uppercase leading-none" style={{ letterSpacing: '-0.01em' }}>
+                <span className="relative z-20 font-comic text-5xl sm:text-7xl md:text-8xl lg:text-[9.5rem] tracking-tight uppercase leading-none block" style={{ letterSpacing: '-0.01em' }} role="img" aria-label="zNews">
                   <span className="text-white" style={{ WebkitTextStroke: '2px rgba(0,0,0,0.3)', textShadow: '4px 4px 0 rgba(0,0,0,0.4)' }}>z</span>
                   <span
                     className="inline-block pr-[0.14em] text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-400 to-orange-500"
@@ -293,7 +303,7 @@ export default function Navbar() {
                   >
                     News
                   </span>
-                </h1>
+                </span>
 
                 {/* Megaphone badge */}
                 <div className="absolute -top-1 right-0 sm:-right-2 md:-right-3 transform rotate-12 z-10">

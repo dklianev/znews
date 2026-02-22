@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Search as SearchIcon, FileText, Briefcase, Scale, CalendarDays, Crosshair, X } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import { api } from '../utils/api';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -92,36 +92,35 @@ export default function SearchPage() {
 
   const q = trimmedQuery.toLowerCase();
 
-  const localArticleResults = !q ? [] : articles.filter(article =>
+  const localArticleResults = useMemo(() => !q ? [] : articles.filter(article =>
     String(article?.title || '').toLowerCase().includes(q) ||
     String(article?.excerpt || '').toLowerCase().includes(q) ||
-    (Array.isArray(article?.tags) && article.tags.some(t => String(t).toLowerCase().includes(q))) ||
-    String(article.content || '').toLowerCase().includes(q)
-  );
+    (Array.isArray(article?.tags) && article.tags.some(t => String(t).toLowerCase().includes(q)))
+  ), [q, articles]);
 
-  const localJobResults = !q ? [] : jobs.filter(j =>
+  const localJobResults = useMemo(() => !q ? [] : jobs.filter(j =>
     String(j?.title || '').toLowerCase().includes(q) ||
     String(j?.org || '').toLowerCase().includes(q) ||
     String(j?.description || '').toLowerCase().includes(q)
-  );
+  ), [q, jobs]);
 
-  const localCourtResults = !q ? [] : court.filter(c =>
+  const localCourtResults = useMemo(() => !q ? [] : court.filter(c =>
     String(c?.title || '').toLowerCase().includes(q) ||
     String(c?.details || '').toLowerCase().includes(q) ||
     String(c?.defendant || '').toLowerCase().includes(q) ||
     String(c?.charge || '').toLowerCase().includes(q)
-  );
+  ), [q, court]);
 
-  const localEventResults = !q ? [] : events.filter(e =>
+  const localEventResults = useMemo(() => !q ? [] : events.filter(e =>
     String(e?.title || '').toLowerCase().includes(q) ||
     String(e?.description || '').toLowerCase().includes(q) ||
     String(e?.location || '').toLowerCase().includes(q)
-  );
+  ), [q, events]);
 
-  const localWantedResults = !q ? [] : wanted.filter(w =>
+  const localWantedResults = useMemo(() => !q ? [] : wanted.filter(w =>
     String(w?.name || '').toLowerCase().includes(q) ||
     String(w?.charge || '').toLowerCase().includes(q)
-  );
+  ), [q, wanted]);
 
   const useLocalFallback = Boolean(trimmedQuery) && Boolean(remoteError);
   const articleResults = useLocalFallback ? localArticleResults : (Array.isArray(remoteResults.articles) ? remoteResults.articles : []);

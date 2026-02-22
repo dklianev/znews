@@ -11,7 +11,9 @@ import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import YouTubeEmbed from '../components/YouTubeEmbed';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const categoryColors = {
   crime: 'bg-zn-purple text-white',
@@ -155,6 +157,20 @@ export default function ArticlePage() {
 
   const article = directArticle || contextArticle;
   useDocumentTitle(makeTitle(article?.title || 'Статия'));
+
+  // Per-page OG / Twitter / canonical meta for social sharing
+  const articleMetaTags = useMemo(() => {
+    if (!article) return null;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return {
+      title: article.title,
+      description: article.excerpt || article.title,
+      image: article.image?.startsWith('http') ? article.image : `${origin}${article.image || ''}`,
+      url: `${origin}/article/${article.id}`,
+      type: 'article',
+    };
+  }, [article?.id, article?.title, article?.excerpt, article?.image]);
+  useDocumentMeta(articleMetaTags);
 
   useEffect(() => {
     viewCounted.current = false;
@@ -308,6 +324,31 @@ export default function ArticlePage() {
     }
   }, [article.content, article.excerpt]);
 
+  // JSON-LD structured data for search engines
+  const jsonLd = useMemo(() => {
+    if (!article) return null;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'NewsArticle',
+      headline: article.title,
+      description: article.excerpt || '',
+      image: article.image?.startsWith('http') ? article.image : `${origin}${article.image || ''}`,
+      datePublished: article.date || '',
+      dateModified: article.updatedAt || article.date || '',
+      author: author ? { '@type': 'Person', name: author.name } : undefined,
+      publisher: {
+        '@type': 'Organization',
+        name: 'zNews',
+        logo: { '@type': 'ImageObject', url: `${origin}/og.png` },
+      },
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': `${origin}/article/${article.id}`,
+      },
+    };
+  }, [article?.id, article?.title, article?.excerpt, article?.image, article?.date, article?.updatedAt, author?.name]);
+
   const horizontalAds = ads.filter(a => a.type === 'horizontal');
   const sideAds = ads.filter(a => a.type === 'side');
   const inlineAd = ads.find(a => a.type === 'inline') || ads[0];
@@ -438,14 +479,51 @@ export default function ArticlePage() {
     };
   }, [nextArticle?.image]);
 
+  // Reading progress bar
+  const [readProgress, setReadProgress] = useState(0);
+  const articleBodyRef = useRef(null);
+  useEffect(() => {
+    const handleScroll = () => {
+      const el = articleBodyRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const total = el.scrollHeight;
+      const visible = window.innerHeight;
+      const scrolled = Math.max(0, -rect.top);
+      const pct = Math.min(100, Math.max(0, (scrolled / (total - visible)) * 100));
+      setReadProgress(pct);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [article?.id]);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="max-w-7xl mx-auto px-4 py-6"
     >
+      {/* JSON-LD structured data */}
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+
+      {/* Reading progress bar */}
+      <div
+        className="fixed top-0 left-0 h-1 bg-gradient-to-r from-zn-hot to-zn-orange z-[100] transition-[width] duration-150 ease-out"
+        style={{ width: `${readProgress}%` }}
+        role="progressbar"
+        aria-valuenow={Math.round(readProgress)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Прогрес на четене"
+      />
+
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 text-sm font-sans text-zn-text-muted mb-6">
+      <nav aria-label="Навигационна пътека" className="flex items-center gap-2 text-sm font-sans text-zn-text-muted mb-6">
         <Link to="/" className="hover:text-zn-hot transition-colors">Начало</Link>
         <ChevronRight className="w-3 h-3" />
         {category && (
@@ -459,7 +537,7 @@ export default function ArticlePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main article */}
-        <article className="lg:col-span-2">
+        <article ref={articleBodyRef} className="lg:col-span-2">
           {/* Category & badges */}
           <div className="flex items-center gap-2 mb-3">
             {article.breaking && (
@@ -522,7 +600,7 @@ export default function ArticlePage() {
                   Yapper
                 </button>
                 {yapperOpen && (
-                  <div className="yapper-popup" id={yapperPopupId} role="dialog" aria-label="Yapper снимка">
+                  <div className="yapper-popup fixed sm:absolute inset-x-4 bottom-4 sm:inset-auto sm:right-0 sm:top-full sm:mt-2 z-50" id={yapperPopupId} role="dialog" aria-label="Yapper снимка">
                     <div className="yapper-popup-title">Yapper снимка</div>
                     <img
                       src={sharePngUrl}
@@ -662,7 +740,7 @@ export default function ArticlePage() {
         </article>
 
         {/* Sidebar */}
-        <aside className="space-y-6">
+        <aside aria-label="Странична лента" className="space-y-6">
           {showBodySkeleton && (
             <div className="newspaper-page comic-panel comic-dots p-5 relative lg:sticky lg:top-24 animate-pulse" aria-label="Зареждане на навигация">
               <div className="absolute -top-2 left-6 w-14 h-4 bg-yellow-200/50 border border-black/5 transform -rotate-3 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.08)' }} />
@@ -711,10 +789,10 @@ export default function ArticlePage() {
             </div>
           )}
 
-          <TrendingSidebar />
+          <ErrorBoundary fallback={null}><TrendingSidebar /></ErrorBoundary>
 
           {sideAds.slice(0, 2).map(ad => (
-            <AdBannerSide key={ad.id} ad={ad} />
+            <ErrorBoundary key={ad.id} fallback={null}><AdBannerSide ad={ad} /></ErrorBoundary>
           ))}
         </aside>
       </div>

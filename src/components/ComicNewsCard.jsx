@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Play } from 'lucide-react';
+import { Eye, Play, Clock } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import ResponsiveImage from './ResponsiveImage';
 import { COMIC_CARD_VARIANTS } from '../utils/comicCardDesign';
@@ -72,10 +72,18 @@ export default memo(function ComicNewsCard({
         </p>
         <div className="flex items-center justify-between border-t-2 border-zn-border/50 pt-2 text-xs font-display font-black uppercase tracking-[0.08em] text-zn-text-dim">
           <span>{categoryName}</span>
-          <span className="inline-flex items-center gap-1 text-zn-hot">
-            <Eye className="w-3.5 h-3.5" />
-            {(article.views || 0).toLocaleString()}
-          </span>
+          <div className="inline-flex items-center gap-3">
+            {article.readTime > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {article.readTime} мин
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1 text-zn-hot">
+              <Eye className="w-3.5 h-3.5" />
+              {(article.views || 0).toLocaleString()}
+            </span>
+          </div>
         </div>
       </div>
     </Link>

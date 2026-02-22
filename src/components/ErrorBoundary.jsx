@@ -17,6 +17,10 @@ export default class ErrorBoundary extends Component {
 
   render() {
     if (this.state.hasError) {
+      // Section-level boundaries can render nothing or a small fallback
+      if (this.props.fallback !== undefined) {
+        return this.props.fallback;
+      }
       return (
         <div className="min-h-screen flex items-center justify-center bg-zn-bg px-4">
           <div className="max-w-lg w-full relative">

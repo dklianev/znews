@@ -131,6 +131,7 @@ export default function CommentsSection({ articleId }) {
               placeholder="Твоето име..."
               required
               maxLength={COMMENT_AUTHOR_MAX_LEN}
+              aria-label="Твоето име"
               className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple transition-colors"
             />
           </div>
@@ -142,6 +143,7 @@ export default function CommentsSection({ articleId }) {
           required
           rows="3"
           maxLength={COMMENT_TEXT_MAX_LEN}
+          aria-label="Коментар"
           className="w-full px-3 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple resize-none mb-3 relative z-[2]"
         />
         <div className="flex items-center justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted mb-3 relative z-[2]">

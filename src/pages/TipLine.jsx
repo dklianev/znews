@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useData } from '../context/DataContext';
 import { useDocumentTitle, makeTitle } from '../hooks/useDocumentTitle';
 import { Upload, MapPin, Send, AlertTriangle, CheckCircle, Image as ImageIcon, X } from 'lucide-react';
@@ -17,6 +17,13 @@ export default function TipLine() {
     const [error, setError] = useState('');
 
     const fileInputRef = useRef(null);
+
+    // Revoke objectURL on unmount to prevent memory leaks
+    useEffect(() => {
+        return () => {
+            if (imagePreview) URL.revokeObjectURL(imagePreview);
+        };
+    }, [imagePreview]);
 
     const handleImageChange = (e) => {
         const file = e.target.files?.[0];
@@ -142,6 +149,8 @@ export default function TipLine() {
                             onChange={(e) => setText(e.target.value)}
                             className="w-full h-40 px-4 py-3 font-sans text-lg bg-gray-50 border-2 border-zn-black focus:outline-none focus:ring-4 focus:ring-zn-purple/20 focus:border-zn-purple transition-all resize-none shadow-[2px_2px_0_#1C1428]"
                             placeholder="Опишете събитието детайлно. Кой, какво, кога..."
+                            aria-required="true"
+                            aria-label="Описание на сигнала"
                         />
                     </div>
 

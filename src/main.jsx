@@ -6,10 +6,23 @@ import { registerSW } from 'virtual:pwa-register'
 
 const updateSW = registerSW({
   onNeedRefresh() {
-    // Simple prompt for now, could be replaced with a toast
-    if (confirm('Налична е нова версия. Искате ли да презаредите?')) {
-      updateSW(true)
-    }
+    // Non-blocking toast instead of window.confirm()
+    const toast = document.createElement('div');
+    toast.className = 'pwa-update-toast';
+    toast.innerHTML = `
+      <span>Налична е нова версия</span>
+      <button id="pwa-refresh-btn">Презареди</button>
+      <button id="pwa-dismiss-btn" aria-label="Затвори">\u2715</button>
+    `;
+    document.body.appendChild(toast);
+
+    document.getElementById('pwa-refresh-btn')?.addEventListener('click', () => {
+      updateSW(true);
+      toast.remove();
+    });
+    document.getElementById('pwa-dismiss-btn')?.addEventListener('click', () => {
+      toast.remove();
+    });
   },
 })
 

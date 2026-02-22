@@ -15,7 +15,8 @@ function markPollVoted(pollId, optionIndex) {
 
 export default function PollWidget() {
   const { polls, votePoll } = useData();
-  const activePoll = polls.find(p => p.active);
+  const safePolls = Array.isArray(polls) ? polls : [];
+  const activePoll = safePolls.find(p => p.active);
   const [votedPolls, setVotedPolls] = useState(getVotedPolls);
 
   if (!activePoll) return null;
@@ -64,6 +65,7 @@ export default function PollWidget() {
               key={index}
               onClick={() => handleVote(index)}
               disabled={hasVoted}
+              aria-label={isMyVote ? `Вашият избор: ${option.text}` : option.text}
               className={`w-full text-left group ${hasVoted ? 'cursor-default' : 'cursor-pointer'}`}
               whileHover={!hasVoted ? { scale: 1.02 } : {}}
               whileTap={!hasVoted ? { scale: 0.98 } : {}}

@@ -142,7 +142,7 @@ export default function Footer() {
               <ul className="space-y-2">
                 {quickLinks.map(item => (
                   <li key={item.label}>
-                    <Link to={item.to} className="text-sm text-zn-text-muted hover:text-zn-hot transition-colors font-display uppercase tracking-wide font-bold red-dot">
+                    <Link to={item.to} className="text-sm text-zn-text-muted hover:text-zn-hot transition-colors font-display uppercase tracking-wide font-bold red-dot inline-block py-1">
                       {item.label}
                     </Link>
                   </li>
@@ -156,7 +156,7 @@ export default function Footer() {
               <ul className="space-y-2">
                 {infoLinks.map(item => (
                   <li key={item.label}>
-                    <Link to={item.to} className="text-sm text-zn-text-muted hover:text-zn-hot transition-colors font-display uppercase tracking-wide font-bold red-dot">
+                    <Link to={item.to} className="text-sm text-zn-text-muted hover:text-zn-hot transition-colors font-display uppercase tracking-wide font-bold red-dot inline-block py-1">
                       {item.label}
                     </Link>
                   </li>

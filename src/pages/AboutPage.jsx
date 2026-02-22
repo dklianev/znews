@@ -175,6 +175,7 @@ export default function AboutPage() {
               value={contactForm.name}
               onChange={e => setContactForm({ ...contactForm, name: e.target.value })}
               required
+              aria-label="Име"
               className="w-full px-4 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple transition-colors"
             />
             <input
@@ -183,6 +184,7 @@ export default function AboutPage() {
               value={contactForm.email}
               onChange={e => setContactForm({ ...contactForm, email: e.target.value })}
               required
+              aria-label="Email"
               className="w-full px-4 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple transition-colors"
             />
             <textarea
@@ -191,6 +193,7 @@ export default function AboutPage() {
               value={contactForm.message}
               onChange={e => setContactForm({ ...contactForm, message: e.target.value })}
               required
+              aria-label="Съобщение"
               className="w-full px-4 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple resize-none transition-colors"
             />
             <button disabled={contactSending} className="btn-primary w-full disabled:opacity-60">
