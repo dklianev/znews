@@ -203,6 +203,14 @@ export default function Navbar() {
     transition: { duration: 0.22, ease: 'easeOut' },
   };
 
+  // Mobile drawer uses transform/opacity instead of height animation for smoother low-end phone performance.
+  const mobileNavMotionProps = {
+    initial: { opacity: 0, y: -10, scaleY: 0.98 },
+    animate: { opacity: 1, y: 0, scaleY: 1 },
+    exit: { opacity: 0, y: -8, scaleY: 0.985 },
+    transition: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+  };
+
   const searchForm = (
     <form onSubmit={handleSearch} className="pt-2 pb-3">
       <div className="relative">
@@ -365,7 +373,7 @@ export default function Navbar() {
 
       {/* ── MAIN NAV BAR ── */}
       <nav className="comic-strip-nav border-b-4 border-zn-black sticky top-0 z-50" style={{ boxShadow: '0 4px 0 rgba(204,10,26,0.3)' }}>
-        <div className="max-w-[1400px] mx-auto px-2 sm:px-3 lg:px-4">
+        <div className="relative max-w-[1400px] mx-auto px-2 sm:px-3 lg:px-4">
           <div className="flex items-center justify-between">
             <div className="hidden md:flex w-full min-w-0 items-center justify-start lg:justify-center gap-0 overflow-x-auto lg:overflow-visible scrollbar-hide comic-main-nav-row">
               {navLinks.map(link => {
@@ -408,10 +416,16 @@ export default function Navbar() {
           </AnimatePresence>
 
           {/* Mobile nav */}
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {isOpen && (
-              <motion.div {...collapsibleMotionProps} className="md:hidden overflow-hidden">
-                {mobileNav}
+              <motion.div
+                {...mobileNavMotionProps}
+                className="md:hidden absolute top-full left-0 right-0 z-[70] mt-1.5 origin-top"
+                style={{ willChange: 'transform, opacity' }}
+              >
+                <div className="overflow-hidden border-2 border-[#1C1428]/75 bg-[#F5EEDF] shadow-[0_12px_24px_rgba(28,20,40,0.3)] max-h-[72vh] overflow-y-auto overscroll-contain">
+                  {mobileNav}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
