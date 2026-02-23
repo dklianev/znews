@@ -5,6 +5,35 @@ const DataContext = createContext();
 const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 const HOMEPAGE_ARTICLE_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,status,publishAt,cardSticker';
 
+function collectCommentThreadIdsLocal(items, rootId) {
+  const parsedRootId = Number.parseInt(rootId, 10);
+  if (!Number.isInteger(parsedRootId)) return new Set();
+
+  const childrenByParent = new Map();
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    const parsedParentId = Number.parseInt(item?.parentId, 10);
+    const parsedId = Number.parseInt(item?.id, 10);
+    if (!Number.isInteger(parsedParentId) || !Number.isInteger(parsedId)) return;
+    if (!childrenByParent.has(parsedParentId)) childrenByParent.set(parsedParentId, []);
+    childrenByParent.get(parsedParentId).push(parsedId);
+  });
+
+  const ids = new Set([parsedRootId]);
+  const queue = [parsedRootId];
+
+  while (queue.length > 0) {
+    const parentId = queue.shift();
+    const childIds = childrenByParent.get(parentId) || [];
+    childIds.forEach((childId) => {
+      if (ids.has(childId)) return;
+      ids.add(childId);
+      queue.push(childId);
+    });
+  }
+
+  return ids;
+}
+
 export function DataProvider({ children }) {
   const [articles, setArticles] = useState([]);
   const [authors, setAuthors] = useState([]);
@@ -523,8 +552,40 @@ export function DataProvider({ children }) {
   }, []);
 
   const addComment = useCallback(async (c) => { const n = await api.comments.create(c); setComments(prev => [...prev, n]); }, []);
-  const updateComment = useCallback(async (id, u) => { const updated = await api.comments.update(id, u); setComments(prev => prev.map(c => c.id === id ? updated : c)); }, []);
-  const deleteComment = useCallback(async (id) => { await api.comments.delete(id); setComments(prev => prev.filter(c => c.id !== id)); }, []);
+  const updateComment = useCallback(async (id, u) => {
+    const updated = await api.comments.update(id, u);
+    const parsedId = Number.parseInt(id, 10);
+    const shouldCascadeHide = Object.prototype.hasOwnProperty.call(u || {}, 'approved') && u?.approved === false;
+
+    setComments((prev) => {
+      if (!shouldCascadeHide || !Number.isInteger(parsedId)) {
+        return prev.map(c => Number(c.id) === Number(id) ? { ...c, ...updated } : c);
+      }
+
+      const threadIds = collectCommentThreadIdsLocal(prev, parsedId);
+      return prev.map((comment) => {
+        const commentId = Number.parseInt(comment?.id, 10);
+        if (!Number.isInteger(commentId)) return comment;
+        if (commentId === parsedId) return { ...comment, ...updated };
+        if (threadIds.has(commentId)) return { ...comment, approved: false };
+        return comment;
+      });
+    });
+
+    return updated;
+  }, []);
+  const deleteComment = useCallback(async (id) => {
+    await api.comments.delete(id);
+    setComments((prev) => {
+      const threadIds = collectCommentThreadIdsLocal(prev, id);
+      return prev.filter((comment) => !threadIds.has(Number.parseInt(comment?.id, 10)));
+    });
+  }, []);
+  const reactToComment = useCallback(async (id, reaction) => {
+    const updated = await api.comments.react(id, reaction);
+    setComments(prev => prev.map(c => Number(c.id) === Number(id) ? { ...c, ...updated } : c));
+    return updated;
+  }, []);
 
   // ─── Gallery ───
   const addGalleryItem = useCallback(async (g) => { const n = await api.gallery.create(g); setGallery(prev => [...prev, n]); }, []);
@@ -640,7 +701,7 @@ export function DataProvider({ children }) {
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
     polls, addPoll, updatePoll, deletePoll, votePoll,
-    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment,
+    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
     users, addUser, updateUser, deleteUser,
@@ -664,7 +725,7 @@ export function DataProvider({ children }) {
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
     polls, addPoll, updatePoll, deletePoll, votePoll,
-    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment,
+    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
     users, addUser, updateUser, deleteUser,

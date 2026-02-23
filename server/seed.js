@@ -9,7 +9,7 @@ dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
 
 import {
   Article, Author, Category, Ad, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession,
+  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession,
 } from './models.js';
 
 // Import static data from frontend
@@ -220,6 +220,7 @@ export async function seedAll() {
     Event.deleteMany({}),
     Poll.deleteMany({}),
     Comment.deleteMany({}),
+    CommentReaction.deleteMany({}),
     Gallery.deleteMany({}),
     Permission.deleteMany({}),
     HeroSettings.deleteMany({}),

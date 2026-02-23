@@ -371,7 +371,13 @@ export const api = {
       body: JSON.stringify({ optionIndex }),
     }),
   },
-  comments: crudEndpoints('comments'),
+  comments: {
+    ...crudEndpoints('comments'),
+    react: (id, reaction) => request(`/comments/${id}/reaction`, {
+      method: 'POST',
+      body: JSON.stringify({ reaction }),
+    }),
+  },
 
   contactMessages: {
     submit: (data) => request('/contact-messages', {

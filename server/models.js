@@ -170,15 +170,36 @@ const pollSchema = new mongoose.Schema({
 const commentSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
   articleId: { type: Number, required: true },
+  parentId: { type: Number, default: null, index: true },
   author: { type: String, required: true, maxlength: 50 },
   avatar: String,
   text: { type: String, required: true, maxlength: 1200 },
   date: { type: String, required: true },
+  likes: { type: Number, default: 0, min: 0 },
+  dislikes: { type: Number, default: 0, min: 0 },
   approved: { type: Boolean, default: false },
 }, opts);
 
 // Public read path: find({ articleId, approved: true }).sort({ id: -1 })
-commentSchema.index({ articleId: 1, approved: 1, id: -1 }, { name: 'comment_article_approved_id' });
+commentSchema.index({ articleId: 1, approved: 1, parentId: 1, id: -1 }, { name: 'comment_article_approved_parent_id' });
+commentSchema.index({ parentId: 1, id: 1 }, { name: 'comment_parent_id' });
+
+const commentReactionSchema = new mongoose.Schema({
+  commentId: { type: Number, required: true, index: true },
+  voterHash: { type: String, required: true, index: true },
+  value: { type: String, required: true, enum: ['like', 'dislike'] },
+  createdAt: { type: Date, default: Date.now, index: true },
+  updatedAt: { type: Date, default: Date.now },
+}, opts);
+
+commentReactionSchema.index(
+  { commentId: 1, voterHash: 1 },
+  { unique: true, name: 'comment_reaction_comment_voter' }
+);
+commentReactionSchema.index(
+  { commentId: 1, value: 1 },
+  { name: 'comment_reaction_comment_value' }
+);
 
 // ─── Contact Messages ───
 const contactMessageSchema = new mongoose.Schema({
@@ -406,6 +427,7 @@ export const Court = mongoose.model('Court', courtSchema);
 export const Event = mongoose.model('Event', eventSchema);
 export const Poll = mongoose.model('Poll', pollSchema);
 export const Comment = mongoose.model('Comment', commentSchema);
+export const CommentReaction = mongoose.model('CommentReaction', commentReactionSchema);
 export const ContactMessage = mongoose.model('ContactMessage', contactMessageSchema);
 export const Gallery = mongoose.model('Gallery', gallerySchema);
 export const Permission = mongoose.model('Permission', permissionSchema);

@@ -16,8 +16,14 @@ export default function ManageComments() {
 
   const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
   const pendingCount = comments.filter(c => !c.approved).length;
+  const commentsById = new Map(comments.map(comment => [Number(comment.id), comment]));
 
   const getArticleTitle = (id) => articles.find(a => a.id === id)?.title || `Статия #${id}`;
+  const getParentLabel = (parentId) => {
+    const parent = commentsById.get(Number(parentId));
+    if (!parent) return `#${parentId}`;
+    return `${parent.author || 'Коментар'} (#${parent.id})`;
+  };
 
   const handleApprove = async (id) => {
     setBusyId(id);
@@ -125,6 +131,19 @@ export default function ManageComments() {
                   {getArticleTitle(comment.articleId)}
                 </a>
               </p>
+              <div className="mt-1 flex items-center gap-2 flex-wrap">
+                {Number.isInteger(Number(comment.parentId)) && (
+                  <span className="px-1.5 py-0.5 text-[9px] font-sans font-bold uppercase bg-sky-100 text-sky-700">
+                    Отговор към {getParentLabel(comment.parentId)}
+                  </span>
+                )}
+                <span className="px-1.5 py-0.5 text-[9px] font-sans font-bold uppercase bg-gray-100 text-gray-600">
+                  Like: {Math.max(0, Number.parseInt(comment.likes, 10) || 0)}
+                </span>
+                <span className="px-1.5 py-0.5 text-[9px] font-sans font-bold uppercase bg-gray-100 text-gray-600">
+                  Dislike: {Math.max(0, Number.parseInt(comment.dislikes, 10) || 0)}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
               {!comment.approved && (

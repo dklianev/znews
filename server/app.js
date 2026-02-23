@@ -43,7 +43,7 @@ if (mongoDnsServersEnv && mongoDnsServersEnv.trim()) {
 
 import {
   Article, Author, Category, Ad, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription
+  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription
 } from './models.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
 import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/homepageSelectors.js';
@@ -710,6 +710,14 @@ const commentCreateLimiter = rateLimit({
   windowMs: 2 * 60 * 1000,
   max: 3,
   message: { error: 'Too many comments from this IP. Please try again later.' },
+  skip: shouldSkipRateLimit,
+  keyGenerator: rateLimitKeyGenerator,
+});
+
+const commentReactionLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  message: { error: 'Too many comment reactions from this IP. Please try again later.' },
   skip: shouldSkipRateLimit,
   keyGenerator: rateLimitKeyGenerator,
 });
@@ -2875,6 +2883,51 @@ function commentContainsBlockedTerms(text) {
   return blockedCommentTerms.some(term => normalized.includes(term));
 }
 
+function normalizeCommentReaction(value) {
+  const normalized = normalizeText(value, 16).toLowerCase();
+  if (normalized === 'like' || normalized === 'dislike') return normalized;
+  return null;
+}
+
+async function syncCommentReactionTotals(commentId) {
+  const [likes, dislikes] = await Promise.all([
+    CommentReaction.countDocuments({ commentId, value: 'like' }),
+    CommentReaction.countDocuments({ commentId, value: 'dislike' }),
+  ]);
+
+  return Comment.findOneAndUpdate(
+    { id: commentId },
+    { $set: { likes, dislikes } },
+    { new: true }
+  );
+}
+
+async function collectCommentThreadIds(rootId) {
+  const parsedRootId = Number.parseInt(rootId, 10);
+  if (!Number.isInteger(parsedRootId)) return [];
+
+  const seen = new Set([parsedRootId]);
+  const ids = [];
+  let frontier = [parsedRootId];
+
+  while (frontier.length > 0) {
+    ids.push(...frontier);
+    const children = await Comment.find({ parentId: { $in: frontier } })
+      .select({ _id: 0, id: 1 })
+      .lean();
+
+    frontier = [];
+    children.forEach((child) => {
+      const childId = Number.parseInt(child?.id, 10);
+      if (!Number.isInteger(childId) || seen.has(childId)) return;
+      seen.add(childId);
+      frontier.push(childId);
+    });
+  }
+
+  return ids;
+}
+
 async function nextNumericId(Model) {
   const last = await Model.findOne().sort({ id: -1 }).lean();
   return (last?.id || 0) + 1;
@@ -3153,6 +3206,7 @@ async function ensureDbIndexes() {
       Event,
       Poll,
       Comment,
+      CommentReaction,
       ContactMessage,
       Gallery,
       Permission,
@@ -3953,6 +4007,7 @@ const COMMENT_TEXT_MAX_LEN = 1200;
 commentsRouter.post('/', commentCreateLimiter, async (req, res) => {
   try {
     const articleId = Number.parseInt(req.body.articleId, 10);
+    const parentIdRaw = hasOwn(req.body, 'parentId') ? Number.parseInt(req.body.parentId, 10) : null;
     const authorRaw = typeof req.body.author === 'string'
       ? req.body.author.replace(/\u0000/g, '').trim()
       : '';
@@ -3982,20 +4037,93 @@ commentsRouter.post('/', commentCreateLimiter, async (req, res) => {
     const articleExists = await Article.exists({ id: articleId, ...getPublishedFilter() });
     if (!articleExists) return res.status(404).json({ error: 'Article not found' });
 
+    let parentId = null;
+    if (parentIdRaw !== null) {
+      if (!Number.isInteger(parentIdRaw)) {
+        return res.status(400).json({ error: 'Invalid parentId' });
+      }
+      const parentComment = await Comment.findOne({
+        id: parentIdRaw,
+        articleId,
+        approved: true,
+      }).lean();
+      if (!parentComment) {
+        return res.status(400).json({ error: 'Parent comment not found or not approved' });
+      }
+      parentId = parentIdRaw;
+    }
+
     const id = await nextNumericId(Comment);
     const item = await Comment.create({
       id,
       articleId,
+      parentId,
       author,
       avatar: author.charAt(0).toUpperCase() || 'A',
       text,
       date: new Date().toISOString().slice(0, 10),
+      likes: 0,
+      dislikes: 0,
       approved: false,
     });
 
     res.status(201).json(item.toJSON());
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
+  }
+});
+
+commentsRouter.post('/:id/reaction', commentReactionLimiter, async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const payload = req.body && typeof req.body === 'object' ? req.body : {};
+    if (!hasOwn(payload, 'reaction')) {
+      return res.status(400).json({ error: 'reaction is required' });
+    }
+
+    const reactionRaw = normalizeText(payload.reaction, 16).toLowerCase();
+    let reaction = null;
+    if (!reactionRaw || reactionRaw === 'none' || reactionRaw === 'clear') {
+      reaction = null;
+    } else {
+      reaction = normalizeCommentReaction(reactionRaw);
+      if (!reaction) return res.status(400).json({ error: 'Invalid reaction value' });
+    }
+
+    const maybeUser = decodeTokenFromRequest(req);
+    const canModerate = maybeUser ? await hasPermissionForSection(maybeUser, 'comments') : false;
+    const commentFilter = canModerate ? { id } : { id, approved: true };
+    const commentExists = await Comment.exists(commentFilter);
+    if (!commentExists) return res.status(404).json({ error: 'Comment not found' });
+
+    const voterHash = hashClientFingerprint(req, `comment:${id}`);
+    if (reaction) {
+      await CommentReaction.findOneAndUpdate(
+        { commentId: id, voterHash },
+        {
+          $set: {
+            value: reaction,
+            updatedAt: new Date(),
+          },
+          $setOnInsert: {
+            createdAt: new Date(),
+          },
+        },
+        { upsert: true }
+      );
+    } else {
+      await CommentReaction.deleteOne({ commentId: id, voterHash });
+    }
+
+    const updated = await syncCommentReactionTotals(id);
+    if (!updated) return res.status(404).json({ error: 'Comment not found' });
+    const asJson = updated.toJSON();
+    asJson.userReaction = reaction;
+    return res.json(asJson);
+  } catch (e) {
+    return res.status(500).json({ error: publicError(e) });
   }
 });
 
@@ -4021,6 +4149,17 @@ commentsRouter.put('/:id', requireAuth, requirePermission('comments'), async (re
     const item = await Comment.findOneAndUpdate({ id }, { $set: updates }, { new: true });
     if (!item) return res.status(404).json({ error: 'Not found' });
 
+    if (updates.approved === false) {
+      const threadIds = await collectCommentThreadIds(id);
+      const descendantIds = threadIds.filter((commentId) => commentId !== id);
+      if (descendantIds.length > 0) {
+        await Comment.updateMany(
+          { id: { $in: descendantIds } },
+          { $set: { approved: false } }
+        );
+      }
+    }
+
     AuditLog.create({
       user: req.user.name,
       userId: req.user.userId,
@@ -4041,8 +4180,14 @@ commentsRouter.delete('/:id', requireAuth, requirePermission('comments'), async 
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
-    const result = await Comment.deleteOne({ id });
-    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+    const exists = await Comment.exists({ id });
+    if (!exists) return res.status(404).json({ error: 'Not found' });
+
+    const threadIds = await collectCommentThreadIds(id);
+    await Promise.all([
+      Comment.deleteMany({ id: { $in: threadIds } }),
+      CommentReaction.deleteMany({ commentId: { $in: threadIds } }),
+    ]);
 
     AuditLog.create({
       user: req.user.name,
@@ -4050,7 +4195,7 @@ commentsRouter.delete('/:id', requireAuth, requirePermission('comments'), async 
       action: 'delete',
       resource: 'comments',
       resourceId: id,
-      details: '',
+      details: threadIds.length > 1 ? `cascade:${threadIds.length}` : '',
     }).catch(() => { });
 
     res.json({ ok: true });
@@ -5097,6 +5242,7 @@ app.get('/api/backup', requireAuth, requireAdmin, async (_req, res) => {
       events: clean(await Event.find().lean()),
       polls: clean(await Poll.find().lean()),
       comments: clean(await Comment.find().lean()),
+      commentReactions: clean(await CommentReaction.find().lean()),
       gallery: clean(await Gallery.find().lean()),
       permissions: clean(await Permission.find().lean()),
       heroSettings: cleanOne(await HeroSettings.findOne({ key: 'main' }).lean()) || { key: 'main', ...DEFAULT_HERO_SETTINGS },
