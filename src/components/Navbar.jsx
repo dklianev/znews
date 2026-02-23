@@ -193,6 +193,8 @@ export default function Navbar() {
   const today = new Date().toLocaleDateString('bg-BG', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
+  const isAboutPage = location.pathname === '/about';
+  const isTiplinePage = location.pathname === '/tipline';
 
   const collapsibleMotionProps = {
     initial: { height: 0, opacity: 0 },
@@ -243,21 +245,27 @@ export default function Navbar() {
         <div className="absolute -top-14 left-1/2 -translate-x-1/2 w-[520px] h-[520px] rounded-full bg-yellow-300/20 blur-3xl pointer-events-none" />
         <div className="relative z-10 max-w-6xl mx-auto px-3 sm:px-4 pt-9 sm:pt-11 md:pt-12 pb-14 sm:pb-16 text-center overflow-visible">
           {/* Top date line */}
-          <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 sm:mb-5 text-white/55 text-[9px] sm:text-[10px] font-display uppercase tracking-[0.22em] sm:tracking-[0.35em]">
-            <span className="capitalize">{today}</span>
-            <div className="flex items-center gap-3 sm:gap-4">
-              <Link to="/tipline" className="text-zn-red hover:text-white transition-colors flex items-center gap-1.5 font-bold" title="Гореща линия за сигнали">
+          <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 sm:mb-5 text-white/70 text-[9px] sm:text-[10px] font-display uppercase tracking-[0.12em] sm:tracking-[0.28em]">
+            <span className="hidden sm:inline capitalize">{today}</span>
+            <div className="comic-top-actions flex w-full sm:w-auto items-center justify-start sm:justify-end gap-1.5 sm:gap-2.5 overflow-x-auto sm:overflow-visible scrollbar-hide pb-0.5 sm:pb-0">
+              <Link
+                to="/tipline"
+                className={`comic-top-action comic-top-action-hot ${isTiplinePage ? 'comic-top-action-active' : ''}`}
+                title="Гореща линия за сигнали"
+              >
                 <AlertTriangle className="w-3.5 h-3.5" />
+                <span className="sm:hidden">Сигнал</span>
                 <span className="hidden sm:inline">Подай Сигнал</span>
               </Link>
               {pushStatus !== 'unsupported' && (
                 <button
                   onClick={handleSubscribePush}
                   disabled={pushStatus === 'loading' || pushStatus === 'subscribed'}
-                  className={`flex items-center gap-1.5 transition-colors font-bold ${pushStatus === 'subscribed' ? 'text-green-400' : 'text-yellow-400 hover:text-white'}`}
+                  className={`comic-top-action ${pushStatus === 'subscribed' ? 'comic-top-action-active' : 'comic-top-action-alert'} ${pushStatus === 'loading' ? 'comic-top-action-disabled' : ''}`}
                   title="Известия за Извънредни Новини"
                 >
                   <Bell className="w-3.5 h-3.5" />
+                  <span className="sm:hidden">{pushStatus === 'subscribed' ? 'Вкл.' : 'Известия'}</span>
                   <span className="hidden sm:inline">
                     {pushStatus === 'subscribed' ? 'Абониран' : 'Известия'}
                   </span>
@@ -265,21 +273,21 @@ export default function Navbar() {
               )}
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
-                className="hover:text-white transition-colors flex items-center gap-1.5"
+                className={`comic-top-action ${searchOpen ? 'comic-top-action-active' : ''}`}
                 aria-label={searchOpen ? 'Затвори търсенето' : 'Отвори търсенето'}
               >
                 <Search className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Търси</span>
+                <span>Търси</span>
               </button>
+              <Link to="/about" className={`comic-top-action ${isAboutPage ? 'comic-top-action-active' : ''}`}>За нас</Link>
               <button
                 onClick={toggleDark}
-                className="hover:text-white transition-colors flex items-center gap-1.5"
+                className="comic-top-action comic-top-action-icon"
                 aria-label={isDark ? 'Светъл режим' : 'Тъмен режим'}
                 title={isDark ? 'Светъл режим' : 'Тъмен режим'}
               >
                 {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
               </button>
-              <Link to="/about" className="hover:text-white transition-colors">За нас</Link>
             </div>
           </div>
 
