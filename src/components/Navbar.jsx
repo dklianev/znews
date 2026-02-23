@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
@@ -247,14 +247,14 @@ export default function Navbar() {
           {/* Top date line */}
           <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 sm:mb-5 text-white/70 text-[9px] sm:text-[10px] font-display uppercase tracking-[0.12em] sm:tracking-[0.28em]">
             <span className="hidden sm:inline capitalize">{today}</span>
-            <div className="comic-top-actions flex w-full sm:w-auto flex-wrap sm:flex-nowrap items-center justify-center sm:justify-end gap-1.5 sm:gap-2.5 gap-y-1.5 pb-0.5 sm:pb-0">
+            <div className="comic-top-actions flex w-full sm:w-auto flex-nowrap items-center justify-end gap-1 sm:gap-2.5 pb-0.5 sm:pb-0">
               <Link
                 to="/tipline"
                 className={`comic-top-action comic-top-action-hot shrink-0 ${isTiplinePage ? 'comic-top-action-active' : ''}`}
                 title="Гореща линия за сигнали"
+                aria-label="Подай сигнал"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span className="sm:hidden">Сигнал</span>
                 <span className="hidden sm:inline">Подай Сигнал</span>
               </Link>
               {pushStatus !== 'unsupported' && (
@@ -263,9 +263,9 @@ export default function Navbar() {
                   disabled={pushStatus === 'loading' || pushStatus === 'subscribed'}
                   className={`comic-top-action shrink-0 ${pushStatus === 'subscribed' ? 'comic-top-action-active' : 'comic-top-action-alert'} ${pushStatus === 'loading' ? 'comic-top-action-disabled' : ''}`}
                   title="Известия за Извънредни Новини"
+                  aria-label={pushStatus === 'subscribed' ? 'Известия активни' : 'Известия'}
                 >
                   <Bell className="w-3.5 h-3.5" />
-                  <span className="sm:hidden">{pushStatus === 'subscribed' ? 'Вкл.' : 'Известия'}</span>
                   <span className="hidden sm:inline">
                     {pushStatus === 'subscribed' ? 'Абониран' : 'Известия'}
                   </span>
@@ -277,9 +277,17 @@ export default function Navbar() {
                 aria-label={searchOpen ? 'Затвори търсенето' : 'Отвори търсенето'}
               >
                 <Search className="w-3.5 h-3.5" />
-                <span>Търси</span>
+                <span className="hidden sm:inline">Търси</span>
               </button>
-              <Link to="/about" className={`comic-top-action shrink-0 ${isAboutPage ? 'comic-top-action-active' : ''}`}>За нас</Link>
+              <Link
+                to="/about"
+                className={`comic-top-action shrink-0 ${isAboutPage ? 'comic-top-action-active' : ''}`}
+                aria-label="За нас"
+                title="За нас"
+              >
+                <CircleHelp className="w-3.5 h-3.5 sm:hidden" />
+                <span className="hidden sm:inline">За нас</span>
+              </Link>
               <button
                 onClick={toggleDark}
                 className="comic-top-action comic-top-action-icon shrink-0"

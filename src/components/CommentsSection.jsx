@@ -225,54 +225,63 @@ function CommentItem({
             )}
           </AnimatePresence>
 
-          <AnimatePresence>
+          <AnimatePresence initial={false}>
             {showReplyForm && (
-              <motion.form
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="mt-3 overflow-hidden space-y-2.5 bg-[#FBF8F1] border border-[#1C1428]/15 p-3"
-                onSubmit={handleReplySubmit}
+              <motion.div
+                initial={{ opacity: 0, height: 0, marginTop: 0, y: -4 }}
+                animate={{ opacity: 1, height: 'auto', marginTop: 12, y: 0 }}
+                exit={{ opacity: 0, height: 0, marginTop: 0, y: -4 }}
+                transition={{
+                  height: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
+                  marginTop: { duration: 0.24, ease: [0.22, 1, 0.36, 1] },
+                  opacity: { duration: 0.16, ease: 'easeOut' },
+                  y: { duration: 0.16, ease: 'easeOut' },
+                }}
+                className="overflow-hidden"
               >
-                {replyError && (
-                  <div className="p-2.5 bg-red-50 border border-red-300 text-red-700 text-[11px] font-display font-black uppercase tracking-wider">
-                    {replyError}
+                <form
+                  className="space-y-2.5 bg-[#FBF8F1] border border-[#1C1428]/15 p-3"
+                  onSubmit={handleReplySubmit}
+                >
+                  {replyError && (
+                    <div className="p-2.5 bg-red-50 border border-red-300 text-red-700 text-[11px] font-display font-black uppercase tracking-wider">
+                      {replyError}
+                    </div>
+                  )}
+                  <div className="relative">
+                    <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zn-text-muted" />
+                    <input
+                      type="text"
+                      value={replyName}
+                      onChange={e => setReplyName(e.target.value)}
+                      placeholder="Твоето име..."
+                      required
+                      maxLength={COMMENT_AUTHOR_MAX_LEN}
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none focus:border-zn-purple"
+                    />
                   </div>
-                )}
-                <div className="relative">
-                  <User className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zn-text-muted" />
-                  <input
-                    type="text"
-                    value={replyName}
-                    onChange={e => setReplyName(e.target.value)}
-                    placeholder="Твоето име..."
+                  <textarea
+                    value={replyText}
+                    onChange={e => setReplyText(e.target.value)}
+                    placeholder="Напиши отговор..."
                     required
-                    maxLength={COMMENT_AUTHOR_MAX_LEN}
-                    className="w-full pl-8 pr-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none focus:border-zn-purple"
+                    rows="2"
+                    maxLength={COMMENT_TEXT_MAX_LEN}
+                    className="w-full px-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none focus:border-zn-purple resize-none"
                   />
-                </div>
-                <textarea
-                  value={replyText}
-                  onChange={e => setReplyText(e.target.value)}
-                  placeholder="Напиши отговор..."
-                  required
-                  rows="2"
-                  maxLength={COMMENT_TEXT_MAX_LEN}
-                  className="w-full px-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none focus:border-zn-purple resize-none"
-                />
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted">
-                  <span>{replyText.length}/{COMMENT_TEXT_MAX_LEN}</span>
-                  <button
-                    type="submit"
-                    disabled={submittingReply}
-                    className="comment-submit-btn w-full sm:w-auto px-3 py-1.5 text-[11px]"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    {submittingReply ? 'Изпращане...' : 'Изпрати'}
-                  </button>
-                </div>
-              </motion.form>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted">
+                    <span>{replyText.length}/{COMMENT_TEXT_MAX_LEN}</span>
+                    <button
+                      type="submit"
+                      disabled={submittingReply}
+                      className="comment-submit-btn w-full sm:w-auto px-3 py-1.5 text-[11px]"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      {submittingReply ? 'Изпращане...' : 'Изпрати'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
