@@ -63,7 +63,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                     <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {(article.views || 0).toLocaleString()}</span>
                     <span>{article.date}</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5 px-2 sm:px-0">
                     <Link to={`/article/${mainPhoto.id}`} className="block">
                         <div className="polaroid-thick relative" style={{ '--tilt': '-2deg' }}>
                             <div className="tape tape-tl" />
@@ -105,7 +105,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                         </Link>
                     )}
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 px-2 md:px-0">
                     <div>
                         <h2 className="section-header-red text-3xl md:text-4xl lg:text-5xl mb-4 leading-tight">
                             {headline.map((line, index) => (
