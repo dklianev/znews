@@ -247,10 +247,10 @@ export default function Navbar() {
           {/* Top date line */}
           <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 sm:mb-5 text-white/70 text-[9px] sm:text-[10px] font-display uppercase tracking-[0.12em] sm:tracking-[0.28em]">
             <span className="hidden sm:inline capitalize">{today}</span>
-            <div className="comic-top-actions flex w-full sm:w-auto items-center justify-start sm:justify-end gap-1.5 sm:gap-2.5 overflow-x-auto sm:overflow-visible scrollbar-hide pb-0.5 sm:pb-0">
+            <div className="comic-top-actions flex w-full sm:w-auto flex-wrap sm:flex-nowrap items-center justify-center sm:justify-end gap-1.5 sm:gap-2.5 gap-y-1.5 pb-0.5 sm:pb-0">
               <Link
                 to="/tipline"
-                className={`comic-top-action comic-top-action-hot ${isTiplinePage ? 'comic-top-action-active' : ''}`}
+                className={`comic-top-action comic-top-action-hot shrink-0 ${isTiplinePage ? 'comic-top-action-active' : ''}`}
                 title="Гореща линия за сигнали"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
@@ -261,7 +261,7 @@ export default function Navbar() {
                 <button
                   onClick={handleSubscribePush}
                   disabled={pushStatus === 'loading' || pushStatus === 'subscribed'}
-                  className={`comic-top-action ${pushStatus === 'subscribed' ? 'comic-top-action-active' : 'comic-top-action-alert'} ${pushStatus === 'loading' ? 'comic-top-action-disabled' : ''}`}
+                  className={`comic-top-action shrink-0 ${pushStatus === 'subscribed' ? 'comic-top-action-active' : 'comic-top-action-alert'} ${pushStatus === 'loading' ? 'comic-top-action-disabled' : ''}`}
                   title="Известия за Извънредни Новини"
                 >
                   <Bell className="w-3.5 h-3.5" />
@@ -273,16 +273,16 @@ export default function Navbar() {
               )}
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
-                className={`comic-top-action ${searchOpen ? 'comic-top-action-active' : ''}`}
+                className={`comic-top-action shrink-0 ${searchOpen ? 'comic-top-action-active' : ''}`}
                 aria-label={searchOpen ? 'Затвори търсенето' : 'Отвори търсенето'}
               >
                 <Search className="w-3.5 h-3.5" />
                 <span>Търси</span>
               </button>
-              <Link to="/about" className={`comic-top-action ${isAboutPage ? 'comic-top-action-active' : ''}`}>За нас</Link>
+              <Link to="/about" className={`comic-top-action shrink-0 ${isAboutPage ? 'comic-top-action-active' : ''}`}>За нас</Link>
               <button
                 onClick={toggleDark}
-                className="comic-top-action comic-top-action-icon"
+                className="comic-top-action comic-top-action-icon shrink-0"
                 aria-label={isDark ? 'Светъл режим' : 'Тъмен режим'}
                 title={isDark ? 'Светъл режим' : 'Тъмен режим'}
               >

@@ -14,6 +14,14 @@ function getAvatarColor(name) {
   return AVATAR_COLORS[charCode % AVATAR_COLORS.length];
 }
 
+function formatCommentDate(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const parsed = new Date(raw);
+  if (!Number.isFinite(parsed.getTime())) return raw;
+  return parsed.toISOString().slice(0, 10);
+}
+
 function normalizeReaction(value) {
   if (value === 'like' || value === 'dislike') return value;
   return null;
@@ -92,6 +100,8 @@ function CommentItem({
 
   const likeCount = Math.max(0, Number.parseInt(comment.likes, 10) || 0);
   const dislikeCount = Math.max(0, Number.parseInt(comment.dislikes, 10) || 0);
+  const replyCount = Array.isArray(comment.replies) ? comment.replies.length : 0;
+  const hasReplies = replyCount > 0;
   const selectedReaction = normalizeReaction(reactionByComment[String(comment.id)]);
   const isReacting = Number(reactingId) === Number(comment.id);
   const indentPx = Math.min(level * 18, MAX_REPLY_INDENT_PX);
@@ -144,7 +154,7 @@ function CommentItem({
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.3 }}
-        className={`flex gap-3 p-3 bg-white comic-panel ${level > 0 ? 'border-l-2 border-l-zn-hot/70' : 'border-l-3 border-l-zn-purple'}`}
+        className={`group/comment flex gap-3 p-3.5 sm:p-4 bg-white comic-panel shadow-[2px_2px_0_rgba(28,20,40,0.18)] ${level > 0 ? 'border-l-2 border-l-zn-hot/70 bg-[#FBF8F1]' : 'border-l-3 border-l-zn-purple'}`}
       >
         <div className={`w-10 h-10 ${getAvatarColor(comment.author)} text-white flex items-center justify-center font-display font-black text-sm shrink-0 border-2 border-[#1C1428]`}>
           {(comment.author || 'A').charAt(0).toUpperCase()}
@@ -158,7 +168,7 @@ function CommentItem({
               </span>
             )}
             <span className="font-display font-black text-sm text-zn-text uppercase tracking-wider">{comment.author}</span>
-            <span className="text-[10px] font-display text-zn-text-muted uppercase tracking-wider">{comment.date}</span>
+            <span className="text-[10px] font-display text-zn-text-muted uppercase tracking-wider">{formatCommentDate(comment.date)}</span>
           </div>
           <p className="font-sans text-sm text-zn-text leading-relaxed whitespace-pre-wrap">{comment.text}</p>
 
@@ -167,7 +177,7 @@ function CommentItem({
               type="button"
               onClick={() => onReact(comment.id, 'like')}
               disabled={isReacting}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 border text-xs font-display font-black uppercase tracking-wider transition-colors disabled:opacity-50 ${selectedReaction === 'like' ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'bg-white border-[#1C1428]/20 text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40'}`}
+              className={`inline-flex h-8 items-center gap-1.5 px-2.5 border text-[11px] sm:text-xs font-display font-black uppercase tracking-wider transition-colors disabled:opacity-50 ${selectedReaction === 'like' ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'bg-[#F7F3EA] border-[#1C1428]/20 text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40'}`}
               aria-label="Харесай коментара"
             >
               <ThumbsUp className="w-3.5 h-3.5" />
@@ -177,7 +187,7 @@ function CommentItem({
               type="button"
               onClick={() => onReact(comment.id, 'dislike')}
               disabled={isReacting}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 border text-xs font-display font-black uppercase tracking-wider transition-colors disabled:opacity-50 ${selectedReaction === 'dislike' ? 'bg-red-100 border-red-400 text-red-700' : 'bg-white border-[#1C1428]/20 text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40'}`}
+              className={`inline-flex h-8 items-center gap-1.5 px-2.5 border text-[11px] sm:text-xs font-display font-black uppercase tracking-wider transition-colors disabled:opacity-50 ${selectedReaction === 'dislike' ? 'bg-red-100 border-red-400 text-red-700' : 'bg-[#F7F3EA] border-[#1C1428]/20 text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40'}`}
               aria-label="Не харесвам коментара"
             >
               <ThumbsDown className="w-3.5 h-3.5" />
@@ -186,12 +196,17 @@ function CommentItem({
             <button
               type="button"
               onClick={() => setShowReplyForm(prev => !prev)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 border border-[#1C1428]/20 text-xs font-display font-black uppercase tracking-wider text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40 transition-colors"
+              className="inline-flex h-8 items-center gap-1.5 px-2.5 border border-[#1C1428]/20 bg-white text-[11px] sm:text-xs font-display font-black uppercase tracking-wider text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40 transition-colors"
               aria-label="Отговори на коментара"
             >
               <CornerDownRight className="w-3.5 h-3.5" />
               <span>{showReplyForm ? 'Отказ' : 'Отговори'}</span>
             </button>
+            {hasReplies && (
+              <span className="comment-meta-chip">
+                Отговори {replyCount}
+              </span>
+            )}
           </div>
 
           <AnimatePresence>
@@ -217,7 +232,7 @@ function CommentItem({
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.2 }}
-                className="mt-3 overflow-hidden space-y-2"
+                className="mt-3 overflow-hidden space-y-2.5 bg-[#FBF8F1] border border-[#1C1428]/15 p-3"
                 onSubmit={handleReplySubmit}
               >
                 {replyError && (
@@ -246,15 +261,15 @@ function CommentItem({
                   maxLength={COMMENT_TEXT_MAX_LEN}
                   className="w-full px-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none focus:border-zn-purple resize-none"
                 />
-                <div className="flex items-center justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted">
                   <span>{replyText.length}/{COMMENT_TEXT_MAX_LEN}</span>
                   <button
                     type="submit"
                     disabled={submittingReply}
-                    className="btn-hot inline-flex items-center gap-1 px-3 py-1.5 text-[11px] disabled:opacity-60"
+                    className="comment-submit-btn w-full sm:w-auto px-3 py-1.5 text-[11px]"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    Изпрати
+                    {submittingReply ? 'Изпращане...' : 'Изпрати'}
                   </button>
                 </div>
               </motion.form>
@@ -287,6 +302,7 @@ export default function CommentsSection({ articleId }) {
   const [name, setName] = useState('');
   const [text, setText] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
   const [error, setError] = useState('');
   const [reactionError, setReactionError] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
@@ -336,6 +352,7 @@ export default function CommentsSection({ articleId }) {
       setError(`Коментарът е твърде дълъг (макс. ${COMMENT_TEXT_MAX_LEN} знака).`);
       return;
     }
+    setSubmittingComment(true);
     try {
       await addComment({
         articleId,
@@ -357,6 +374,8 @@ export default function CommentsSection({ articleId }) {
       } else {
         setError(msg || 'Коментарът не можа да бъде изпратен. Опитайте отново.');
       }
+    } finally {
+      setSubmittingComment(false);
     }
   };
 
@@ -403,9 +422,12 @@ export default function CommentsSection({ articleId }) {
       <div className="h-1 bg-gradient-to-r from-zn-purple to-zn-hot mt-2 mb-6" />
 
       {/* Comment form */}
-      <form onSubmit={handleSubmit} className="mb-8 newspaper-page comic-panel comic-dots p-5 relative">
+      <form onSubmit={handleSubmit} className="mb-8 newspaper-page comic-panel comic-dots p-5 relative overflow-hidden">
         <div className="absolute -top-2 right-6 w-12 h-4 bg-yellow-200/70 border border-black/5 transform rotate-3 z-10" style={{boxShadow:'1px 1px 2px rgba(0,0,0,0.1)'}} />
         <h3 className="font-display font-black uppercase text-sm text-zn-text mb-3 tracking-widest relative z-[2]">Остави коментар</h3>
+        <p className="relative z-[2] text-xs font-sans text-zn-text-muted mb-3">
+          Коментарът се публикува след одобрение от редактор.
+        </p>
         <AnimatePresence>
           {submitted && (
             <motion.div
@@ -476,19 +498,22 @@ export default function CommentsSection({ articleId }) {
           aria-label="Коментар"
           className="w-full px-3 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple resize-none mb-3 relative z-[2]"
         />
-        <div className="flex items-center justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted mb-3 relative z-[2]">
-          <span>Макс. {COMMENT_TEXT_MAX_LEN} знака</span>
-          <span className={text.length > COMMENT_TEXT_MAX_LEN * 0.9 ? 'text-zn-hot' : ''}>
-            {text.length}/{COMMENT_TEXT_MAX_LEN}
-          </span>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-1 relative z-[2]">
+          <div className="flex items-center justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted w-full sm:w-auto gap-4">
+            <span>Макс. {COMMENT_TEXT_MAX_LEN} знака</span>
+            <span className={text.length > COMMENT_TEXT_MAX_LEN * 0.9 ? 'text-zn-hot' : ''}>
+              {text.length}/{COMMENT_TEXT_MAX_LEN}
+            </span>
+          </div>
+          <button
+            type="submit"
+            disabled={submittingComment}
+            className="comment-submit-btn w-full sm:w-auto relative z-[2]"
+          >
+            <Send className="w-4 h-4" />
+            {submittingComment ? 'Изпращане...' : 'Изпрати'}
+          </button>
         </div>
-        <button
-          type="submit"
-          className="btn-hot inline-flex items-center gap-2 px-5 py-2.5 text-sm relative z-[2]"
-        >
-          <Send className="w-4 h-4" />
-          Изпрати
-        </button>
       </form>
 
       {/* Comments list */}

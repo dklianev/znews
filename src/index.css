@@ -725,6 +725,38 @@
     box-shadow: 4px 5px 0 #990813;
   }
 
+  .comment-submit-btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 font-display font-black text-white text-sm uppercase tracking-wider;
+    min-width: 132px;
+    white-space: nowrap;
+    border-radius: 9999px;
+    border: 2px solid rgba(255, 255, 255, 0.24);
+    background: linear-gradient(90deg, #CC0A1A 0%, #E87420 100%);
+    box-shadow: 3px 3px 0 #990813;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
+  }
+
+  .comment-submit-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 4px 5px 0 #990813;
+    filter: saturate(1.08);
+  }
+
+  .comment-submit-btn:disabled {
+    opacity: 0.68;
+    cursor: not-allowed;
+    box-shadow: 2px 2px 0 #990813;
+    transform: none;
+    filter: grayscale(0.1);
+  }
+
+  .comment-meta-chip {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-wider border;
+    border-color: rgba(28, 20, 40, 0.2);
+    background: rgba(255, 255, 255, 0.78);
+    color: #4a4158;
+  }
+
   .btn-ghost {
     @apply px-4 py-2 text-zn-text-muted hover:text-zn-hot font-sans text-sm font-bold transition-all;
   }
@@ -1434,14 +1466,35 @@
 
 @media (max-width: 639px) {
   .comic-top-action {
-    min-height: 32px;
-    padding: 0.28rem 0.52rem;
-    font-size: 0.62rem;
-    letter-spacing: 0.04em;
+    min-height: 33px;
+    padding: 0.3rem 0.56rem;
+    font-size: 0.61rem;
+    letter-spacing: 0.035em;
   }
 
   .comic-top-action-icon {
-    min-width: 32px;
+    min-width: 33px;
+  }
+}
+
+@media (max-width: 420px) {
+  .comic-top-action {
+    min-height: 31px;
+    padding: 0.24rem 0.46rem;
+    font-size: 0.56rem;
+    letter-spacing: 0.025em;
+    gap: 0.28rem;
+  }
+
+  .comic-top-action svg {
+    width: 0.78rem;
+    height: 0.78rem;
+  }
+
+  .comic-top-action-icon {
+    min-width: 31px;
+    padding-left: 0.34rem;
+    padding-right: 0.34rem;
   }
 }
 
