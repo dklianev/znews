@@ -68,13 +68,13 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                         <div className="polaroid-thick relative" style={{ '--tilt': '-2deg' }}>
                             <div className="tape tape-tl" />
                             <div className="tape tape-tr" />
-                            <div className="relative overflow-hidden" style={{ height: '320px' }}>
+                            <div className="hero-main-photo-media relative overflow-hidden" style={{ height: '320px' }}>
                                 <ResponsiveImage
                                     src={mainPhoto.image}
                                     pipeline={mainPhoto.imageMeta}
                                     fallbackSrc={fallbackImg}
                                     alt={mainPhoto.title}
-                                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                                    className="hero-main-photo-image w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                                     pictureClassName="block w-full h-full"
                                     sizes="(max-width: 640px) 100vw, 50vw"
                                     loading="eager"

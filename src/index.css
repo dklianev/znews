@@ -1456,6 +1456,17 @@
   .comic-latest-card-wide {
     min-height: 0;
   }
+
+  /* iOS mobile: keep first hero photo visually centered and prevent white edge bleed. */
+  .hero-main-photo-media {
+    background: #111;
+  }
+
+  .hero-main-photo-image {
+    object-position: 50% 50% !important;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
 }
 
 @media (min-width: 640px) {
