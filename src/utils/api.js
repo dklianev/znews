@@ -451,6 +451,7 @@ export const api = {
 
   adminGames: {
     ...crudEndpoints('admin/games'),
+    bulkGenerate: (data) => request('/admin/games/bulk-generate', { method: 'POST', body: JSON.stringify(data) }),
     getPuzzles: (slug) => request(`/admin/games/${slug}/puzzles`),
     createPuzzle: (slug, data) => request(`/admin/games/${slug}/puzzles`, { method: 'POST', body: JSON.stringify(data) }),
     updatePuzzle: (slug, id, data) => request(`/admin/games/${slug}/puzzles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

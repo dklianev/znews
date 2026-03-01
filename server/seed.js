@@ -22,6 +22,7 @@ import {
 } from '../src/data/articles.js';
 
 import bcrypt from 'bcryptjs';
+import { DEFAULT_GAME_DEFINITIONS, getSofiaDateString } from './gameSeed.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -204,27 +205,6 @@ const DEFAULT_SITE_SETTINGS = {
 };
 
 const shouldSeedSampleGames = process.env.SEED_SAMPLE_GAMES === 'true' || process.env.NODE_ENV !== 'production';
-
-function getSofiaDateString(offsetDays = 0) {
-  const base = new Date(Date.now() + (offsetDays * 24 * 60 * 60 * 1000));
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Sofia',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  const parts = formatter.formatToParts(base);
-  const year = parts.find((part) => part.type === 'year')?.value || '1970';
-  const month = parts.find((part) => part.type === 'month')?.value || '01';
-  const day = parts.find((part) => part.type === 'day')?.value || '01';
-  return `${year}-${month}-${day}`;
-}
-
-const DEFAULT_GAME_DEFINITIONS = [
-  { id: 1, slug: 'word', title: 'Думата на деня', type: 'word', description: 'Познай тайната 5-буквена дума за 6 опита.', icon: 'Type', active: true, sortOrder: 1, theme: 'green' },
-  { id: 2, slug: 'connections', title: 'Връзки', type: 'connections', description: 'Групирай 16-те думи в 4 категории по 4 логически свързани думи.', icon: 'Link', active: true, sortOrder: 2, theme: 'indigo' },
-  { id: 3, slug: 'quiz', title: 'Новинарски тест', type: 'quiz', description: 'Провери знанията си за събитията в града от изминалата седмица.', icon: 'HelpCircle', active: true, sortOrder: 3, theme: 'orange' },
-];
 
 const DEFAULT_GAME_PUZZLES = [
   {

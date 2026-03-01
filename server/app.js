@@ -45,6 +45,7 @@ import {
   Article, Author, Category, Ad, Breaking, User,
   Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle
 } from './models.js';
+import { seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
 import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/homepageSelectors.js';
 
@@ -4958,6 +4959,20 @@ adminGamesRouter.get('/', async (_req, res) => {
     res.json(games);
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adminGamesRouter.post('/bulk-generate', async (req, res) => {
+  try {
+    const result = await seedGamesOnly({
+      startDate: normalizeText(req.body?.startDate, 10),
+      days: Number.parseInt(req.body?.days, 10) || 30,
+      gameSlugs: req.body?.gameSlugs,
+      overwriteDrafts: Boolean(req.body?.overwriteDrafts),
+    });
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: statusAwarePublicError(e) });
   }
 });
 
