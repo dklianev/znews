@@ -4412,6 +4412,376 @@ app.put('/api/permissions/:role', requireAuth, requirePermission('permissions'),
 
 // ─── Games API (Public) ───
 const gamesRouter = express.Router();
+const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz']);
+const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz']);
+const SUPPORTED_PUZZLE_STATUSES = new Set(['draft', 'published', 'archived']);
+const SUPPORTED_PUZZLE_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
+const TEMPORARILY_UNAVAILABLE_GAME_ERROR = 'Тази игра временно не е активна.';
+
+function badRequest(message) {
+  const error = new Error(message);
+  error.status = 400;
+  return error;
+}
+
+function statusAwarePublicError(error) {
+  return error?.status && error.status < 500
+    ? (error.message || 'Request failed')
+    : publicError(error);
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseBooleanFlag(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+  return fallback;
+}
+
+function toSafeInteger(value, fallback = 0) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function sanitizeStringArray(values, maxLen = 120, options = {}) {
+  const { uppercase = false } = options;
+  if (!Array.isArray(values)) return [];
+  return values
+    .map((value) => normalizeText(String(value || ''), maxLen))
+    .filter(Boolean)
+    .map((value) => (uppercase ? value.toUpperCase() : value));
+}
+
+function getTodayGameDate() {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Sofia',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(new Date());
+  return `${year}-${month}-${day}`;
+}
+
+function stripPuzzleForPublic(puzzle) {
+  const safePuzzle = { ...(puzzle || {}) };
+  delete safePuzzle.editorNotes;
+  delete safePuzzle.solution;
+  return safePuzzle;
+}
+
+async function canManageGamesFromRequest(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return false;
+
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findOne({ id: decoded.userId }).lean();
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    return await hasPermissionForSection(user, 'games');
+  } catch {
+    return false;
+  }
+}
+
+async function resolveGameAccess(req, rawSlug) {
+  const slug = normalizeText(rawSlug, 64).toLowerCase();
+  const canManageGames = await canManageGamesFromRequest(req);
+  const game = await GameDefinition.findOne({ slug }).lean();
+
+  return {
+    slug,
+    game,
+    canManageGames,
+    isPubliclyAvailable: Boolean(game?.active),
+  };
+}
+
+function sanitizeGameDefinitionInput(input, existingGame = null) {
+  if (!isPlainObject(input)) throw badRequest('Invalid game payload.');
+
+  const slug = existingGame
+    ? existingGame.slug
+    : normalizeText(input.slug, 64).toLowerCase();
+  const type = existingGame
+    ? existingGame.type
+    : normalizeText(input.type, 32).toLowerCase();
+  const title = normalizeText(hasOwn(input, 'title') ? input.title : existingGame?.title, 120);
+  const description = normalizeText(hasOwn(input, 'description') ? input.description : existingGame?.description, 500);
+  const icon = normalizeText(hasOwn(input, 'icon') ? input.icon : existingGame?.icon, 64);
+  const theme = normalizeText(hasOwn(input, 'theme') ? input.theme : existingGame?.theme, 32);
+  const active = hasOwn(input, 'active')
+    ? parseBooleanFlag(input.active, true)
+    : Boolean(existingGame?.active);
+  const sortOrder = hasOwn(input, 'sortOrder')
+    ? toSafeInteger(input.sortOrder, 0)
+    : toSafeInteger(existingGame?.sortOrder, 0);
+
+  if (!title) throw badRequest('Game title is required.');
+  if (!SUPPORTED_GAME_SLUGS.has(slug)) throw badRequest('Unsupported game slug.');
+  if (!SUPPORTED_GAME_TYPES.has(type)) throw badRequest('Unsupported game type.');
+  if (slug !== type) throw badRequest('Game slug must match the supported game type.');
+
+  if (existingGame) {
+    if (hasOwn(input, 'slug') && normalizeText(input.slug, 64).toLowerCase() !== existingGame.slug) {
+      throw badRequest('Game slug cannot be changed.');
+    }
+    if (hasOwn(input, 'type') && normalizeText(input.type, 32).toLowerCase() !== existingGame.type) {
+      throw badRequest('Game type cannot be changed.');
+    }
+  }
+
+  return {
+    slug,
+    title,
+    type,
+    description,
+    icon,
+    active,
+    sortOrder,
+    theme,
+    updatedAt: new Date(),
+  };
+}
+
+function validateWordPuzzle(payloadInput, solutionInput) {
+  if (!isPlainObject(payloadInput) || !isPlainObject(solutionInput)) {
+    throw badRequest('Word puzzle payload and solution must be JSON objects.');
+  }
+
+  const wordLength = toSafeInteger(payloadInput.wordLength, 5);
+  const maxAttempts = toSafeInteger(payloadInput.maxAttempts, 6);
+  const answer = normalizeText(solutionInput.answer, 32).toUpperCase();
+  const allowedWords = sanitizeStringArray(solutionInput.allowedWords, 32, { uppercase: true });
+  const keyboardLayout = Array.isArray(payloadInput.keyboardLayout)
+    ? sanitizeStringArray(payloadInput.keyboardLayout, 64)
+    : normalizeText(String(payloadInput.keyboardLayout || ''), 160);
+  const hint = normalizeText(solutionInput.hint, 160);
+
+  if (wordLength < 3 || wordLength > 12) throw badRequest('Word puzzles must use a word length between 3 and 12.');
+  if (maxAttempts < 1 || maxAttempts > 12) throw badRequest('Word puzzles must allow between 1 and 12 attempts.');
+  if (!answer || answer.length !== wordLength) throw badRequest('Word puzzle answer must match the configured word length.');
+  if (allowedWords.some((word) => word.length !== wordLength)) {
+    throw badRequest('Every allowed guess must match the configured word length.');
+  }
+
+  const normalizedAllowedWords = [...new Set([answer, ...allowedWords])];
+  return {
+    payload: {
+      wordLength,
+      maxAttempts,
+      keyboardLayout,
+    },
+    solution: {
+      answer,
+      allowedWords: normalizedAllowedWords,
+      ...(hint ? { hint } : {}),
+    },
+  };
+}
+
+function validateConnectionsPuzzle(payloadInput, solutionInput) {
+  if (!isPlainObject(payloadInput) || !isPlainObject(solutionInput)) {
+    throw badRequest('Connections puzzle payload and solution must be JSON objects.');
+  }
+
+  const items = sanitizeStringArray(payloadInput.items, 80);
+  if (items.length !== 16 || new Set(items).size !== 16) {
+    throw badRequest('Connections puzzles require exactly 16 unique items.');
+  }
+
+  const rawGroups = Array.isArray(solutionInput.groups) ? solutionInput.groups : [];
+  if (rawGroups.length !== 4) throw badRequest('Connections puzzles require exactly 4 solution groups.');
+
+  const groups = rawGroups.map((group, index) => {
+    if (!isPlainObject(group)) throw badRequest(`Connections group #${index + 1} must be a JSON object.`);
+    const label = normalizeText(group.label, 80);
+    const difficulty = normalizeText(String(group.difficulty ?? index + 1), 24);
+    const explanation = normalizeText(group.explanation, 240);
+    const groupItems = sanitizeStringArray(group.items, 80);
+
+    if (!label) throw badRequest(`Connections group #${index + 1} must have a label.`);
+    if (groupItems.length !== 4 || new Set(groupItems).size !== 4) {
+      throw badRequest(`Connections group #${index + 1} must contain 4 unique items.`);
+    }
+
+    return {
+      label,
+      difficulty,
+      items: groupItems,
+      ...(explanation ? { explanation } : {}),
+    };
+  });
+
+  const groupedItems = groups.flatMap((group) => group.items);
+  if (groupedItems.length !== 16 || new Set(groupedItems).size !== 16) {
+    throw badRequest('Connections solution groups must cover 16 unique items.');
+  }
+
+  const groupedItemSet = new Set(groupedItems);
+  if (items.some((item) => !groupedItemSet.has(item)) || groupedItems.some((item) => !items.includes(item))) {
+    throw badRequest('Connections payload items must match the solution groups exactly.');
+  }
+
+  return {
+    payload: { items },
+    solution: { groups },
+  };
+}
+
+function validateQuizPuzzle(payloadInput, solutionInput) {
+  if (!isPlainObject(payloadInput)) throw badRequest('Quiz puzzle payload must be a JSON object.');
+
+  const rawQuestions = Array.isArray(payloadInput.questions) ? payloadInput.questions : [];
+  if (rawQuestions.length === 0) throw badRequest('Quiz puzzles require at least one question.');
+
+  const questions = rawQuestions.map((question, index) => {
+    if (!isPlainObject(question)) throw badRequest(`Quiz question #${index + 1} must be a JSON object.`);
+
+    const prompt = normalizeText(question.question, 240);
+    const options = sanitizeStringArray(question.options, 160);
+    const correctIndex = toSafeInteger(question.correctIndex, -1);
+    const explanation = normalizeText(question.explanation, 280);
+
+    if (!prompt) throw badRequest(`Quiz question #${index + 1} must have text.`);
+    if (options.length !== 4) throw badRequest(`Quiz question #${index + 1} must have exactly 4 answer options.`);
+    if (correctIndex < 0 || correctIndex >= options.length) {
+      throw badRequest(`Quiz question #${index + 1} must have a valid correctIndex.`);
+    }
+
+    const sanitizedQuestion = {
+      question: prompt,
+      options,
+      correctIndex,
+    };
+
+    if (explanation) sanitizedQuestion.explanation = explanation;
+    if (question.articleId !== undefined && question.articleId !== null && question.articleId !== '') {
+      sanitizedQuestion.articleId = typeof question.articleId === 'number'
+        ? question.articleId
+        : normalizeText(String(question.articleId), 64);
+    }
+
+    return sanitizedQuestion;
+  });
+
+  return {
+    payload: { questions },
+    solution: isPlainObject(solutionInput) ? solutionInput : {},
+  };
+}
+
+function isGenericPlaceholderText(value) {
+  const normalized = normalizeText(String(value || ''), 240).toUpperCase();
+  if (!normalized) return false;
+  return normalized === '?'
+    || normalized.includes('TODO')
+    || normalized.includes('PLACEHOLDER')
+    || normalized.includes('REPLACE_ME')
+    || normalized.includes('ПОПЪЛНИ');
+}
+
+function isPlaceholderWordPuzzle(_payload, solution) {
+  const answer = normalizeText(solution?.answer, 32).toUpperCase();
+  return answer === 'ДУМА1' || isGenericPlaceholderText(answer);
+}
+
+function isPlaceholderConnectionsPuzzle(payload, solution) {
+  const items = sanitizeStringArray(payload?.items, 80);
+  const groups = Array.isArray(solution?.groups) ? solution.groups : [];
+  const usesTemplateItems = items.length === 16 && items.every((item) => /^[АБВГ]\d$/u.test(item));
+  const usesGenericItems = items.some((item) => isGenericPlaceholderText(item));
+  const templateLabels = ['ГРУПА А', 'ГРУПА Б', 'ГРУПА В', 'ГРУПА Г'];
+  const usesTemplateLabels = groups.length === 4
+    && groups.every((group, index) => normalizeText(group?.label, 80).toUpperCase() === templateLabels[index]);
+  const usesGenericLabels = groups.some((group) => isGenericPlaceholderText(group?.label));
+
+  return usesTemplateItems || usesGenericItems || usesTemplateLabels || usesGenericLabels;
+}
+
+function isPlaceholderQuizPuzzle(payload) {
+  const questions = Array.isArray(payload?.questions) ? payload.questions : [];
+  return questions.some((question) => {
+    const prompt = normalizeText(question?.question, 240);
+    const options = sanitizeStringArray(question?.options, 32);
+    return (prompt === '?' && options.length === 4 && options.every((option, index) => option === String(index + 1)))
+      || isGenericPlaceholderText(prompt)
+      || options.some((option) => isGenericPlaceholderText(option));
+  });
+}
+
+function isPlaceholderGamePuzzle(gameType, payload, solution) {
+  if (gameType === 'word') return isPlaceholderWordPuzzle(payload, solution);
+  if (gameType === 'connections') return isPlaceholderConnectionsPuzzle(payload, solution);
+  if (gameType === 'quiz') return isPlaceholderQuizPuzzle(payload, solution);
+  return false;
+}
+
+function sanitizeGamePuzzleInput(game, input, existingPuzzle = null) {
+  if (!game) throw badRequest('Game definition not found.');
+  if (!isPlainObject(input)) throw badRequest('Invalid puzzle payload.');
+
+  const puzzleDate = hasOwn(input, 'puzzleDate')
+    ? normalizeText(input.puzzleDate, 10)
+    : existingPuzzle?.puzzleDate;
+  const status = normalizeText(
+    hasOwn(input, 'status') ? input.status : existingPuzzle?.status || 'draft',
+    24
+  ).toLowerCase();
+  const difficulty = normalizeText(
+    hasOwn(input, 'difficulty') ? input.difficulty : existingPuzzle?.difficulty || 'medium',
+    16
+  ).toLowerCase();
+  const editorNotes = normalizeText(
+    hasOwn(input, 'editorNotes') ? input.editorNotes : existingPuzzle?.editorNotes,
+    500
+  );
+  const rawPayload = hasOwn(input, 'payload') ? input.payload : existingPuzzle?.payload;
+  const rawSolution = hasOwn(input, 'solution') ? input.solution : existingPuzzle?.solution;
+  const requestedPublishAt = hasOwn(input, 'publishAt')
+    ? sanitizeDateTime(input.publishAt)
+    : existingPuzzle?.publishAt || null;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(puzzleDate || '')) throw badRequest('Puzzle date must be in YYYY-MM-DD format.');
+  if (!SUPPORTED_PUZZLE_STATUSES.has(status)) throw badRequest('Invalid puzzle status.');
+  if (!SUPPORTED_PUZZLE_DIFFICULTIES.has(difficulty)) throw badRequest('Invalid puzzle difficulty.');
+
+  let validatedPuzzle;
+  if (game.type === 'word') {
+    validatedPuzzle = validateWordPuzzle(rawPayload, rawSolution);
+  } else if (game.type === 'connections') {
+    validatedPuzzle = validateConnectionsPuzzle(rawPayload, rawSolution);
+  } else if (game.type === 'quiz') {
+    validatedPuzzle = validateQuizPuzzle(rawPayload, rawSolution);
+  } else {
+    throw badRequest('Unsupported game type.');
+  }
+
+  const placeholderPuzzle = isPlaceholderGamePuzzle(game.type, validatedPuzzle.payload, validatedPuzzle.solution);
+  if (status === 'published' && placeholderPuzzle) {
+    throw badRequest('Replace the placeholder game content before publishing.');
+  }
+
+  return {
+    gameSlug: game.slug,
+    puzzleDate,
+    status,
+    publishAt: status === 'published' ? (requestedPublishAt || new Date()) : requestedPublishAt,
+    difficulty,
+    payload: validatedPuzzle.payload,
+    solution: validatedPuzzle.solution,
+    editorNotes,
+    updatedAt: new Date(),
+  };
+}
 
 gamesRouter.get('/', async (_req, res) => {
   try {
@@ -4424,21 +4794,23 @@ gamesRouter.get('/', async (_req, res) => {
 
 gamesRouter.get('/:slug/today', async (req, res) => {
   try {
-    const slug = normalizeText(req.params.slug, 64);
-    // Get current date in Europe/Sofia
-    const now = new Date();
-    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Sofia', year: 'numeric', month: '2-digit', day: '2-digit' });
-    const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(now);
-    const todayStr = `${year}-${month}-${day}`;
+    const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
+    if (!game) return res.status(404).json({ error: 'Not found' });
+    if (!isPubliclyAvailable && !canManageGames) {
+      return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
+    }
 
-    const puzzle = await GamePuzzle.findOne({ gameSlug: slug, puzzleDate: todayStr, status: 'published' }).lean();
+    const puzzle = await GamePuzzle.findOne({
+      gameSlug: slug,
+      puzzleDate: getTodayGameDate(),
+      status: 'published',
+    }).lean();
     if (!puzzle) return res.status(404).json({ error: 'No puzzle for today' });
+    if (isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution) && !canManageGames) {
+      return res.status(404).json({ error: 'No puzzle for today' });
+    }
 
-    // Exclude solution for public today endpoint
-    delete puzzle.editorNotes;
-    delete puzzle.solution;
-
-    res.json(puzzle);
+    res.json(stripPuzzleForPublic(puzzle));
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
   }
@@ -4446,14 +4818,30 @@ gamesRouter.get('/:slug/today', async (req, res) => {
 
 gamesRouter.get('/:slug/archive', async (req, res) => {
   try {
-    const slug = normalizeText(req.params.slug, 64);
+    const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
+    if (!game) return res.status(404).json({ error: 'Not found' });
+    if (!isPubliclyAvailable && !canManageGames) {
+      return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
+    }
+
     const limit = Math.min(Number.parseInt(req.query.limit, 10) || 30, 100);
     const puzzles = await GamePuzzle.find({ gameSlug: slug, status: 'published' })
-      .select('-solution -editorNotes -payload')
       .sort({ puzzleDate: -1 })
       .limit(limit)
       .lean();
-    res.json(puzzles);
+    res.json(
+      canManageGames
+        ? puzzles
+        : puzzles
+          .filter((puzzle) => !isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution))
+          .map((puzzle) => {
+            const safePuzzle = { ...puzzle };
+            delete safePuzzle.solution;
+            delete safePuzzle.editorNotes;
+            delete safePuzzle.payload;
+            return safePuzzle;
+          })
+    );
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
   }
@@ -4461,36 +4849,25 @@ gamesRouter.get('/:slug/archive', async (req, res) => {
 
 gamesRouter.get('/:slug/:date', async (req, res) => {
   try {
-    const slug = normalizeText(req.params.slug, 64);
+    const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
+    if (!game) return res.status(404).json({ error: 'Not found' });
+    if (!isPubliclyAvailable && !canManageGames) {
+      return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
+    }
+
     const date = normalizeText(req.params.date, 10);
     const puzzle = await GamePuzzle.findOne({ gameSlug: slug, puzzleDate: date }).lean();
 
     if (!puzzle) return res.status(404).json({ error: 'Not found' });
-
-    // Allow seeing drafts/solutions if admin/editor with games permission
-    let canSeeDrafts = false;
-    let authHeader = req.headers['authorization'];
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        const user = await User.findOne({ id: decoded.userId }).lean();
-        if (user && (user.role === 'admin' || await hasPermissionForSection(user, 'games'))) {
-          canSeeDrafts = true;
-        }
-      } catch (err) { }
-    }
-
-    if (puzzle.status !== 'published' && !canSeeDrafts) {
+    if (isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution) && !canManageGames) {
       return res.status(404).json({ error: 'Not found' });
     }
 
-    if (!canSeeDrafts) {
-      delete puzzle.editorNotes;
-      delete puzzle.solution;
+    if (puzzle.status !== 'published' && !canManageGames) {
+      return res.status(404).json({ error: 'Not found' });
     }
 
-    res.json(puzzle);
+    res.json(canManageGames ? puzzle : stripPuzzleForPublic(puzzle));
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
   }
@@ -4498,12 +4875,20 @@ gamesRouter.get('/:slug/:date', async (req, res) => {
 
 gamesRouter.post('/:slug/:date/validate', async (req, res) => {
   try {
-    const slug = normalizeText(req.params.slug, 64);
+    const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
+    if (!game) return res.status(404).json({ error: 'Not found' });
+    if (!isPubliclyAvailable && !canManageGames) {
+      return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
+    }
+
     const date = normalizeText(req.params.date, 10);
     const puzzle = await GamePuzzle.findOne({ gameSlug: slug, puzzleDate: date, status: 'published' }).lean();
     if (!puzzle) return res.status(404).json({ error: 'Not found' });
+    if (isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution) && !canManageGames) {
+      return res.status(404).json({ error: 'Not found' });
+    }
 
-    if (slug === 'word') {
+    if (game.type === 'word') {
       const guess = (req.body.guess || '').toUpperCase();
       const answer = (puzzle.solution?.answer || '').toUpperCase();
       if (guess.length !== answer.length) return res.status(400).json({ error: 'Invalid length' });
@@ -4533,7 +4918,7 @@ gamesRouter.post('/:slug/:date/validate', async (req, res) => {
       return res.json({ evaluated, isWin: guess === answer });
     }
 
-    if (slug === 'connections') {
+    if (game.type === 'connections') {
       const { selection } = req.body;
       if (!Array.isArray(selection) || selection.length !== 4) return res.status(400).json({ error: 'Invalid selection' });
 
@@ -4578,7 +4963,7 @@ adminGamesRouter.get('/', async (_req, res) => {
 
 adminGamesRouter.post('/', async (req, res) => {
   try {
-    const payload = req.body;
+    const payload = sanitizeGameDefinitionInput(req.body);
     let newId = 1;
     const last = await GameDefinition.findOne().sort({ id: -1 });
     if (last) newId = last.id + 1;
@@ -4586,30 +4971,33 @@ adminGamesRouter.post('/', async (req, res) => {
     const game = await GameDefinition.create({ ...payload, id: newId });
     res.json(game.toJSON());
   } catch (e) {
-    res.status(500).json({ error: publicError(e) });
+    res.status(e.status || 500).json({ error: statusAwarePublicError(e) });
   }
 });
 
 adminGamesRouter.put('/:id', async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10);
-    const update = { ...req.body, updatedAt: new Date() };
-    delete update._id;
-    delete update.id;
+    const existingGame = await GameDefinition.findOne({ id }).lean();
+    if (!existingGame) return res.status(404).json({ error: 'Not found' });
+    const update = sanitizeGameDefinitionInput(req.body, existingGame);
 
     const game = await GameDefinition.findOneAndUpdate({ id }, { $set: update }, { new: true });
-    if (!game) return res.status(404).json({ error: 'Not found' });
     res.json(game.toJSON());
   } catch (e) {
-    res.status(500).json({ error: publicError(e) });
+    res.status(e.status || 500).json({ error: statusAwarePublicError(e) });
   }
 });
 
 adminGamesRouter.delete('/:id', async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10);
+    const game = await GameDefinition.findOne({ id }).lean();
+    if (!game) return res.status(404).json({ error: 'Not found' });
+
     const result = await GameDefinition.deleteOne({ id });
     if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+    await GamePuzzle.deleteMany({ gameSlug: game.slug });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -4618,7 +5006,9 @@ adminGamesRouter.delete('/:id', async (req, res) => {
 
 adminGamesRouter.get('/:slug/puzzles', async (req, res) => {
   try {
-    const slug = normalizeText(req.params.slug, 64);
+    const slug = normalizeText(req.params.slug, 64).toLowerCase();
+    const game = await GameDefinition.findOne({ slug }).lean();
+    if (!game) return res.status(404).json({ error: 'Game not found' });
     const puzzles = await GamePuzzle.find({ gameSlug: slug }).sort({ puzzleDate: -1 }).lean();
     res.json(puzzles);
   } catch (e) {
@@ -4628,39 +5018,42 @@ adminGamesRouter.get('/:slug/puzzles', async (req, res) => {
 
 adminGamesRouter.post('/:slug/puzzles', async (req, res) => {
   try {
-    const slug = normalizeText(req.params.slug, 64);
-    const payload = req.body;
+    const slug = normalizeText(req.params.slug, 64).toLowerCase();
+    const game = await GameDefinition.findOne({ slug }).lean();
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    const payload = sanitizeGamePuzzleInput(game, req.body);
     let newId = 1;
     const last = await GamePuzzle.findOne().sort({ id: -1 });
     if (last) newId = last.id + 1;
 
-    const puzzle = await GamePuzzle.create({ ...payload, id: newId, gameSlug: slug });
+    const puzzle = await GamePuzzle.create({ ...payload, id: newId });
     res.json(puzzle.toJSON());
   } catch (e) {
-    res.status(500).json({ error: publicError(e) });
+    res.status(e.status || 500).json({ error: statusAwarePublicError(e) });
   }
 });
 
 adminGamesRouter.put('/:slug/puzzles/:id', async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10);
-    const slug = normalizeText(req.params.slug, 64);
-    const update = { ...req.body, updatedAt: new Date() };
-    delete update._id;
-    delete update.id;
+    const slug = normalizeText(req.params.slug, 64).toLowerCase();
+    const game = await GameDefinition.findOne({ slug }).lean();
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    const existingPuzzle = await GamePuzzle.findOne({ id, gameSlug: slug }).lean();
+    if (!existingPuzzle) return res.status(404).json({ error: 'Not found' });
+    const update = sanitizeGamePuzzleInput(game, req.body, existingPuzzle);
 
     const puzzle = await GamePuzzle.findOneAndUpdate({ id, gameSlug: slug }, { $set: update }, { new: true });
-    if (!puzzle) return res.status(404).json({ error: 'Not found' });
     res.json(puzzle.toJSON());
   } catch (e) {
-    res.status(500).json({ error: publicError(e) });
+    res.status(e.status || 500).json({ error: statusAwarePublicError(e) });
   }
 });
 
 adminGamesRouter.delete('/:slug/puzzles/:id', async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10);
-    const slug = normalizeText(req.params.slug, 64);
+    const slug = normalizeText(req.params.slug, 64).toLowerCase();
     const result = await GamePuzzle.deleteOne({ id, gameSlug: slug });
     if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
@@ -4672,19 +5065,26 @@ adminGamesRouter.delete('/:slug/puzzles/:id', async (req, res) => {
 adminGamesRouter.post('/:slug/puzzles/:id/publish', async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10);
-    const slug = normalizeText(req.params.slug, 64);
+    const slug = normalizeText(req.params.slug, 64).toLowerCase();
+    const game = await GameDefinition.findOne({ slug }).lean();
+    if (!game) return res.status(404).json({ error: 'Game not found' });
+    const existingPuzzle = await GamePuzzle.findOne({ id, gameSlug: slug }).lean();
+    if (!existingPuzzle) return res.status(404).json({ error: 'Not found' });
+    if (isPlaceholderGamePuzzle(game.type, existingPuzzle.payload, existingPuzzle.solution)) {
+      return res.status(400).json({ error: 'Replace the placeholder game content before publishing.' });
+    }
     const puzzle = await GamePuzzle.findOneAndUpdate({ id, gameSlug: slug }, { $set: { status: 'published', publishAt: new Date(), updatedAt: new Date() } }, { new: true });
     if (!puzzle) return res.status(404).json({ error: 'Not found' });
     res.json(puzzle.toJSON());
   } catch (e) {
-    res.status(500).json({ error: publicError(e) });
+    res.status(e.status || 500).json({ error: statusAwarePublicError(e) });
   }
 });
 
 adminGamesRouter.post('/:slug/puzzles/:id/archive', async (req, res) => {
   try {
     const id = Number.parseInt(req.params.id, 10);
-    const slug = normalizeText(req.params.slug, 64);
+    const slug = normalizeText(req.params.slug, 64).toLowerCase();
     const puzzle = await GamePuzzle.findOneAndUpdate({ id, gameSlug: slug }, { $set: { status: 'archived', updatedAt: new Date() } }, { new: true });
     if (!puzzle) return res.status(404).json({ error: 'Not found' });
     res.json(puzzle.toJSON());
@@ -5562,6 +5962,9 @@ app.get('/api/backup', requireAuth, requireAdmin, async (_req, res) => {
 
 app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
   try {
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PRODUCTION_RESET !== 'true') {
+      return res.status(403).json({ error: 'Production reset is disabled.' });
+    }
     const { seedAll } = await import('./seed.js');
     await seedAll();
     res.json({ ok: true });

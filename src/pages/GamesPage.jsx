@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
-import { loadGameProfile, loadGameProgress } from '../utils/gameStorage';
+import { getGameStreak, loadGameProfile, loadGameProgress } from '../utils/gameStorage';
 import { getTodayStr } from '../utils/gameDate';
 import GamesHubCard from '../components/games/GamesHubCard';
-import { Gamepad2, Trophy, Loader2 } from 'lucide-react';
+import { Gamepad2, Loader2 } from 'lucide-react';
 
 export default function GamesPage() {
     const [games, setGames] = useState([]);
@@ -43,17 +43,6 @@ export default function GamesPage() {
                         </p>
                     </div>
 
-                    {profile && profile.currentStreak > 0 && (
-                        <div className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-lg shrink-0">
-                            <div className="w-12 h-12 rounded-full bg-orange-500/20 text-orange-500 flex items-center justify-center">
-                                <Trophy className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <p className="text-zinc-400 text-xs font-bold uppercase tracking-wider">Текуща серия</p>
-                                <p className="text-2xl font-black font-condensed">{profile.currentStreak} <span className="text-orange-500 text-base">ДНИ</span></p>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {loading ? (
@@ -67,7 +56,12 @@ export default function GamesPage() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {games.map(game => (
-                            <GamesHubCard key={game.id} game={game} progress={game.dailyProgress} />
+                            <GamesHubCard
+                                key={game.id}
+                                game={game}
+                                progress={game.dailyProgress}
+                                streak={getGameStreak(profile, game.slug)}
+                            />
                         ))}
                     </div>
                 )}

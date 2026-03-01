@@ -203,6 +203,8 @@ const DEFAULT_SITE_SETTINGS = {
   },
 };
 
+const shouldSeedSampleGames = process.env.SEED_SAMPLE_GAMES === 'true' || process.env.NODE_ENV !== 'production';
+
 function getSofiaDateString(offsetDays = 0) {
   const base = new Date(Date.now() + (offsetDays * 24 * 60 * 60 * 1000));
   const formatter = new Intl.DateTimeFormat('en-CA', {
@@ -280,7 +282,7 @@ const DEFAULT_GAME_PUZZLES = [
 export async function seedAll() {
   console.log('Seeding database...');
 
-  await Promise.all([
+  const collectionsToClear = [
     Article.deleteMany({}),
     Author.deleteMany({}),
     Category.deleteMany({}),
@@ -303,11 +305,18 @@ export async function seedAll() {
     ArticleView.deleteMany({}),
     PollVote.deleteMany({}),
     AuthSession.deleteMany({}),
-    GameDefinition.deleteMany({}),
-    GamePuzzle.deleteMany({}),
-  ]);
+  ];
 
-  await Promise.all([
+  if (shouldSeedSampleGames) {
+    collectionsToClear.push(
+      GameDefinition.deleteMany({}),
+      GamePuzzle.deleteMany({})
+    );
+  }
+
+  await Promise.all(collectionsToClear);
+
+  const insertOperations = [
     Article.insertMany(staticArticles),
     Author.insertMany(staticAuthors),
     Category.insertMany(staticCategories),
@@ -324,9 +333,18 @@ export async function seedAll() {
     Permission.insertMany(DEFAULT_PERMISSIONS),
     HeroSettings.create(DEFAULT_HERO_SETTINGS),
     SiteSettings.create(DEFAULT_SITE_SETTINGS),
-    GameDefinition.insertMany(DEFAULT_GAME_DEFINITIONS),
-    GamePuzzle.insertMany(DEFAULT_GAME_PUZZLES),
-  ]);
+  ];
+
+  if (shouldSeedSampleGames) {
+    insertOperations.push(
+      GameDefinition.insertMany(DEFAULT_GAME_DEFINITIONS),
+      GamePuzzle.insertMany(DEFAULT_GAME_PUZZLES)
+    );
+  } else {
+    console.log('Skipping sample games seed. Set SEED_SAMPLE_GAMES=true to opt in.');
+  }
+
+  await Promise.all(insertOperations);
 
   console.log('✓ Database seeded successfully!');
 }

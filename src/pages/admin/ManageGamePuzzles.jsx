@@ -63,23 +63,23 @@ export default function ManageGamePuzzles() {
         // Provide template based on slug
         if (selectedGameSlug === 'word') {
             setPayloadText(JSON.stringify({ wordLength: 5, maxAttempts: 6, keyboardLayout: 'bg' }, null, 2));
-            setSolutionText(JSON.stringify({ answer: "ДУМА1" }, null, 2));
+            setSolutionText(JSON.stringify({ answer: "TODO5", allowedWords: [] }, null, 2));
         } else if (selectedGameSlug === 'connections') {
             setPayloadText(JSON.stringify({
-                items: ['А1', 'А2', 'А3', 'А4', 'Б1', 'Б2', 'Б3', 'Б4', 'В1', 'В2', 'В3', 'В4', 'Г1', 'Г2', 'Г3', 'Г4']
+                items: ['TODO1', 'TODO2', 'TODO3', 'TODO4', 'TODO5', 'TODO6', 'TODO7', 'TODO8', 'TODO9', 'TODO10', 'TODO11', 'TODO12', 'TODO13', 'TODO14', 'TODO15', 'TODO16']
             }, null, 2));
             setSolutionText(JSON.stringify({
                 groups: [
-                    { label: 'ГРУПА А', difficulty: 1, items: ['А1', 'А2', 'А3', 'А4'], explanation: '' },
-                    { label: 'ГРУПА Б', difficulty: 2, items: ['Б1', 'Б2', 'Б3', 'Б4'], explanation: '' },
-                    { label: 'ГРУПА В', difficulty: 3, items: ['В1', 'В2', 'В3', 'В4'], explanation: '' },
-                    { label: 'ГРУПА Г', difficulty: 4, items: ['Г1', 'Г2', 'Г3', 'Г4'], explanation: '' }
+                    { label: 'TODO GROUP 1', difficulty: 1, items: ['TODO1', 'TODO2', 'TODO3', 'TODO4'], explanation: '' },
+                    { label: 'TODO GROUP 2', difficulty: 2, items: ['TODO5', 'TODO6', 'TODO7', 'TODO8'], explanation: '' },
+                    { label: 'TODO GROUP 3', difficulty: 3, items: ['TODO9', 'TODO10', 'TODO11', 'TODO12'], explanation: '' },
+                    { label: 'TODO GROUP 4', difficulty: 4, items: ['TODO13', 'TODO14', 'TODO15', 'TODO16'], explanation: '' }
                 ]
             }, null, 2));
         } else if (selectedGameSlug === 'quiz') {
             setPayloadText(JSON.stringify({
                 questions: [
-                    { question: "?", options: ["1", "2", "3", "4"], correctIndex: 0, explanation: "" }
+                    { question: "TODO: добави въпрос", options: ["TODO A", "TODO B", "TODO C", "TODO D"], correctIndex: 0, explanation: "" }
                 ]
             }, null, 2));
             setSolutionText("{}");

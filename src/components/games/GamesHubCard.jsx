@@ -1,13 +1,14 @@
 import { Link } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getGameIconComponent } from '../../utils/gameIcons';
 
-export default function GamesHubCard({ game, progress }) {
+export default function GamesHubCard({ game, progress, streak }) {
     const Icon = getGameIconComponent(game.icon);
     const gameStatus = progress?.gameStatus || '';
     const isPlayedToday = Boolean(progress) && gameStatus !== 'playing';
     const isWonToday = gameStatus === 'won';
+    const hasActiveStreak = Number(streak?.currentStreak) > 0;
 
     const themeColors = {
         green: 'from-emerald-500/20 to-emerald-900/40 border-emerald-500/30 text-emerald-400',
@@ -23,14 +24,22 @@ export default function GamesHubCard({ game, progress }) {
                 <div className="p-3 bg-black/30 rounded-xl">
                     <Icon className="w-8 h-8" />
                 </div>
-                {isPlayedToday && (
-                    <div className={`px-3 py-1 border rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 ${isWonToday
-                        ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                        : 'bg-zinc-500/20 text-zinc-200 border-zinc-500/30'}`}>
-                        <CheckCircle2 className="w-3 h-3" />
-                        {isWonToday ? 'Победа' : 'Изиграна'}
-                    </div>
-                )}
+                <div className="flex flex-col items-end gap-2">
+                    {isPlayedToday && (
+                        <div className={`px-3 py-1 border rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 ${isWonToday
+                            ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                            : 'bg-zinc-500/20 text-zinc-200 border-zinc-500/30'}`}>
+                            <CheckCircle2 className="w-3 h-3" />
+                            {isWonToday ? 'Победа' : 'Изиграна'}
+                        </div>
+                    )}
+                    {hasActiveStreak && (
+                        <div className="px-3 py-1 border rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 bg-orange-500/15 text-orange-300 border-orange-500/30">
+                            <Flame className="w-3 h-3" />
+                            {streak.currentStreak} дни серия
+                        </div>
+                    )}
+                </div>
             </div>
 
             <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-wide font-condensed">{game.title}</h3>
