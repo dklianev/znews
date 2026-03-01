@@ -4,6 +4,7 @@ import { loadGameProgress } from '../../utils/gameStorage';
 import { getTodayStr } from '../../utils/gameDate';
 import { Link } from 'react-router-dom';
 import { Gamepad2, ChevronRight, Check } from 'lucide-react';
+import { getGameIconComponent } from '../../utils/gameIcons';
 
 export default function GamesDailyStatus() {
     const [games, setGames] = useState([]);
@@ -14,10 +15,12 @@ export default function GamesDailyStatus() {
             const todayStr = getTodayStr();
             const decorated = data.map(g => {
                 const progress = loadGameProgress(g.slug, todayStr);
+                const gameStatus = progress?.gameStatus || '';
                 return {
                     ...g,
-                    isPlayed: progress && progress.gameStatus !== 'playing',
-                    isWon: progress && progress.gameStatus === 'won'
+                    isPlayed: Boolean(progress) && gameStatus !== 'playing',
+                    isWon: gameStatus === 'won',
+                    isLost: gameStatus === 'lost',
                 };
             });
             setGames(decorated);
@@ -39,9 +42,14 @@ export default function GamesDailyStatus() {
             <div className="flex-1 p-4 flex flex-col justify-center bg-[#F5EEDF]">
                 <div className="flex flex-wrap gap-2">
                     {games.map(g => {
-                        const borderClass = g.isPlayed
-                            ? (g.isWon ? 'border-emerald-600 bg-emerald-50' : 'border-red-600 bg-red-50')
-                            : 'border-zn-black bg-white hover:bg-zn-bg-warm hover:-translate-y-0.5';
+                        const Icon = getGameIconComponent(g.icon);
+                        const borderClass = g.isWon
+                            ? 'border-emerald-600 bg-emerald-50'
+                            : g.isLost
+                                ? 'border-red-600 bg-red-50'
+                                : g.isPlayed
+                                    ? 'border-sky-600 bg-sky-50'
+                                    : 'border-zn-black bg-white hover:bg-zn-bg-warm hover:-translate-y-0.5';
 
                         return (
                             <Link
@@ -50,11 +58,11 @@ export default function GamesDailyStatus() {
                                 className={`flex-1 min-w-[140px] flex items-center justify-between p-3 rounded shadow-[2px_2px_0_rgba(0,0,0,1)] border-2 transition-transform ${borderClass}`}
                             >
                                 <div className="flex items-center gap-2">
-                                    <span className="text-xl leading-none">{g.icon || '🎮'}</span>
+                                    <Icon className="w-5 h-5 text-zn-black shrink-0" />
                                     <span className="text-sm font-display font-black text-zn-black tracking-wide uppercase">{g.title}</span>
                                 </div>
                                 {g.isPlayed ? (
-                                    <Check className={`w-5 h-5 ${g.isWon ? 'text-emerald-600' : 'text-red-500'}`} />
+                                    <Check className={`w-5 h-5 ${g.isWon ? 'text-emerald-600' : g.isLost ? 'text-red-500' : 'text-sky-600'}`} />
                                 ) : (
                                     <ChevronRight className="w-5 h-5 text-zn-text-dim" />
                                 )}

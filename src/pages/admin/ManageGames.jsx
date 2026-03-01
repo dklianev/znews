@@ -95,7 +95,7 @@ export default function ManageGames() {
                                     </td>
                                     <td className="px-6 py-4 text-center">
                                         {game.active ? (
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1rounded-full bg-green-50 text-green-700 font-bold text-xs uppercase tracking-wider">
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 font-bold text-xs uppercase tracking-wider">
                                                 <Check className="w-3.5 h-3.5" /> Активна
                                             </span>
                                         ) : (

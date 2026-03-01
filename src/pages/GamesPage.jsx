@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
-import { loadGameProfile } from '../utils/gameStorage';
+import { loadGameProfile, loadGameProgress } from '../utils/gameStorage';
 import { getTodayStr } from '../utils/gameDate';
 import GamesHubCard from '../components/games/GamesHubCard';
 import { Gamepad2, Trophy, Loader2 } from 'lucide-react';
@@ -18,11 +18,15 @@ export default function GamesPage() {
         // Fetch live games
         api.games.getAll()
             .then(data => {
-                setGames(Array.isArray(data) ? data : []);
+                const items = Array.isArray(data) ? data : [];
+                setGames(items.map((game) => ({
+                    ...game,
+                    dailyProgress: loadGameProgress(game.slug, todayStr),
+                })));
             })
             .catch(console.error)
             .finally(() => setLoading(false));
-    }, []);
+    }, [todayStr]);
 
     return (
         <div className="min-h-screen bg-zinc-950 text-white pb-20 pt-10">
@@ -63,7 +67,7 @@ export default function GamesPage() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {games.map(game => (
-                            <GamesHubCard key={game.id} game={game} profile={profile} todayStr={todayStr} />
+                            <GamesHubCard key={game.id} game={game} progress={game.dailyProgress} />
                         ))}
                     </div>
                 )}

@@ -203,6 +203,21 @@ const DEFAULT_SITE_SETTINGS = {
   },
 };
 
+function getSofiaDateString(offsetDays = 0) {
+  const base = new Date(Date.now() + (offsetDays * 24 * 60 * 60 * 1000));
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Sofia',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = formatter.formatToParts(base);
+  const year = parts.find((part) => part.type === 'year')?.value || '1970';
+  const month = parts.find((part) => part.type === 'month')?.value || '01';
+  const day = parts.find((part) => part.type === 'day')?.value || '01';
+  return `${year}-${month}-${day}`;
+}
+
 const DEFAULT_GAME_DEFINITIONS = [
   { id: 1, slug: 'word', title: 'Думата на деня', type: 'word', description: 'Познай тайната 5-буквена дума за 6 опита.', icon: 'Type', active: true, sortOrder: 1, theme: 'green' },
   { id: 2, slug: 'connections', title: 'Връзки', type: 'connections', description: 'Групирай 16-те думи в 4 категории по 4 логически свързани думи.', icon: 'Link', active: true, sortOrder: 2, theme: 'indigo' },
@@ -211,17 +226,17 @@ const DEFAULT_GAME_DEFINITIONS = [
 
 const DEFAULT_GAME_PUZZLES = [
   {
-    id: 1, gameSlug: 'word', puzzleDate: new Date().toISOString().split('T')[0], status: 'published', publishAt: new Date(new Date().setHours(0, 0, 0, 0)), difficulty: 'medium',
+    id: 1, gameSlug: 'word', puzzleDate: getSofiaDateString(), status: 'published', publishAt: new Date(new Date().setHours(0, 0, 0, 0)), difficulty: 'medium',
     payload: { wordLength: 5, maxAttempts: 6, keyboardLayout: 'bg' },
     solution: { answer: 'КРИМЕ' }
   },
   {
-    id: 2, gameSlug: 'word', puzzleDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], status: 'draft', difficulty: 'easy',
+    id: 2, gameSlug: 'word', puzzleDate: getSofiaDateString(1), status: 'draft', difficulty: 'easy',
     payload: { wordLength: 5, maxAttempts: 6, keyboardLayout: 'bg' },
     solution: { answer: 'ЗАКОН' }
   },
   {
-    id: 3, gameSlug: 'connections', puzzleDate: new Date().toISOString().split('T')[0], status: 'published', publishAt: new Date(new Date().setHours(0, 0, 0, 0)), difficulty: 'medium',
+    id: 3, gameSlug: 'connections', puzzleDate: getSofiaDateString(), status: 'published', publishAt: new Date(new Date().setHours(0, 0, 0, 0)), difficulty: 'medium',
     payload: {
       items: [
         'СИРЕНА', 'МЕДИК', 'МАРШРУТ', 'ПЪТ',
@@ -240,7 +255,7 @@ const DEFAULT_GAME_PUZZLES = [
     }
   },
   {
-    id: 4, gameSlug: 'quiz', puzzleDate: new Date().toISOString().split('T')[0], status: 'published', publishAt: new Date(new Date().setHours(0, 0, 0, 0)), difficulty: 'easy',
+    id: 4, gameSlug: 'quiz', puzzleDate: getSofiaDateString(), status: 'published', publishAt: new Date(new Date().setHours(0, 0, 0, 0)), difficulty: 'easy',
     payload: {
       questions: [
         {

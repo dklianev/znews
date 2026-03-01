@@ -43,7 +43,7 @@ if (mongoDnsServersEnv && mongoDnsServersEnv.trim()) {
 
 import {
   Article, Author, Category, Ad, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription
+  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle
 } from './models.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
 import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/homepageSelectors.js';
@@ -2964,6 +2964,7 @@ const PERMISSION_KEYS = Object.freeze([
   'gallery',
   'profiles',
   'permissions',
+  'games',
 ]);
 
 const DEFAULT_PERMISSION_DOCS = Object.freeze({
@@ -2986,6 +2987,7 @@ const DEFAULT_PERMISSION_DOCS = Object.freeze({
     gallery: true,
     profiles: false,
     permissions: false,
+    games: true,
   },
   reporter: {
     articles: true,
@@ -3002,6 +3004,7 @@ const DEFAULT_PERMISSION_DOCS = Object.freeze({
     gallery: true,
     profiles: false,
     permissions: false,
+    games: false,
   },
   photographer: {
     articles: false,
@@ -3018,6 +3021,7 @@ const DEFAULT_PERMISSION_DOCS = Object.freeze({
     gallery: true,
     profiles: false,
     permissions: false,
+    games: false,
   },
   intern: {
     articles: false,
@@ -3034,6 +3038,7 @@ const DEFAULT_PERMISSION_DOCS = Object.freeze({
     gallery: false,
     profiles: false,
     permissions: false,
+    games: false,
   },
 });
 
@@ -3048,13 +3053,24 @@ function sanitizePermissionMap(value) {
 async function ensureDefaultPermissionDocs() {
   try {
     await Promise.all(
-      Object.entries(DEFAULT_PERMISSION_DOCS).map(([role, permissionMap]) => {
+      Object.entries(DEFAULT_PERMISSION_DOCS).map(async ([role, permissionMap]) => {
         const permissions = sanitizePermissionMap(permissionMap);
-        return Permission.updateOne(
-          { role },
-          { $setOnInsert: { role, permissions } },
-          { upsert: true }
-        );
+        const existing = await Permission.findOne({ role }).lean();
+
+        if (!existing) {
+          await Permission.create({ role, permissions });
+          return;
+        }
+
+        const missingPermissionPatch = {};
+        PERMISSION_KEYS.forEach((key) => {
+          if (typeof existing.permissions?.[key] === 'boolean') return;
+          missingPermissionPatch[`permissions.${key}`] = Boolean(permissions[key]);
+        });
+
+        if (Object.keys(missingPermissionPatch).length > 0) {
+          await Permission.updateOne({ role }, { $set: missingPermissionPatch });
+        }
       })
     );
   } catch (error) {
@@ -3220,6 +3236,8 @@ async function ensureDbIndexes() {
       AuditLog,
       Tip,
       PushSubscription,
+      GameDefinition,
+      GamePuzzle,
     ];
 
     await Promise.all(modelsWithIndexes.map((Model) => Model.init()));
@@ -5529,6 +5547,8 @@ app.get('/api/backup', requireAuth, requireAdmin, async (_req, res) => {
       comments: clean(await Comment.find().lean()),
       commentReactions: clean(await CommentReaction.find().lean()),
       gallery: clean(await Gallery.find().lean()),
+      games: clean(await GameDefinition.find().lean()),
+      gamePuzzles: clean(await GamePuzzle.find().lean()),
       permissions: clean(await Permission.find().lean()),
       heroSettings: cleanOne(await HeroSettings.findOne({ key: 'main' }).lean()) || { key: 'main', ...DEFAULT_HERO_SETTINGS },
       siteSettings: cleanOne(await SiteSettings.findOne({ key: 'main' }).lean()) || { key: 'main', ...DEFAULT_SITE_SETTINGS },

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../utils/api';
 import { useToast } from '../../components/admin/Toast';
-import { Puzzle, Loader2, Plus, Save, Trash2, Globe, FileText, CheckCircle2 } from 'lucide-react';
+import { Puzzle, Loader2, Plus, Save, Trash2, Globe, FileText, CheckCircle2, Edit2 } from 'lucide-react';
 
 export default function ManageGamePuzzles() {
     const [games, setGames] = useState([]);

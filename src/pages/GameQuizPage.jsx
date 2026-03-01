@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
-import { loadGameProgress, saveGameProgress, recordGameWin, recordGameLoss } from '../utils/gameStorage';
+import { loadGameProgress, saveGameProgress, recordGameWin } from '../utils/gameStorage';
 import { getTodayStr } from '../utils/gameDate';
 import QuizQuestionCard from '../components/games/quiz/QuizQuestionCard';
 import { Loader2, ArrowLeft, Share2, HelpCircle } from 'lucide-react';
@@ -70,6 +70,16 @@ export default function GameQuizPage() {
     const questions = puzzle.payload?.questions || [];
     const totalQ = questions.length;
 
+    if (totalQ === 0) {
+        return (
+            <div className="min-h-screen bg-zinc-950 text-center py-20 px-4">
+                <h1 className="text-3xl text-white mb-4">Куизът още не е готов</h1>
+                <p className="text-zinc-400 mb-8">Липсват въпроси за днешната игра.</p>
+                <Link to="/games" className="text-orange-500 hover:text-orange-400">← Обратно към всички игри</Link>
+            </div>
+        );
+    }
+
     const handleSelectOption = (index) => {
         if (gameStatus !== 'playing') return;
         const newAnswers = [...answers];
@@ -82,10 +92,8 @@ export default function GameQuizPage() {
             setCurrentQ(prev => prev + 1);
         } else {
             setGameStatus('completed');
-
-            const isPerfect = answers.every((a, i) => a === questions[i].correctIndex);
-            if (isPerfect) recordGameWin(GAME_SLUG, getTodayStr());
-            else recordGameLoss(GAME_SLUG, getTodayStr()); // Technically quiz is always "played", win = perfect score.
+            // Quiz completion counts as the daily result even when the score is not perfect.
+            recordGameWin(GAME_SLUG, getTodayStr());
         }
     };
 

@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom';
-import * as LucideIcons from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getGameIconComponent } from '../../utils/gameIcons';
 
-export default function GamesHubCard({ game, profile, todayStr }) {
-    const Icon = LucideIcons[game.icon] || LucideIcons.Gamepad2;
-    const isCompletedToday = profile?.completedDatesByGame?.[game.slug]?.includes(todayStr) || false;
+export default function GamesHubCard({ game, progress }) {
+    const Icon = getGameIconComponent(game.icon);
+    const gameStatus = progress?.gameStatus || '';
+    const isPlayedToday = Boolean(progress) && gameStatus !== 'playing';
+    const isWonToday = gameStatus === 'won';
 
     const themeColors = {
         green: 'from-emerald-500/20 to-emerald-900/40 border-emerald-500/30 text-emerald-400',
@@ -20,10 +23,12 @@ export default function GamesHubCard({ game, profile, todayStr }) {
                 <div className="p-3 bg-black/30 rounded-xl">
                     <Icon className="w-8 h-8" />
                 </div>
-                {isCompletedToday && (
-                    <div className="px-3 py-1 bg-green-500/20 text-green-400 border border-green-500/30 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1">
-                        <LucideIcons.CheckCircle2 className="w-3 h-3" />
-                        Изиграна
+                {isPlayedToday && (
+                    <div className={`px-3 py-1 border rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 ${isWonToday
+                        ? 'bg-green-500/20 text-green-400 border-green-500/30'
+                        : 'bg-zinc-500/20 text-zinc-200 border-zinc-500/30'}`}>
+                        <CheckCircle2 className="w-3 h-3" />
+                        {isWonToday ? 'Победа' : 'Изиграна'}
                     </div>
                 )}
             </div>
@@ -32,7 +37,7 @@ export default function GamesHubCard({ game, profile, todayStr }) {
             <p className="text-sm text-zinc-300 mb-6 flex-grow">{game.description}</p>
 
             <Link to={`/games/${game.slug}`} className="mt-auto relative z-10 w-full rounded-xl bg-white text-black font-bold py-3 text-center uppercase tracking-widest hover:bg-zinc-200 transition-colors">
-                {isCompletedToday ? 'Виж резултата' : 'Играй сега'}
+                {isPlayedToday ? 'Виж резултата' : 'Играй сега'}
             </Link>
         </motion.div>
     );
