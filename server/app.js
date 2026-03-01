@@ -4392,6 +4392,291 @@ app.put('/api/permissions/:role', requireAuth, requirePermission('permissions'),
   }
 });
 
+// ─── Games API (Public) ───
+const gamesRouter = express.Router();
+
+gamesRouter.get('/', async (_req, res) => {
+  try {
+    const games = await GameDefinition.find({ active: true }).sort('sortOrder').lean();
+    res.json(games);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+gamesRouter.get('/:slug/today', async (req, res) => {
+  try {
+    const slug = normalizeText(req.params.slug, 64);
+    // Get current date in Europe/Sofia
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Sofia', year: 'numeric', month: '2-digit', day: '2-digit' });
+    const [{ value: year }, , { value: month }, , { value: day }] = formatter.formatToParts(now);
+    const todayStr = `${year}-${month}-${day}`;
+
+    const puzzle = await GamePuzzle.findOne({ gameSlug: slug, puzzleDate: todayStr, status: 'published' }).lean();
+    if (!puzzle) return res.status(404).json({ error: 'No puzzle for today' });
+
+    // Exclude solution for public today endpoint
+    delete puzzle.editorNotes;
+    delete puzzle.solution;
+
+    res.json(puzzle);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+gamesRouter.get('/:slug/archive', async (req, res) => {
+  try {
+    const slug = normalizeText(req.params.slug, 64);
+    const limit = Math.min(Number.parseInt(req.query.limit, 10) || 30, 100);
+    const puzzles = await GamePuzzle.find({ gameSlug: slug, status: 'published' })
+      .select('-solution -editorNotes -payload')
+      .sort({ puzzleDate: -1 })
+      .limit(limit)
+      .lean();
+    res.json(puzzles);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+gamesRouter.get('/:slug/:date', async (req, res) => {
+  try {
+    const slug = normalizeText(req.params.slug, 64);
+    const date = normalizeText(req.params.date, 10);
+    const puzzle = await GamePuzzle.findOne({ gameSlug: slug, puzzleDate: date }).lean();
+
+    if (!puzzle) return res.status(404).json({ error: 'Not found' });
+
+    // Allow seeing drafts/solutions if admin/editor with games permission
+    let canSeeDrafts = false;
+    let authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const user = await User.findOne({ id: decoded.userId }).lean();
+        if (user && (user.role === 'admin' || await hasPermissionForSection(user, 'games'))) {
+          canSeeDrafts = true;
+        }
+      } catch (err) { }
+    }
+
+    if (puzzle.status !== 'published' && !canSeeDrafts) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    if (!canSeeDrafts) {
+      delete puzzle.editorNotes;
+      delete puzzle.solution;
+    }
+
+    res.json(puzzle);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+gamesRouter.post('/:slug/:date/validate', async (req, res) => {
+  try {
+    const slug = normalizeText(req.params.slug, 64);
+    const date = normalizeText(req.params.date, 10);
+    const puzzle = await GamePuzzle.findOne({ gameSlug: slug, puzzleDate: date, status: 'published' }).lean();
+    if (!puzzle) return res.status(404).json({ error: 'Not found' });
+
+    if (slug === 'word') {
+      const guess = (req.body.guess || '').toUpperCase();
+      const answer = (puzzle.solution?.answer || '').toUpperCase();
+      if (guess.length !== answer.length) return res.status(400).json({ error: 'Invalid length' });
+
+      const evaluated = [];
+      const answerLetters = answer.split('');
+      const guessLetters = guess.split('');
+
+      for (let i = 0; i < guessLetters.length; i++) {
+        if (guessLetters[i] === answerLetters[i]) {
+          evaluated[i] = { letter: guessLetters[i], status: 'correct' };
+          answerLetters[i] = null;
+        }
+      }
+      for (let i = 0; i < guessLetters.length; i++) {
+        if (!evaluated[i]) {
+          const char = guessLetters[i];
+          const foundIdx = answerLetters.indexOf(char);
+          if (foundIdx > -1) {
+            evaluated[i] = { letter: char, status: 'present' };
+            answerLetters[foundIdx] = null;
+          } else {
+            evaluated[i] = { letter: char, status: 'absent' };
+          }
+        }
+      }
+      return res.json({ evaluated, isWin: guess === answer });
+    }
+
+    if (slug === 'connections') {
+      const { selection } = req.body;
+      if (!Array.isArray(selection) || selection.length !== 4) return res.status(400).json({ error: 'Invalid selection' });
+
+      const groups = puzzle.solution?.groups || [];
+      let foundGroup = null;
+      let isOneAway = false;
+
+      for (const group of groups) {
+        const intersection = group.items.filter(item => selection.includes(item));
+        if (intersection.length === 4) {
+          foundGroup = group;
+          break;
+        }
+        if (intersection.length === 3) isOneAway = true;
+      }
+
+      if (foundGroup) {
+        return res.json({ correct: true, group: foundGroup });
+      }
+      return res.json({ correct: false, isOneAway });
+    }
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+app.use('/api/games', gamesRouter);
+
+// ─── Games API (Admin) ───
+const adminGamesRouter = express.Router();
+
+adminGamesRouter.get('/', async (_req, res) => {
+  try {
+    const games = await GameDefinition.find().sort('sortOrder').lean();
+    res.json(games);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adminGamesRouter.post('/', async (req, res) => {
+  try {
+    const payload = req.body;
+    let newId = 1;
+    const last = await GameDefinition.findOne().sort({ id: -1 });
+    if (last) newId = last.id + 1;
+
+    const game = await GameDefinition.create({ ...payload, id: newId });
+    res.json(game.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adminGamesRouter.put('/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const update = { ...req.body, updatedAt: new Date() };
+    delete update._id;
+    delete update.id;
+
+    const game = await GameDefinition.findOneAndUpdate({ id }, { $set: update }, { new: true });
+    if (!game) return res.status(404).json({ error: 'Not found' });
+    res.json(game.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adminGamesRouter.delete('/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const result = await GameDefinition.deleteOne({ id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adminGamesRouter.get('/:slug/puzzles', async (req, res) => {
+  try {
+    const slug = normalizeText(req.params.slug, 64);
+    const puzzles = await GamePuzzle.find({ gameSlug: slug }).sort({ puzzleDate: -1 }).lean();
+    res.json(puzzles);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adminGamesRouter.post('/:slug/puzzles', async (req, res) => {
+  try {
+    const slug = normalizeText(req.params.slug, 64);
+    const payload = req.body;
+    let newId = 1;
+    const last = await GamePuzzle.findOne().sort({ id: -1 });
+    if (last) newId = last.id + 1;
+
+    const puzzle = await GamePuzzle.create({ ...payload, id: newId, gameSlug: slug });
+    res.json(puzzle.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adminGamesRouter.put('/:slug/puzzles/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const slug = normalizeText(req.params.slug, 64);
+    const update = { ...req.body, updatedAt: new Date() };
+    delete update._id;
+    delete update.id;
+
+    const puzzle = await GamePuzzle.findOneAndUpdate({ id, gameSlug: slug }, { $set: update }, { new: true });
+    if (!puzzle) return res.status(404).json({ error: 'Not found' });
+    res.json(puzzle.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adminGamesRouter.delete('/:slug/puzzles/:id', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const slug = normalizeText(req.params.slug, 64);
+    const result = await GamePuzzle.deleteOne({ id, gameSlug: slug });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adminGamesRouter.post('/:slug/puzzles/:id/publish', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const slug = normalizeText(req.params.slug, 64);
+    const puzzle = await GamePuzzle.findOneAndUpdate({ id, gameSlug: slug }, { $set: { status: 'published', publishAt: new Date(), updatedAt: new Date() } }, { new: true });
+    if (!puzzle) return res.status(404).json({ error: 'Not found' });
+    res.json(puzzle.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adminGamesRouter.post('/:slug/puzzles/:id/archive', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    const slug = normalizeText(req.params.slug, 64);
+    const puzzle = await GamePuzzle.findOneAndUpdate({ id, gameSlug: slug }, { $set: { status: 'archived', updatedAt: new Date() } }, { new: true });
+    if (!puzzle) return res.status(404).json({ error: 'Not found' });
+    res.json(puzzle.toJSON());
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+app.use('/api/admin/games', requireAuth, requirePermission('games'), adminGamesRouter);
+
 // ─── Categories (string id) ───
 const catRouter = express.Router();
 

@@ -9,7 +9,7 @@ dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
 
 import {
   Article, Author, Category, Ad, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession,
+  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, GameDefinition, GamePuzzle
 } from './models.js';
 
 // Import static data from frontend
@@ -103,11 +103,11 @@ const DEFAULT_GALLERY = [
 ];
 
 const DEFAULT_PERMISSIONS = [
-  { role: 'admin', permissions: { articles: true, categories: true, ads: true, breaking: true, wanted: true, jobs: true, court: true, events: true, polls: true, comments: true, contact: true, gallery: true, profiles: true, permissions: true } },
-  { role: 'editor', permissions: { articles: true, categories: true, ads: true, breaking: true, wanted: false, jobs: false, court: false, events: true, polls: true, comments: true, contact: true, gallery: true, profiles: false, permissions: false } },
-  { role: 'reporter', permissions: { articles: true, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: true, profiles: false, permissions: false } },
-  { role: 'photographer', permissions: { articles: false, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: true, profiles: false, permissions: false } },
-  { role: 'intern', permissions: { articles: false, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: false, profiles: false, permissions: false } },
+  { role: 'admin', permissions: { articles: true, categories: true, ads: true, breaking: true, wanted: true, jobs: true, court: true, events: true, polls: true, comments: true, contact: true, gallery: true, profiles: true, permissions: true, games: true } },
+  { role: 'editor', permissions: { articles: true, categories: true, ads: true, breaking: true, wanted: false, jobs: false, court: false, events: true, polls: true, comments: true, contact: true, gallery: true, profiles: false, permissions: false, games: true } },
+  { role: 'reporter', permissions: { articles: true, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: true, profiles: false, permissions: false, games: false } },
+  { role: 'photographer', permissions: { articles: false, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: true, profiles: false, permissions: false, games: false } },
+  { role: 'intern', permissions: { articles: false, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: false, profiles: false, permissions: false, games: false } },
 ];
 
 const DEFAULT_HERO_SETTINGS = {
@@ -203,6 +203,64 @@ const DEFAULT_SITE_SETTINGS = {
   },
 };
 
+const DEFAULT_GAME_DEFINITIONS = [
+  { id: 1, slug: 'word', title: 'Думата на деня', type: 'word', description: 'Познай тайната 5-буквена дума за 6 опита.', icon: 'Type', active: true, sortOrder: 1, theme: 'green' },
+  { id: 2, slug: 'connections', title: 'Връзки', type: 'connections', description: 'Групирай 16-те думи в 4 категории по 4 логически свързани думи.', icon: 'Link', active: true, sortOrder: 2, theme: 'indigo' },
+  { id: 3, slug: 'quiz', title: 'Новинарски тест', type: 'quiz', description: 'Провери знанията си за събитията в града от изминалата седмица.', icon: 'HelpCircle', active: true, sortOrder: 3, theme: 'orange' },
+];
+
+const DEFAULT_GAME_PUZZLES = [
+  {
+    id: 1, gameSlug: 'word', puzzleDate: new Date().toISOString().split('T')[0], status: 'published', publishAt: new Date(new Date().setHours(0, 0, 0, 0)), difficulty: 'medium',
+    payload: { wordLength: 5, maxAttempts: 6, keyboardLayout: 'bg' },
+    solution: { answer: 'КРИМЕ' }
+  },
+  {
+    id: 2, gameSlug: 'word', puzzleDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], status: 'draft', difficulty: 'easy',
+    payload: { wordLength: 5, maxAttempts: 6, keyboardLayout: 'bg' },
+    solution: { answer: 'ЗАКОН' }
+  },
+  {
+    id: 3, gameSlug: 'connections', puzzleDate: new Date().toISOString().split('T')[0], status: 'published', publishAt: new Date(new Date().setHours(0, 0, 0, 0)), difficulty: 'medium',
+    payload: {
+      items: [
+        'СИРЕНА', 'МЕДИК', 'МАРШРУТ', 'ПЪТ',
+        'БЕЗИНСТАНЦИЯ', 'УЛИЦА', 'ПОЖАР', 'АЛАРМА',
+        'ТАКСИ', 'ЛИЦЕНЗ', 'ГРАБЕЖ', 'ЗАПЛАТА',
+        'ДОКАЗАТЕЛСТВО', 'РЕГИСТРАЦИЯ', 'АПТЕКА', 'СВИДЕТЕЛ'
+      ]
+    },
+    solution: {
+      groups: [
+        { label: 'КРИМИНАЛНИ ТЕРМИНИ', difficulty: 1, items: ['СВИДЕТЕЛ', 'ДОКАЗАТЕЛСТВО', 'ГРАБЕЖ', 'АЛАРМА'], explanation: 'Свързани с престъпления' },
+        { label: 'СПЕШНИ СИТУАЦИИ', difficulty: 2, items: ['СИРЕНА', 'ПОЖАР', 'МЕДИК', 'АПТЕКА'], explanation: 'Когато има инцидент' },
+        { label: 'ШОФИРАНЕ', difficulty: 3, items: ['МАРШРУТ', 'ПЪТ', 'УЛИЦА', 'ТАКСИ'], explanation: 'Транспорт и пътна мрежа' },
+        { label: 'ОФИЦИАЛНИ ДОКУМЕНТИ', difficulty: 4, items: ['ЛИЦЕНЗ', 'РЕГИСТРАЦИЯ', 'ЗАПЛАТА', 'БЕЗИНСТАНЦИЯ'], explanation: 'Администрация (и фактури от бензиностанция)' }
+      ]
+    }
+  },
+  {
+    id: 4, gameSlug: 'quiz', puzzleDate: new Date().toISOString().split('T')[0], status: 'published', publishAt: new Date(new Date().setHours(0, 0, 0, 0)), difficulty: 'easy',
+    payload: {
+      questions: [
+        {
+          question: 'Как се казва кметът на Los Santos тази година?',
+          options: ['Томас О’Нийл', 'Мария Стоянова', 'Джон Доу', 'Алекс Роси'],
+          correctIndex: 0,
+          explanation: 'Томас О’Нийл бе избран със 72% мнозинство на последните избори.'
+        },
+        {
+          question: 'Кой квартал беше реновиран миналия месец?',
+          options: ['Ийст Лос Сантос', 'Палето Бей', 'Мирър Парк', 'Сенди Шорс'],
+          correctIndex: 2,
+          explanation: 'Мирър Парк получи $2 млн. субсидия за нови паркови зони.'
+        }
+      ]
+    },
+    solution: {}
+  }
+];
+
 // ─── Seed Function ───
 export async function seedAll() {
   console.log('Seeding database...');
@@ -230,6 +288,8 @@ export async function seedAll() {
     ArticleView.deleteMany({}),
     PollVote.deleteMany({}),
     AuthSession.deleteMany({}),
+    GameDefinition.deleteMany({}),
+    GamePuzzle.deleteMany({}),
   ]);
 
   await Promise.all([
@@ -249,6 +309,8 @@ export async function seedAll() {
     Permission.insertMany(DEFAULT_PERMISSIONS),
     HeroSettings.create(DEFAULT_HERO_SETTINGS),
     SiteSettings.create(DEFAULT_SITE_SETTINGS),
+    GameDefinition.insertMany(DEFAULT_GAME_DEFINITIONS),
+    GamePuzzle.insertMany(DEFAULT_GAME_PUZZLES),
   ]);
 
   console.log('✓ Database seeded successfully!');

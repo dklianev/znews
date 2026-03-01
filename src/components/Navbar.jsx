@@ -19,6 +19,7 @@ const DEFAULT_NAV_LINKS = [
   { to: '/jobs', label: 'Работа' },
   { to: '/court', label: 'Съд' },
   { to: '/events', label: 'Събития' },
+  { to: '/games', label: 'Игри', hot: true },
   { to: '/gallery', label: 'Галерия' },
 ];
 

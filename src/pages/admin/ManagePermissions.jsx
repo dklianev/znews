@@ -18,6 +18,7 @@ const SECTION_LABELS = {
     gallery: 'Галерия',
     profiles: 'Профили',
     permissions: 'Права',
+    games: 'Игри',
 };
 
 const ROLE_LABELS = {

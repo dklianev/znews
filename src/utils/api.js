@@ -438,6 +438,27 @@ export const api = {
     forceRefreshHomepageCache: () => request('/site-settings/cache/homepage/refresh', { method: 'POST' }),
   },
 
+  games: {
+    getAll: () => request('/games'),
+    getToday: (slug) => request(`/games/${slug}/today`),
+    getArchive: (slug, limit = 30) => request(`/games/${slug}/archive?limit=${limit}`),
+    getByDate: (slug, date) => request(`/games/${slug}/${date}`),
+    validate: (slug, date, data) => request(`/games/${slug}/${date}/validate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  },
+
+  adminGames: {
+    ...crudEndpoints('admin/games'),
+    getPuzzles: (slug) => request(`/admin/games/${slug}/puzzles`),
+    createPuzzle: (slug, data) => request(`/admin/games/${slug}/puzzles`, { method: 'POST', body: JSON.stringify(data) }),
+    updatePuzzle: (slug, id, data) => request(`/admin/games/${slug}/puzzles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deletePuzzle: (slug, id) => request(`/admin/games/${slug}/puzzles/${id}`, { method: 'DELETE' }),
+    publishPuzzle: (slug, id) => request(`/admin/games/${slug}/puzzles/${id}/publish`, { method: 'POST' }),
+    archivePuzzle: (slug, id) => request(`/admin/games/${slug}/puzzles/${id}/archive`, { method: 'POST' }),
+  },
+
   auth: {
     login: (username, password) => request('/auth/login', {
       method: 'POST',

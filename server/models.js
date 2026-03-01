@@ -242,6 +242,7 @@ const permissionSchema = new mongoose.Schema({
     gallery: { type: Boolean, default: false },
     profiles: { type: Boolean, default: false },
     permissions: { type: Boolean, default: false },
+    games: { type: Boolean, default: false },
   },
 }, opts);
 
@@ -415,6 +416,36 @@ const pushSubscriptionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now, index: true }
 }, opts);
 
+// ─── Games ───
+const gameDefinitionSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  slug: { type: String, required: true, unique: true, index: true },
+  title: String,
+  type: { type: String, enum: ['word', 'connections', 'quiz'], required: true },
+  description: String,
+  icon: String,
+  active: { type: Boolean, default: true },
+  sortOrder: { type: Number, default: 0 },
+  theme: String,
+  createdAt: { type: Date, default: Date.now, index: true },
+  updatedAt: { type: Date, default: Date.now },
+}, opts);
+
+const gamePuzzleSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  gameSlug: { type: String, required: true, index: true },
+  puzzleDate: { type: String, required: true },
+  status: { type: String, default: 'draft', enum: ['draft', 'published', 'archived'], index: true },
+  publishAt: { type: Date, default: null, index: true },
+  difficulty: String,
+  payload: { type: mongoose.Schema.Types.Mixed },
+  solution: { type: mongoose.Schema.Types.Mixed },
+  editorNotes: String,
+  createdAt: { type: Date, default: Date.now, index: true },
+  updatedAt: { type: Date, default: Date.now },
+}, opts);
+gamePuzzleSchema.index({ gameSlug: 1, puzzleDate: 1 }, { unique: true, name: 'game_puzzle_slug_date' });
+
 export const Article = mongoose.model('Article', articleSchema);
 export const Author = mongoose.model('Author', authorSchema);
 export const Category = mongoose.model('Category', categorySchema);
@@ -441,3 +472,5 @@ export const AuthSession = mongoose.model('AuthSession', authSessionSchema);
 export const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 export const Tip = mongoose.model('Tip', tipSchema);
 export const PushSubscription = mongoose.model('PushSubscription', pushSubscriptionSchema);
+export const GameDefinition = mongoose.model('GameDefinition', gameDefinitionSchema);
+export const GamePuzzle = mongoose.model('GamePuzzle', gamePuzzleSchema);

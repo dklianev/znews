@@ -21,6 +21,10 @@ const CourtPage = lazy(() => import('./pages/CourtPage'));
 const EventsPage = lazy(() => import('./pages/EventsPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const TipLine = lazy(() => import('./pages/TipLine'));
+const GamesPage = lazy(() => import('./pages/GamesPage'));
+const GameWordPage = lazy(() => import('./pages/GameWordPage'));
+const GameConnectionsPage = lazy(() => import('./pages/GameConnectionsPage'));
+const GameQuizPage = lazy(() => import('./pages/GameQuizPage'));
 
 // Admin (lazy — heavy, rarely visited)
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
@@ -46,6 +50,8 @@ const ManageAuditLog = lazy(() => import('./pages/admin/ManageAuditLog'));
 const ManageSiteSettings = lazy(() => import('./pages/admin/ManageSiteSettings'));
 const ManageContactMessages = lazy(() => import('./pages/admin/ManageContactMessages'));
 const ManageTips = lazy(() => import('./pages/admin/ManageTips'));
+const ManageGames = lazy(() => import('./pages/admin/ManageGames'));
+const ManageGamePuzzles = lazy(() => import('./pages/admin/ManageGamePuzzles'));
 
 // ─── Inline loading fallback ───
 function PageFallback() {
@@ -183,6 +189,8 @@ function AppContent() {
           <Route path="permissions" element={<AdminPermissionRoute permission="permissions"><Suspense fallback={<PageFallback />}><ManagePermissions /></Suspense></AdminPermissionRoute>} />
           <Route path="site-settings" element={<AdminPermissionRoute permission="permissions"><Suspense fallback={<PageFallback />}><ManageSiteSettings /></Suspense></AdminPermissionRoute>} />
           <Route path="audit-log" element={<AdminPermissionRoute permission="permissions"><Suspense fallback={<PageFallback />}><ManageAuditLog /></Suspense></AdminPermissionRoute>} />
+          <Route path="games" element={<AdminPermissionRoute permission="games"><Suspense fallback={<PageFallback />}><ManageGames /></Suspense></AdminPermissionRoute>} />
+          <Route path="games/puzzles" element={<AdminPermissionRoute permission="games"><Suspense fallback={<PageFallback />}><ManageGamePuzzles /></Suspense></AdminPermissionRoute>} />
         </Route>
 
         {/* Public site — Suspense is in PublicLayout */}
@@ -197,6 +205,10 @@ function AppContent() {
           <Route path="/events" element={<EventsPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/tipline" element={<TipLine />} />
+          <Route path="/games" element={<GamesPage />} />
+          <Route path="/games/word" element={<GameWordPage />} />
+          <Route path="/games/connections" element={<GameConnectionsPage />} />
+          <Route path="/games/quiz" element={<GameQuizPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
