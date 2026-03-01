@@ -8,7 +8,8 @@ import { seedGamesOnly, getSofiaDateString } from '../gameSeed.js';
 dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true });
 
 const startDate = process.env.GAME_START_DATE || getSofiaDateString(1);
 const days = Number.parseInt(process.env.GAME_DAYS || '30', 10);

@@ -43,8 +43,11 @@ export function addDaysToDateStr(dateStr, offsetDays) {
   return new Date(Date.UTC(year, month - 1, day + offsetDays)).toISOString().slice(0, 10);
 }
 
-export async function ensureGameDefinitions() {
-  for (const definition of DEFAULT_GAME_DEFINITIONS) {
+export async function ensureGameDefinitions(gameSlugs = DEFAULT_GAME_SLUGS) {
+  const targetSlugs = Array.isArray(gameSlugs) && gameSlugs.length > 0 ? gameSlugs : DEFAULT_GAME_SLUGS;
+  const definitions = DEFAULT_GAME_DEFINITIONS.filter((definition) => targetSlugs.includes(definition.slug));
+
+  for (const definition of definitions) {
     await GameDefinition.updateOne(
       { slug: definition.slug },
       {
@@ -95,7 +98,7 @@ function normalizeSeedOptions(options = {}) {
 
 export async function seedGamesOnly(options = {}) {
   const config = normalizeSeedOptions(options);
-  await ensureGameDefinitions();
+  await ensureGameDefinitions(config.gameSlugs);
 
   const maxExistingId = await GamePuzzle.findOne().sort({ id: -1 }).lean();
   let nextId = Math.max(0, maxExistingId?.id || 0) + 1;

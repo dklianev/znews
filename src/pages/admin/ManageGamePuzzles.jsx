@@ -78,7 +78,10 @@ export default function ManageGamePuzzles() {
     }, [selectedGameSlug]);
 
     const handleCreateNew = () => {
-        setEditForm(cloneValue(createGamePuzzleTemplate(selectedGameSlug, addDays(getTodayStr(), 1))));
+        setEditForm({
+            gameSlug: selectedGameSlug,
+            ...cloneValue(createGamePuzzleTemplate(selectedGameSlug, addDays(getTodayStr(), 1))),
+        });
         setIsEditing(true);
     };
 
@@ -147,14 +150,16 @@ export default function ManageGamePuzzles() {
 
     const handleSave = async () => {
         if (!editForm) return;
+        const targetGameSlug = editForm.gameSlug || selectedGameSlug;
         setSaving(true);
         try {
-            if (editForm.id) await api.adminGames.updatePuzzle(selectedGameSlug, editForm.id, editForm);
-            else await api.adminGames.createPuzzle(selectedGameSlug, editForm);
+            if (editForm.id) await api.adminGames.updatePuzzle(targetGameSlug, editForm.id, editForm);
+            else await api.adminGames.createPuzzle(targetGameSlug, editForm);
             toast.success(editForm.id ? 'Пъзелът е обновен.' : 'Пъзелът е създаден.');
             setIsEditing(false);
             setEditForm(null);
-            await loadPuzzles(selectedGameSlug);
+            setSelectedGameSlug(targetGameSlug);
+            await loadPuzzles(targetGameSlug);
         } catch (e) {
             toast.error('Грешка при запазване: ' + e.message);
         } finally {
@@ -219,7 +224,7 @@ export default function ManageGamePuzzles() {
                         <p className="text-sm font-sans text-gray-500 mt-1">Само games workflow: създава чернови и редактира `GamePuzzle`, без да пипа другите колекции.</p>
                     </div>
                     <div className="flex items-center gap-4">
-                        <select value={selectedGameSlug} onChange={(e) => setSelectedGameSlug(e.target.value)} className="border border-gray-300 rounded-lg px-4 py-2 text-sm font-sans font-bold uppercase tracking-wider text-gray-800 bg-white cursor-pointer min-w-[220px] shadow-sm">
+                        <select value={selectedGameSlug} disabled={isEditing} onChange={(e) => setSelectedGameSlug(e.target.value)} className="border border-gray-300 rounded-lg px-4 py-2 text-sm font-sans font-bold uppercase tracking-wider text-gray-800 bg-white cursor-pointer min-w-[220px] shadow-sm disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400">
                             {games.map((game) => <option key={game.slug} value={game.slug}>{game.title}</option>)}
                         </select>
                         <button onClick={handleCreateNew} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-bold uppercase tracking-wider rounded hover:bg-zn-purple-dark transition-colors">
