@@ -5,6 +5,7 @@ import { useToast } from '../../components/admin/Toast';
 import { api } from '../../utils/api';
 import { getTodayStr } from '../../utils/gameDate';
 import { createGamePuzzleTemplate, GAME_EDITOR_GUIDES } from '../../../shared/gamePuzzleTemplates.js';
+import { hasGamePlaceholderContent } from '../../../shared/gamePlaceholderWarnings.js';
 
 function cloneValue(value) {
     return JSON.parse(JSON.stringify(value));
@@ -302,16 +303,22 @@ export default function ManageGamePuzzles() {
                             ) : puzzles.length === 0 ? (
                                 <tr><td colSpan="4" className="px-6 py-8 text-center text-gray-500">Още няма пъзели за тази игра. Използвай „Нов Пъзел“ или „Генерирай чернови“.</td></tr>
                             ) : (
-                                puzzles.map((puzzle) => (
+                                puzzles.map((puzzle) => {
+                                    const hasPlaceholders = hasGamePlaceholderContent(selectedGameSlug, puzzle);
+                                    return (
                                     <tr key={puzzle.id} className="hover:bg-gray-50/50">
                                         <td className="px-6 py-4"><p className="font-mono font-bold text-gray-900">{puzzle.puzzleDate}</p><p className="text-xs text-gray-400 mt-1">#{puzzle.id}</p></td>
                                         <td className="px-6 py-4">
                                             {puzzle.status === 'published' ? <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded-full uppercase"><Globe className="w-4 h-4" />Публикуван</span> : puzzle.status === 'archived' ? <span className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-full uppercase"><FileText className="w-4 h-4" />Архив</span> : <span className="inline-flex items-center gap-1.5 text-xs font-bold text-yellow-700 bg-yellow-50 px-2 py-1 rounded-full uppercase"><CheckCircle2 className="w-4 h-4" />Чернова</span>}
                                         </td>
-                                        <td className="px-6 py-4 text-xs text-gray-500"><p><span className="font-bold opacity-70">Трудност:</span> {puzzle.difficulty}</p>{puzzle.editorNotes && <p className="italic mt-1 text-gray-400">"{puzzle.editorNotes}"</p>}</td>
-                                        <td className="px-6 py-4"><div className="flex justify-end gap-2">{puzzle.status !== 'published' && <button onClick={() => handlePublish(puzzle.id)} className="text-green-600 hover:text-green-800 p-2" title="Публикувай"><Globe className="w-4 h-4" /></button>}<button onClick={() => handleEdit(puzzle)} className="text-gray-500 hover:text-blue-600 p-2" title="Редакция"><Edit2 className="w-4 h-4" /></button><button onClick={() => handleDelete(puzzle.id)} className="text-gray-500 hover:text-red-600 p-2" title="Изтрий"><Trash2 className="w-4 h-4" /></button></div></td>
+                                        <td className="px-6 py-4 text-xs text-gray-500">
+                                            <p><span className="font-bold opacity-70">Трудност:</span> {puzzle.difficulty}</p>
+                                            {hasPlaceholders && <p className="mt-2 inline-flex items-center rounded-full bg-amber-50 px-2 py-1 font-bold uppercase tracking-wide text-amber-700">Има TODO съдържание</p>}
+                                            {puzzle.editorNotes && <p className="italic mt-2 text-gray-400">"{puzzle.editorNotes}"</p>}
+                                        </td>
+                                        <td className="px-6 py-4"><div className="flex justify-end gap-2">{puzzle.status !== 'published' && <button onClick={() => handlePublish(puzzle.id)} disabled={hasPlaceholders} className="text-green-600 hover:text-green-800 p-2 disabled:text-gray-300 disabled:hover:text-gray-300" title={hasPlaceholders ? 'Първо смени TODO съдържанието' : 'Публикувай'}><Globe className="w-4 h-4" /></button>}<button onClick={() => handleEdit(puzzle)} className="text-gray-500 hover:text-blue-600 p-2" title="Редакция"><Edit2 className="w-4 h-4" /></button><button onClick={() => handleDelete(puzzle.id)} className="text-gray-500 hover:text-red-600 p-2" title="Изтрий"><Trash2 className="w-4 h-4" /></button></div></td>
                                     </tr>
-                                ))
+                                )})
                             )}
                         </tbody>
                     </table>

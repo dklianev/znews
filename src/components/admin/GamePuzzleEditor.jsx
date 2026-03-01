@@ -1,4 +1,5 @@
 import { CheckCircle2, Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { getGamePlaceholderWarnings } from '../../../shared/gamePlaceholderWarnings.js';
 
 function joinMultiValue(values) {
     return Array.isArray(values) ? values.join('\n') : '';
@@ -11,7 +12,7 @@ function splitMultiValue(rawValue) {
         .filter(Boolean);
 }
 
-function renderWordEditor(editForm, actions) {
+function renderWordEditor(editForm, actions, fieldClass) {
     const payload = editForm?.payload || {};
     const solution = editForm?.solution || {};
 
@@ -20,26 +21,26 @@ function renderWordEditor(editForm, actions) {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div>
                     <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Отговор</label>
-                    <input type="text" value={solution.answer || ''} onChange={(e) => actions.setSolutionField('answer', e.target.value.toUpperCase())} className="w-full border border-gray-300 rounded-lg px-3 py-2 font-mono text-lg uppercase" maxLength={payload.wordLength || 5} />
+                    <input type="text" value={solution.answer || ''} onChange={(e) => actions.setSolutionField('answer', e.target.value.toUpperCase())} className={fieldClass('solution.answer', 'font-mono text-lg uppercase')} maxLength={payload.wordLength || 5} />
                 </div>
                 <div>
                     <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Дължина</label>
-                    <input type="number" min="3" max="12" value={payload.wordLength || 5} onChange={(e) => actions.setPayloadField('wordLength', Number.parseInt(e.target.value, 10) || 5)} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
+                    <input type="number" min="3" max="12" value={payload.wordLength || 5} onChange={(e) => actions.setPayloadField('wordLength', Number.parseInt(e.target.value, 10) || 5)} className={fieldClass('payload.wordLength')} />
                 </div>
                 <div>
                     <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Макс. опити</label>
-                    <input type="number" min="1" max="12" value={payload.maxAttempts || 6} onChange={(e) => actions.setPayloadField('maxAttempts', Number.parseInt(e.target.value, 10) || 6)} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
+                    <input type="number" min="1" max="12" value={payload.maxAttempts || 6} onChange={(e) => actions.setPayloadField('maxAttempts', Number.parseInt(e.target.value, 10) || 6)} className={fieldClass('payload.maxAttempts')} />
                 </div>
             </div>
             <div>
                 <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Допълнителни guesses</label>
-                <textarea value={joinMultiValue(solution.allowedWords)} onChange={(e) => actions.setSolutionField('allowedWords', splitMultiValue(e.target.value))} className="w-full h-40 border border-gray-300 rounded-lg px-3 py-2 font-mono text-sm" placeholder="Една дума на ред" />
+                <textarea value={joinMultiValue(solution.allowedWords)} onChange={(e) => actions.setSolutionField('allowedWords', splitMultiValue(e.target.value))} className={fieldClass('solution.allowedWords', 'h-40 font-mono text-sm')} placeholder="Една дума на ред" />
             </div>
         </div>
     );
 }
 
-function renderConnectionsEditor(editForm, actions) {
+function renderConnectionsEditor(editForm, actions, fieldClass) {
     const payloadItems = Array.isArray(editForm?.payload?.items) ? editForm.payload.items : Array.from({ length: 16 }, () => '');
     const groups = Array.isArray(editForm?.solution?.groups) ? editForm.solution.groups : [];
 
@@ -49,7 +50,7 @@ function renderConnectionsEditor(editForm, actions) {
                 <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700 mb-4">16 елемента</h3>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {payloadItems.map((item, index) => (
-                        <input key={`board-item-${index}`} type="text" value={item} onChange={(e) => actions.setConnectionsItem(index, e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 font-semibold" placeholder={`Елемент ${index + 1}`} />
+                        <input key={`board-item-${index}`} type="text" value={item} onChange={(e) => actions.setConnectionsItem(index, e.target.value)} className={fieldClass(`payload.items.${index}`, 'font-semibold')} placeholder={`Елемент ${index + 1}`} />
                     ))}
                 </div>
             </div>
@@ -57,15 +58,15 @@ function renderConnectionsEditor(editForm, actions) {
                 {groups.map((group, groupIndex) => (
                     <div key={`group-${groupIndex}`} className="border border-gray-200 rounded-2xl p-5 bg-gray-50/70">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            <input type="text" value={group.label || ''} onChange={(e) => actions.setConnectionsGroupField(groupIndex, 'label', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Име на група" />
-                            <input type="text" value={group.difficulty || ''} onChange={(e) => actions.setConnectionsGroupField(groupIndex, 'difficulty', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Трудност" />
+                            <input type="text" value={group.label || ''} onChange={(e) => actions.setConnectionsGroupField(groupIndex, 'label', e.target.value)} className={fieldClass(`solution.groups.${groupIndex}.label`)} placeholder="Име на група" />
+                            <input type="text" value={group.difficulty || ''} onChange={(e) => actions.setConnectionsGroupField(groupIndex, 'difficulty', e.target.value)} className={fieldClass(`solution.groups.${groupIndex}.difficulty`)} placeholder="Трудност" />
                         </div>
                         <div className="grid grid-cols-2 gap-3 mb-4">
                             {(Array.isArray(group.items) ? group.items : ['', '', '', '']).map((item, itemIndex) => (
-                                <input key={`group-${groupIndex}-item-${itemIndex}`} type="text" value={item} onChange={(e) => actions.setConnectionsGroupItem(groupIndex, itemIndex, e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2" placeholder={`Елемент ${itemIndex + 1}`} />
+                                <input key={`group-${groupIndex}-item-${itemIndex}`} type="text" value={item} onChange={(e) => actions.setConnectionsGroupItem(groupIndex, itemIndex, e.target.value)} className={fieldClass(`solution.groups.${groupIndex}.items.${itemIndex}`)} placeholder={`Елемент ${itemIndex + 1}`} />
                             ))}
                         </div>
-                        <textarea value={group.explanation || ''} onChange={(e) => actions.setConnectionsGroupField(groupIndex, 'explanation', e.target.value)} className="w-full h-24 border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Обяснение" />
+                        <textarea value={group.explanation || ''} onChange={(e) => actions.setConnectionsGroupField(groupIndex, 'explanation', e.target.value)} className={fieldClass(`solution.groups.${groupIndex}.explanation`, 'h-24 text-sm')} placeholder="Обяснение" />
                     </div>
                 ))}
             </div>
@@ -73,7 +74,7 @@ function renderConnectionsEditor(editForm, actions) {
     );
 }
 
-function renderQuizEditor(editForm, actions) {
+function renderQuizEditor(editForm, actions, fieldClass) {
     const questions = Array.isArray(editForm?.payload?.questions) ? editForm.payload.questions : [];
 
     return (
@@ -100,22 +101,22 @@ function renderQuizEditor(editForm, actions) {
                             )}
                         </div>
                         <div className="space-y-4">
-                            <input type="text" value={question.question || ''} onChange={(e) => actions.setQuizQuestionField(questionIndex, 'question', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Текст на въпроса" />
+                            <input type="text" value={question.question || ''} onChange={(e) => actions.setQuizQuestionField(questionIndex, 'question', e.target.value)} className={fieldClass(`payload.questions.${questionIndex}.question`)} placeholder="Текст на въпроса" />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {(Array.isArray(question.options) ? question.options : ['', '', '', '']).map((option, optionIndex) => (
-                                    <input key={`question-${questionIndex}-option-${optionIndex}`} type="text" value={option} onChange={(e) => actions.setQuizOption(questionIndex, optionIndex, e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder={`Отговор ${optionIndex + 1}`} />
+                                    <input key={`question-${questionIndex}-option-${optionIndex}`} type="text" value={option} onChange={(e) => actions.setQuizOption(questionIndex, optionIndex, e.target.value)} className={fieldClass(`payload.questions.${questionIndex}.options.${optionIndex}`)} placeholder={`Отговор ${optionIndex + 1}`} />
                                 ))}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <select value={question.correctIndex ?? 0} onChange={(e) => actions.setQuizQuestionField(questionIndex, 'correctIndex', Number.parseInt(e.target.value, 10) || 0)} className="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                <select value={question.correctIndex ?? 0} onChange={(e) => actions.setQuizQuestionField(questionIndex, 'correctIndex', Number.parseInt(e.target.value, 10) || 0)} className={fieldClass(`payload.questions.${questionIndex}.correctIndex`)}>
                                     <option value={0}>Верен: Отговор 1</option>
                                     <option value={1}>Верен: Отговор 2</option>
                                     <option value={2}>Верен: Отговор 3</option>
                                     <option value={3}>Верен: Отговор 4</option>
                                 </select>
-                                <input type="text" value={question.articleId ?? ''} onChange={(e) => actions.setQuizQuestionField(questionIndex, 'articleId', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Article ID (по желание)" />
+                                <input type="text" value={question.articleId ?? ''} onChange={(e) => actions.setQuizQuestionField(questionIndex, 'articleId', e.target.value)} className={fieldClass(`payload.questions.${questionIndex}.articleId`)} placeholder="Article ID (по желание)" />
                             </div>
-                            <textarea value={question.explanation || ''} onChange={(e) => actions.setQuizQuestionField(questionIndex, 'explanation', e.target.value)} className="w-full h-24 border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Обяснение" />
+                            <textarea value={question.explanation || ''} onChange={(e) => actions.setQuizQuestionField(questionIndex, 'explanation', e.target.value)} className={fieldClass(`payload.questions.${questionIndex}.explanation`, 'h-24 text-sm')} placeholder="Обяснение" />
                         </div>
                     </div>
                 ))}
@@ -126,11 +127,20 @@ function renderQuizEditor(editForm, actions) {
 
 export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, onCancel, onSave, actions }) {
     const isPublished = editForm?.status === 'published';
+    const placeholderWarnings = getGamePlaceholderWarnings(gameSlug, editForm);
+    const warningKeys = new Set(placeholderWarnings.map((warning) => warning.key));
+    const fieldClass = (key, extra = '') => [
+        'w-full rounded-lg px-3 py-2 border transition-colors',
+        warningKeys.has(key)
+            ? 'border-amber-400 bg-amber-50 text-amber-950 placeholder-amber-500 focus:border-amber-500'
+            : 'border-gray-300 bg-white text-gray-900 focus:border-gray-400',
+        extra,
+    ].join(' ');
     const editor = gameSlug === 'word'
-        ? renderWordEditor(editForm, actions)
+        ? renderWordEditor(editForm, actions, fieldClass)
         : gameSlug === 'connections'
-            ? renderConnectionsEditor(editForm, actions)
-            : renderQuizEditor(editForm, actions);
+            ? renderConnectionsEditor(editForm, actions, fieldClass)
+            : renderQuizEditor(editForm, actions, fieldClass);
 
     return (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col gap-6 shadow-sm">
@@ -157,6 +167,19 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
                     <div className="space-y-2 text-sm text-gray-700">
                         {guide.workflow.map((item) => <p key={item}>{item}</p>)}
                     </div>
+                </div>
+            )}
+
+            {placeholderWarnings.length > 0 ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+                    <p className="text-sm font-bold text-amber-950">Още не може да се публикува</p>
+                    <div className="mt-3 space-y-2 text-sm text-amber-900">
+                        {placeholderWarnings.map((warning) => <p key={warning.key}>• {warning.label}</p>)}
+                    </div>
+                </div>
+            ) : (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900">
+                    Няма template стойности. Пъзелът е готов за финален преглед и publish.
                 </div>
             )}
 

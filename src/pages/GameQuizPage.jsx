@@ -18,6 +18,9 @@ export default function GameQuizPage() {
     const [gameStatus, setGameStatus] = useState('playing'); // playing, completed
 
     const [showHelp, setShowHelp] = useState(false);
+    const displayError = error === 'No puzzle for today'
+        ? 'Днешният куиз още е в подготовка. Провери отново малко по-късно.'
+        : error;
 
     // Load puzzle
     useEffect(() => {
@@ -51,7 +54,7 @@ export default function GameQuizPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-zinc-950 flex justify-center items-center">
+            <div className="min-h-screen bg-zn-paper dark:bg-zinc-950 flex justify-center items-center">
                 <Loader2 className="w-12 h-12 text-orange-500 animate-spin" />
             </div>
         );
@@ -59,10 +62,12 @@ export default function GameQuizPage() {
 
     if (error || !puzzle) {
         return (
-            <div className="min-h-screen bg-zinc-950 text-center py-20 px-4">
-                <h1 className="text-3xl text-white mb-4">Няма наличен куиз!</h1>
-                <p className="text-zinc-400 mb-8">{error || 'Моля, опитайте по-късно.'}</p>
-                <Link to="/games" className="text-orange-500 hover:text-orange-400">← Обратно към всички игри</Link>
+            <div className="min-h-screen bg-zn-paper dark:bg-zinc-950 text-center py-20 px-4">
+                <div className="max-w-xl mx-auto rounded-[28px] border border-stone-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900 p-10 shadow-xl">
+                    <h1 className="text-3xl text-slate-900 dark:text-white mb-4 font-black uppercase font-condensed">Няма наличен куиз</h1>
+                    <p className="text-slate-500 dark:text-zinc-400 mb-8">{displayError || 'Моля, опитайте по-късно.'}</p>
+                    <Link to="/games" className="text-orange-600 hover:text-orange-500 font-bold">← Обратно към всички игри</Link>
+                </div>
             </div>
         );
     }
@@ -72,10 +77,12 @@ export default function GameQuizPage() {
 
     if (totalQ === 0) {
         return (
-            <div className="min-h-screen bg-zinc-950 text-center py-20 px-4">
-                <h1 className="text-3xl text-white mb-4">Куизът още не е готов</h1>
-                <p className="text-zinc-400 mb-8">Липсват въпроси за днешната игра.</p>
-                <Link to="/games" className="text-orange-500 hover:text-orange-400">← Обратно към всички игри</Link>
+            <div className="min-h-screen bg-zn-paper dark:bg-zinc-950 text-center py-20 px-4">
+                <div className="max-w-xl mx-auto rounded-[28px] border border-stone-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900 p-10 shadow-xl">
+                    <h1 className="text-3xl text-slate-900 dark:text-white mb-4 font-black uppercase font-condensed">Куизът още не е готов</h1>
+                    <p className="text-slate-500 dark:text-zinc-400 mb-8">Липсват въпроси за днешната игра.</p>
+                    <Link to="/games" className="text-orange-600 hover:text-orange-500 font-bold">← Обратно към всички игри</Link>
+                </div>
             </div>
         );
     }
@@ -120,18 +127,30 @@ export default function GameQuizPage() {
     };
 
     return (
-        <div className="min-h-screen bg-zinc-950 flex flex-col items-center pb-20">
-            <header className="w-full max-w-2xl flex items-center justify-between p-4 border-b border-zinc-900 mb-8">
-                <Link to="/games" className="text-zinc-500 hover:text-white transition-colors">
-                    <ArrowLeft className="w-6 h-6" />
-                </Link>
-                <h1 className="text-xl font-black uppercase tracking-widest text-white font-condensed">Новинарски Куиз</h1>
-                <button onClick={() => setShowHelp(true)} className="text-zinc-500 hover:text-white transition-colors">
-                    <HelpCircle className="w-6 h-6" />
-                </button>
+        <div className="min-h-screen bg-zn-paper dark:bg-zinc-950 text-slate-900 dark:text-white flex flex-col items-center pb-20">
+            <header className="w-full border-b border-stone-200 dark:border-zinc-900 bg-white/80 dark:bg-zinc-950/80 backdrop-blur mb-8">
+                <div className="w-full max-w-4xl mx-auto flex items-center justify-between p-4">
+                    <Link to="/games" className="text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+                        <ArrowLeft className="w-6 h-6" />
+                    </Link>
+                    <h1 className="text-xl font-black uppercase tracking-widest font-condensed">Новинарски Куиз</h1>
+                    <button onClick={() => setShowHelp(true)} className="text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+                        <HelpCircle className="w-6 h-6" />
+                    </button>
+                </div>
             </header>
 
-            <main className="flex-1 w-full flex flex-col items-center px-4">
+            <main className="flex-1 w-full max-w-4xl flex flex-col items-center px-4">
+                <div className="mb-8 w-full rounded-[28px] border border-orange-100 dark:border-orange-900/30 bg-white/90 dark:bg-zinc-900 p-6 shadow-lg">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-[0.35em] text-orange-700 dark:text-orange-400">Ежедневен куиз</p>
+                            <h2 className="mt-3 text-3xl font-black font-condensed uppercase">Провери колко следиш новините</h2>
+                            <p className="text-sm text-slate-600 dark:text-zinc-400 mt-1">Отговори на въпросите за деня и сподели резултата си.</p>
+                        </div>
+                        <p className="text-sm font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500">{getTodayStr()}</p>
+                    </div>
+                </div>
                 {gameStatus === 'playing' ? (
                     <QuizQuestionCard
                         question={questions[currentQ]}
@@ -142,12 +161,12 @@ export default function GameQuizPage() {
                         onNext={handleNext}
                     />
                 ) : (
-                    <div className="w-full max-w-md mx-auto p-8 bg-zinc-900 rounded-2xl border border-zinc-800 text-center animate-in fade-in zoom-in h-auto">
-                        <h2 className="text-4xl font-black mb-2 uppercase text-white font-condensed">Завършен!</h2>
+                    <div className="w-full max-w-md mx-auto p-8 bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-zinc-800 text-center animate-in fade-in zoom-in h-auto shadow-lg">
+                        <h2 className="text-4xl font-black mb-2 uppercase font-condensed">Завършен!</h2>
                         <div className="text-6xl font-black text-orange-500 my-8">
-                            {getScore()}<span className="text-3xl text-zinc-500">/{totalQ}</span>
+                            {getScore()}<span className="text-3xl text-slate-400 dark:text-zinc-500">/{totalQ}</span>
                         </div>
-                        <p className="text-zinc-400 mb-8 text-lg font-medium">
+                        <p className="text-slate-500 dark:text-zinc-400 mb-8 text-lg font-medium">
                             {getScore() === totalQ
                                 ? 'Перфектен резултат! Ти си истински познавач.'
                                 : getScore() >= totalQ / 2
@@ -166,16 +185,16 @@ export default function GameQuizPage() {
             </main>
 
             {showHelp && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm" onClick={() => setShowHelp(false)}>
-                    <div className="bg-zinc-900 border border-zinc-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <h2 className="text-2xl font-black mb-4 text-white uppercase font-condensed">Как се играе</h2>
-                        <p className="text-zinc-300 mb-4 text-sm">Провери колко добре познаваш събитията около теб през последната седмица.</p>
-                        <ul className="list-disc pl-5 text-sm text-zinc-400 space-y-2 mb-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/70 dark:bg-black/80 px-4 backdrop-blur-sm" onClick={() => setShowHelp(false)}>
+                    <div className="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-700 p-6 rounded-2xl max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <h2 className="text-2xl font-black mb-4 text-slate-900 dark:text-white uppercase font-condensed">Как се играе</h2>
+                        <p className="text-slate-600 dark:text-zinc-300 mb-4 text-sm">Провери колко добре познаваш събитията около теб през последната седмица.</p>
+                        <ul className="list-disc pl-5 text-sm text-slate-500 dark:text-zinc-400 space-y-2 mb-6">
                             <li>Отговори на въпросите от текущия ден.</li>
                             <li>Веднага след отговора ще видиш дали е правилен и кратко обяснение.</li>
                             <li>След края можеш да споделиш своя резултат с приятели.</li>
                         </ul>
-                        <button onClick={() => setShowHelp(false)} className="mt-4 w-full py-3 bg-white text-black font-bold hover:bg-zinc-200 transition-colors rounded-xl uppercase tracking-wider">Разбрах</button>
+                        <button onClick={() => setShowHelp(false)} className="mt-4 w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-black font-bold hover:bg-slate-800 dark:hover:bg-zinc-200 transition-colors rounded-xl uppercase tracking-wider">Разбрах</button>
                     </div>
                 </div>
             )}
