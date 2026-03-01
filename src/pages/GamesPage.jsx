@@ -29,16 +29,16 @@ export default function GamesPage() {
     }, [todayStr]);
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-white pb-20 pt-10">
+        <div className="min-h-screen bg-zn-paper bg-[url('/bg-dots.png')] bg-repeat text-black pb-20 pt-10">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
                 <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-end mb-12">
                     <div>
-                        <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter mb-4 text-white font-condensed flex items-center gap-4">
-                            <Gamepad2 className="w-10 h-10 md:w-14 md:h-14 text-red-500" />
-                            zNews Игри
+                        <h1 className="text-4xl md:text-6xl font-black uppercase tracking-wider mb-4 text-black font-display flex items-center gap-4">
+                            <Gamepad2 className="w-10 h-10 md:w-14 md:h-14 text-zn-hot" />
+                            zNews ИГРИ
                         </h1>
-                        <p className="text-zinc-400 text-lg max-w-2xl">
+                        <p className="text-zn-comic-black font-semibold text-lg max-w-2xl bg-white p-3 border-2 border-black shadow-comic transform -rotate-1">
                             Тренирай ума си с ежедневни пъзели и новинарски тестове. Нови предизвикателства всяка сутрин!
                         </p>
                     </div>
@@ -47,14 +47,14 @@ export default function GamesPage() {
 
                 {loading ? (
                     <div className="flex justify-center items-center py-20">
-                        <Loader2 className="w-10 h-10 animate-spin text-zinc-500" />
+                        <Loader2 className="w-10 h-10 animate-spin text-zn-hot" />
                     </div>
                 ) : games.length === 0 ? (
-                    <div className="text-center py-20 bg-zinc-900/50 rounded-2xl border border-zinc-800">
-                        <p className="text-zinc-400">В момента няма активни игри.</p>
+                    <div className="text-center py-20 bg-white border-4 border-black shadow-comic transform rotate-1">
+                        <p className="text-zn-comic-black font-display text-2xl uppercase tracking-widest">В момента няма активни игри.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
                         {games.map(game => (
                             <GamesHubCard
                                 key={game.id}

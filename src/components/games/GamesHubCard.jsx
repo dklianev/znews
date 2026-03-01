@@ -10,44 +10,63 @@ export default function GamesHubCard({ game, progress, streak }) {
     const isWonToday = gameStatus === 'won';
     const hasActiveStreak = Number(streak?.currentStreak) > 0;
 
-    const themeColors = {
-        green: 'from-emerald-500/20 to-emerald-900/40 border-emerald-500/30 text-emerald-400',
-        indigo: 'from-indigo-500/20 to-indigo-900/40 border-indigo-500/30 text-indigo-400',
-        orange: 'from-orange-500/20 to-orange-900/40 border-orange-500/30 text-orange-400',
-        default: 'from-zinc-700/50 to-zinc-900/80 border-zinc-600/50 text-zinc-300'
+    const themeVariant = {
+        green: 'eco',
+        indigo: 'underground',
+        orange: 'hot',
+        default: 'front'
+    }[game.theme] || 'front';
+
+    const stripeColors = {
+        green: 'from-emerald-500 to-emerald-700',
+        indigo: 'from-indigo-600 to-zn-navy',
+        orange: 'from-zn-hot to-zn-orange',
+        default: 'from-zinc-700 to-zinc-900'
     };
-    const themeClass = themeColors[game.theme] || themeColors.default;
+    const stripeClass = stripeColors[game.theme] || stripeColors.default;
 
     return (
-        <motion.div whileHover={{ y: -4 }} className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br ${themeClass} p-6 flex flex-col h-full shadow-lg`}>
-            <div className="mb-4 flex items-center justify-between">
-                <div className="p-3 bg-black/30 rounded-xl">
-                    <Icon className="w-8 h-8" />
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                    {isPlayedToday && (
-                        <div className={`px-3 py-1 border rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 ${isWonToday
-                            ? 'bg-green-500/20 text-green-400 border-green-500/30'
-                            : 'bg-zinc-500/20 text-zinc-200 border-zinc-500/30'}`}>
-                            <CheckCircle2 className="w-3 h-3" />
-                            {isWonToday ? 'Победа' : 'Изиграна'}
-                        </div>
-                    )}
-                    {hasActiveStreak && (
-                        <div className="px-3 py-1 border rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 bg-orange-500/15 text-orange-300 border-orange-500/30">
-                            <Flame className="w-3 h-3" />
-                            {streak.currentStreak} дни серия
-                        </div>
-                    )}
-                </div>
+        <motion.div whileHover={{ y: -4, rotate: -1 }} className={`group comic-latest-card comic-panel comic-dots bg-white relative block flex flex-col h-full overflow-visible comic-card-variant-${themeVariant}`}>
+            <div className={`absolute inset-x-0 top-0 h-2 bg-gradient-to-r ${stripeClass}`} />
+
+            <span className="comic-card-tape comic-card-tape-right" />
+
+            <div className="absolute -top-3 -right-2 z-30 flex flex-col gap-2 items-end">
+                {isPlayedToday && (
+                    <span className={`comic-sticker ${isWonToday ? 'comic-sticker-eco' : 'comic-sticker-underground'} shadow-sticker`}>
+                        {isWonToday ? 'ПОБЕДА' : 'ИЗИГРАНА'}
+                    </span>
+                )}
+                {hasActiveStreak && (
+                    <span className="comic-sticker comic-sticker-hot mt-1 flex items-center gap-1 shadow-sticker">
+                        <Flame className="w-3 h-3" />
+                        {streak.currentStreak} ДНИ
+                    </span>
+                )}
             </div>
 
-            <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-wide font-condensed">{game.title}</h3>
-            <p className="text-sm text-zinc-300 mb-6 flex-grow">{game.description}</p>
+            <div className="p-6 pt-10 flex flex-col flex-grow relative z-10 border-2 border-black m-0 shadow-comic-heavy h-full bg-white transition-all group-hover:shadow-comic-glow">
+                <div className="mb-4">
+                    <div className="inline-block p-3 border-4 border-black bg-white shadow-comic transform -rotate-2 group-hover:rotate-0 transition-transform">
+                        <Icon className="w-8 h-8 text-black" />
+                    </div>
+                </div>
 
-            <Link to={`/games/${game.slug}`} className="mt-auto relative z-10 w-full rounded-xl bg-white text-black font-bold py-3 text-center uppercase tracking-widest hover:bg-zinc-200 transition-colors">
-                {isPlayedToday ? 'Виж резултата' : 'Играй сега'}
-            </Link>
+                <h3 className="text-3xl font-display font-black text-black mb-2 uppercase tracking-[0.02em] leading-none group-hover:text-zn-hot transition-colors flex-shrink-0">
+                    {game.title}
+                </h3>
+
+                <p className="text-base text-zn-comic-black font-semibold mb-6 flex-grow leading-snug">
+                    {game.description}
+                </p>
+
+                <Link
+                    to={`/games/${game.slug}`}
+                    className="mt-auto relative z-10 w-full bg-zn-hot text-black border-4 border-black shadow-comic font-display font-black py-3 text-center uppercase tracking-widest text-xl hover:bg-zn-comic-yellow hover:-translate-y-1 hover:shadow-comic-heavy transition-all active:translate-y-0 active:shadow-comic"
+                >
+                    {isPlayedToday ? 'ВИЖ РЕЗУЛТАТА' : 'ИГРАЙ СЕГА'}
+                </Link>
+            </div>
         </motion.div>
     );
 }
