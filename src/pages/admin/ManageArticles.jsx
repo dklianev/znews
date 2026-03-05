@@ -800,7 +800,10 @@ export default function ManageArticles() {
     });
   };
 
-  const getAuthorName = (id) => authors.find(a => a.id === id)?.name || 'Неизвестен';
+  const getAuthorName = (id) => {
+    const normalizedId = Number(id);
+    return authors.find(a => Number(a?.id) === normalizedId)?.name || 'Неизвестен';
+  };
   const getCategoryLabel = (catId) => categories.find(c => c.id === catId)?.name || catId;
 
   // Feature 7: Auto-generate excerpt from content
