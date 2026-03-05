@@ -25,6 +25,7 @@ const GamesPage = lazy(() => import('./pages/GamesPage'));
 const GameWordPage = lazy(() => import('./pages/GameWordPage'));
 const GameConnectionsPage = lazy(() => import('./pages/GameConnectionsPage'));
 const GameQuizPage = lazy(() => import('./pages/GameQuizPage'));
+const GameSudokuPage = lazy(() => import('./pages/GameSudokuPage'));
 
 // Admin (lazy — heavy, rarely visited)
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
@@ -209,6 +210,7 @@ function AppContent() {
           <Route path="/games/word" element={<GameWordPage />} />
           <Route path="/games/connections" element={<GameConnectionsPage />} />
           <Route path="/games/quiz" element={<GameQuizPage />} />
+          <Route path="/games/sudoku" element={<GameSudokuPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
@@ -229,3 +231,4 @@ function App() {
 }
 
 export default App;
+

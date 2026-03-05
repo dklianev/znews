@@ -3,6 +3,7 @@ import { api } from '../utils/api';
 import { getGameStreak, loadGameProfile, loadGameProgress } from '../utils/gameStorage';
 import { getTodayStr } from '../utils/gameDate';
 import GamesHubCard from '../components/games/GamesHubCard';
+import { ensureSudokuGameList } from '../utils/gamesCatalog';
 import { Gamepad2, Loader2 } from 'lucide-react';
 
 export default function GamesPage() {
@@ -18,13 +19,20 @@ export default function GamesPage() {
         // Fetch live games
         api.games.getAll()
             .then(data => {
-                const items = Array.isArray(data) ? data : [];
+                const items = ensureSudokuGameList(Array.isArray(data) ? data : []);
                 setGames(items.map((game) => ({
                     ...game,
                     dailyProgress: loadGameProgress(game.slug, todayStr),
                 })));
             })
-            .catch(console.error)
+            .catch((error) => {
+                console.error(error);
+                const fallbackItems = ensureSudokuGameList([]);
+                setGames(fallbackItems.map((game) => ({
+                    ...game,
+                    dailyProgress: loadGameProgress(game.slug, todayStr),
+                })));
+            })
             .finally(() => setLoading(false));
     }, [todayStr]);
 
@@ -69,3 +77,4 @@ export default function GamesPage() {
         </div>
     );
 }
+

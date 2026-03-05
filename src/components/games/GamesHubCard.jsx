@@ -14,6 +14,7 @@ export default function GamesHubCard({ game, progress, streak }) {
         green: 'eco',
         indigo: 'underground',
         orange: 'hot',
+        purple: 'underground',
         default: 'front'
     }[game.theme] || 'front';
 
@@ -21,6 +22,7 @@ export default function GamesHubCard({ game, progress, streak }) {
         green: 'from-emerald-500 to-emerald-700',
         indigo: 'from-indigo-600 to-zn-navy',
         orange: 'from-zn-hot to-zn-orange',
+        purple: 'from-zn-purple to-zn-purple-dark',
         default: 'from-zinc-700 to-zinc-900'
     };
     const stripeClass = stripeColors[game.theme] || stripeColors.default;
@@ -70,3 +72,4 @@ export default function GamesHubCard({ game, progress, streak }) {
         </motion.div>
     );
 }
+
