@@ -61,6 +61,7 @@ export function DataProvider({ children }) {
   const [permissions, setPermissions] = useState([]);
   const [tips, setTips] = useState([]);
   const [publicSectionStatus, setPublicSectionStatus] = useState(EMPTY_PUBLIC_SECTION_STATUS);
+  const publicSectionStatusRef = useRef(EMPTY_PUBLIC_SECTION_STATUS);
   const publicLoadersRef = useRef({ jobs: null, court: null, events: null, gallery: null, games: null });
   const [session, setSession] = useState(getSession);
   const [loading, setLoading] = useState(true);
@@ -75,25 +76,33 @@ export function DataProvider({ children }) {
     return () => window.removeEventListener('zn-session-updated', handleSessionUpdated);
   }, []);
 
-  // ─── Initial fetch ───
+  const syncPublicSectionStatus = useCallback((updater) => {
+    setPublicSectionStatus((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      publicSectionStatusRef.current = next;
+      return next;
+    });
+  }, []);
+
+  // Initial fetch
   const runPublicSectionLoader = useCallback(async (sectionKey, requestFactory, applyItems, { force = false } = {}) => {
     if (!force) {
-      if (publicSectionStatus[sectionKey] === 'loaded') return [];
+      if (publicSectionStatusRef.current[sectionKey] === 'loaded') return [];
       if (publicLoadersRef.current[sectionKey]) return publicLoadersRef.current[sectionKey];
     }
 
-    setPublicSectionStatus((prev) => ({ ...prev, [sectionKey]: 'loading' }));
+    syncPublicSectionStatus((prev) => ({ ...prev, [sectionKey]: 'loading' }));
 
     const task = Promise.resolve()
       .then(() => requestFactory())
       .then((items) => {
         const normalized = Array.isArray(items) ? items : [];
         applyItems(normalized);
-        setPublicSectionStatus((prev) => ({ ...prev, [sectionKey]: 'loaded' }));
+        syncPublicSectionStatus((prev) => ({ ...prev, [sectionKey]: 'loaded' }));
         return normalized;
       })
       .catch((error) => {
-        setPublicSectionStatus((prev) => ({ ...prev, [sectionKey]: 'error' }));
+        syncPublicSectionStatus((prev) => ({ ...prev, [sectionKey]: 'error' }));
         throw error;
       })
       .finally(() => {
@@ -104,7 +113,7 @@ export function DataProvider({ children }) {
 
     publicLoadersRef.current[sectionKey] = task;
     return task;
-  }, [publicSectionStatus]);
+  }, [syncPublicSectionStatus]);
 
   const loadGamesCatalog = useCallback((options = {}) => {
     return runPublicSectionLoader('games', () => api.games.getAll(), setGames, options);
@@ -199,7 +208,7 @@ export function DataProvider({ children }) {
       setEvents([]);
       setGallery([]);
       setComments([]);
-      setPublicSectionStatus({ ...EMPTY_PUBLIC_SECTION_STATUS, games: 'loaded' });
+      syncPublicSectionStatus({ ...EMPTY_PUBLIC_SECTION_STATUS, games: 'loaded' });
       logPartialErrors(payload?.errors);
     };
 
@@ -226,7 +235,7 @@ export function DataProvider({ children }) {
       setGames(hasGames ? toArray(payload?.games) : []);
       setComments([]);
       setGallery(hasGallery ? toArray(payload?.gallery) : []);
-      setPublicSectionStatus({
+      syncPublicSectionStatus({
         jobs: hasJobs ? 'loaded' : 'idle',
         court: hasCourt ? 'loaded' : 'idle',
         events: hasEvents ? 'loaded' : 'idle',
@@ -288,7 +297,7 @@ export function DataProvider({ children }) {
       setComments([]);
       setGallery(pick(publicResults[12], []));
       setGames(pick(publicResults[13], []));
-      setPublicSectionStatus({
+      syncPublicSectionStatus({
         jobs: getSectionStatus(publicResults[8]),
         court: getSectionStatus(publicResults[9]),
         events: getSectionStatus(publicResults[10]),
@@ -418,7 +427,7 @@ export function DataProvider({ children }) {
     };
   }, [session?.token]);
 
-  // ─── Auth ───
+  // Auth
   const login = useCallback(async (username, password) => {
     try {
       const s = await api.auth.login(username, password);
@@ -442,10 +451,10 @@ export function DataProvider({ children }) {
     setSiteSettingsRevisions([]);
     setComments([]);
     setTips([]);
-    setPublicSectionStatus(EMPTY_PUBLIC_SECTION_STATUS);
+    syncPublicSectionStatus(EMPTY_PUBLIC_SECTION_STATUS);
   }, []);
 
-  // ─── Articles ───
+  // Articles
   const addArticle = useCallback(async (a) => { const n = await api.articles.create(a); setArticles(prev => [n, ...prev]); }, []);
   const updateArticle = useCallback(async (id, u) => { const updated = await api.articles.update(id, u); setArticles(prev => prev.map(a => a.id === id ? updated : a)); }, []);
   const deleteArticle = useCallback(async (id) => { await api.articles.delete(id); setArticles(prev => prev.filter(a => a.id !== id)); }, []);
@@ -478,20 +487,20 @@ export function DataProvider({ children }) {
     return updated;
   }, [loadArticleRevisions]);
 
-  // ─── Authors ───
+  // Auth
   const addAuthor = useCallback(async (a) => { const n = await api.authors.create(a); setAuthors(prev => [...prev, n]); }, []);
   const updateAuthor = useCallback(async (id, u) => { const updated = await api.authors.update(id, u); setAuthors(prev => prev.map(a => a.id === id ? updated : a)); }, []);
   const deleteAuthor = useCallback(async (id) => { await api.authors.delete(id); setAuthors(prev => prev.filter(a => a.id !== id)); }, []);
 
-  // ─── Ads ───
+  // Ads
   const addAd = useCallback(async (a) => { const n = await api.ads.create(a); setAds(prev => [...prev, n]); }, []);
   const updateAd = useCallback(async (id, u) => { const updated = await api.ads.update(id, u); setAds(prev => prev.map(a => a.id === id ? updated : a)); }, []);
   const deleteAd = useCallback(async (id) => { await api.ads.delete(id); setAds(prev => prev.filter(a => a.id !== id)); }, []);
 
-  // ─── Breaking ───
+  // Breaking
   const saveBreaking = useCallback(async (items) => { await api.breaking.save(items); setBreaking(items); }, []);
 
-  // ─── Hero Settings ───
+  // Hero Settings
   const saveHeroSettings = useCallback(async (settings) => {
     const saved = await api.heroSettings.save(settings);
     setHeroSettings(saved);
@@ -512,7 +521,7 @@ export function DataProvider({ children }) {
     return restored;
   }, [loadHeroSettingsRevisions]);
 
-  // ─── Site Settings ───
+  // Site Settings
   const saveSiteSettings = useCallback(async (settings) => {
     const saved = await api.siteSettings.save(settings);
     setSiteSettings(saved);
@@ -536,7 +545,7 @@ export function DataProvider({ children }) {
     return await api.siteSettings.forceRefreshHomepageCache();
   }, []);
 
-  // ─── Categories ───
+  // Categories
   const addCategory = useCallback(async (c) => { const n = await api.categories.create(c); setCategories(prev => [...prev, n]); }, []);
   const updateCategory = useCallback(async (id, u) => { const updated = await api.categories.update(id, u); setCategories(prev => prev.map(c => c.id === id ? updated : c)); }, []);
   const deleteCategory = useCallback(async (id) => { if (id === 'all') return; await api.categories.delete(id); setCategories(prev => prev.filter(c => c.id !== id)); }, []);
@@ -591,33 +600,33 @@ export function DataProvider({ children }) {
     return finalItems;
   }, []);
 
-  // ─── Wanted ───
+  // Wanted
   const addWanted = useCallback(async (w) => { const n = await api.wanted.create(w); setWanted(prev => [...prev, n]); }, []);
   const updateWanted = useCallback(async (id, u) => { const updated = await api.wanted.update(id, u); setWanted(prev => prev.map(w => w.id === id ? updated : w)); }, []);
   const deleteWanted = useCallback(async (id) => { await api.wanted.delete(id); setWanted(prev => prev.filter(w => w.id !== id)); }, []);
 
-  // ─── Jobs ───
+  // Jobs
   const addJob = useCallback(async (j) => { const n = await api.jobs.create(j); setJobs(prev => [n, ...prev]); }, []);
   const updateJob = useCallback(async (id, u) => { const updated = await api.jobs.update(id, u); setJobs(prev => prev.map(j => j.id === id ? updated : j)); }, []);
   const deleteJob = useCallback(async (id) => { await api.jobs.delete(id); setJobs(prev => prev.filter(j => j.id !== id)); }, []);
 
-  // ─── Court ───
+  // Court
   const addCourtCase = useCallback(async (c) => { const n = await api.court.create(c); setCourt(prev => [n, ...prev]); }, []);
   const updateCourtCase = useCallback(async (id, u) => { const updated = await api.court.update(id, u); setCourt(prev => prev.map(c => c.id === id ? updated : c)); }, []);
   const deleteCourtCase = useCallback(async (id) => { await api.court.delete(id); setCourt(prev => prev.filter(c => c.id !== id)); }, []);
 
-  // ─── Events ───
+  // Events
   const addEvent = useCallback(async (e) => { const n = await api.events.create(e); setEvents(prev => [n, ...prev]); }, []);
   const updateEvent = useCallback(async (id, u) => { const updated = await api.events.update(id, u); setEvents(prev => prev.map(e => e.id === id ? updated : e)); }, []);
   const deleteEvent = useCallback(async (id) => { await api.events.delete(id); setEvents(prev => prev.filter(e => e.id !== id)); }, []);
 
-  // ─── Polls ───
+  // Polls
   const addPoll = useCallback(async (p) => { const n = await api.polls.create(p); setPolls(prev => [n, ...prev]); }, []);
   const updatePoll = useCallback(async (id, u) => { const updated = await api.polls.update(id, u); setPolls(prev => prev.map(p => p.id === id ? updated : p)); }, []);
   const deletePoll = useCallback(async (id) => { await api.polls.delete(id); setPolls(prev => prev.filter(p => p.id !== id)); }, []);
   const votePoll = useCallback(async (pollId, optIdx) => { const updated = await api.polls.vote(pollId, optIdx); setPolls(prev => prev.map(p => p.id === pollId ? updated : p)); }, []);
 
-  // ─── Comments ───
+  // Comments
   const loadCommentsForArticle = useCallback(async (articleId) => {
     const id = Number(articleId);
     if (!Number.isFinite(id)) return [];
@@ -668,12 +677,12 @@ export function DataProvider({ children }) {
     return updated;
   }, []);
 
-  // ─── Gallery ───
+  // Gallery
   const addGalleryItem = useCallback(async (g) => { const n = await api.gallery.create(g); setGallery(prev => [...prev, n]); }, []);
   const updateGalleryItem = useCallback(async (id, u) => { const updated = await api.gallery.update(id, u); setGallery(prev => prev.map(g => g.id === id ? updated : g)); }, []);
   const deleteGalleryItem = useCallback(async (id) => { await api.gallery.delete(id); setGallery(prev => prev.filter(g => g.id !== id)); }, []);
 
-  // ─── Media Library ───
+  // Media Library
   const refreshMedia = useCallback(async () => {
     try {
       const [items, pipelineStatus] = await Promise.all([
@@ -702,12 +711,12 @@ export function DataProvider({ children }) {
     return summary;
   }, [refreshMedia]);
 
-  // ─── Users (admin) ───
+  // Users (admin)
   const addUser = useCallback(async (u) => { const n = await api.users.create(u); setUsers(prev => [...prev, n]); }, []);
   const updateUser = useCallback(async (id, u) => { const updated = await api.users.update(id, u); setUsers(prev => prev.map(x => x.id === id ? updated : x)); }, []);
   const deleteUser = useCallback(async (id) => { if (id === 1) return; await api.users.delete(id); setUsers(prev => prev.filter(x => x.id !== id)); }, []);
 
-  // ─── Permissions ───
+  // Permissions
   const hasPermission = useCallback((section) => {
     if (!session) return false;
     if (session.role === 'admin') return true; // admin always has all permissions
@@ -740,13 +749,13 @@ export function DataProvider({ children }) {
     return ensured;
   }, []);
 
-  // ─── Reset ───
+  // Reset
   const resetAll = useCallback(async () => {
     await api.reset();
     await fetchAll();
   }, [fetchAll]);
 
-  // ─── Tips ───
+  // Tips
   const refreshTips = useCallback(async () => {
     if (!session?.token) return;
     try {
