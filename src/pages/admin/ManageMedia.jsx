@@ -194,7 +194,7 @@ export default function ManageMedia() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Media Library</h1>
+          <h1 className="text-2xl font-display font-bold text-gray-900">Медийна библиотека</h1>
           <p className="text-sm font-sans text-gray-500 mt-1">
             {media.length} файла · {totalSize} общо — провлачи снимки навсякъде на страницата
           </p>
@@ -338,4 +338,3 @@ export default function ManageMedia() {
     </div>
   );
 }
-

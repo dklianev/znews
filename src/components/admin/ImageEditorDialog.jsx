@@ -13,10 +13,10 @@ import {
 } from 'lucide-react';
 
 const DEFAULT_ASPECT_PRESETS = [
-  { key: 'wide', label: '16:9 Wide', ratio: 16 / 9, css: '16 / 9' },
-  { key: 'banner', label: '4:1 Banner', ratio: 4 / 1, css: '4 / 1' },
-  { key: 'portrait', label: '3:4 Portrait', ratio: 3 / 4, css: '3 / 4' },
-  { key: 'square', label: '1:1 Square', ratio: 1, css: '1 / 1' },
+  { key: 'wide', label: '16:9 Широк', ratio: 16 / 9, css: '16 / 9' },
+  { key: 'banner', label: '4:1 Банер', ratio: 4 / 1, css: '4 / 1' },
+  { key: 'portrait', label: '3:4 Портрет', ratio: 3 / 4, css: '3 / 4' },
+  { key: 'square', label: '1:1 Квадрат', ratio: 1, css: '1 / 1' },
 ];
 
 function clamp(value, min, max) {
@@ -30,7 +30,7 @@ function normalizeAspectPresets(presets) {
   return source
     .map((preset, index) => ({
       key: String(preset?.key || `preset-${index}`),
-      label: String(preset?.label || `Preset ${index + 1}`),
+      label: String(preset?.label || `Формат ${index + 1}`),
       ratio: clamp(preset?.ratio, 0.2, 6),
       css: String(preset?.css || '').trim() || null,
     }))
@@ -67,14 +67,14 @@ function createImage(url) {
 
 async function getCroppedImg(imageSrc, pixelCrop) {
   if (!pixelCrop?.width || !pixelCrop?.height) {
-    throw new Error('Missing crop area');
+    throw new Error('Липсва зона за изрязване');
   }
 
   const image = await createImage(imageSrc);
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
 
-  if (!context) throw new Error('Canvas is not available');
+  if (!context) throw new Error('Canvas не е достъпен');
 
   canvas.width = Math.max(1, Math.round(pixelCrop.width));
   canvas.height = Math.max(1, Math.round(pixelCrop.height));
@@ -94,7 +94,8 @@ async function getCroppedImg(imageSrc, pixelCrop) {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob) {
-        reject(new Error('Unable to export crop'));
+        reject(new Error('Експортът на изрязването не успя'));
+
         return;
       }
       resolve(blob);
@@ -187,7 +188,7 @@ export default function ImageEditorDialog({
       });
     } catch (error) {
       console.error(error);
-      alert(error?.message || 'Image edit failed.');
+      alert(error?.message || 'Редакцията на изображението не успя.');
     } finally {
       setSaving(false);
     }
@@ -195,12 +196,12 @@ export default function ImageEditorDialog({
 
   const focalPresets = useMemo(
     () => [
-      { label: 'Left', x: 18, y: focusY },
-      { label: 'Center', x: 50, y: focusY },
-      { label: 'Right', x: 82, y: focusY },
-      { label: 'Top', x: focusX, y: 22 },
-      { label: 'Middle', x: focusX, y: 50 },
-      { label: 'Bottom', x: focusX, y: 78 },
+      { label: 'Ляво', x: 18, y: focusY },
+      { label: 'Център', x: 50, y: focusY },
+      { label: 'Дясно', x: 82, y: focusY },
+      { label: 'Горе', x: focusX, y: 22 },
+      { label: 'Среда', x: focusX, y: 50 },
+      { label: 'Долу', x: focusX, y: 78 },
     ],
     [focusX, focusY],
   );
@@ -210,9 +211,9 @@ export default function ImageEditorDialog({
       <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#120F18] text-white shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
         <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-[#17131F] px-5 py-4">
           <div>
-            <h3 className="font-display text-lg font-black uppercase tracking-[0.18em] text-white">Image editor</h3>
+            <h3 className="font-display text-lg font-black uppercase tracking-[0.18em] text-white">Редактор на изображение</h3>
             <p className="mt-1 text-xs font-sans text-white/65">
-              Tune crop, focus and scale so the image fits the exact frame.
+              Настрой изрязването, фокуса и мащаба така, че изображението да пасне точно в рамката.
             </p>
           </div>
           <button
@@ -233,7 +234,7 @@ export default function ImageEditorDialog({
             className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] transition-colors ${mode === 'focal' ? 'border-zn-hot bg-zn-hot text-white' : 'border-white/10 text-white/70 hover:border-white/30 hover:text-white'}`}
           >
             <MousePointerClick className="h-4 w-4" />
-            Focus
+            Фокус
           </button>
           <button
             type="button"
@@ -242,10 +243,10 @@ export default function ImageEditorDialog({
             className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold uppercase tracking-[0.14em] transition-colors ${mode === 'crop' ? 'border-zn-hot bg-zn-hot text-white' : 'border-white/10 text-white/70 hover:border-white/30 hover:text-white'}`}
           >
             <Crop className="h-4 w-4" />
-            Crop
+            Изрязване
           </button>
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">Aspect</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">Формат</span>
             {normalizedAspectPresets.map((preset) => (
               <button
                 key={preset.key}
@@ -312,7 +313,7 @@ export default function ImageEditorDialog({
                   <div>
                     <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">
                       <ZoomIn className="h-4 w-4" />
-                      Crop zoom
+                      Мащаб при изрязване
                     </div>
                     <input
                       type="range"
@@ -327,7 +328,7 @@ export default function ImageEditorDialog({
                     <div className="mt-2 text-xs text-white/55">{Math.round(cropZoom * 100)}%</div>
                   </div>
                   <p className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-xs leading-5 text-white/60">
-                    Drag the image to define the exact crop for the selected banner ratio.
+                    Премести изображението, за да зададеш точното изрязване за избраното съотношение.
                   </p>
                 </div>
               ) : (
@@ -335,7 +336,7 @@ export default function ImageEditorDialog({
                   <div>
                     <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">
                       <MoveHorizontal className="h-4 w-4" />
-                      Horizontal focus
+                      Хоризонтален фокус
                     </div>
                     <input
                       type="range"
@@ -352,7 +353,7 @@ export default function ImageEditorDialog({
                   <div>
                     <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">
                       <MoveVertical className="h-4 w-4" />
-                      Vertical focus
+                      Вертикален фокус
                     </div>
                     <input
                       type="range"
@@ -369,7 +370,7 @@ export default function ImageEditorDialog({
                   <div>
                     <div className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">
                       <ZoomIn className="h-4 w-4" />
-                      Background scale
+                      Мащаб на фона
                     </div>
                     <input
                       type="range"
@@ -384,7 +385,7 @@ export default function ImageEditorDialog({
                     <div className="mt-2 text-xs text-white/55">{Math.round(focusScale * 100)}%</div>
                   </div>
                   <div>
-                    <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Quick anchors</div>
+                    <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-white/55">Бързи позиции</div>
                     <div className="flex flex-wrap gap-2">
                       {focalPresets.map((preset) => (
                         <button
@@ -403,7 +404,7 @@ export default function ImageEditorDialog({
                     </div>
                   </div>
                   <p className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-xs leading-5 text-white/60">
-                    Use focus and scale for full-background banners so the subject sits correctly inside the frame.
+                    Ползвай фокус и мащаб при банери с цял фон, за да стои правилно основният обект в рамката.
                   </p>
                 </div>
               )}
@@ -419,7 +420,7 @@ export default function ImageEditorDialog({
             className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-white/75 transition-colors hover:border-white/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw className="h-4 w-4" />
-            Reset
+            Нулирай
           </button>
           <div className="flex items-center gap-3">
             <button

@@ -39,22 +39,22 @@ const AD_CIRCLE_IMAGE_SIZE = '800 x 800 px';
 const AD_DEFAULT_IMAGE_META = Object.freeze({ objectPosition: '50% 50%', objectScale: 1 });
 const AD_EDITOR_ASPECT_PRESETS = Object.freeze({
   horizontal: [
-    { key: 'banner', label: '4:1 Banner', ratio: 4 / 1, css: '4 / 1' },
-    { key: 'wide', label: '16:9 Wide', ratio: 16 / 9, css: '16 / 9' },
-    { key: 'safe', label: '3:2 Safe', ratio: 3 / 2, css: '3 / 2' },
+    { key: 'banner', label: '4:1 Банер', ratio: 4 / 1, css: '4 / 1' },
+    { key: 'wide', label: '16:9 Широк', ratio: 16 / 9, css: '16 / 9' },
+    { key: 'safe', label: '3:2 Безопасна зона', ratio: 3 / 2, css: '3 / 2' },
   ],
   side: [
-    { key: 'sidebar', label: '3:4 Sidebar', ratio: 3 / 4, css: '3 / 4' },
-    { key: 'portrait', label: '4:5 Portrait', ratio: 4 / 5, css: '4 / 5' },
+    { key: 'sidebar', label: '3:4 Сайдбар', ratio: 3 / 4, css: '3 / 4' },
+    { key: 'portrait', label: '4:5 Портрет', ratio: 4 / 5, css: '4 / 5' },
     { key: 'story', label: '9:16 Story', ratio: 9 / 16, css: '9 / 16' },
   ],
   inline: [
     { key: 'inline', label: '4:1 Inline', ratio: 4 / 1, css: '4 / 1' },
-    { key: 'wide', label: '16:9 Wide', ratio: 16 / 9, css: '16 / 9' },
-    { key: 'safe', label: '3:2 Safe', ratio: 3 / 2, css: '3 / 2' },
+    { key: 'wide', label: '16:9 Широк', ratio: 16 / 9, css: '16 / 9' },
+    { key: 'safe', label: '3:2 Безопасна зона', ratio: 3 / 2, css: '3 / 2' },
   ],
   circle: [
-    { key: 'square', label: '1:1 Square', ratio: 1, css: '1 / 1' },
+    { key: 'square', label: '1:1 Квадрат', ratio: 1, css: '1 / 1' },
   ],
 });
 
@@ -589,7 +589,7 @@ export default function ManageAds() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Позициониране на фон</p>
-                    <p className="mt-1 text-sm text-sky-950">Мащабирай и премести изображението така, че да влиза точно в banner div-а.</p>
+                    <p className="mt-1 text-sm text-sky-950">Мащабирай и премести изображението така, че да влиза точно в рамката на банера.</p>
                   </div>
                   <div className="rounded-full border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-sky-700">
                     {`${coverImageMeta.objectPosition} • ${Math.round(coverImageMeta.objectScale * 100)}%`}
@@ -625,24 +625,24 @@ export default function ManageAds() {
 
                   <div className="space-y-3 rounded-2xl border border-white/70 bg-white/80 p-4">
                     <div>
-                      <label className={labelCls}>Horizontal focus</label>
+                      <label className={labelCls}>Хоризонтален фокус</label>
                       <input type="range" min="0" max="100" step="1" value={coverImageFocus.x} onChange={(e) => setCoverFocusAxis('x', e.target.value)} className="w-full accent-sky-600" />
                     </div>
                     <div>
-                      <label className={labelCls}>Vertical focus</label>
+                      <label className={labelCls}>Вертикален фокус</label>
                       <input type="range" min="0" max="100" step="1" value={coverImageFocus.y} onChange={(e) => setCoverFocusAxis('y', e.target.value)} className="w-full accent-sky-600" />
                     </div>
                     <div>
-                      <label className={labelCls}>Scale</label>
+                      <label className={labelCls}>Мащаб</label>
                       <input type="range" min="1" max="2.4" step="0.05" value={coverImageMeta.objectScale} onChange={(e) => updateCoverImageMeta({ objectScale: clampAdScale(e.target.value) })} className="w-full accent-sky-600" />
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-[11px] text-sky-950">
                       <div className="rounded-xl border border-sky-100 bg-white px-3 py-2">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Focus X</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Фокус X</div>
                         <div className="mt-1 font-semibold">{Math.round(coverImageFocus.x)}%</div>
                       </div>
                       <div className="rounded-xl border border-sky-100 bg-white px-3 py-2">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Focus Y</div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Фокус Y</div>
                         <div className="mt-1 font-semibold">{Math.round(coverImageFocus.y)}%</div>
                       </div>
                     </div>
@@ -651,12 +651,12 @@ export default function ManageAds() {
 
                 <div className="mt-4 flex flex-wrap gap-2">
                   {[
-                    { label: 'Left', action: () => setCoverFocusAxis('x', 0) },
-                    { label: 'Center', action: () => setCoverFocusAxis('x', 50) },
-                    { label: 'Right', action: () => setCoverFocusAxis('x', 100) },
-                    { label: 'Top', action: () => setCoverFocusAxis('y', 0) },
-                    { label: 'Middle', action: () => setCoverFocusAxis('y', 50) },
-                    { label: 'Bottom', action: () => setCoverFocusAxis('y', 100) },
+                    { label: 'Ляво', action: () => setCoverFocusAxis('x', 0) },
+                    { label: 'Център', action: () => setCoverFocusAxis('x', 50) },
+                    { label: 'Дясно', action: () => setCoverFocusAxis('x', 100) },
+                    { label: 'Горе', action: () => setCoverFocusAxis('y', 0) },
+                    { label: 'Среда', action: () => setCoverFocusAxis('y', 50) },
+                    { label: 'Долу', action: () => setCoverFocusAxis('y', 100) },
                     { label: '100%', action: () => updateCoverImageMeta({ objectScale: 1 }) },
                     { label: '125%', action: () => updateCoverImageMeta({ objectScale: 1.25 }) },
                     { label: '150%', action: () => updateCoverImageMeta({ objectScale: 1.5 }) },
@@ -675,7 +675,7 @@ export default function ManageAds() {
                     onClick={() => updateCoverImageMeta({ ...AD_DEFAULT_IMAGE_META })}
                     className="rounded-full border border-slate-200 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
                   >
-                    Reset
+                    Нулирай
                   </button>
                 </div>
               </div>
@@ -751,6 +751,4 @@ export default function ManageAds() {
     </div>
   );
 }
-
-
 

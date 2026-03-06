@@ -28,4 +28,3 @@ export default function useUploadWatermarkPreference(defaultValue = true) {
 
   return [applyWatermark, setApplyWatermark];
 }
-

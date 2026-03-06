@@ -1045,7 +1045,7 @@ export default function ManageArticles() {
                   )}
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-[11px] font-sans text-gray-400">
-                      Разрешени формати: bold, italic, underline, strike, H2/H3/H4, списъци, цитат, линк и снимки от Media Library.
+                      Разрешени формати: bold, italic, underline, strike, H2/H3/H4, списъци, цитат, линк и снимки от медийната библиотека.
                     </p>
                   </div>
                   {validationErrors.content && <p className="text-xs text-red-500 mt-1 font-sans">{validationErrors.content}</p>}

@@ -13,8 +13,7 @@ export default function UploadWatermarkToggle({
         onChange={(event) => onChange(event.target.checked)}
         className="h-4 w-4 accent-zn-purple"
       />
-      <span>Watermark</span>
+      <span>Воден знак</span>
     </label>
   );
 }
-

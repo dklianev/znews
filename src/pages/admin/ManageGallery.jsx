@@ -126,7 +126,7 @@ export default function ManageGallery() {
                   required
                   value={form.image}
                   onChange={(nextValue) => setForm({ ...form, image: nextValue })}
-                  helperText="Използвай Media Library или ръчно URL поле."
+                  helperText="Използвай медийната библиотека или ръчно URL поле."
                   previewClassName="h-36"
                 />
               </div>

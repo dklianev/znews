@@ -42,7 +42,7 @@ function AdLabel({ className = '' }) {
       className={`absolute z-20 rotate-3 border-2 border-white/40 bg-gradient-to-r from-zn-hot to-zn-orange px-2.5 py-1 text-[9px] font-display font-black uppercase tracking-widest text-white ${className}`}
       style={{ boxShadow: '2px 2px 0 #1C1428' }}
     >
-      Ad
+      Реклама
     </span>
   );
 }

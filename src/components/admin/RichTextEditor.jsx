@@ -578,7 +578,7 @@ export default function RichTextEditor({
         <span className="admin-rich-editor-divider" />
 
         <div className="admin-rich-editor-group">
-          <ToolbarButton onClick={handleOpenImagePicker} title="Insert image from Media Library">
+          <ToolbarButton onClick={handleOpenImagePicker} title="Вмъкни изображение от медийната библиотека">
             <ImageIcon className="w-4 h-4" />
           </ToolbarButton>
           <ToolbarButton onClick={handleOpenEmbedPrompt} title="Insert video (YouTube, Vimeo)">
@@ -665,7 +665,7 @@ export default function RichTextEditor({
         <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-4" onClick={() => setPickerOpen(false)}>
           <div className="bg-white max-w-5xl w-full max-h-[80vh] overflow-hidden border border-gray-200 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
-              <h3 className="font-display text-lg font-black text-gray-900 uppercase tracking-wider">Media Library</h3>
+              <h3 className="font-display text-lg font-black text-gray-900 uppercase tracking-wider">Медийна библиотека</h3>
               <div className="flex items-center gap-2">
                 <input
                   type="file"
@@ -791,4 +791,3 @@ export default function RichTextEditor({
     </div>
   );
 }
-

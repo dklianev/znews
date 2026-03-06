@@ -346,7 +346,3 @@ export function filterPublicAds(ads, now = new Date()) {
     .map(normalizeAdRecord)
     .filter((ad) => isAdPubliclyAvailable(ad, now));
 }
-
-
-
-

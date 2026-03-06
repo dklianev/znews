@@ -520,6 +520,3 @@ export const Tip = mongoose.model('Tip', tipSchema);
 export const PushSubscription = mongoose.model('PushSubscription', pushSubscriptionSchema);
 export const GameDefinition = mongoose.model('GameDefinition', gameDefinitionSchema);
 export const GamePuzzle = mongoose.model('GamePuzzle', gamePuzzleSchema);
-
-
-

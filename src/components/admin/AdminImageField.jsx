@@ -197,7 +197,7 @@ export default function AdminImageField({
           className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-xs font-sans font-semibold text-gray-600 hover:text-zn-purple hover:border-zn-purple/40 transition-colors"
         >
           <ImageIcon className="w-3.5 h-3.5" />
-          Media Library
+          Медийна библиотека
         </button>
 
         <label className={`inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-xs font-sans font-semibold cursor-pointer hover:text-zn-purple hover:border-zn-purple/40 transition-colors ${uploading ? 'opacity-60 pointer-events-none' : ''}`}>
@@ -286,7 +286,7 @@ export default function AdminImageField({
         <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-4" onClick={() => setPickerOpen(false)}>
           <div className="bg-white max-w-5xl w-full max-h-[80vh] overflow-hidden border border-gray-200 shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-200">
-              <h3 className="font-display text-lg font-black text-gray-900 uppercase tracking-wider">Media Library</h3>
+              <h3 className="font-display text-lg font-black text-gray-900 uppercase tracking-wider">Медийна библиотека</h3>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -294,7 +294,7 @@ export default function AdminImageField({
                   className="inline-flex items-center gap-1 px-2.5 py-1.5 border border-gray-200 text-xs font-sans text-gray-600 hover:bg-gray-50 transition-colors"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  Refresh
+                  Обнови
                 </button>
                 <button
                   type="button"
