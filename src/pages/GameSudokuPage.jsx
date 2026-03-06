@@ -592,7 +592,7 @@ export default function GameSudokuPage() {
       {showHelp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm" onClick={() => setShowHelp(false)}>
           <div className="w-full max-w-lg border-2 border-[#1C1428] bg-white p-6 shadow-comic-heavy dark:border-[#5c667d] dark:bg-[#151927] dark:shadow-none" onClick={(event) => event.stopPropagation()}>
-            <h2 className="text-2xl font-display font-black uppercase tracking-wide text-zn-text dark:text-[#f7f1e7]">Игра на правила</h2>
+            <h2 className="text-2xl font-display font-black uppercase tracking-wide text-zn-text dark:text-[#f7f1e7]">ПРАВИЛА НА ИГРАТА</h2>
             <ul className="mt-4 list-disc pl-5 space-y-2 text-sm font-sans text-zn-text-muted dark:text-[#c9d0dd]">
               <li>Попълни решетката 9x9 така, че всеки ред, колона и квадрат 3x3 да съдържа числата 1-9 точно по веднъж.</li>
               <li>Използвай <span className="font-semibold">Бележки</span>, за да добавяш възможни числа в празните клетки.</li>
