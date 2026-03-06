@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Scale, Gavel, CalendarClock, CheckCircle2, Clock } from 'lucide-react';
 import { useData } from '../context/DataContext';
@@ -17,15 +17,24 @@ const statusConfig = {
 };
 
 export default function CourtPage() {
-  const { court } = useData();
+  const { court, publicSectionStatus, loadCourt } = useData();
   useDocumentTitle(makeTitle('Съд'));
   const [tab, setTab] = useState('all');
+
+  useEffect(() => {
+    if (publicSectionStatus.court !== 'idle') return undefined;
+    loadCourt().catch((error) => {
+      console.error('Failed to load court page data:', error);
+    });
+    return undefined;
+  }, [loadCourt, publicSectionStatus.court]);
 
   const completed = court.filter(c => c.status === 'completed');
   const scheduled = court.filter(c => c.status === 'scheduled' || c.status === 'ongoing');
 
   const displayed = tab === 'completed' ? completed : tab === 'scheduled' ? scheduled : court;
   const sorted = [...displayed].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const isLoadingCourt = publicSectionStatus.court === 'loading' && sorted.length === 0;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-5xl mx-auto px-4 py-8">
@@ -60,7 +69,7 @@ export default function CourtPage() {
         ))}
       </div>
 
-      {sorted.length === 0 ? (
+      {isLoadingCourt ? null : sorted.length === 0 ? (
         <div className="newspaper-page comic-panel comic-dots p-10 text-center relative">
           <p className="font-display font-bold uppercase tracking-wider text-zn-text-muted relative z-[2]">Няма записи в тази категория</p>
         </div>

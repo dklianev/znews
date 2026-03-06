@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { api } from '../../utils/api';
+import { useEffect, useMemo } from 'react';
 import { loadGameProgress } from '../../utils/gameStorage';
+import { useData } from '../../context/DataContext';
 import { getTodayStr } from '../../utils/gameDate';
 import { Link } from 'react-router-dom';
 import { Gamepad2, ChevronRight, Check } from 'lucide-react';
@@ -8,30 +8,29 @@ import { getGameIconComponent } from '../../utils/gameIcons';
 import { sortGamesCatalog } from '../../utils/gamesCatalog';
 
 export default function GamesDailyStatus() {
-    const [games, setGames] = useState([]);
+    const { games, publicSectionStatus, loadGamesCatalog } = useData();
+    const todayStr = getTodayStr();
 
     useEffect(() => {
-        // Light client-side fetch for the active games
-        api.games.getAll().then(data => {
-            const todayStr = getTodayStr();
-            const decorated = sortGamesCatalog(Array.isArray(data) ? data : []).map(g => {
-                const progress = loadGameProgress(g.slug, todayStr);
-                const gameStatus = progress?.gameStatus || '';
-                return {
-                    ...g,
-                    isPlayed: Boolean(progress) && gameStatus !== 'playing',
-                    isWon: gameStatus === 'won',
-                    isLost: gameStatus === 'lost',
-                };
-            });
-            setGames(decorated);
-        }).catch((error) => {
+        if (publicSectionStatus.games !== 'idle') return undefined;
+        loadGamesCatalog().catch((error) => {
             console.error(error);
-            setGames([]);
         });
-    }, []);
+        return undefined;
+    }, [loadGamesCatalog, publicSectionStatus.games]);
 
-    if (games.length === 0) return null;
+    const decoratedGames = useMemo(() => sortGamesCatalog(Array.isArray(games) ? games : []).map(g => {
+        const progress = loadGameProgress(g.slug, todayStr);
+        const gameStatus = progress?.gameStatus || '';
+        return {
+            ...g,
+            isPlayed: Boolean(progress) && gameStatus !== 'playing',
+            isWon: gameStatus === 'won',
+            isLost: gameStatus === 'lost',
+        };
+    }), [games, todayStr]);
+
+    if (decoratedGames.length === 0) return null;
 
     return (
         <div className="comic-panel comic-dots bg-white dark:bg-zinc-900 border-2 border-zn-black dark:border-zinc-700 rounded-lg overflow-hidden flex flex-col md:flex-row mt-4 mb-2">
@@ -45,7 +44,7 @@ export default function GamesDailyStatus() {
             </Link>
             <div className="flex-1 p-4 flex flex-col justify-center bg-[#F5EEDF] dark:bg-zinc-950">
                 <div className="flex flex-wrap gap-2">
-                    {games.map(g => {
+                    {decoratedGames.map(g => {
                         const Icon = getGameIconComponent(g.icon);
                         const borderClass = g.isWon
                             ? 'border-emerald-600 bg-emerald-50'

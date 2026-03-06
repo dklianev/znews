@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Briefcase, MapPin, DollarSign, Shield, Heart, Wrench, Scale, Car, Building } from 'lucide-react';
 import { useData } from '../context/DataContext';
@@ -14,9 +15,19 @@ const typeConfig = {
 };
 
 export default function JobsPage() {
-  const { jobs } = useData();
+  const { jobs, publicSectionStatus, loadJobs } = useData();
   useDocumentTitle(makeTitle('Работа'));
+
+  useEffect(() => {
+    if (publicSectionStatus.jobs !== 'idle') return undefined;
+    loadJobs().catch((error) => {
+      console.error('Failed to load jobs page data:', error);
+    });
+    return undefined;
+  }, [loadJobs, publicSectionStatus.jobs]);
+
   const activeJobs = jobs.filter(j => j.active);
+  const isLoadingJobs = publicSectionStatus.jobs === 'loading' && activeJobs.length === 0;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-5xl mx-auto px-4 py-8">
@@ -33,7 +44,7 @@ export default function JobsPage() {
         <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mt-4 relative z-[2]" />
       </div>
 
-      {activeJobs.length === 0 ? (
+      {isLoadingJobs ? null : activeJobs.length === 0 ? (
         <div className="newspaper-page comic-panel comic-dots p-10 text-center relative">
           <div className="comic-stamp-circle absolute -top-5 -right-3 z-20 animate-wiggle text-[10px]">ПРАЗНО!</div>
           <p className="font-display font-bold uppercase tracking-wider text-zn-text-muted relative z-[2]">Няма активни обяви в момента</p>

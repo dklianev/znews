@@ -49,7 +49,7 @@ import { ensureGameDefinitions, seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
 import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/homepageSelectors.js';
 import { AD_PAGE_TYPES, AD_STATUS_OPTIONS, AD_TYPES, getAdSlot, getDefaultPlacementsForType, isKnownAdSlot } from '../shared/adSlots.js';
-import { filterPublicAds, normalizeAdRecord, resolveAdForSlot } from '../shared/adResolver.js';
+import { filterPublicAds, getAdRotationPool, normalizeAdRecord } from '../shared/adResolver.js';
 import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES, AD_IMPRESSION_WINDOW_MS, DEFAULT_AD_ANALYTICS_DAYS } from '../shared/adAnalytics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1361,10 +1361,90 @@ function getUploadFilenameFromUrl(mediaUrl) {
   return fileName;
 }
 
-async function resolveImageMetaFromUrl(mediaUrl) {
+function getCandidateMediaUrlsForFile(fileName) {
+  if (!fileName || !isOriginalUploadFileName(fileName)) return [];
+  return [...new Set([
+    `/uploads/${fileName}`,
+    `/uploads/${encodeURIComponent(fileName)}`,
+    getOriginalUploadUrl(fileName),
+  ].filter(Boolean))];
+}
+
+const imagePipelineBackfillInFlight = new Map();
+
+async function syncStoredImageMetaForFile(fileName, { force = false } = {}) {
+  if (!fileName || !isOriginalUploadFileName(fileName)) {
+    return { articles: 0, tips: 0 };
+  }
+
+  const manifest = await readImageManifest(fileName);
+  const imageMeta = toImageMetaFromManifest(manifest);
+  if (!imageMeta) {
+    return { articles: 0, tips: 0 };
+  }
+
+  const candidateMediaUrls = getCandidateMediaUrlsForFile(fileName);
+  const filter = force
+    ? { image: { $in: candidateMediaUrls } }
+    : {
+      image: { $in: candidateMediaUrls },
+      $or: [
+        { imageMeta: { $exists: false } },
+        { imageMeta: null },
+      ],
+    };
+
+  const [articleResult, tipResult] = await Promise.all([
+    Article.updateMany(filter, { $set: { imageMeta } }),
+    Tip.updateMany(filter, { $set: { imageMeta } }),
+  ]);
+
+  return {
+    articles: Number(articleResult?.modifiedCount) || 0,
+    tips: Number(tipResult?.modifiedCount) || 0,
+  };
+}
+
+function queueImagePipelineBackfillForFile(fileName, { force = false } = {}) {
+  if (!fileName || !isOriginalUploadFileName(fileName)) return Promise.resolve(null);
+  const key = `${fileName}:${force ? 'force' : 'soft'}`;
+  if (imagePipelineBackfillInFlight.has(key)) {
+    return imagePipelineBackfillInFlight.get(key);
+  }
+
+  const task = (async () => {
+    const manifest = force
+      ? await generateImagePipeline(fileName)
+      : await ensureImagePipeline(fileName);
+    if (!manifest) return null;
+    await syncStoredImageMetaForFile(fileName, { force: true });
+    return manifest;
+  })()
+    .catch((error) => {
+      console.error('Image pipeline async backfill failed:', error?.message || error);
+      return null;
+    })
+    .finally(() => {
+      imagePipelineBackfillInFlight.delete(key);
+    });
+
+  imagePipelineBackfillInFlight.set(key, task);
+  return task;
+}
+
+function queueImagePipelineBackfillForUrl(mediaUrl, options = {}) {
+  const fileName = getUploadFilenameFromUrl(mediaUrl);
+  if (!fileName) return Promise.resolve(null);
+  return queueImagePipelineBackfillForFile(fileName, options);
+}
+
+async function resolveImageMetaFromUrl(mediaUrl, { queueIfMissing = false } = {}) {
   const fileName = getUploadFilenameFromUrl(mediaUrl);
   if (!fileName) return null;
-  const manifest = await ensureImagePipeline(fileName);
+  const manifest = await readImageManifest(fileName);
+  if (!manifest && queueIfMissing) {
+    void queueImagePipelineBackfillForFile(fileName);
+  }
   return toImageMetaFromManifest(manifest);
 }
 
@@ -1443,6 +1523,8 @@ async function backfillImagePipeline({ force = false, limit = 0 } = {}) {
     regenerated: 0,
     skipped: 0,
     failed: 0,
+    syncedArticleMeta: 0,
+    syncedTipMeta: 0,
     startedAt: new Date().toISOString(),
     finishedAt: null,
   };
@@ -1457,6 +1539,9 @@ async function backfillImagePipeline({ force = false, limit = 0 } = {}) {
       const before = await readImageManifest(entry.name);
       if (before && !force) {
         summary.skipped += 1;
+        const syncSummary = await syncStoredImageMetaForFile(entry.name);
+        summary.syncedArticleMeta += syncSummary.articles;
+        summary.syncedTipMeta += syncSummary.tips;
         continue;
       }
 
@@ -1467,6 +1552,9 @@ async function backfillImagePipeline({ force = false, limit = 0 } = {}) {
       if (manifest) {
         if (before) summary.regenerated += 1;
         else summary.generated += 1;
+        const syncSummary = await syncStoredImageMetaForFile(entry.name, { force: true });
+        summary.syncedArticleMeta += syncSummary.articles;
+        summary.syncedTipMeta += syncSummary.tips;
       } else {
         summary.failed += 1;
       }
@@ -1484,7 +1572,7 @@ async function listMediaFiles() {
   const engine = await getPipelineEngineName();
   const files = await Promise.all(entries
     .map(async (entry) => {
-      const manifest = await ensureImagePipeline(entry.name);
+      const manifest = await readImageManifest(entry.name);
       return {
         id: entry.name,
         name: entry.name,
@@ -2385,7 +2473,7 @@ function buildArticleSnapshot(articleLike) {
 async function enrichArticlePayloadWithImageMeta(payload, { partial = false } = {}) {
   if (!payload || typeof payload !== 'object') return payload;
   if (!partial || hasOwn(payload, 'image')) {
-    const resolvedMeta = await resolveImageMetaFromUrl(payload.image);
+    const resolvedMeta = await resolveImageMetaFromUrl(payload.image, { queueIfMissing: true });
     if (resolvedMeta) {
       payload.imageMeta = { ...(payload.imageMeta || {}), ...resolvedMeta };
     }
@@ -3398,17 +3486,10 @@ articlesRouter.get('/', cacheMiddleware, async (req, res) => {
     }
 
     const items = await query.lean();
-    await Promise.all(items.map(async (item) => {
-      if (!item.imageMeta && item.image) {
-        const resolved = await resolveImageMetaFromUrl(item.image);
-        if (resolved) {
-          item.imageMeta = resolved;
-          Article.updateOne({ id: item.id }, { $set: { imageMeta: resolved } }).catch(() => { });
-        }
-      }
+    items.forEach((item) => {
       delete item._id;
       delete item.__v;
-    }));
+    });
 
     if (!shouldPaginate) {
       return res.json(items);
@@ -3446,15 +3527,6 @@ articlesRouter.get('/:id(\\d+)', cacheMiddleware, async (req, res) => {
 
     const item = await query.lean();
     if (!item) return res.status(404).json({ error: 'Not found' });
-
-    if (!item.imageMeta && item.image) {
-      const resolved = await resolveImageMetaFromUrl(item.image);
-      if (resolved) {
-        item.imageMeta = resolved;
-        Article.updateOne({ id }, { $set: { imageMeta: resolved } }).catch(() => { });
-      }
-    }
-
     delete item._id;
     delete item.__v;
     return res.json(item);
@@ -4149,6 +4221,11 @@ async function listPublicAds() {
   return filterPublicAds(items);
 }
 
+async function listPublicGames() {
+  const items = await GameDefinition.find({ active: true }).sort('sortOrder').lean();
+  return items.map((item) => stripDocumentMetadata(item));
+}
+
 async function listAdsForRequest(req) {
   const items = await fetchAllAdsSorted();
   const maybeUser = decodeTokenFromRequest(req);
@@ -4168,14 +4245,12 @@ function sanitizeAdAnalyticsContext(payload) {
   const parsedArticleId = Number.parseInt(payload?.articleId, 10);
   const articleId = Number.isInteger(parsedArticleId) && parsedArticleId > 0 ? parsedArticleId : null;
   const categoryId = normalizeText(payload?.categoryId, 64).toLowerCase();
-  const rotationKey = normalizeText(payload?.rotationKey, 240);
 
   return {
     slot: slotId,
     pageType,
     articleId,
     categoryId,
-    rotationKey,
   };
 }
 
@@ -4187,9 +4262,8 @@ function clampAdAnalyticsDays(value) {
 
 async function resolveTrackedAdCandidate(adId, context) {
   const publicAds = await listPublicAds();
-  const resolved = resolveAdForSlot(publicAds, context);
-  if (!resolved || Number.parseInt(resolved.id, 10) !== adId) return null;
-  return resolved;
+  const rotationPool = getAdRotationPool(publicAds, context);
+  return rotationPool.find((candidate) => Number.parseInt(candidate?.id, 10) === adId) || null;
 }
 
 async function recordAdAnalyticsEvent({ req, adId, eventType, context }) {
@@ -5248,7 +5322,7 @@ function sanitizeGamePuzzleInput(game, input, existingPuzzle = null) {
 
 gamesRouter.get('/', async (_req, res) => {
   try {
-    const games = await GameDefinition.find({ active: true }).sort('sortOrder').lean();
+    const games = await listPublicGames();
     res.json(games);
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -5415,6 +5489,11 @@ app.use('/api/games', gamesRouter);
 // ─── Games API (Admin) ───
 const adminGamesRouter = express.Router();
 
+function clearGameDefinitionCache() {
+  clearApiCacheKeys('api_cache_/api/bootstrap');
+  clearApiCacheKeys('api_cache_/api/homepage');
+}
+
 adminGamesRouter.get('/', async (_req, res) => {
   try {
     const games = await GameDefinition.find().sort('sortOrder').lean();
@@ -5446,6 +5525,7 @@ adminGamesRouter.post('/', async (req, res) => {
     if (last) newId = last.id + 1;
 
     const game = await GameDefinition.create({ ...payload, id: newId });
+    clearGameDefinitionCache();
     res.json(game.toJSON());
   } catch (e) {
     res.status(e.status || 500).json({ error: statusAwarePublicError(e) });
@@ -5460,6 +5540,7 @@ adminGamesRouter.put('/:id', async (req, res) => {
     const update = sanitizeGameDefinitionInput(req.body, existingGame);
 
     const game = await GameDefinition.findOneAndUpdate({ id }, { $set: update }, { new: true });
+    clearGameDefinitionCache();
     res.json(game.toJSON());
   } catch (e) {
     res.status(e.status || 500).json({ error: statusAwarePublicError(e) });
@@ -5475,6 +5556,7 @@ adminGamesRouter.delete('/:id', async (req, res) => {
     const result = await GameDefinition.deleteOne({ id });
     if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
     await GamePuzzle.deleteMany({ gameSlug: game.slug });
+    clearGameDefinitionCache();
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
@@ -5881,6 +5963,21 @@ app.post('/api/site-settings/cache/homepage/refresh', requireAuth, requirePermis
 });
 
 // ─── Homepage payload (public initial homepage data only) ───
+const BOOTSTRAP_OPTIONAL_SECTIONS = new Set(['jobs', 'court', 'events', 'gallery']);
+
+function parseBootstrapInclude(input) {
+  if (typeof input !== 'string' || !input.trim()) {
+    return new Set(BOOTSTRAP_OPTIONAL_SECTIONS);
+  }
+
+  return new Set(
+    input
+      .split(',')
+      .map((item) => String(item || '').trim().toLowerCase())
+      .filter((item) => BOOTSTRAP_OPTIONAL_SECTIONS.has(item))
+  );
+}
+
 app.get('/api/homepage', cacheMiddleware, async (req, res) => {
   try {
     const maybeUser = decodeTokenFromRequest(req);
@@ -5907,6 +6004,7 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
       siteSettings: null,
       wanted: [],
       polls: [],
+      games: [],
     };
 
     const tasks = {
@@ -5915,16 +6013,7 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
         query = query.select(fieldsProjection);
 
         const items = await query.lean();
-        await Promise.all(items.map(async (item) => {
-          if (!item?.imageMeta && item?.image) {
-            const resolved = await resolveImageMetaFromUrl(item.image);
-            if (resolved) {
-              item.imageMeta = resolved;
-              Article.updateOne({ id: item.id }, { $set: { imageMeta: resolved } }).catch(() => { });
-            }
-          }
-          stripMongooseFields(item);
-        }));
+        items.forEach(stripMongooseFields);
         return sortArticlesByRecency(items);
       })(),
       authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
@@ -5935,6 +6024,7 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
       siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),
       wanted: Wanted.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       polls: Poll.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      games: listPublicGames(),
     };
 
     const entries = Object.entries(tasks);
@@ -5960,6 +6050,7 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     if (!Array.isArray(payload.breaking)) payload.breaking = [];
     if (!Array.isArray(payload.wanted)) payload.wanted = [];
     if (!Array.isArray(payload.polls)) payload.polls = [];
+    if (!Array.isArray(payload.games)) payload.games = [];
 
     payload.authors.forEach(stripMongooseFields);
     payload.categories.forEach(stripMongooseFields);
@@ -5993,6 +6084,7 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
       siteSettings: payload.siteSettings,
       wanted: payload.wanted,
       polls: payload.polls,
+      games: payload.games,
       ...(Object.keys(errors).length ? { errors } : {}),
     });
   } catch (e) {
@@ -6037,17 +6129,10 @@ app.get('/api/search', cacheMiddleware, async (req, res) => {
           .select(articleFieldsProjection);
 
         const items = await query.lean();
-        await Promise.all(items.map(async (item) => {
-          if (!item?.imageMeta && item?.image) {
-            const resolved = await resolveImageMetaFromUrl(item.image);
-            if (resolved) {
-              item.imageMeta = resolved;
-              Article.updateOne({ id: item.id }, { $set: { imageMeta: resolved } }).catch(() => { });
-            }
-          }
+        items.forEach((item) => {
           delete item._id;
           delete item.__v;
-        }));
+        });
         return sortArticlesByRecency(items);
       })(),
       Job.find({
@@ -6104,6 +6189,7 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
     const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
     const fieldsProjection = buildArticleProjection(req.query.fields);
+    const includeSections = parseBootstrapInclude(req.query.include);
 
     const stripMongooseFields = (item) => {
       if (!item || typeof item !== 'object') return item;
@@ -6119,16 +6205,7 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
         else query = query.select({ _id: 0, __v: 0 });
 
         const items = await query.lean();
-        await Promise.all(items.map(async (item) => {
-          if (!item?.imageMeta && item?.image) {
-            const resolved = await resolveImageMetaFromUrl(item.image);
-            if (resolved) {
-              item.imageMeta = resolved;
-              Article.updateOne({ id: item.id }, { $set: { imageMeta: resolved } }).catch(() => { });
-            }
-          }
-          stripMongooseFields(item);
-        }));
+        items.forEach(stripMongooseFields);
         return sortArticlesByRecency(items);
       })(),
       authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
@@ -6138,11 +6215,12 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
       heroSettings: HeroSettings.findOne({ key: 'main' }).lean().then((doc) => serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS)),
       siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),
       wanted: Wanted.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
-      jobs: Job.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
-      court: Court.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
-      events: Event.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       polls: Poll.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
-      gallery: Gallery.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      games: listPublicGames(),
+      ...(includeSections.has('jobs') ? { jobs: Job.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean() } : {}),
+      ...(includeSections.has('court') ? { court: Court.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean() } : {}),
+      ...(includeSections.has('events') ? { events: Event.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean() } : {}),
+      ...(includeSections.has('gallery') ? { gallery: Gallery.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean() } : {}),
     };
 
     const entries = Object.entries(tasks);
@@ -6168,22 +6246,23 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
     if (!Array.isArray(payload.ads)) payload.ads = [];
     if (!Array.isArray(payload.breaking)) payload.breaking = [];
     if (!Array.isArray(payload.wanted)) payload.wanted = [];
-    if (!Array.isArray(payload.jobs)) payload.jobs = [];
-    if (!Array.isArray(payload.court)) payload.court = [];
-    if (!Array.isArray(payload.events)) payload.events = [];
+    if (!Array.isArray(payload.games)) payload.games = [];
+    if (includeSections.has('jobs') && !Array.isArray(payload.jobs)) payload.jobs = [];
+    if (includeSections.has('court') && !Array.isArray(payload.court)) payload.court = [];
+    if (includeSections.has('events') && !Array.isArray(payload.events)) payload.events = [];
     if (!Array.isArray(payload.polls)) payload.polls = [];
-    if (!Array.isArray(payload.gallery)) payload.gallery = [];
+    if (includeSections.has('gallery') && !Array.isArray(payload.gallery)) payload.gallery = [];
 
     // Some items are already projected, but keep stripping in case a select() path changes.
     payload.authors.forEach(stripMongooseFields);
     payload.categories.forEach(stripMongooseFields);
     payload.ads.forEach(stripMongooseFields);
     payload.wanted.forEach(stripMongooseFields);
-    payload.jobs.forEach(stripMongooseFields);
-    payload.court.forEach(stripMongooseFields);
-    payload.events.forEach(stripMongooseFields);
+    (payload.jobs || []).forEach(stripMongooseFields);
+    (payload.court || []).forEach(stripMongooseFields);
+    (payload.events || []).forEach(stripMongooseFields);
     payload.polls.forEach(stripMongooseFields);
-    payload.gallery.forEach(stripMongooseFields);
+    (payload.gallery || []).forEach(stripMongooseFields);
 
     res.setHeader('Cache-Control', 'no-store');
     res.json({
@@ -7045,7 +7124,7 @@ export async function startServer() {
       const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 0;
       backfillImagePipeline({ force: false, limit })
         .then((summary) => {
-          console.log(`✓ Image pipeline backfill finished (${summary.generated} generated, ${summary.skipped} skipped, ${summary.failed} failed, engine=${summary.engine})`);
+          console.log(`✓ Image pipeline backfill finished (${summary.generated} generated, ${summary.skipped} skipped, ${summary.failed} failed, synced=${summary.syncedArticleMeta}/${summary.syncedTipMeta}, engine=${summary.engine})`);
         })
         .catch((error) => {
           console.error('✗ Image pipeline backfill failed on boot:', error?.message || error);
@@ -7068,5 +7147,3 @@ export async function startServer() {
     process.exit(1);
   });
 }
-
-

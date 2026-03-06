@@ -1,9 +1,10 @@
-import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { api, getSession, saveSession, clearSession } from '../utils/api';
 
 const DataContext = createContext();
 const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 const HOMEPAGE_ARTICLE_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,status,publishAt,cardSticker';
+const EMPTY_PUBLIC_SECTION_STATUS = Object.freeze({ jobs: 'idle', court: 'idle', events: 'idle', gallery: 'idle', games: 'idle' });
 
 function collectCommentThreadIdsLocal(items, rootId) {
   const parsedRootId = Number.parseInt(rootId, 10);
@@ -49,6 +50,7 @@ export function DataProvider({ children }) {
   const [court, setCourt] = useState([]);
   const [events, setEvents] = useState([]);
   const [polls, setPolls] = useState([]);
+  const [games, setGames] = useState([]);
   const [homepage, setHomepage] = useState(null);
   const [comments, setComments] = useState([]);
   const [gallery, setGallery] = useState([]);
@@ -58,6 +60,8 @@ export function DataProvider({ children }) {
   const [users, setUsers] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [tips, setTips] = useState([]);
+  const [publicSectionStatus, setPublicSectionStatus] = useState(EMPTY_PUBLIC_SECTION_STATUS);
+  const publicLoadersRef = useRef({ jobs: null, court: null, events: null, gallery: null, games: null });
   const [session, setSession] = useState(getSession);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -72,6 +76,70 @@ export function DataProvider({ children }) {
   }, []);
 
   // ─── Initial fetch ───
+  const runPublicSectionLoader = useCallback(async (sectionKey, requestFactory, applyItems, { force = false } = {}) => {
+    if (!force) {
+      if (publicSectionStatus[sectionKey] === 'loaded') return [];
+      if (publicLoadersRef.current[sectionKey]) return publicLoadersRef.current[sectionKey];
+    }
+
+    setPublicSectionStatus((prev) => ({ ...prev, [sectionKey]: 'loading' }));
+
+    const task = Promise.resolve()
+      .then(() => requestFactory())
+      .then((items) => {
+        const normalized = Array.isArray(items) ? items : [];
+        applyItems(normalized);
+        setPublicSectionStatus((prev) => ({ ...prev, [sectionKey]: 'loaded' }));
+        return normalized;
+      })
+      .catch((error) => {
+        setPublicSectionStatus((prev) => ({ ...prev, [sectionKey]: 'error' }));
+        throw error;
+      })
+      .finally(() => {
+        if (publicLoadersRef.current[sectionKey] === task) {
+          publicLoadersRef.current[sectionKey] = null;
+        }
+      });
+
+    publicLoadersRef.current[sectionKey] = task;
+    return task;
+  }, [publicSectionStatus]);
+
+  const loadGamesCatalog = useCallback((options = {}) => {
+    return runPublicSectionLoader('games', () => api.games.getAll(), setGames, options);
+  }, [runPublicSectionLoader]);
+
+  const loadJobs = useCallback((options = {}) => {
+    return runPublicSectionLoader('jobs', () => api.jobs.getAll(), setJobs, options);
+  }, [runPublicSectionLoader]);
+
+  const loadCourt = useCallback((options = {}) => {
+    return runPublicSectionLoader('court', () => api.court.getAll(), setCourt, options);
+  }, [runPublicSectionLoader]);
+
+  const loadEvents = useCallback((options = {}) => {
+    return runPublicSectionLoader('events', () => api.events.getAll(), setEvents, options);
+  }, [runPublicSectionLoader]);
+
+  const loadGallery = useCallback((options = {}) => {
+    return runPublicSectionLoader('gallery', () => api.gallery.getAll(), setGallery, options);
+  }, [runPublicSectionLoader]);
+
+  const buildPublicBootstrapInclude = useCallback(() => {
+    if (session?.token) return 'jobs,court,events,gallery';
+    if (typeof window === 'undefined') return '';
+
+    const pathname = String(window.location.pathname || '');
+    if (pathname.startsWith('/jobs')) return 'jobs';
+    if (pathname.startsWith('/court')) return 'court';
+    if (pathname.startsWith('/events')) return 'events';
+    if (pathname.startsWith('/gallery')) return 'gallery';
+    if (pathname.startsWith('/search')) return 'jobs,court,events';
+    return '';
+  }, [session?.token]);
+
+  // ÄÄÄ Initial fetch ÄÄÄ
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setLoadError('');
@@ -80,6 +148,7 @@ export function DataProvider({ children }) {
     const shouldUseHomepagePayload = !session?.token && isHomePath;
 
     const toArray = (value) => (Array.isArray(value) ? value : []);
+    const hasPayloadKey = (payload, key) => Boolean(payload) && Object.prototype.hasOwnProperty.call(payload, key);
     const isRateLimitedError = (error) => {
       if (!error) return false;
       if (Number(error?.status) === 429) return true;
@@ -90,7 +159,7 @@ export function DataProvider({ children }) {
       if (!errors || typeof errors !== 'object') return;
       Object.entries(errors).forEach(([key, message]) => {
         if (!message) return;
-        console.error(`Failed to load ${key}:`, message);
+        console.error('Failed to load ' + key + ':', message);
       });
     };
     const normalizeHomepagePayload = (payload) => {
@@ -124,17 +193,23 @@ export function DataProvider({ children }) {
       setSiteSettings(payload?.siteSettings || null);
       setWanted(toArray(payload?.wanted));
       setPolls(toArray(payload?.polls));
-      // Not part of /api/homepage (loaded in background or on non-home routes).
+      setGames(toArray(payload?.games));
       setJobs([]);
       setCourt([]);
       setEvents([]);
       setGallery([]);
-      // Comments are loaded on-demand per article (public) or fully for admins (see below).
       setComments([]);
+      setPublicSectionStatus({ ...EMPTY_PUBLIC_SECTION_STATUS, games: 'loaded' });
       logPartialErrors(payload?.errors);
     };
 
     const applyBootstrapPayload = (payload) => {
+      const hasJobs = hasPayloadKey(payload, 'jobs');
+      const hasCourt = hasPayloadKey(payload, 'court');
+      const hasEvents = hasPayloadKey(payload, 'events');
+      const hasGallery = hasPayloadKey(payload, 'gallery');
+      const hasGames = hasPayloadKey(payload, 'games');
+
       setHomepage(null);
       setArticles(toArray(payload?.articles));
       setAuthors(toArray(payload?.authors));
@@ -144,13 +219,20 @@ export function DataProvider({ children }) {
       setHeroSettings(payload?.heroSettings || null);
       setSiteSettings(payload?.siteSettings || null);
       setWanted(toArray(payload?.wanted));
-      setJobs(toArray(payload?.jobs));
-      setCourt(toArray(payload?.court));
-      setEvents(toArray(payload?.events));
+      setJobs(hasJobs ? toArray(payload?.jobs) : []);
+      setCourt(hasCourt ? toArray(payload?.court) : []);
+      setEvents(hasEvents ? toArray(payload?.events) : []);
       setPolls(toArray(payload?.polls));
-      // Comments are loaded on-demand per article (public) or fully for admins (see below).
+      setGames(hasGames ? toArray(payload?.games) : []);
       setComments([]);
-      setGallery(toArray(payload?.gallery));
+      setGallery(hasGallery ? toArray(payload?.gallery) : []);
+      setPublicSectionStatus({
+        jobs: hasJobs ? 'loaded' : 'idle',
+        court: hasCourt ? 'loaded' : 'idle',
+        events: hasEvents ? 'loaded' : 'idle',
+        gallery: hasGallery ? 'loaded' : 'idle',
+        games: hasGames ? 'loaded' : 'idle',
+      });
       logPartialErrors(payload?.errors);
     };
 
@@ -170,6 +252,7 @@ export function DataProvider({ children }) {
         'events',
         'polls',
         'gallery',
+        'games',
       ];
       const publicResults = await Promise.allSettled([
         api.articles.getAll({ fields: ARTICLE_LIST_FIELDS }),
@@ -185,6 +268,7 @@ export function DataProvider({ children }) {
         api.events.getAll(),
         api.polls.getAll(),
         api.gallery.getAll(),
+        api.games.getAll(),
       ]);
 
       const pick = (result, fallback) => (result.status === 'fulfilled' ? result.value : fallback);
@@ -202,33 +286,14 @@ export function DataProvider({ children }) {
       setPolls(pick(publicResults[11], []));
       setComments([]);
       setGallery(pick(publicResults[12], []));
+      setGames(pick(publicResults[13], []));
+      setPublicSectionStatus({ jobs: 'loaded', court: 'loaded', events: 'loaded', gallery: 'loaded', games: 'loaded' });
 
       publicResults.forEach((result, idx) => {
         if (result.status === 'rejected') {
-          console.error(`Failed to load ${publicResultKeys[idx]}:`, result.reason);
+          console.error('Failed to load ' + publicResultKeys[idx] + ':', result.reason);
         }
       });
-    };
-
-    const loadDeferredPublicData = async () => {
-      const deferred = await Promise.allSettled([
-        api.jobs.getAll(),
-        api.court.getAll(),
-        api.events.getAll(),
-        api.gallery.getAll(),
-      ]);
-
-      if (deferred[0].status === 'fulfilled') setJobs(Array.isArray(deferred[0].value) ? deferred[0].value : []);
-      else console.error('Failed to load jobs:', deferred[0].reason);
-
-      if (deferred[1].status === 'fulfilled') setCourt(Array.isArray(deferred[1].value) ? deferred[1].value : []);
-      else console.error('Failed to load court:', deferred[1].reason);
-
-      if (deferred[2].status === 'fulfilled') setEvents(Array.isArray(deferred[2].value) ? deferred[2].value : []);
-      else console.error('Failed to load events:', deferred[2].reason);
-
-      if (deferred[3].status === 'fulfilled') setGallery(Array.isArray(deferred[3].value) ? deferred[3].value : []);
-      else console.error('Failed to load gallery:', deferred[3].reason);
     };
 
     let loadedFromHomepagePayload = false;
@@ -244,7 +309,7 @@ export function DataProvider({ children }) {
         loadedFromHomepagePayload = true;
       } catch (error) {
         console.error('Failed to load homepage payload:', error);
-        setLoadError(error?.message || 'Неуспешно зареждане на началната страница.');
+        setLoadError(error?.message || 'Failed to load homepage data.');
         if (isRateLimitedError(error)) {
           hitRateLimit = true;
         }
@@ -252,15 +317,16 @@ export function DataProvider({ children }) {
     }
 
     if (!loadedFromHomepagePayload && !hitRateLimit) {
-      // Consolidate public data into a single request.
-      // Fallback to the legacy parallel requests if bootstrap fails (older server/network edge cases).
       try {
-        const payload = await api.bootstrap.get({ fields: ARTICLE_LIST_FIELDS });
+        const include = buildPublicBootstrapInclude();
+        const params = { fields: ARTICLE_LIST_FIELDS };
+        if (include) params.include = include;
+        const payload = await api.bootstrap.get(params);
         applyBootstrapPayload(payload);
         setLoadError('');
       } catch (error) {
         console.error('Failed to load bootstrap:', error);
-        setLoadError(error?.message || 'Неуспешно зареждане на сайта.');
+        setLoadError(error?.message || 'Failed to load public data.');
         if (isRateLimitedError(error)) {
           hitRateLimit = true;
         } else {
@@ -288,22 +354,22 @@ export function DataProvider({ children }) {
         api.siteSettings.getRevisions(),
         api.tips.getAll(),
       ]);
-      setAds((prev) => (adsResult.status === 'fulfilled' ? adsResult.value : prev));
-      setUsers(usersResult.status === 'fulfilled' ? usersResult.value : []);
-      setPermissions(permsResult.status === 'fulfilled' ? permsResult.value : []);
-      setComments(commentsResult.status === 'fulfilled' ? commentsResult.value : []);
-      setMedia(mediaResult.status === 'fulfilled' ? mediaResult.value : []);
-      setMediaPipelineStatus(mediaPipelineResult.status === 'fulfilled' ? mediaPipelineResult.value : null);
-      setHeroSettingsRevisions(heroRevisionsResult.status === 'fulfilled' ? heroRevisionsResult.value : []);
-      setSiteSettingsRevisions(siteRevisionsResult.status === 'fulfilled' ? siteRevisionsResult.value : []);
-      setTips(tipsResult.status === 'fulfilled' ? tipsResult.value : []);
+      setAds((prev) => (adsResult.status === "fulfilled" ? adsResult.value : prev));
+      setUsers(usersResult.status === "fulfilled" ? usersResult.value : []);
+      setPermissions(permsResult.status === "fulfilled" ? permsResult.value : []);
+      setComments(commentsResult.status === "fulfilled" ? commentsResult.value : []);
+      setMedia(mediaResult.status === "fulfilled" ? mediaResult.value : []);
+      setMediaPipelineStatus(mediaPipelineResult.status === "fulfilled" ? mediaPipelineResult.value : null);
+      setHeroSettingsRevisions(heroRevisionsResult.status === "fulfilled" ? heroRevisionsResult.value : []);
+      setSiteSettingsRevisions(siteRevisionsResult.status === "fulfilled" ? siteRevisionsResult.value : []);
+      setTips(tipsResult.status === "fulfilled" ? tipsResult.value : []);
 
-      if (adsResult.status === 'rejected') console.error('Failed to load ads:', adsResult.reason);
-      if (usersResult.status === 'rejected') console.error('Failed to load users:', usersResult.reason);
-      if (permsResult.status === 'rejected') console.error('Failed to load permissions:', permsResult.reason);
-      if (commentsResult.status === 'rejected') console.error('Failed to load comments:', commentsResult.reason);
-      if (mediaResult.status === 'rejected') console.error('Failed to load media:', mediaResult.reason);
-      if (mediaPipelineResult.status === 'rejected') console.error('Failed to load media pipeline status:', mediaPipelineResult.reason);
+      if (adsResult.status === "rejected") console.error("Failed to load ads:", adsResult.reason);
+      if (usersResult.status === "rejected") console.error("Failed to load users:", usersResult.reason);
+      if (permsResult.status === "rejected") console.error("Failed to load permissions:", permsResult.reason);
+      if (commentsResult.status === "rejected") console.error("Failed to load comments:", commentsResult.reason);
+      if (mediaResult.status === "rejected") console.error("Failed to load media:", mediaResult.reason);
+      if (mediaPipelineResult.status === "rejected") console.error("Failed to load media pipeline status:", mediaPipelineResult.reason);
     } else {
       setUsers([]);
       setPermissions([]);
@@ -315,12 +381,9 @@ export function DataProvider({ children }) {
       setComments([]);
       setTips([]);
     }
-    setLoading(false);
 
-    if (loadedFromHomepagePayload) {
-      void loadDeferredPublicData();
-    }
-  }, [session?.token]);
+    setLoading(false);
+  }, [buildPublicBootstrapInclude, session?.token]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -365,6 +428,7 @@ export function DataProvider({ children }) {
     setSiteSettingsRevisions([]);
     setComments([]);
     setTips([]);
+    setPublicSectionStatus(EMPTY_PUBLIC_SECTION_STATUS);
   }, []);
 
   // ─── Articles ───
@@ -704,6 +768,7 @@ export function DataProvider({ children }) {
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
     polls, addPoll, updatePoll, deletePoll, votePoll,
+    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
@@ -728,6 +793,7 @@ export function DataProvider({ children }) {
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
     polls, addPoll, updatePoll, deletePoll, votePoll,
+    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
@@ -746,4 +812,3 @@ export function DataProvider({ children }) {
 }
 
 export const useData = () => useContext(DataContext);
-

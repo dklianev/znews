@@ -90,9 +90,8 @@ export default function AdSlot({
       pageType: pageType || slotMeta.pageType,
       articleId: Number.isInteger(parsedArticleId) ? parsedArticleId : null,
       categoryId: String(categoryId || '').trim().toLowerCase(),
-      rotationKey,
     };
-  }, [articleId, categoryId, pageType, resolvedAd, rotationKey, slot, slotMeta]);
+  }, [articleId, categoryId, pageType, resolvedAd, slot, slotMeta]);
 
   useEffect(() => {
     if (!resolvedAd || !analyticsContext) return;

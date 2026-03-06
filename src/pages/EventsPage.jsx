@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, MapPin, User } from 'lucide-react';
 import { useData } from '../context/DataContext';
@@ -71,12 +72,22 @@ function EventCard({ event, index = 0, today }) {
 }
 
 export default function EventsPage() {
-  const { events } = useData();
+  const { events, publicSectionStatus, loadEvents } = useData();
   useDocumentTitle(makeTitle('Събития'));
+
+  useEffect(() => {
+    if (publicSectionStatus.events !== 'idle') return undefined;
+    loadEvents().catch((error) => {
+      console.error('Failed to load events page data:', error);
+    });
+    return undefined;
+  }, [loadEvents, publicSectionStatus.events]);
+
   const sorted = [...events].sort((a, b) => new Date(a.date) - new Date(b.date));
   const today = new Date().toISOString().split('T')[0];
   const upcoming = sorted.filter(e => e.date >= today);
   const past = sorted.filter(e => e.date < today);
+  const isLoadingEvents = publicSectionStatus.events === 'loading' && sorted.length === 0;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-5xl mx-auto px-4 py-8">
@@ -119,7 +130,7 @@ export default function EventsPage() {
         </section>
       )}
 
-      {events.length === 0 && (
+      {!isLoadingEvents && events.length === 0 && (
         <div className="newspaper-page comic-panel comic-dots p-10 text-center relative">
           <p className="font-display font-bold uppercase tracking-wider text-zn-text-muted relative z-[2]">Няма записани събития</p>
         </div>

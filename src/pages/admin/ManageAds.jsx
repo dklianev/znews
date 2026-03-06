@@ -6,6 +6,7 @@ import { useToast } from '../../components/admin/Toast';
 import { AdBannerHorizontal, AdBannerSide, AdBannerInline } from '../../components/AdBanner';
 import { AD_PAGE_TYPES, AD_SLOT_DEFINITIONS, AD_STATUS_OPTIONS } from '../../../shared/adSlots.js';
 import { explainAdResolution, normalizeAdRecord } from '../../../shared/adResolver.js';
+import { buildAdSlotOccupancy } from '../../../shared/adOccupancy.js';
 import { api } from '../../utils/api';
 
 const AD_TYPES = [
@@ -156,6 +157,32 @@ function PreviewBanner({ ad }) {
   if (ad.type === 'inline') return <AdBannerInline ad={ad} />;
   return <AdBannerHorizontal ad={ad} />;
 }
+
+function formatDateTimeShort(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return new Intl.DateTimeFormat('bg-BG', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(parsed);
+}
+
+function formatScheduleRange(ad) {
+  const startLabel = formatDateTimeShort(ad?.startAt);
+  const endLabel = formatDateTimeShort(ad?.endAt);
+  if (startLabel && endLabel) return `От ${startLabel} до ${endLabel}`;
+  if (startLabel) return `От ${startLabel}`;
+  if (endLabel) return `До ${endLabel}`;
+  return 'Без ограничение във времето';
+}
+
+function getAdDisplayName(ad) {
+  return ad?.campaignName || ad?.title || `Реклама #${ad?.id ?? 'na'}`;
+}
 export default function ManageAds() {
   const { ads, categories, articles, addAd, updateAd, deleteAd } = useData();
   const [editing, setEditing] = useState(null);
@@ -169,6 +196,8 @@ export default function ManageAds() {
   const categoriesById = useMemo(() => new Map((Array.isArray(categories) ? categories : []).map((category) => [category.id, category])), [categories]);
   const articlesById = useMemo(() => new Map((Array.isArray(articles) ? articles : []).map((article) => [Number(article.id), article])), [articles]);
   const analyticsByAdId = useMemo(() => new Map((Array.isArray(analyticsSummary.items) ? analyticsSummary.items : []).map((item) => [Number(item.adId), item])), [analyticsSummary.items]);
+  const slotOccupancy = useMemo(() => buildAdSlotOccupancy(normalizedAds), [normalizedAds]);
+  const occupancyWarningCount = useMemo(() => slotOccupancy.reduce((sum, entry) => sum + entry.warnings.length, 0), [slotOccupancy]);
 
   useEffect(() => {
     let cancelled = false;
@@ -273,6 +302,110 @@ export default function ManageAds() {
 
       {(error || validationErrors.length > 0) && <div className="flex items-start gap-2 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><div>{error || validationErrors[0]}</div></div>}
 
+      <div className="border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-900">Заетост по позиции</h2>
+            <p className="mt-1 max-w-3xl text-sm text-gray-500">Показва кой slot е зает в момента, какво предстои по график и къде има застъпване или ротация между кампании.</p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px] text-gray-600">
+            <span className="border border-emerald-200 bg-emerald-50 px-2 py-1">Активни слотове: {slotOccupancy.filter((entry) => entry.isOccupied).length}</span>
+            <span className="border border-blue-200 bg-blue-50 px-2 py-1">С предстоящи кампании: {slotOccupancy.filter((entry) => entry.upcomingAds.length > 0).length}</span>
+            <span className="border border-amber-200 bg-amber-50 px-2 py-1">Предупреждения: {occupancyWarningCount}</span>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {slotOccupancy.map(({ slot, currentAds, upcomingAds, inactiveAds, warnings, isOccupied }) => (
+            <div key={slot.id} className="rounded-2xl border border-gray-200 bg-[#fbfaf7] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{slot.label}</p>
+                  <p className="mt-1 text-[11px] text-gray-500">{slot.id}</p>
+                </div>
+                <div className="flex flex-wrap gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+                  <span className="border border-gray-200 bg-white px-2 py-1 text-gray-600">{PAGE_TYPE_LABELS[slot.pageType]}</span>
+                  <span className="border border-gray-200 bg-white px-2 py-1 text-gray-600">{AD_TYPE_LABELS[slot.variant]}</span>
+                  <span className={isOccupied ? 'border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700' : 'border border-gray-200 bg-white px-2 py-1 text-gray-500'}>
+                    {isOccupied ? 'Активен' : 'Свободен'}
+                  </span>
+                </div>
+              </div>
+
+              <p className="mt-2 text-xs text-gray-500">{slot.description}</p>
+
+              <div className="mt-4 space-y-4">
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">В момента</p>
+                    <span className="text-[10px] text-gray-400">{currentAds.length}</span>
+                  </div>
+                  {currentAds.length > 0 ? (
+                    <div className="space-y-2">
+                      {currentAds.map((ad) => (
+                        <div key={`current-${slot.id}-${ad.id}`} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{getAdDisplayName(ad)}</p>
+                              <p className="mt-1 text-[11px] text-gray-600">{formatScheduleRange(ad)}</p>
+                            </div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">P {ad.priority} / W {ad.weight}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">Няма активна реклама на тази позиция.</div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Предстои</p>
+                    <span className="text-[10px] text-gray-400">{upcomingAds.length}</span>
+                  </div>
+                  {upcomingAds.length > 0 ? (
+                    <div className="space-y-2">
+                      {upcomingAds.map((ad) => (
+                        <div key={`upcoming-${slot.id}-${ad.id}`} className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{getAdDisplayName(ad)}</p>
+                              <p className="mt-1 text-[11px] text-gray-600">{formatScheduleRange(ad)}</p>
+                            </div>
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-blue-700">P {ad.priority} / W {ad.weight}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-gray-200 bg-white px-3 py-2 text-sm text-gray-500">Няма следваща кампания по график.</div>
+                  )}
+                </div>
+
+                {warnings.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-amber-600">Рискове</p>
+                    <div className="space-y-2">
+                      {warnings.map((warning) => (
+                        <div key={`${slot.id}-${warning.type}-${warning.message}`} className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                          {warning.message}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {inactiveAds.length > 0 && (
+                  <div className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-500">
+                    История на позицията: {inactiveAds.length} неактивни или приключили кампании.
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
       {editing && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_0.9fr]">
           <div className="space-y-6 border border-gray-200 bg-white p-6">

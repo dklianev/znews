@@ -6,17 +6,26 @@ import ResponsiveImage from '../components/ResponsiveImage';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function GalleryPage() {
-  const { gallery } = useData();
+  const { gallery, publicSectionStatus, loadGallery } = useData();
   useDocumentTitle(makeTitle('Галерия'));
   const [selected, setSelected] = useState(null);
   const [filterCat, setFilterCat] = useState('all');
   const dialogRef = useRef(null);
+
+  useEffect(() => {
+    if (publicSectionStatus.gallery !== 'idle') return undefined;
+    loadGallery().catch((error) => {
+      console.error('Failed to load gallery page data:', error);
+    });
+    return undefined;
+  }, [loadGallery, publicSectionStatus.gallery]);
   const closeBtnRef = useRef(null);
 
   const safeGallery = Array.isArray(gallery) ? gallery : [];
   const categories = [...new Set(safeGallery.map(g => g.category))];
   const filtered = filterCat === 'all' ? safeGallery : safeGallery.filter(g => g.category === filterCat);
   const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const isLoadingGallery = publicSectionStatus.gallery === 'loading' && sorted.length === 0;
 
   // Find current index in sorted array
   const selectedIndex = selected ? sorted.findIndex(item => item.id === selected.id) : -1;
@@ -174,7 +183,7 @@ export default function GalleryPage() {
         </AnimatePresence>
       </div>
 
-      {sorted.length === 0 && (
+      {!isLoadingGallery && sorted.length === 0 && (
         <div className="newspaper-page comic-panel comic-dots p-10 text-center relative">
           <p className="font-display font-bold uppercase tracking-wider text-zn-text-muted relative z-[2]">Няма снимки в тази категория</p>
         </div>

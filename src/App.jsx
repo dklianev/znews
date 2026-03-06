@@ -3,7 +3,6 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider, useData } from './context/DataContext';
 import { AnimatePresence, motion } from 'framer-motion';
-import { api } from './utils/api';
 import Navbar from './components/Navbar';
 import BreakingTicker from './components/BreakingTicker';
 import Footer from './components/Footer';
@@ -114,6 +113,31 @@ function PublicPageFallback() {
   );
 }
 
+function PublicRouteErrorState({ onRetry }) {
+  return (
+    <div className="max-w-3xl mx-auto px-4 py-10">
+      <div className="newspaper-page comic-panel comic-dots p-6 sm:p-8 text-center relative">
+        <p className="text-xs sm:text-sm font-display uppercase tracking-[0.3em] text-zn-hot mb-3">
+          Временен проблем
+        </p>
+        <h1 className="font-display text-3xl sm:text-4xl uppercase text-zn-text mb-4">
+          Не успяхме да проверим играта
+        </h1>
+        <p className="text-zn-text/80 text-base sm:text-lg max-w-xl mx-auto mb-6">
+          Маршрутът не е изключен, но заявката за наличните игри се провали. Опитай отново.
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center justify-center px-6 py-3 border-3 border-[#1C1428] bg-zn-hot text-white font-display uppercase tracking-[0.2em] shadow-comic transition-transform hover:-translate-y-0.5"
+        >
+          Опитай пак
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AdminPermissionRoute({ permission, children }) {
   const { session, hasPermission } = useData();
   if (!session) return <Navigate to="/admin/login" replace />;
@@ -121,40 +145,53 @@ function AdminPermissionRoute({ permission, children }) {
   return children;
 }
 function PublicGameRoute({ slug, children }) {
-  const { session, hasPermission } = useData();
+  const { session, hasPermission, games, publicSectionStatus, loadGamesCatalog } = useData();
   const canManageGames = Boolean(session) && hasPermission('games');
+  const [retryNonce, setRetryNonce] = useState(0);
   const [routeState, setRouteState] = useState({
     loading: !canManageGames,
     isAvailable: canManageGames,
+    hasError: false,
   });
 
   useEffect(() => {
     if (canManageGames) {
-      setRouteState({ loading: false, isAvailable: true });
+      setRouteState({ loading: false, isAvailable: true, hasError: false });
       return undefined;
     }
 
-    let cancelled = false;
-    setRouteState({ loading: true, isAvailable: false });
+    const isLoaded = publicSectionStatus.games === 'loaded';
+    const isLoading = publicSectionStatus.games === 'loading';
+    const hasError = publicSectionStatus.games === 'error';
 
-    api.games.getAll()
-      .then((data) => {
-        if (cancelled) return;
-        const activeGames = Array.isArray(data) ? data : [];
-        const isAvailable = activeGames.some((game) => String(game?.slug || '').toLowerCase() === slug);
-        setRouteState({ loading: false, isAvailable });
-      })
-      .catch((error) => {
+    if (isLoaded) {
+      const activeGames = Array.isArray(games) ? games : [];
+      const isAvailable = activeGames.some((game) => String(game?.slug || '').toLowerCase() === slug);
+      setRouteState({ loading: false, isAvailable, hasError: false });
+      return undefined;
+    }
+
+    if (hasError) {
+      setRouteState({ loading: false, isAvailable: false, hasError: true });
+      return undefined;
+    }
+
+    setRouteState({ loading: true, isAvailable: false, hasError: false });
+    const shouldLoadCatalog = publicSectionStatus.games === 'idle'
+      || (retryNonce > 0 && publicSectionStatus.games !== 'loading');
+
+    if (shouldLoadCatalog) {
+      loadGamesCatalog({ force: retryNonce > 0 }).catch((error) => {
         console.error('Failed to load active games for route guard:', error);
-        if (!cancelled) setRouteState({ loading: false, isAvailable: false });
       });
+    }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [canManageGames, slug]);
+    if (isLoading) return undefined;
+    return undefined;
+  }, [canManageGames, games, loadGamesCatalog, publicSectionStatus.games, retryNonce, slug]);
 
   if (routeState.loading) return <PublicPageFallback />;
+  if (routeState.hasError) return <PublicRouteErrorState onRetry={() => setRetryNonce((value) => value + 1)} />;
   if (!routeState.isAvailable) return <NotFoundPage />;
   return children;
 }

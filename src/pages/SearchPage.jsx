@@ -11,7 +11,7 @@ import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 const ARTICLE_SEARCH_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 
 export default function SearchPage() {
-  const { articles, jobs, court, events, wanted, siteSettings } = useData();
+  const { articles, jobs, court, events, wanted, siteSettings, publicSectionStatus, loadJobs, loadCourt, loadEvents } = useData();
   const layoutPresets = siteSettings?.layoutPresets || {};
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -31,6 +31,20 @@ export default function SearchPage() {
 
   // Sync input when URL query changes (e.g. from Navbar search)
   React.useEffect(() => { setLocalQuery(query); }, [query]);
+
+  React.useEffect(() => {
+    if (!trimmedQuery || !remoteError) return undefined;
+    if (publicSectionStatus.jobs === 'idle') {
+      loadJobs().catch((error) => console.error('Failed to load jobs fallback for search:', error));
+    }
+    if (publicSectionStatus.court === 'idle') {
+      loadCourt().catch((error) => console.error('Failed to load court fallback for search:', error));
+    }
+    if (publicSectionStatus.events === 'idle') {
+      loadEvents().catch((error) => console.error('Failed to load events fallback for search:', error));
+    }
+    return undefined;
+  }, [loadCourt, loadEvents, loadJobs, publicSectionStatus.court, publicSectionStatus.events, publicSectionStatus.jobs, remoteError, trimmedQuery]);
 
   React.useEffect(() => {
     let cancelled = false;
