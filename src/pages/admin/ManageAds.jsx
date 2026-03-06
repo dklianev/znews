@@ -10,10 +10,32 @@ import { buildAdSlotOccupancy } from '../../../shared/adOccupancy.js';
 import { api } from '../../utils/api';
 
 const AD_TYPES = [
-  { value: 'horizontal', label: '\u0425\u043e\u0440\u0438\u0437\u043e\u043d\u0442\u0430\u043b\u0435\u043d \u0431\u0430\u043d\u0435\u0440', description: '\u0428\u0438\u0440\u043e\u043a \u0444\u043e\u0440\u043c\u0430\u0442 \u0437\u0430 \u0433\u043e\u0440\u043d\u0438, \u0434\u043e\u043b\u043d\u0438 \u0438 \u043c\u0435\u0436\u0434\u0438\u043d\u043d\u0438 \u043f\u043e\u0437\u0438\u0446\u0438\u0438.' },
-  { value: 'side', label: 'Sidebar \u0431\u0430\u043d\u0435\u0440', description: '\u0422\u0435\u0441\u0435\u043d \u0444\u043e\u0440\u043c\u0430\u0442 \u0437\u0430 \u0441\u0442\u0440\u0430\u043d\u0438\u0447\u043d\u0438 \u043f\u043e\u0437\u0438\u0446\u0438\u0438.' },
-  { value: 'inline', label: 'Inline \u0431\u0430\u043d\u0435\u0440', description: '\u0412\u043b\u0438\u0437\u0430 \u0432\u044a\u0442\u0440\u0435 \u0432 \u0442\u0435\u043a\u0441\u0442\u0430 \u043d\u0430 \u0441\u0442\u0430\u0442\u0438\u044f.' },
+  {
+    value: 'horizontal',
+    label: '\u0425\u043e\u0440\u0438\u0437\u043e\u043d\u0442\u0430\u043b\u0435\u043d \u0431\u0430\u043d\u0435\u0440',
+    description: '\u0428\u0438\u0440\u043e\u043a \u0444\u043e\u0440\u043c\u0430\u0442 \u0437\u0430 \u0433\u043e\u0440\u043d\u0438, \u0434\u043e\u043b\u043d\u0438 \u0438 \u043c\u0435\u0436\u0434\u0438\u043d\u043d\u0438 \u043f\u043e\u0437\u0438\u0446\u0438\u0438.',
+    recommendedSize: '1600 x 400 px',
+    minSize: '1200 x 300 px',
+    aspectRatio: '4:1',
+  },
+  {
+    value: 'side',
+    label: 'Sidebar \u0431\u0430\u043d\u0435\u0440',
+    description: '\u0422\u0435\u0441\u0435\u043d \u0444\u043e\u0440\u043c\u0430\u0442 \u0437\u0430 \u0441\u0442\u0440\u0430\u043d\u0438\u0447\u043d\u0438 \u043f\u043e\u0437\u0438\u0446\u0438\u0438.',
+    recommendedSize: '900 x 1200 px',
+    minSize: '700 x 933 px',
+    aspectRatio: '3:4',
+  },
+  {
+    value: 'inline',
+    label: 'Inline \u0431\u0430\u043d\u0435\u0440',
+    description: '\u0412\u043b\u0438\u0437\u0430 \u0432\u044a\u0442\u0440\u0435 \u0432 \u0442\u0435\u043a\u0441\u0442\u0430 \u043d\u0430 \u0441\u0442\u0430\u0442\u0438\u044f.',
+    recommendedSize: '1200 x 300 px',
+    minSize: '960 x 240 px',
+    aspectRatio: '4:1',
+  },
 ];
+const AD_CIRCLE_IMAGE_SIZE = '800 x 800 px';
 
 const AD_TYPE_LABELS = Object.freeze(AD_TYPES.reduce((acc, item) => ({ ...acc, [item.value]: item.label }), {}));
 const AD_STATUS_LABELS = Object.freeze({
@@ -221,9 +243,15 @@ export default function ManageAds() {
   }, [normalizedAds.length]);
 
   const draftPayload = useMemo(() => buildPayloadFromForm(form), [form]);
+  const selectedTypeMeta = useMemo(() => AD_TYPES.find((item) => item.value === form.type) || AD_TYPES[0], [form.type]);
   const selectedSlots = useMemo(() => AD_SLOT_DEFINITIONS.filter((slot) => draftPayload.placements.includes(slot.id)), [draftPayload.placements]);
   const previewAd = useMemo(() => normalizeAdRecord({ ...draftPayload, id: editing || 'preview' }), [draftPayload, editing]);
   const selectedArticleIds = useMemo(() => parseNumericCsv(form.articleIdsInput), [form.articleIdsInput]);
+  const imageHelperText = useMemo(() => (
+    form.imagePlacement === 'cover'
+      ? `\u041f\u043e \u0436\u0435\u043b\u0430\u043d\u0438\u0435. Cover \u0440\u0435\u0436\u0438\u043c\u044a\u0442 \u0438\u0437\u043f\u043e\u043b\u0437\u0432\u0430 \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435\u0442\u043e \u043a\u0430\u0442\u043e \u0444\u043e\u043d. \u0417\u0430 \u043d\u0430\u0439-\u0434\u043e\u0431\u044a\u0440 \u0440\u0435\u0437\u0443\u043b\u0442\u0430\u0442 \u043a\u0430\u0447\u0438 ${selectedTypeMeta.recommendedSize}.`
+      : `\u041f\u043e \u0436\u0435\u043b\u0430\u043d\u0438\u0435. \u0412 \u0440\u0435\u0436\u0438\u043c "\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433" \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435\u0442\u043e \u0441\u0435 \u0438\u0437\u0440\u044f\u0437\u0432\u0430 \u0432 \u043a\u0440\u044a\u0433. \u041a\u0430\u0447\u0438 \u043a\u0432\u0430\u0434\u0440\u0430\u0442 \u043f\u043e\u043d\u0435 ${AD_CIRCLE_IMAGE_SIZE}.`
+  ), [form.imagePlacement, selectedTypeMeta]);
   const adsForPreview = useMemo(() => {
     if (!editing) return normalizedAds;
     if (editing === 'new') return [...normalizedAds, previewAd];
@@ -416,15 +444,45 @@ export default function ManageAds() {
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div><label className={labelCls}>{'\u041a\u0430\u043c\u043f\u0430\u043d\u0438\u044f'}</label><input className={inputCls} value={form.campaignName} onChange={(e) => setForm({ ...form, campaignName: e.target.value })} placeholder="Spring launch" /></div>
               <div><label className={labelCls}>{'\u0421\u0442\u0430\u0442\u0443\u0441'}</label><select className={inputCls} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{AD_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{AD_STATUS_LABELS[status] || status}</option>)}</select></div>
-              <div><label className={labelCls}>{'\u0417\u0430\u0433\u043b\u0430\u0432\u0438\u0435'}</label><input className={inputCls} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="\u041d\u043e\u0432 \u043f\u0440\u043e\u0434\u0443\u043a\u0442" /></div>
-              <div><label className={labelCls}>{'\u041f\u043e\u0434\u0437\u0430\u0433\u043b\u0430\u0432\u0438\u0435'}</label><input className={inputCls} value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} placeholder="\u041a\u0440\u0430\u0442\u044a\u043a \u0442\u0435\u043a\u0441\u0442" /></div>
-              <div><label className={labelCls}>CTA</label><input className={inputCls} value={form.cta} onChange={(e) => setForm({ ...form, cta: e.target.value })} placeholder="\u0412\u0438\u0436 \u043f\u043e\u0432\u0435\u0447\u0435" /></div>
+              <div><label className={labelCls}>{'\u0417\u0430\u0433\u043b\u0430\u0432\u0438\u0435'}</label><input className={inputCls} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={'\u041d\u043e\u0432 \u043f\u0440\u043e\u0434\u0443\u043a\u0442'} /></div>
+              <div><label className={labelCls}>{'\u041f\u043e\u0434\u0437\u0430\u0433\u043b\u0430\u0432\u0438\u0435'}</label><input className={inputCls} value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} placeholder={'\u041a\u0440\u0430\u0442\u044a\u043a \u0442\u0435\u043a\u0441\u0442'} /></div>
+              <div><label className={labelCls}>CTA</label><input className={inputCls} value={form.cta} onChange={(e) => setForm({ ...form, cta: e.target.value })} placeholder={'\u0412\u0438\u0436 \u043f\u043e\u0432\u0435\u0447\u0435'} /></div>
               <div><label className={labelCls}>{'\u0422\u0438\u043f \u0431\u0430\u043d\u0435\u0440'}</label><select className={inputCls} value={form.type} onChange={(e) => { const nextType = e.target.value; setForm((prev) => ({ ...prev, type: nextType, placements: prev.placements.filter((slotId) => AD_SLOT_DEFINITIONS.find((slot) => slot.id === slotId)?.variant === nextType) })); }}>{AD_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select><p className="mt-1 text-[11px] text-gray-500">{AD_TYPES.find((item) => item.value === form.type)?.description}</p></div>
               <div className="md:col-span-2"><label className={labelCls}>{'\u041b\u0438\u043d\u043a'}</label><input className={inputCls} value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} placeholder="https://example.com" /></div>
               <div><label className={labelCls}>{'\u0426\u0432\u044f\u0442'}</label><div className="flex items-center gap-2"><input type="color" className="h-10 w-10 border border-gray-200" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /><input className={`${inputCls} flex-1`} value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div></div>
               <div><label className={labelCls}>{'\u0418\u043a\u043e\u043d\u0430'}</label><div className="flex flex-wrap gap-1.5">{AD_ICONS.map((icon) => <button key={icon} type="button" onClick={() => setForm({ ...form, icon })} className={`flex h-10 w-10 items-center justify-center border text-xl ${form.icon === icon ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200'}`}>{icon}</button>)}</div></div>
-              <div className="md:col-span-2"><AdminImageField label="\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435" value={form.image} onChange={(nextValue) => setForm((prev) => ({ ...prev, image: nextValue }))} helperText="\u041f\u043e \u0436\u0435\u043b\u0430\u043d\u0438\u0435. Cover \u0440\u0435\u0436\u0438\u043c\u044a\u0442 \u0438\u0437\u043f\u043e\u043b\u0437\u0432\u0430 \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435\u0442\u043e \u043a\u0430\u0442\u043e \u0444\u043e\u043d." previewClassName="h-36" /></div>
+              <div className="md:col-span-2"><AdminImageField label={'\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435'} value={form.image} onChange={(nextValue) => setForm((prev) => ({ ...prev, image: nextValue }))} helperText={imageHelperText} previewClassName="h-36" /></div>
               <div className="md:col-span-2"><label className={labelCls}>{'\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 \u0432 \u0431\u0430\u043d\u0435\u0440\u0430'}</label><select className={inputCls} value={form.imagePlacement} onChange={(e) => setForm({ ...form, imagePlacement: e.target.value })}>{AD_IMAGE_PLACEMENTS.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></div>
+              <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">{'\u041f\u0440\u0435\u043f\u043e\u0440\u044a\u0447\u0438\u0442\u0435\u043b\u0435\u043d \u0440\u0430\u0437\u043c\u0435\u0440'}</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{selectedTypeMeta.label}</p>
+                  </div>
+                  <span className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                    {`Ratio ${selectedTypeMeta.aspectRatio}`}
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-gray-700 sm:grid-cols-3">
+                  <div className="rounded-lg border border-white bg-white/85 px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'\u0411\u0430\u043d\u0435\u0440'}</div>
+                    <div className="mt-1 font-semibold text-gray-900">{selectedTypeMeta.recommendedSize}</div>
+                  </div>
+                  <div className="rounded-lg border border-white bg-white/85 px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'\u041c\u0438\u043d\u0438\u043c\u0443\u043c'}</div>
+                    <div className="mt-1 font-semibold text-gray-900">{selectedTypeMeta.minSize}</div>
+                  </div>
+                  <div className="rounded-lg border border-white bg-white/85 px-3 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433'}</div>
+                    <div className="mt-1 font-semibold text-gray-900">{AD_CIRCLE_IMAGE_SIZE}</div>
+                  </div>
+                </div>
+                <p className="mt-3 text-[11px] text-amber-900">
+                  {form.imagePlacement === 'cover'
+                    ? '\u041f\u0440\u0438 cover \u0444\u043e\u043d \u0434\u0440\u044a\u0436 \u0432\u0430\u0436\u043d\u0438\u044f \u0442\u0435\u043a\u0441\u0442 \u0438 \u043b\u043e\u0433\u043e\u0442\u043e \u0432 \u0446\u0435\u043d\u0442\u0440\u0430\u043b\u043d\u0430\u0442\u0430 \u0437\u043e\u043d\u0430, \u0437\u0430\u0449\u043e\u0442\u043e \u0431\u0430\u043d\u0435\u0440\u044a\u0442 \u0441\u0435 \u0440\u0435\u0436\u0435 \u043d\u0430 \u0440\u0430\u0437\u043b\u0438\u0447\u043d\u0438 \u0435\u043a\u0440\u0430\u043d\u0438.'
+                    : '\u041f\u0440\u0438 \u0440\u0435\u0436\u0438\u043c "\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433" \u043d\u0430\u0439-\u0434\u043e\u0431\u0440\u0435 \u0440\u0430\u0431\u043e\u0442\u0438 \u043a\u0432\u0430\u0434\u0440\u0430\u0442\u043d\u043e \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 \u0431\u0435\u0437 \u0434\u0440\u0435\u0431\u043d\u0438 \u0434\u0435\u0442\u0430\u0439\u043b\u0438 \u043f\u043e \u043a\u0440\u0430\u0438\u0449\u0430\u0442\u0430.'}
+                </p>
+              </div>
             </div>
             <div className="border-t border-gray-200 pt-5">
               <div className="mb-3"><h3 className="font-semibold text-gray-900">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</h3><p className="mt-1 text-xs text-gray-500">{'\u0418\u0437\u0431\u0435\u0440\u0438 slot-\u043e\u0432\u0435\u0442\u0435, \u0432 \u043a\u043e\u0438\u0442\u043e \u0440\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u043c\u043e\u0436\u0435 \u0434\u0430 \u0443\u0447\u0430\u0441\u0442\u0432\u0430.'}</p></div>
@@ -461,7 +519,7 @@ export default function ManageAds() {
               <div><label className={labelCls}>Weight</label><input type="number" min="1" className={inputCls} value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} /><p className="mt-1 text-[11px] text-gray-500">{'Weight \u0432\u043b\u0438\u044f\u0435 \u0441\u0430\u043c\u043e \u0430\u043a\u043e \u0438\u043c\u0430 \u0440\u043e\u0442\u0430\u0446\u0438\u044f.'}</p></div>
               <div><label className={labelCls}>Start</label><input type="datetime-local" className={inputCls} value={form.startAt} onChange={(e) => setForm({ ...form, startAt: e.target.value })} /></div>
               <div><label className={labelCls}>End</label><input type="datetime-local" className={inputCls} value={form.endAt} onChange={(e) => setForm({ ...form, endAt: e.target.value })} /></div>
-              <div className="md:col-span-2"><label className={labelCls}>{'\u0411\u0435\u043b\u0435\u0436\u043a\u0438'}</label><textarea className={`${inputCls} min-h-[110px]`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="\u0412\u044a\u0442\u0440\u0435\u0448\u043d\u0438 \u0431\u0435\u043b\u0435\u0436\u043a\u0438 \u0437\u0430 \u0435\u043a\u0438\u043f\u0430" /></div>
+              <div className="md:col-span-2"><label className={labelCls}>{'\u0411\u0435\u043b\u0435\u0436\u043a\u0438'}</label><textarea className={`${inputCls} min-h-[110px]`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder={'\u0412\u044a\u0442\u0440\u0435\u0448\u043d\u0438 \u0431\u0435\u043b\u0435\u0436\u043a\u0438 \u0437\u0430 \u0435\u043a\u0438\u043f\u0430'} /></div>
             </div>
 
             <div className="flex gap-2 pt-2">
