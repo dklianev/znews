@@ -31,6 +31,10 @@ const HINT_LIMIT_BY_DIFFICULTY = Object.freeze({
   hard: 2,
   expert: 1,
 });
+const HERO_KICKER = '\u0411\u0435\u0437\u043a\u0440\u0430\u0435\u043d \u0440\u0435\u0436\u0438\u043c';
+const HERO_TITLE = '\u0421\u0443\u0434\u043e\u043a\u0443 \u0431\u0435\u0437 \u043a\u0440\u0430\u0439, \u0442\u0440\u0443\u0434\u043d\u043e\u0441\u0442 \u043f\u043e \u0438\u0437\u0431\u043e\u0440.';
+const HERO_SUBTITLE = '\u0418\u0433\u0440\u0430\u0439 \u043f\u043e \u0432\u0441\u044f\u043a\u043e \u0432\u0440\u0435\u043c\u0435, \u0441\u043c\u0435\u043d\u044f\u0439 \u0442\u0440\u0443\u0434\u043d\u043e\u0441\u0442\u0442\u0430 \u043e\u0442 \u041b\u0435\u0441\u043d\u043e \u0434\u043e \u0415\u043a\u0441\u043f\u0435\u0440\u0442.';
+
 
 function getDefaultSelection(grid) {
   for (let row = 0; row < 9; row += 1) {
@@ -459,14 +463,14 @@ export default function GameSudokuPage() {
   const todayProgress = loadGameProgress(GAME_SLUG, getTodayStr());
 
   return (
-    <div className="min-h-screen bg-zn-paper text-slate-900 pb-20">
-      <header className="w-full border-b border-stone-200 bg-white/80 backdrop-blur mb-6">
+    <div className="min-h-screen bg-zn-paper text-slate-900 pb-20 dark:bg-[#0b0d14] dark:text-[#f4efe6]">
+      <header className="w-full border-b border-stone-200 bg-white/80 backdrop-blur mb-6 dark:border-white/10 dark:bg-[#12131d]/85">
         <div className="w-full max-w-6xl mx-auto flex items-center justify-between p-4">
-          <Link to="/games" className="text-slate-500 hover:text-slate-900 transition-colors" aria-label="Назад към игрите">
+          <Link to="/games" className="text-slate-500 hover:text-slate-900 transition-colors dark:text-stone-400 dark:hover:text-white" aria-label="Назад към игрите">
             <ArrowLeft className="w-6 h-6" />
           </Link>
           <h1 className="text-xl sm:text-2xl font-display font-black uppercase tracking-widest">Судоку</h1>
-          <button onClick={() => setShowHelp(true)} className="text-slate-500 hover:text-slate-900 transition-colors" aria-label="Помощ за Судоку">
+          <button onClick={() => setShowHelp(true)} className="text-slate-500 hover:text-slate-900 transition-colors dark:text-stone-400 dark:hover:text-white" aria-label="Помощ за Судоку">
             <HelpCircle className="w-6 h-6" />
           </button>
         </div>
@@ -474,14 +478,17 @@ export default function GameSudokuPage() {
 
       <main className="max-w-6xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
         <section className="space-y-4">
-          <div className="newspaper-page comic-panel comic-dots p-5 relative">
-            <div className="absolute -top-2 right-8 w-14 h-5 bg-yellow-200/70 border border-black/5 transform rotate-4 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
+          <div className="newspaper-page comic-panel comic-dots p-5 relative border-2 border-[#1C1428] bg-[#f5eedf] shadow-comic-heavy dark:border-[#5c667d] dark:bg-[#151927] dark:shadow-none">
+            <div className="absolute -top-2 right-8 w-14 h-5 bg-yellow-200/70 border border-black/5 transform rotate-4 z-10 dark:bg-[#d7bb63]/80 dark:border-white/10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 relative z-[2]">
               <div>
-                <p className="text-xs font-display font-bold uppercase tracking-[0.28em] text-zn-hot">Безкраен режим</p>
-                <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-wide mt-2">Играй по всяко време, всички трудности</h2>
+                <p className="text-xs font-display font-bold uppercase tracking-[0.28em] text-zn-hot dark:text-[#ff8b6b]">{HERO_KICKER}</p>
+                <h2 className="mt-2 text-2xl sm:text-3xl font-display font-black uppercase tracking-wide text-[#0d2240] dark:text-[#f7f1e7]">{HERO_TITLE}</h2>
+                <p className="mt-3 max-w-3xl text-sm sm:text-base font-sans font-semibold leading-relaxed text-zinc-700 dark:text-[#cad1df]">
+                  {HERO_SUBTITLE}
+                </p>
               </div>
-              <div className="text-sm font-display font-black uppercase tracking-wider text-zn-text-dim inline-flex items-center gap-2">
+              <div className="text-sm font-display font-black uppercase tracking-wider text-zn-text-dim inline-flex items-center gap-2 dark:text-[#a7afbf]">
                 <Timer className="w-4 h-4" /> {formatElapsedTime(elapsedSeconds)}
               </div>
             </div>
@@ -497,7 +504,7 @@ export default function GameSudokuPage() {
                     type="button"
                     disabled={loadingPuzzle}
                     onClick={() => handleDifficultyChange(key)}
-                    className={`border-2 border-[#1C1428] px-3 py-2 text-xs sm:text-sm font-display font-black uppercase tracking-wider transition-colors ${active ? 'bg-zn-hot text-white' : 'bg-white text-[#1C1428] hover:bg-zn-hot hover:text-white'} disabled:opacity-50`}
+                    className={`border-2 border-[#1C1428] px-3 py-2 text-xs sm:text-sm font-display font-black uppercase tracking-wider transition-colors dark:border-[#5c667d] ${active ? 'bg-zn-hot text-white dark:bg-[#ff5a36]' : 'bg-white text-[#1C1428] hover:bg-zn-hot hover:text-white dark:bg-[#101523] dark:text-[#f7f1e7] dark:hover:bg-[#ff5a36] dark:hover:text-white'} disabled:opacity-50`}
                   >
                     {config.label}
                   </button>
@@ -507,8 +514,8 @@ export default function GameSudokuPage() {
           </div>
 
           {loadingPuzzle ? (
-            <div className="w-full max-w-[620px] mx-auto h-[420px] sm:h-[620px] flex items-center justify-center border-2 border-[#1C1428] bg-white shadow-comic-heavy">
-              <span className="font-display font-black uppercase tracking-wider text-zn-text-dim">Подготвяне на дъската...</span>
+            <div className="w-full max-w-[620px] mx-auto h-[420px] sm:h-[620px] flex items-center justify-center border-2 border-[#1C1428] bg-white shadow-comic-heavy dark:border-[#5c667d] dark:bg-[#111522] dark:shadow-none">
+              <span className="font-display font-black uppercase tracking-wider text-zn-text-dim dark:text-[#a7afbf]">Зареждане на дъска...</span>
             </div>
           ) : (
             <SudokuBoard
@@ -534,9 +541,9 @@ export default function GameSudokuPage() {
         </section>
 
         <aside className="space-y-4 lg:sticky lg:top-5">
-          <div className="newspaper-page comic-panel comic-dots p-4">
-            <p className="text-[10px] font-display font-black uppercase tracking-[0.2em] text-zn-text-dim">Сесия</p>
-            <div className="mt-3 space-y-2 text-sm font-sans text-zn-text">
+          <div className="newspaper-page comic-panel comic-dots p-4 border-2 border-[#1C1428] bg-white dark:border-[#5c667d] dark:bg-[#151927]">
+            <p className="text-[10px] font-display font-black uppercase tracking-[0.2em] text-zn-text-dim dark:text-[#a7afbf]">Сесия</p>
+            <div className="mt-3 space-y-2 text-sm font-sans text-zn-text dark:text-[#edf1f7]">
               <p><span className="font-bold">Трудност:</span> {SUDOKU_DIFFICULTY_CONFIG[difficulty]?.label}</p>
               <p><span className="font-bold">Попълнени:</span> {progress.filledCells}/81 ({progress.completionPct}%)</p>
               <p><span className="font-bold">Статус за днес:</span> {todayProgress?.gameStatus === 'won' ? 'Завършено' : 'Още не е завършено'}</p>
@@ -548,7 +555,7 @@ export default function GameSudokuPage() {
               <button
                 type="button"
                 onClick={runValidation}
-                className="border-2 border-[#1C1428] bg-white px-3 py-2 text-sm font-display font-black uppercase tracking-wider text-[#1C1428] hover:bg-zn-hot hover:text-white transition-colors"
+                className="border-2 border-[#1C1428] bg-white px-3 py-2 text-sm font-display font-black uppercase tracking-wider text-[#1C1428] hover:bg-zn-hot hover:text-white transition-colors dark:border-[#5c667d] dark:bg-[#0f1422] dark:text-[#f7f1e7] dark:hover:bg-[#ff5a36]"
               >
                 Провери дъската
               </button>
@@ -556,7 +563,7 @@ export default function GameSudokuPage() {
                 type="button"
                 onClick={handleShare}
                 disabled={status !== 'won'}
-                className="inline-flex items-center justify-center gap-2 border-2 border-[#1C1428] bg-white px-3 py-2 text-sm font-display font-black uppercase tracking-wider text-[#1C1428] hover:bg-zn-purple hover:text-white transition-colors disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-2 border-2 border-[#1C1428] bg-white px-3 py-2 text-sm font-display font-black uppercase tracking-wider text-[#1C1428] hover:bg-zn-purple hover:text-white transition-colors disabled:opacity-40 dark:border-[#5c667d] dark:bg-[#0f1422] dark:text-[#f7f1e7] dark:hover:bg-[#8b5cf6]"
               >
                 <Share2 className="w-4 h-4" /> Сподели
               </button>
@@ -564,19 +571,19 @@ export default function GameSudokuPage() {
           </div>
 
           {status === 'won' && (
-            <div className="newspaper-page comic-panel comic-dots p-4 border-2 border-emerald-500/60 bg-emerald-50/70">
-              <h3 className="inline-flex items-center gap-2 text-base font-display font-black uppercase tracking-wide text-emerald-800">
+            <div className="newspaper-page comic-panel comic-dots p-4 border-2 border-emerald-500/60 bg-emerald-50/70 dark:bg-emerald-950/40 dark:border-emerald-500/40">
+              <h3 className="inline-flex items-center gap-2 text-base font-display font-black uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
                 <CheckCircle2 className="w-5 h-5" /> Пъзелът е решен
               </h3>
-              <p className="mt-2 text-sm font-sans text-emerald-900">
+              <p className="mt-2 text-sm font-sans text-emerald-900 dark:text-emerald-100">
                 Отлично завършване на <span className="font-semibold">{SUDOKU_DIFFICULTY_CONFIG[difficulty]?.label}</span> за <span className="font-semibold">{formatElapsedTime(elapsedSeconds)}</span>.
               </p>
             </div>
           )}
 
           {message && (
-            <div className="newspaper-page comic-panel comic-dots p-4">
-              <p className="text-sm font-sans text-zn-text">{message}</p>
+            <div className="newspaper-page comic-panel comic-dots p-4 border-2 border-[#1C1428] bg-white dark:border-[#5c667d] dark:bg-[#151927]">
+              <p className="text-sm font-sans text-zn-text dark:text-[#edf1f7]">{message}</p>
             </div>
           )}
         </aside>
@@ -584,9 +591,9 @@ export default function GameSudokuPage() {
 
       {showHelp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm" onClick={() => setShowHelp(false)}>
-          <div className="w-full max-w-lg border-2 border-[#1C1428] bg-white p-6 shadow-comic-heavy" onClick={(event) => event.stopPropagation()}>
-            <h2 className="text-2xl font-display font-black uppercase tracking-wide text-zn-text">Как се играе</h2>
-            <ul className="mt-4 list-disc pl-5 space-y-2 text-sm font-sans text-zn-text-muted">
+          <div className="w-full max-w-lg border-2 border-[#1C1428] bg-white p-6 shadow-comic-heavy dark:border-[#5c667d] dark:bg-[#151927] dark:shadow-none" onClick={(event) => event.stopPropagation()}>
+            <h2 className="text-2xl font-display font-black uppercase tracking-wide text-zn-text dark:text-[#f7f1e7]">Игра на правила</h2>
+            <ul className="mt-4 list-disc pl-5 space-y-2 text-sm font-sans text-zn-text-muted dark:text-[#c9d0dd]">
               <li>Попълни решетката 9x9 така, че всеки ред, колона и квадрат 3x3 да съдържа числата 1-9 точно по веднъж.</li>
               <li>Използвай <span className="font-semibold">Бележки</span>, за да добавяш възможни числа в празните клетки.</li>
               <li>Клавишни комбинации: цифри 1-9, стрелки за движение, Backspace/Delete за изчистване, <span className="font-semibold">N</span> превключва бележките.</li>
@@ -595,7 +602,7 @@ export default function GameSudokuPage() {
             <button
               type="button"
               onClick={() => setShowHelp(false)}
-              className="mt-6 w-full border-2 border-[#1C1428] bg-zn-hot px-4 py-2 text-sm font-display font-black uppercase tracking-wider text-white hover:bg-zn-hot-dark transition-colors"
+              className="mt-6 w-full border-2 border-[#1C1428] bg-zn-hot px-4 py-2 text-sm font-display font-black uppercase tracking-wider text-white hover:bg-zn-hot-dark transition-colors dark:border-[#5c667d] dark:bg-[#ff5a36] dark:hover:bg-[#ff734f]"
             >
               Продължи
             </button>
@@ -605,6 +612,7 @@ export default function GameSudokuPage() {
     </div>
   );
 }
+
 
 
 

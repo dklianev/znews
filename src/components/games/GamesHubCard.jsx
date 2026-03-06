@@ -2,9 +2,11 @@ import { Link } from 'react-router-dom';
 import { CheckCircle2, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { getGameIconComponent } from '../../utils/gameIcons';
+import { getGameHubDescription } from '../../utils/gamesCatalog';
 
 export default function GamesHubCard({ game, progress, streak }) {
     const Icon = getGameIconComponent(game.icon);
+    const gameDescription = getGameHubDescription(game);
     const gameStatus = progress?.gameStatus || '';
     const isPlayedToday = Boolean(progress) && gameStatus !== 'playing';
     const isWonToday = gameStatus === 'won';
@@ -59,7 +61,7 @@ export default function GamesHubCard({ game, progress, streak }) {
                 </h3>
 
                 <p className="text-base text-zn-comic-black dark:text-zinc-300 font-semibold mb-6 flex-grow leading-snug">
-                    {game.description}
+                    {gameDescription}
                 </p>
 
                 <Link

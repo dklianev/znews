@@ -34,7 +34,7 @@ function SudokuBoard({
   }, [conflicts]);
 
   return (
-    <div className="w-full max-w-[620px] mx-auto p-2 sm:p-3 bg-white border-2 border-[#1C1428] shadow-comic-heavy">
+    <div className="w-full max-w-[620px] mx-auto p-2 sm:p-3 bg-white border-2 border-[#1C1428] shadow-comic-heavy dark:bg-[#111522] dark:border-[#5c667d] dark:shadow-none">
       <div className="grid grid-cols-9">
         {grid.map((row, rowIndex) => (
           row.map((value, columnIndex) => {
@@ -49,22 +49,22 @@ function SudokuBoard({
             const isConflict = conflictsSet.has(key);
 
             const borderClasses = [
-              'border-r border-b border-[#1C1428]/35',
-              rowIndex % 3 === 0 ? 'border-t-2 border-t-[#1C1428]' : '',
-              columnIndex % 3 === 0 ? 'border-l-2 border-l-[#1C1428]' : '',
-              rowIndex === 8 ? 'border-b-2 border-b-[#1C1428]' : '',
-              columnIndex === 8 ? 'border-r-2 border-r-[#1C1428]' : '',
+              'border-r border-b border-[#1C1428]/35 dark:border-[#5c667d]/45',
+              rowIndex % 3 === 0 ? 'border-t-2 border-t-[#1C1428] dark:border-t-[#7f8aa5]' : '',
+              columnIndex % 3 === 0 ? 'border-l-2 border-l-[#1C1428] dark:border-l-[#7f8aa5]' : '',
+              rowIndex === 8 ? 'border-b-2 border-b-[#1C1428] dark:border-b-[#7f8aa5]' : '',
+              columnIndex === 8 ? 'border-r-2 border-r-[#1C1428] dark:border-r-[#7f8aa5]' : '',
             ].join(' ').trim();
 
             const cellBackground = isSelected
-              ? 'bg-zn-hot/20'
+              ? 'bg-zn-hot/20 dark:bg-[#ff5a36]/30'
               : isConflict
-                ? 'bg-red-100'
+                ? 'bg-red-100 dark:bg-red-950/65'
                 : isGiven
-                  ? 'bg-stone-100'
+                  ? 'bg-stone-100 dark:bg-[#1f2535]'
                   : isRelated
-                    ? 'bg-zn-hot/5'
-                    : 'bg-white';
+                    ? 'bg-zn-hot/5 dark:bg-[#ff5a36]/10'
+                    : 'bg-white dark:bg-[#111522]';
 
             return (
               <button
@@ -77,15 +77,15 @@ function SudokuBoard({
                 {value > 0 ? (
                   <span
                     className={`font-black text-[1.05rem] sm:text-[1.35rem] leading-none ${isGiven
-                      ? 'text-[#1C1428]'
+                      ? 'text-[#1C1428] dark:text-[#f4efe6]'
                       : isConflict
-                        ? 'text-red-700'
-                        : 'text-zn-purple'}`}
+                        ? 'text-red-700 dark:text-red-300'
+                        : 'text-zn-purple dark:text-[#c9b7ff]'}`}
                   >
                     {value}
                   </span>
                 ) : (
-                  <span className="absolute inset-0 grid grid-cols-3 grid-rows-3 text-[0.52rem] sm:text-[0.62rem] text-[#1C1428]/55 font-semibold leading-none">
+                  <span className="absolute inset-0 grid grid-cols-3 grid-rows-3 text-[0.52rem] sm:text-[0.62rem] text-[#1C1428]/55 dark:text-[#cfd6e6]/55 font-semibold leading-none">
                     {Array.from({ length: 9 }, (_, idx) => idx + 1).map((digit) => (
                       <span key={`${key}-note-${digit}`} className={`flex items-center justify-center ${hasNote(notes, rowIndex, columnIndex, digit) ? 'opacity-100' : 'opacity-0'}`}>
                         {digit}
