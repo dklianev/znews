@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { getGamePlaceholderWarnings } from '../../../shared/gamePlaceholderWarnings.js';
 
@@ -10,6 +11,14 @@ function splitMultiValue(rawValue) {
         .split(/\r?\n|,/)
         .map((item) => item.trim())
         .filter(Boolean);
+}
+
+function parseJsonObject(rawValue) {
+    const parsed = JSON.parse(String(rawValue || '{}'));
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('JSON must be an object.');
+    }
+    return parsed;
 }
 
 function renderWordEditor(editForm, actions, fieldClass) {
@@ -129,6 +138,30 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
     const isPublished = editForm?.status === 'published';
     const placeholderWarnings = getGamePlaceholderWarnings(gameSlug, editForm);
     const warningKeys = new Set(placeholderWarnings.map((warning) => warning.key));
+
+    const payloadJsonPreview = useMemo(() => JSON.stringify(editForm?.payload || {}, null, 2), [editForm?.payload]);
+    const solutionJsonPreview = useMemo(() => JSON.stringify(editForm?.solution || {}, null, 2), [editForm?.solution]);
+    const [payloadJsonDraft, setPayloadJsonDraft] = useState(payloadJsonPreview);
+    const [solutionJsonDraft, setSolutionJsonDraft] = useState(solutionJsonPreview);
+    const [payloadJsonError, setPayloadJsonError] = useState('');
+    const [solutionJsonError, setSolutionJsonError] = useState('');
+    const [payloadJsonFocused, setPayloadJsonFocused] = useState(false);
+    const [solutionJsonFocused, setSolutionJsonFocused] = useState(false);
+
+    useEffect(() => {
+        if (!payloadJsonFocused) {
+            setPayloadJsonDraft(payloadJsonPreview);
+            setPayloadJsonError('');
+        }
+    }, [payloadJsonFocused, payloadJsonPreview]);
+
+    useEffect(() => {
+        if (!solutionJsonFocused) {
+            setSolutionJsonDraft(solutionJsonPreview);
+            setSolutionJsonError('');
+        }
+    }, [solutionJsonFocused, solutionJsonPreview]);
+
     const fieldClass = (key, extra = '') => [
         'w-full rounded-lg px-3 py-2 border transition-colors',
         warningKeys.has(key)
@@ -136,6 +169,54 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
             : 'border-gray-300 bg-white text-gray-900 focus:border-gray-400',
         extra,
     ].join(' ');
+
+    const applyPayloadJsonDraft = (rawValue = payloadJsonDraft) => {
+        try {
+            const parsed = parseJsonObject(rawValue);
+            actions?.replacePayload?.(parsed);
+            setPayloadJsonError('');
+            return parsed;
+        } catch (error) {
+            setPayloadJsonError(error?.message || 'Invalid JSON.');
+            return null;
+        }
+    };
+
+    const applySolutionJsonDraft = (rawValue = solutionJsonDraft) => {
+        try {
+            const parsed = parseJsonObject(rawValue);
+            actions?.replaceSolution?.(parsed);
+            setSolutionJsonError('');
+            return parsed;
+        } catch (error) {
+            setSolutionJsonError(error?.message || 'Invalid JSON.');
+            return null;
+        }
+    };
+
+    const onPayloadJsonChange = (event) => {
+        const nextValue = event.target.value;
+        setPayloadJsonDraft(nextValue);
+        applyPayloadJsonDraft(nextValue);
+    };
+
+    const onSolutionJsonChange = (event) => {
+        const nextValue = event.target.value;
+        setSolutionJsonDraft(nextValue);
+        applySolutionJsonDraft(nextValue);
+    };
+
+    const handleSaveClick = () => {
+        const parsedPayload = applyPayloadJsonDraft();
+        const parsedSolution = applySolutionJsonDraft();
+        if (!parsedPayload || !parsedSolution) return;
+        onSave({
+            ...editForm,
+            payload: parsedPayload,
+            solution: parsedSolution,
+        });
+    };
+
     const editor = gameSlug === 'word'
         ? renderWordEditor(editForm, actions, fieldClass)
         : gameSlug === 'connections'
@@ -220,14 +301,40 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
             <details className="border border-gray-200 rounded-2xl bg-gray-50/80">
                 <summary className="cursor-pointer px-5 py-4 text-sm font-bold uppercase tracking-wider text-gray-700">Advanced JSON preview</summary>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 px-5 pb-5">
-                    <pre className="bg-white border border-gray-200 rounded-xl p-4 text-xs overflow-auto">{JSON.stringify(editForm?.payload || {}, null, 2)}</pre>
-                    <pre className="bg-white border border-gray-200 rounded-xl p-4 text-xs overflow-auto">{JSON.stringify(editForm?.solution || {}, null, 2)}</pre>
+                    <div className="space-y-2">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Payload JSON</p>
+                        <textarea
+                            value={payloadJsonDraft}
+                            onChange={onPayloadJsonChange}
+                            onFocus={() => setPayloadJsonFocused(true)}
+                            onBlur={() => setPayloadJsonFocused(false)}
+                            className="w-full min-h-[280px] font-mono text-xs bg-white border border-gray-200 rounded-xl p-4 resize-y"
+                            spellCheck={false}
+                        />
+                        {payloadJsonError && (
+                            <p className="text-xs font-semibold text-red-600">{payloadJsonError}</p>
+                        )}
+                    </div>
+                    <div className="space-y-2">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Solution JSON</p>
+                        <textarea
+                            value={solutionJsonDraft}
+                            onChange={onSolutionJsonChange}
+                            onFocus={() => setSolutionJsonFocused(true)}
+                            onBlur={() => setSolutionJsonFocused(false)}
+                            className="w-full min-h-[280px] font-mono text-xs bg-white border border-gray-200 rounded-xl p-4 resize-y"
+                            spellCheck={false}
+                        />
+                        {solutionJsonError && (
+                            <p className="text-xs font-semibold text-red-600">{solutionJsonError}</p>
+                        )}
+                    </div>
                 </div>
             </details>
 
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <button type="button" onClick={onCancel} className="px-6 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold uppercase text-sm tracking-wider rounded-lg">Отказ</button>
-                <button type="button" onClick={onSave} disabled={saving} className="px-6 py-2 bg-black text-white font-bold uppercase text-sm tracking-wider flex items-center gap-2 hover:bg-gray-800 rounded-lg disabled:opacity-50">
+                <button type="button" onClick={handleSaveClick} disabled={saving} className="px-6 py-2 bg-black text-white font-bold uppercase text-sm tracking-wider flex items-center gap-2 hover:bg-gray-800 rounded-lg disabled:opacity-50">
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Запази
                 </button>
@@ -235,3 +342,4 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
         </div>
     );
 }
+

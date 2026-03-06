@@ -104,6 +104,8 @@ export default function ManageGamePuzzles() {
         setTopLevelField: (field, value) => updateEditForm((current) => ({ ...current, [field]: value })),
         setPayloadField: (field, value) => updateEditForm((current) => ({ ...current, payload: { ...(current?.payload || {}), [field]: value } })),
         setSolutionField: (field, value) => updateEditForm((current) => ({ ...current, solution: { ...(current?.solution || {}), [field]: value } })),
+        replacePayload: (payload) => updateEditForm((current) => ({ ...current, payload: cloneValue(payload || {}) })),
+        replaceSolution: (solution) => updateEditForm((current) => ({ ...current, solution: cloneValue(solution || {}) })),
         setConnectionsItem: (index, value) => updateEditForm((current) => {
             const items = Array.isArray(current?.payload?.items) ? [...current.payload.items] : Array.from({ length: 16 }, () => '');
             items[index] = value;
@@ -154,14 +156,15 @@ export default function ManageGamePuzzles() {
         }),
     };
 
-    const handleSave = async () => {
-        if (!editForm) return;
-        const targetGameSlug = editForm.gameSlug || selectedGameSlug;
+    const handleSave = async (formOverride) => {
+        const draft = formOverride ? cloneValue(formOverride) : editForm;
+        if (!draft) return;
+        const targetGameSlug = draft.gameSlug || selectedGameSlug;
         setSaving(true);
         try {
-            if (editForm.id) await api.adminGames.updatePuzzle(targetGameSlug, editForm.id, editForm);
-            else await api.adminGames.createPuzzle(targetGameSlug, editForm);
-            toast.success(editForm.id ? 'Пъзелът е обновен.' : 'Пъзелът е създаден.');
+            if (draft.id) await api.adminGames.updatePuzzle(targetGameSlug, draft.id, draft);
+            else await api.adminGames.createPuzzle(targetGameSlug, draft);
+            toast.success(draft.id ? 'Пъзелът е обновен.' : 'Пъзелът е създаден.');
             setIsEditing(false);
             setEditForm(null);
             setSelectedGameSlug(targetGameSlug);
@@ -333,6 +336,7 @@ export default function ManageGamePuzzles() {
         </div>
     );
 }
+
 
 
 
