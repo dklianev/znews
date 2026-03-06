@@ -1,34 +1,16 @@
 import { motion } from 'framer-motion';
 import { ExternalLink } from 'lucide-react';
+import { normalizeAdImageMeta } from '../../shared/adResolver.js';
 
-function clamp(value, min, max) {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric)) return min;
-  return Math.min(max, Math.max(min, numeric));
-}
 
 function getAdTilt(ad, factor = 0.32) {
   const seed = typeof ad?.id === 'number' ? ad.id : (String(ad?.id || '').charCodeAt(0) || 0);
   return ((seed % 5) - 2) * factor;
 }
 
-function normalizeObjectPosition(value) {
-  const match = String(value || '').match(/(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/);
-  const x = clamp(match?.[1] ?? 50, 0, 100);
-  const y = clamp(match?.[2] ?? 50, 0, 100);
-  return `${Math.round(x)}% ${Math.round(y)}%`;
-}
-
-function getAdImageMeta(ad) {
-  const source = ad?.imageMeta && typeof ad.imageMeta === 'object' ? ad.imageMeta : {};
-  return {
-    objectPosition: normalizeObjectPosition(source.objectPosition),
-    objectScale: clamp(source.objectScale ?? 1, 1, 2.4),
-  };
-}
 
 function getAdCoverImageStyle(ad) {
-  const imageMeta = getAdImageMeta(ad);
+  const imageMeta = normalizeAdImageMeta(ad?.imageMeta);
   return {
     objectPosition: imageMeta.objectPosition,
     transform: imageMeta.objectScale !== 1 ? `scale(${imageMeta.objectScale})` : undefined,

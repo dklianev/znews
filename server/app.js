@@ -49,7 +49,7 @@ import { ensureGameDefinitions, seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
 import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/homepageSelectors.js';
 import { AD_PAGE_TYPES, AD_STATUS_OPTIONS, AD_TYPES, getAdSlot, getDefaultPlacementsForType, isKnownAdSlot } from '../shared/adSlots.js';
-import { filterPublicAds, getAdRotationPool, normalizeAdRecord } from '../shared/adResolver.js';
+import { filterPublicAds, getAdRotationPool, normalizeAdImageMeta, normalizeAdRecord } from '../shared/adResolver.js';
 import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES, AD_IMPRESSION_WINDOW_MS, DEFAULT_AD_ANALYTICS_DAYS } from '../shared/adAnalytics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -4149,7 +4149,11 @@ function sanitizeAdPayload(payload, { partial = false } = {}) {
   if (!partial || hasOwn(source, 'link')) next.link = normalizeText(source.link, 400) || '#';
   if (!partial || hasOwn(source, 'color')) next.color = normalizeText(source.color, 40);
   if (!partial || hasOwn(source, 'image')) next.image = normalizeText(source.image, 600);
-  if (!partial || hasOwn(source, 'imageMeta')) next.imageMeta = source.imageMeta && typeof source.imageMeta === 'object' ? source.imageMeta : null;
+  if (!partial || hasOwn(source, 'imageMeta')) {
+    next.imageMeta = source.imageMeta && typeof source.imageMeta === 'object'
+      ? normalizeAdImageMeta(source.imageMeta)
+      : null;
+  }
   if (!partial || hasOwn(source, 'imagePlacement')) next.imagePlacement = normalizeAdImagePlacementInput(source.imagePlacement);
   if (!partial || hasOwn(source, 'status')) next.status = normalizeAdStatusInput(source.status);
   if (!partial || hasOwn(source, 'campaignName')) next.campaignName = normalizeText(source.campaignName, 120);

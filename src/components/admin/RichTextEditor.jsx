@@ -581,7 +581,7 @@ export default function RichTextEditor({
           <ToolbarButton onClick={handleOpenImagePicker} title="Вмъкни изображение от медийната библиотека">
             <ImageIcon className="w-4 h-4" />
           </ToolbarButton>
-          <ToolbarButton onClick={handleOpenEmbedPrompt} title="Insert video (YouTube, Vimeo)">
+          <ToolbarButton onClick={handleOpenEmbedPrompt} title="Вмъкни видео (YouTube, Vimeo)">
             <Video className="w-4 h-4" />
           </ToolbarButton>
         </div>

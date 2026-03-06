@@ -11,7 +11,7 @@ const navItems = [
   { to: '/admin/profiles', label: 'Профили', icon: Users, permission: 'profiles' },
   { to: '/admin/tips', label: 'Сигнали', icon: AlertTriangle, permission: 'articles' },
   { to: '/admin/articles', label: 'Статии', icon: FileText, permission: 'articles' },
-  { to: '/admin/editorial-queue', label: 'Editorial Queue', icon: Clock3, permission: 'articles' },
+  { to: '/admin/editorial-queue', label: 'Редакционна опашка', icon: Clock3, permission: 'articles' },
   { to: '/admin/media', label: 'Медийна библиотека', icon: Image, permission: ['articles', 'ads', 'gallery', 'events'] },
   { to: '/admin/hero', label: 'Hero секция', icon: Crown, permission: 'articles' },
   { to: '/admin/categories', label: 'Категории', icon: FolderOpen, permission: 'categories' },
