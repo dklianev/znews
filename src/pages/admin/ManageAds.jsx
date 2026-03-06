@@ -5,7 +5,7 @@ import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
 import { AdBannerHorizontal, AdBannerSide, AdBannerInline } from '../../components/AdBanner';
 import { AD_PAGE_TYPES, AD_SLOT_DEFINITIONS, AD_STATUS_OPTIONS } from '../../../shared/adSlots.js';
-import { explainAdResolution, normalizeAdRecord } from '../../../shared/adResolver.js';
+import { explainAdResolution, normalizeAdImageMeta, normalizeAdRecord } from '../../../shared/adResolver.js';
 import { buildAdSlotOccupancy } from '../../../shared/adOccupancy.js';
 import { api } from '../../utils/api';
 
@@ -36,6 +36,27 @@ const AD_TYPES = [
   },
 ];
 const AD_CIRCLE_IMAGE_SIZE = '800 x 800 px';
+const AD_DEFAULT_IMAGE_META = Object.freeze({ objectPosition: '50% 50%', objectScale: 1 });
+const AD_EDITOR_ASPECT_PRESETS = Object.freeze({
+  horizontal: [
+    { key: 'banner', label: '4:1 Banner', ratio: 4 / 1, css: '4 / 1' },
+    { key: 'wide', label: '16:9 Wide', ratio: 16 / 9, css: '16 / 9' },
+    { key: 'safe', label: '3:2 Safe', ratio: 3 / 2, css: '3 / 2' },
+  ],
+  side: [
+    { key: 'sidebar', label: '3:4 Sidebar', ratio: 3 / 4, css: '3 / 4' },
+    { key: 'portrait', label: '4:5 Portrait', ratio: 4 / 5, css: '4 / 5' },
+    { key: 'story', label: '9:16 Story', ratio: 9 / 16, css: '9 / 16' },
+  ],
+  inline: [
+    { key: 'inline', label: '4:1 Inline', ratio: 4 / 1, css: '4 / 1' },
+    { key: 'wide', label: '16:9 Wide', ratio: 16 / 9, css: '16 / 9' },
+    { key: 'safe', label: '3:2 Safe', ratio: 3 / 2, css: '3 / 2' },
+  ],
+  circle: [
+    { key: 'square', label: '1:1 Square', ratio: 1, css: '1 / 1' },
+  ],
+});
 
 const AD_TYPE_LABELS = Object.freeze(AD_TYPES.reduce((acc, item) => ({ ...acc, [item.value]: item.label }), {}));
 const AD_STATUS_LABELS = Object.freeze({
@@ -72,6 +93,7 @@ const emptyForm = {
   link: '#',
   color: '#990F3D',
   image: '',
+  imageMeta: { ...AD_DEFAULT_IMAGE_META },
   imagePlacement: 'circle',
   placements: [],
   pageTypes: [],
@@ -88,6 +110,40 @@ const emptyForm = {
 
 const inputCls = 'w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-zn-purple';
 const labelCls = 'block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1';
+
+function clampPercentage(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 50;
+  return Math.min(100, Math.max(0, numeric));
+}
+
+function clampAdScale(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 1;
+  return Math.min(2.4, Math.max(1, Number(numeric.toFixed(2))));
+}
+
+function parseAdObjectPosition(value) {
+  const normalized = normalizeAdImageMeta({ objectPosition: value });
+  const [x = '50%', y = '50%'] = String(normalized.objectPosition || '50% 50%').split(/\s+/);
+  return {
+    x: clampPercentage(Number.parseFloat(x)),
+    y: clampPercentage(Number.parseFloat(y)),
+  };
+}
+
+function buildAdObjectPosition(x, y) {
+  return `${Math.round(clampPercentage(x))}% ${Math.round(clampPercentage(y))}%`;
+}
+
+function getAdAdminCardImageStyle(ad) {
+  const imageMeta = normalizeAdImageMeta(ad?.imageMeta);
+  return {
+    objectPosition: imageMeta.objectPosition,
+    transform: ad?.imagePlacement === 'cover' && imageMeta.objectScale !== 1 ? `scale(${imageMeta.objectScale})` : undefined,
+    transformOrigin: imageMeta.objectPosition,
+  };
+}
 
 function parseNumericCsv(value) {
   return [...new Set(String(value || '').split(',').map((item) => Number.parseInt(item.trim(), 10)).filter((item) => Number.isInteger(item) && item > 0))];
@@ -125,6 +181,7 @@ function buildPayloadFromForm(form) {
     link: String(form.link || '').trim(),
     color: String(form.color || '').trim(),
     image: String(form.image || '').trim(),
+    imageMeta: normalizeAdImageMeta(form.imageMeta),
     imagePlacement: form.imagePlacement === 'cover' ? 'cover' : 'circle',
     placements: Array.isArray(form.placements) ? form.placements : [],
     targeting: {
@@ -147,6 +204,7 @@ function normalizeAdForm(value) {
   return {
     ...emptyForm,
     ...normalized,
+    imageMeta: normalizeAdImageMeta(normalized.imageMeta),
     pageTypes: Array.isArray(normalized.targeting?.pageTypes) ? normalized.targeting.pageTypes : [],
     categoryIds: Array.isArray(normalized.targeting?.categoryIds) ? normalized.targeting.categoryIds : [],
     articleIdsInput: formatNumericCsv(normalized.targeting?.articleIds),
@@ -208,7 +266,7 @@ function getAdDisplayName(ad) {
 export default function ManageAds() {
   const { ads, categories, articles, addAd, updateAd, deleteAd } = useData();
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() => normalizeAdForm(emptyForm));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [analyticsSummary, setAnalyticsSummary] = useState({ items: [], totals: { impressions: 0, clicks: 0, ctr: 0 }, days: 30, loading: true, error: '' });
@@ -247,6 +305,13 @@ export default function ManageAds() {
   const selectedSlots = useMemo(() => AD_SLOT_DEFINITIONS.filter((slot) => draftPayload.placements.includes(slot.id)), [draftPayload.placements]);
   const previewAd = useMemo(() => normalizeAdRecord({ ...draftPayload, id: editing || 'preview' }), [draftPayload, editing]);
   const selectedArticleIds = useMemo(() => parseNumericCsv(form.articleIdsInput), [form.articleIdsInput]);
+  const coverImageMeta = useMemo(() => normalizeAdImageMeta(form.imageMeta), [form.imageMeta]);
+  const coverImageFocus = useMemo(() => parseAdObjectPosition(coverImageMeta.objectPosition), [coverImageMeta.objectPosition]);
+  const editorAspectPresets = useMemo(() => (
+    form.imagePlacement === 'cover'
+      ? (AD_EDITOR_ASPECT_PRESETS[form.type] || AD_EDITOR_ASPECT_PRESETS.horizontal)
+      : AD_EDITOR_ASPECT_PRESETS.circle
+  ), [form.imagePlacement, form.type]);
   const imageHelperText = useMemo(() => (
     form.imagePlacement === 'cover'
       ? `\u041f\u043e \u0436\u0435\u043b\u0430\u043d\u0438\u0435. Cover \u0440\u0435\u0436\u0438\u043c\u044a\u0442 \u0438\u0437\u043f\u043e\u043b\u0437\u0432\u0430 \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435\u0442\u043e \u043a\u0430\u0442\u043e \u0444\u043e\u043d. \u0417\u0430 \u043d\u0430\u0439-\u0434\u043e\u0431\u044a\u0440 \u0440\u0435\u0437\u0443\u043b\u0442\u0430\u0442 \u043a\u0430\u0447\u0438 ${selectedTypeMeta.recommendedSize}.`
@@ -283,6 +348,22 @@ export default function ManageAds() {
     return { ...prev, [field]: [...next] };
   });
 
+  const updateCoverImageMeta = (patch) => setForm((prev) => ({
+    ...prev,
+    imageMeta: normalizeAdImageMeta({
+      ...(prev.imageMeta && typeof prev.imageMeta === 'object' ? prev.imageMeta : AD_DEFAULT_IMAGE_META),
+      ...(patch && typeof patch === 'object' ? patch : {}),
+    }),
+  }));
+
+  const setCoverFocusAxis = (axis, nextValue) => {
+    if (axis === 'x') {
+      updateCoverImageMeta({ objectPosition: buildAdObjectPosition(nextValue, coverImageFocus.y) });
+      return;
+    }
+    updateCoverImageMeta({ objectPosition: buildAdObjectPosition(coverImageFocus.x, nextValue) });
+  };
+
   const handleSave = async () => {
     setError('');
     if (validationErrors.length > 0) return setError(validationErrors[0]);
@@ -296,7 +377,7 @@ export default function ManageAds() {
         toast.success('\u0420\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u0435 \u043e\u0431\u043d\u043e\u0432\u0435\u043d\u0430.');
       }
       setEditing(null);
-      setForm({ ...emptyForm });
+      setForm(normalizeAdForm(emptyForm));
     } catch (e) {
       const message = e?.message || '\u0420\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u043d\u0435 \u043c\u043e\u0436\u0430 \u0434\u0430 \u0431\u044a\u0434\u0435 \u0437\u0430\u043f\u0430\u0437\u0435\u043d\u0430.';
       setError(message);
@@ -322,7 +403,7 @@ export default function ManageAds() {
             <span className="border border-gray-200 bg-gray-100 px-2 py-1">CTR: {analyticsSummary.loading ? '...' : `${analyticsSummary.totals.ctr}%`}</span>
           </div>
         </div>
-        <button onClick={() => { setError(''); setEditing('new'); setForm({ ...emptyForm }); }} className="flex items-center gap-2 bg-zn-purple px-4 py-2 text-sm font-semibold text-white hover:bg-zn-purple-dark">
+        <button onClick={() => { setError(''); setEditing('new'); setForm(normalizeAdForm(emptyForm)); }} className="flex items-center gap-2 bg-zn-purple px-4 py-2 text-sm font-semibold text-white hover:bg-zn-purple-dark">
           <Plus className="h-4 w-4" />
           {'\u041d\u043e\u0432\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0430'}
         </button>
@@ -451,7 +532,26 @@ export default function ManageAds() {
               <div className="md:col-span-2"><label className={labelCls}>{'\u041b\u0438\u043d\u043a'}</label><input className={inputCls} value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} placeholder="https://example.com" /></div>
               <div><label className={labelCls}>{'\u0426\u0432\u044f\u0442'}</label><div className="flex items-center gap-2"><input type="color" className="h-10 w-10 border border-gray-200" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /><input className={`${inputCls} flex-1`} value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div></div>
               <div><label className={labelCls}>{'\u0418\u043a\u043e\u043d\u0430'}</label><div className="flex flex-wrap gap-1.5">{AD_ICONS.map((icon) => <button key={icon} type="button" onClick={() => setForm({ ...form, icon })} className={`flex h-10 w-10 items-center justify-center border text-xl ${form.icon === icon ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200'}`}>{icon}</button>)}</div></div>
-              <div className="md:col-span-2"><AdminImageField label={'\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435'} value={form.image} onChange={(nextValue) => setForm((prev) => ({ ...prev, image: nextValue }))} helperText={imageHelperText} previewClassName="h-36" /></div>
+                            <div className="md:col-span-2">
+                <AdminImageField
+                  label={'\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435'}
+                  value={form.image}
+                  onChange={(nextValue) => setForm((prev) => ({
+                    ...prev,
+                    image: nextValue,
+                    imageMeta: nextValue && nextValue !== prev.image ? { ...AD_DEFAULT_IMAGE_META } : prev.imageMeta,
+                  }))}
+                  imageMeta={form.imageMeta}
+                  onChangeMeta={(nextMeta) => setForm((prev) => ({
+                    ...prev,
+                    imageMeta: normalizeAdImageMeta(nextMeta),
+                  }))}
+                  helperText={imageHelperText}
+                  previewClassName="h-36"
+                  editorAspectPresets={editorAspectPresets}
+                  defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
+                />
+              </div>
               <div className="md:col-span-2"><label className={labelCls}>{'\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 \u0432 \u0431\u0430\u043d\u0435\u0440\u0430'}</label><select className={inputCls} value={form.imagePlacement} onChange={(e) => setForm({ ...form, imagePlacement: e.target.value })}>{AD_IMAGE_PLACEMENTS.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></div>
               <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -484,6 +584,103 @@ export default function ManageAds() {
                 </p>
               </div>
             </div>
+            {form.image && form.imagePlacement === 'cover' && (
+              <div className="md:col-span-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Позициониране на фон</p>
+                    <p className="mt-1 text-sm text-sky-950">Мащабирай и премести изображението така, че да влиза точно в banner div-а.</p>
+                  </div>
+                  <div className="rounded-full border border-sky-200 bg-white px-3 py-1 text-[11px] font-semibold text-sky-700">
+                    {`${coverImageMeta.objectPosition} • ${Math.round(coverImageMeta.objectScale * 100)}%`}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
+                  <div className="overflow-hidden rounded-2xl border border-white/70 bg-[#0f172a] p-3">
+                    <div
+                      className="relative overflow-hidden rounded-[20px] border border-white/10 bg-black"
+                      style={{ aspectRatio: selectedTypeMeta.aspectRatio.replace(':', ' / ') }}
+                    >
+                      <img
+                        src={form.image}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
+                        style={{
+                          objectPosition: coverImageMeta.objectPosition,
+                          transform: coverImageMeta.objectScale !== 1 ? `scale(${coverImageMeta.objectScale})` : undefined,
+                          transformOrigin: coverImageMeta.objectPosition,
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-[#111827]/42 via-transparent to-[#111827]/42" />
+                      <div className="absolute inset-[10%] border border-dashed border-white/45" />
+                      <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/25" />
+                      <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/25" />
+                      <div
+                        className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-white/15 shadow-[0_0_0_3px_rgba(0,0,0,0.2)]"
+                        style={{ left: `${coverImageFocus.x}%`, top: `${coverImageFocus.y}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 rounded-2xl border border-white/70 bg-white/80 p-4">
+                    <div>
+                      <label className={labelCls}>Horizontal focus</label>
+                      <input type="range" min="0" max="100" step="1" value={coverImageFocus.x} onChange={(e) => setCoverFocusAxis('x', e.target.value)} className="w-full accent-sky-600" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Vertical focus</label>
+                      <input type="range" min="0" max="100" step="1" value={coverImageFocus.y} onChange={(e) => setCoverFocusAxis('y', e.target.value)} className="w-full accent-sky-600" />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Scale</label>
+                      <input type="range" min="1" max="2.4" step="0.05" value={coverImageMeta.objectScale} onChange={(e) => updateCoverImageMeta({ objectScale: clampAdScale(e.target.value) })} className="w-full accent-sky-600" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-sky-950">
+                      <div className="rounded-xl border border-sky-100 bg-white px-3 py-2">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Focus X</div>
+                        <div className="mt-1 font-semibold">{Math.round(coverImageFocus.x)}%</div>
+                      </div>
+                      <div className="rounded-xl border border-sky-100 bg-white px-3 py-2">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-sky-700">Focus Y</div>
+                        <div className="mt-1 font-semibold">{Math.round(coverImageFocus.y)}%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[
+                    { label: 'Left', action: () => setCoverFocusAxis('x', 0) },
+                    { label: 'Center', action: () => setCoverFocusAxis('x', 50) },
+                    { label: 'Right', action: () => setCoverFocusAxis('x', 100) },
+                    { label: 'Top', action: () => setCoverFocusAxis('y', 0) },
+                    { label: 'Middle', action: () => setCoverFocusAxis('y', 50) },
+                    { label: 'Bottom', action: () => setCoverFocusAxis('y', 100) },
+                    { label: '100%', action: () => updateCoverImageMeta({ objectScale: 1 }) },
+                    { label: '125%', action: () => updateCoverImageMeta({ objectScale: 1.25 }) },
+                    { label: '150%', action: () => updateCoverImageMeta({ objectScale: 1.5 }) },
+                  ].map((control) => (
+                    <button
+                      key={control.label}
+                      type="button"
+                      onClick={control.action}
+                      className="rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-800 transition-colors hover:border-sky-400 hover:text-sky-950"
+                    >
+                      {control.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => updateCoverImageMeta({ ...AD_DEFAULT_IMAGE_META })}
+                    className="rounded-full border border-slate-200 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="border-t border-gray-200 pt-5">
               <div className="mb-3"><h3 className="font-semibold text-gray-900">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</h3><p className="mt-1 text-xs text-gray-500">{'\u0418\u0437\u0431\u0435\u0440\u0438 slot-\u043e\u0432\u0435\u0442\u0435, \u0432 \u043a\u043e\u0438\u0442\u043e \u0440\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u043c\u043e\u0436\u0435 \u0434\u0430 \u0443\u0447\u0430\u0441\u0442\u0432\u0430.'}</p></div>
               <div className="space-y-4">{AD_PAGE_TYPES.map((pageType) => <div key={pageType} className="border border-gray-200 p-4"><p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">{PAGE_TYPE_LABELS[pageType]}</p><div className="space-y-2">{AD_SLOT_DEFINITIONS.filter((slot) => slot.pageType === pageType).map((slot) => { const checked = form.placements.includes(slot.id); const disabled = slot.variant !== form.type; return <label key={slot.id} className={`flex items-start gap-3 border p-3 ${checked ? 'border-zn-purple bg-zn-purple/5' : 'border-gray-200'} ${disabled ? 'opacity-40' : ''}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => handleToggle('placements', slot.id)} className="mt-1" /><span><span className="block text-sm font-semibold text-gray-900">{slot.label}</span><span className="block text-xs text-gray-500">{slot.description}</span><span className="mt-1 block text-[11px] text-gray-400">{'\u0424\u043e\u0440\u043c\u0430\u0442: '}{AD_TYPE_LABELS[slot.variant]}</span></span></label>; })}</div></div>)}</div>
@@ -547,7 +744,7 @@ export default function ManageAds() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {normalizedAds.map((ad) => {
           const metrics = analyticsByAdId.get(Number(ad.id)) || { impressions: 0, clicks: 0, ctr: 0, lastImpressionAt: null, lastClickAt: null };
-          return <div key={ad.id} className="border border-gray-200 bg-white"><div className="relative overflow-hidden p-4 text-white" style={{ backgroundColor: ad.color || '#990F3D' }}>{ad.image && <img src={ad.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${ad.imagePlacement === 'cover' ? 'opacity-100' : 'opacity-30'}`} />}<div className="relative z-10 flex items-center gap-2"><span className="text-xl">{ad.icon}</span><div><p className="text-sm font-bold">{ad.campaignName || ad.title}</p><p className="text-xs opacity-90">{ad.subtitle}</p></div></div><span className="relative z-10 mt-3 inline-block bg-white/20 px-3 py-1 text-xs font-semibold">{ad.cta}</span></div><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider"><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_TYPE_LABELS[ad.type] || ad.type}</span><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_STATUS_LABELS[ad.status] || ad.status}</span><span className="bg-blue-100 px-1.5 py-0.5 text-blue-700">P {ad.priority}</span><span className="bg-violet-100 px-1.5 py-0.5 text-violet-700">W {ad.weight}</span>{ad.link && ad.link !== '#' && <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-zn-hot"><ExternalLink className="h-3.5 w-3.5" /></a>}{ad.image && <span className="bg-purple-100 px-1.5 py-0.5 text-purple-700"><ImageIcon className="mr-0.5 inline h-3 w-3" />media</span>}</div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</p><div className="flex flex-wrap gap-1.5">{ad.placements.map((placement) => <span key={placement} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">{AD_SLOT_DEFINITIONS.find((slot) => slot.id === placement)?.label || placement}</span>)}</div></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Targeting</p><p className="text-sm text-gray-600">{summarizeTargeting(ad, categoriesById, articlesById)}</p></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Analytics</p><div className="grid grid-cols-3 gap-2 text-xs text-gray-600"><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Impr.</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.impressions}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Clicks</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.clicks}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">CTR</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : `${metrics.ctr}%`}</div></div></div></div><div className="flex items-center gap-1 border-t border-gray-100 pt-2"><button onClick={() => { setError(''); setEditing(ad.id); setForm(normalizeAdForm(ad)); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="h-4 w-4" /></button><button onClick={() => handleDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div></div>;
+          return <div key={ad.id} className="border border-gray-200 bg-white"><div className="relative overflow-hidden p-4 text-white" style={{ backgroundColor: ad.color || '#990F3D' }}>{ad.image && <img src={ad.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${ad.imagePlacement === 'cover' ? 'opacity-100' : 'opacity-30'}`} style={getAdAdminCardImageStyle(ad)} />}<div className="relative z-10 flex items-center gap-2"><span className="text-xl">{ad.icon}</span><div><p className="text-sm font-bold">{ad.campaignName || ad.title}</p><p className="text-xs opacity-90">{ad.subtitle}</p></div></div><span className="relative z-10 mt-3 inline-block bg-white/20 px-3 py-1 text-xs font-semibold">{ad.cta}</span></div><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider"><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_TYPE_LABELS[ad.type] || ad.type}</span><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_STATUS_LABELS[ad.status] || ad.status}</span><span className="bg-blue-100 px-1.5 py-0.5 text-blue-700">P {ad.priority}</span><span className="bg-violet-100 px-1.5 py-0.5 text-violet-700">W {ad.weight}</span>{ad.link && ad.link !== '#' && <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-zn-hot"><ExternalLink className="h-3.5 w-3.5" /></a>}{ad.image && <span className="bg-purple-100 px-1.5 py-0.5 text-purple-700"><ImageIcon className="mr-0.5 inline h-3 w-3" />media</span>}</div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</p><div className="flex flex-wrap gap-1.5">{ad.placements.map((placement) => <span key={placement} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">{AD_SLOT_DEFINITIONS.find((slot) => slot.id === placement)?.label || placement}</span>)}</div></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Targeting</p><p className="text-sm text-gray-600">{summarizeTargeting(ad, categoriesById, articlesById)}</p></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Analytics</p><div className="grid grid-cols-3 gap-2 text-xs text-gray-600"><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Impr.</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.impressions}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Clicks</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.clicks}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">CTR</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : `${metrics.ctr}%`}</div></div></div></div><div className="flex items-center gap-1 border-t border-gray-100 pt-2"><button onClick={() => { setError(''); setEditing(ad.id); setForm(normalizeAdForm(ad)); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="h-4 w-4" /></button><button onClick={() => handleDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div></div>;
         })}
         {normalizedAds.length === 0 && <div className="col-span-full py-12 text-center text-sm text-gray-400">{'\u041d\u044f\u043c\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0438'}</div>}
       </div>

@@ -32,7 +32,9 @@ import {
   countWordsFromHtml,
   estimateReadTimeFromHtml,
 } from '../../utils/richText';
+import UploadWatermarkToggle from './UploadWatermarkToggle';
 import { useData } from '../../context/DataContext';
+import useUploadWatermarkPreference from '../../hooks/useUploadWatermarkPreference';
 
 const IMAGE_WIDTH_VALUES = new Set(['25', '50', '75', '100']);
 const IMAGE_ALIGN_VALUES = new Set(['left', 'center', 'right']);
@@ -100,6 +102,7 @@ export default function RichTextEditor({
   const [embedUrl, setEmbedUrl] = useState('');
   const [mediaQuery, setMediaQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
+  const [applyWatermark, setApplyWatermark] = useUploadWatermarkPreference();
   const selectedImageRef = useRef(null);
 
   const filteredMedia = useMemo(() => {
@@ -336,7 +339,7 @@ export default function RichTextEditor({
 
     setIsUploading(true);
     try {
-      const uploaded = await uploadMedia(file);
+      const uploaded = await uploadMedia(file, { applyWatermark });
       // DataContext.uploadMedia doesn't necessarily return the full object in all paths, let's refresh instead if needed,
       // but it currently returns the uploaded object summary from api.media.upload.
       // If uploadMedia throws no error, let's just refresh the list and maybe pick the file later, 
@@ -389,7 +392,7 @@ export default function RichTextEditor({
 
     setIsUploading(true);
     try {
-      const uploaded = await uploadMedia(file);
+      const uploaded = await uploadMedia(file, { applyWatermark });
       if (uploaded && uploaded.url) {
         handleInsertImage(uploaded.url, uploaded.name || file.name);
       } else {
@@ -401,7 +404,7 @@ export default function RichTextEditor({
     } finally {
       setIsUploading(false);
     }
-  }, [uploadMedia, refreshMedia, handleInsertImage, captureSelectionRange]);
+  }, [applyWatermark, uploadMedia, refreshMedia, handleInsertImage, captureSelectionRange]);
 
   const handleInsertEmbed = useCallback((event) => {
     event.preventDefault();
@@ -569,10 +572,16 @@ export default function RichTextEditor({
         <span className="admin-rich-editor-divider" />
 
         <div className="admin-rich-editor-group">
-          <ToolbarButton onClick={handleOpenImagePicker} title="Вмъкни снимка от Media Library">
+          <UploadWatermarkToggle checked={applyWatermark} onChange={setApplyWatermark} />
+        </div>
+
+        <span className="admin-rich-editor-divider" />
+
+        <div className="admin-rich-editor-group">
+          <ToolbarButton onClick={handleOpenImagePicker} title="Insert image from Media Library">
             <ImageIcon className="w-4 h-4" />
           </ToolbarButton>
-          <ToolbarButton onClick={handleOpenEmbedPrompt} title="Вмъкни видео (YouTube, Vimeo)">
+          <ToolbarButton onClick={handleOpenEmbedPrompt} title="Insert video (YouTube, Vimeo)">
             <Video className="w-4 h-4" />
           </ToolbarButton>
         </div>
@@ -782,3 +791,4 @@ export default function RichTextEditor({
     </div>
   );
 }
+

@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useData } from '../../context/DataContext';
 import { Upload, Trash2, Copy, RefreshCw, Search, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
+import UploadWatermarkToggle from '../../components/admin/UploadWatermarkToggle';
 import { useToast } from '../../components/admin/Toast';
 import ImageEditorDialog from '../../components/admin/ImageEditorDialog';
+import useUploadWatermarkPreference from '../../hooks/useUploadWatermarkPreference';
 
 export default function ManageMedia() {
   const { media, mediaPipelineStatus, uploadMedia, deleteMedia, refreshMedia, backfillMediaPipeline } = useData();
@@ -17,6 +19,7 @@ export default function ManageMedia() {
   const [lastBackfillSummary, setLastBackfillSummary] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const [cropCandidate, setCropCandidate] = useState(null);
+  const [applyWatermark, setApplyWatermark] = useUploadWatermarkPreference();
   const fileRef = useRef(null);
   const uploadLockRef = useRef(false);
 
@@ -48,7 +51,7 @@ export default function ManageMedia() {
     try {
       for (const file of imageFiles) {
         try {
-          await uploadMedia(file, { skipRefresh: true });
+          await uploadMedia(file, { skipRefresh: true, applyWatermark });
           uploaded++;
         } catch {
           failed++;
@@ -68,7 +71,7 @@ export default function ManageMedia() {
       setUploadCount(0);
       if (fileRef.current) fileRef.current.value = '';
     }
-  }, [uploadMedia, refreshMedia, toast]);
+  }, [applyWatermark, uploadMedia, refreshMedia, toast]);
 
   const handleUpload = async (event) => {
     if (uploadLockRef.current) return;
@@ -197,6 +200,7 @@ export default function ManageMedia() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <UploadWatermarkToggle checked={applyWatermark} onChange={setApplyWatermark} />
           <button
             onClick={refreshMedia}
             className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors"
@@ -334,3 +338,4 @@ export default function ManageMedia() {
     </div>
   );
 }
+

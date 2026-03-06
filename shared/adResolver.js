@@ -247,6 +247,18 @@ export function buildAdRotationKey(context) {
   ].join('|');
 }
 
+export function normalizeAdImageMeta(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const match = String(source.objectPosition || '').match(/(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/);
+  const positionX = normalizeNumber(match?.[1], 50, { min: 0, max: 100 });
+  const positionY = normalizeNumber(match?.[2], 50, { min: 0, max: 100 });
+
+  return {
+    objectPosition: `${Math.round(positionX)}% ${Math.round(positionY)}%`,
+    objectScale: normalizeNumber(source.objectScale, 1, { min: 1, max: 2.4 }),
+  };
+}
+
 export function normalizeAdRecord(ad) {
   const normalizedType = normalizeType(ad?.type);
   const normalizedTargeting = normalizeTargeting(ad?.targeting);
@@ -260,6 +272,7 @@ export function normalizeAdRecord(ad) {
     status: normalizeStatus(ad?.status),
     campaignName: String(ad?.campaignName || '').trim(),
     notes: String(ad?.notes || '').trim(),
+    imageMeta: normalizeAdImageMeta(ad?.imageMeta),
     placements: normalizedPlacements,
     targeting: normalizedTargeting,
     priority: normalizeNumber(ad?.priority, 0, { min: -1000, max: 1000 }),
@@ -333,5 +346,7 @@ export function filterPublicAds(ads, now = new Date()) {
     .map(normalizeAdRecord)
     .filter((ad) => isAdPubliclyAvailable(ad, now));
 }
+
+
 
 

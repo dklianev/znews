@@ -697,7 +697,9 @@ export function DataProvider({ children }) {
     }
   }, []);
   const uploadMedia = useCallback(async (file, options = {}) => {
-    const uploaded = await api.media.upload(file);
+    const uploaded = await api.media.upload(file, {
+      applyWatermark: options?.applyWatermark !== false,
+    });
     if (!options?.skipRefresh) await refreshMedia();
     return uploaded;
   }, [refreshMedia]);
@@ -835,3 +837,4 @@ export function DataProvider({ children }) {
 }
 
 export const useData = () => useContext(DataContext);
+

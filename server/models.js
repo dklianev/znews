@@ -86,6 +86,7 @@ const adSchema = new mongoose.Schema({
   link: String,
   color: String,
   image: String,
+  imageMeta: { type: mongoose.Schema.Types.Mixed, default: null },
   imagePlacement: { type: String, enum: ['circle', 'cover'], default: 'circle' },
   status: { type: String, enum: ['draft', 'active', 'paused', 'archived'], default: 'active', index: true },
   campaignName: { type: String, default: '' },
@@ -519,5 +520,6 @@ export const Tip = mongoose.model('Tip', tipSchema);
 export const PushSubscription = mongoose.model('PushSubscription', pushSubscriptionSchema);
 export const GameDefinition = mongoose.model('GameDefinition', gameDefinitionSchema);
 export const GamePuzzle = mongoose.model('GamePuzzle', gamePuzzleSchema);
+
 
 

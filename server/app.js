@@ -4149,6 +4149,7 @@ function sanitizeAdPayload(payload, { partial = false } = {}) {
   if (!partial || hasOwn(source, 'link')) next.link = normalizeText(source.link, 400) || '#';
   if (!partial || hasOwn(source, 'color')) next.color = normalizeText(source.color, 40);
   if (!partial || hasOwn(source, 'image')) next.image = normalizeText(source.image, 600);
+  if (!partial || hasOwn(source, 'imageMeta')) next.imageMeta = source.imageMeta && typeof source.imageMeta === 'object' ? source.imageMeta : null;
   if (!partial || hasOwn(source, 'imagePlacement')) next.imagePlacement = normalizeAdImagePlacementInput(source.imagePlacement);
   if (!partial || hasOwn(source, 'status')) next.status = normalizeAdStatusInput(source.status);
   if (!partial || hasOwn(source, 'campaignName')) next.campaignName = normalizeText(source.campaignName, 120);
@@ -6534,11 +6535,13 @@ const recentUploadResults = new Map();
 const recentUploadTtlMs = 2 * 60 * 1000;
 const recentUploadCacheMax = 300;
 
-function makeUploadFingerprint(buffer, mimeType = '') {
+function makeUploadFingerprint(buffer, mimeType = '', applyWatermark = true) {
   return createHash('sha256')
     .update(buffer)
     .update('|')
     .update(String(mimeType || ''))
+    .update('|')
+    .update(applyWatermark ? 'wm:1' : 'wm:0')
     .digest('hex');
 }
 
@@ -6590,7 +6593,8 @@ app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'g
       }
 
       const mimeType = normalizeText(req.file.mimetype || '', 120).toLowerCase();
-      uploadFingerprint = makeUploadFingerprint(req.file.buffer, mimeType);
+      const applyWatermark = parseBooleanFlag(req.body?.applyWatermark, true);
+      uploadFingerprint = makeUploadFingerprint(req.file.buffer, mimeType, applyWatermark);
 
       const cachedPayload = getRecentUploadPayload(uploadFingerprint);
       if (cachedPayload) return res.json(cachedPayload);
@@ -6619,29 +6623,31 @@ app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'g
           };
         }
 
-        // Convert ALL uploads to highly optimized WebP format with Watermark
+        // Convert all uploads to optimized WebP and optionally stamp the brand watermark.
         const imgSharp = sharp(req.file.buffer).rotate();
         const metadata = await imgSharp.metadata();
 
-        const watermarkPath = path.join(__dirname, 'fonts', 'brand-logo.png');
         let finalBuffer;
-        try {
-          // Watermark size: 20% of image width
-          const wmWidth = Math.max(100, Math.round((metadata.width || 800) * 0.20));
-          const wmBuffer = await sharp(watermarkPath).resize({ width: wmWidth }).toBuffer();
-          const wmMeta = await sharp(wmBuffer).metadata();
+        if (applyWatermark) {
+          const watermarkPath = path.join(__dirname, 'fonts', 'brand-logo.png');
+          try {
+            const wmWidth = Math.max(100, Math.round((metadata.width || 800) * 0.20));
+            const wmBuffer = await sharp(watermarkPath).resize({ width: wmWidth }).toBuffer();
+            const wmMeta = await sharp(wmBuffer).metadata();
 
-          // 3% margin from bottom right
-          const margin = Math.round((metadata.width || 800) * 0.03);
-          const left = (metadata.width || 800) - (wmMeta.width || wmWidth) - margin;
-          const top = (metadata.height || 600) - (wmMeta.height || wmWidth / 4) - margin;
+            const margin = Math.round((metadata.width || 800) * 0.03);
+            const left = (metadata.width || 800) - (wmMeta.width || wmWidth) - margin;
+            const top = (metadata.height || 600) - (wmMeta.height || wmWidth / 4) - margin;
 
-          finalBuffer = await imgSharp
-            .composite([{ input: wmBuffer, left: Math.max(0, left), top: Math.max(0, top), blend: 'over' }])
-            .webp({ quality: 82, effort: 4 })
-            .toBuffer();
-        } catch (e) {
-          console.error('Watermark failed, falling back to simple WebP:', e);
+            finalBuffer = await imgSharp
+              .composite([{ input: wmBuffer, left: Math.max(0, left), top: Math.max(0, top), blend: 'over' }])
+              .webp({ quality: 82, effort: 4 })
+              .toBuffer();
+          } catch (e) {
+            console.error('Watermark failed, falling back to simple WebP:', e);
+            finalBuffer = await imgSharp.webp({ quality: 82, effort: 4 }).toBuffer();
+          }
+        } else {
           finalBuffer = await imgSharp.webp({ quality: 82, effort: 4 }).toBuffer();
         }
 
@@ -7147,3 +7153,5 @@ export async function startServer() {
     process.exit(1);
   });
 }
+
+

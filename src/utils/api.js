@@ -413,9 +413,10 @@ export const api = {
       }),
     }),
     delete: (fileName) => request(`/media/${encodeURIComponent(fileName)}`, { method: 'DELETE' }),
-    upload: (file) => {
+    upload: (file, options = {}) => {
       const fd = new FormData();
       fd.append('image', file);
+      fd.append('applyWatermark', options.applyWatermark === false ? 'false' : 'true');
       return request('/upload', {
         method: 'POST',
         body: fd,
@@ -520,3 +521,4 @@ export const api = {
 
   reset: () => request('/reset', { method: 'POST' }),
 };
+
