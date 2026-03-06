@@ -53,18 +53,10 @@ export async function ensureGameDefinitions(gameSlugs = DEFAULT_GAME_SLUGS) {
     await GameDefinition.updateOne(
       { slug: definition.slug },
       {
-        $set: {
-          title: definition.title,
-          type: definition.type,
-          description: definition.description,
-          icon: definition.icon,
-          sortOrder: definition.sortOrder,
-          theme: definition.theme,
-        },
         $setOnInsert: {
-          id: definition.id,
-          active: definition.active,
+          ...definition,
           createdAt: new Date(),
+          updatedAt: new Date(),
         },
       },
       { upsert: true }

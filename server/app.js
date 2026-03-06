@@ -358,10 +358,7 @@ const articleViewWindowMs = Math.max(
   60 * 1000,
   Number.parseInt(process.env.ARTICLE_VIEW_WINDOW_MS || '', 10) || (6 * 60 * 60 * 1000)
 );
-const adImpressionWindowMs = Math.max(
-  60 * 1000,
-  Number.parseInt(process.env.AD_IMPRESSION_WINDOW_MS || '', 10) || AD_IMPRESSION_WINDOW_MS
-);
+const adImpressionWindowMs = AD_IMPRESSION_WINDOW_MS;
 const adAnalyticsRetentionMs = AD_ANALYTICS_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const storageDriverInput = String(process.env.STORAGE_DRIVER || 'disk').trim().toLowerCase();
 const storageDriver = ['disk', 'spaces', 'azure'].includes(storageDriverInput) ? storageDriverInput : 'disk';

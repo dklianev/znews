@@ -1,8 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider, useData } from './context/DataContext';
 import { AnimatePresence, motion } from 'framer-motion';
+import { api } from './utils/api';
 import Navbar from './components/Navbar';
 import BreakingTicker from './components/BreakingTicker';
 import Footer from './components/Footer';
@@ -119,7 +120,44 @@ function AdminPermissionRoute({ permission, children }) {
   if (permission && !hasPermission(permission)) return <Navigate to="/admin" replace />;
   return children;
 }
+function PublicGameRoute({ slug, children }) {
+  const { session, hasPermission } = useData();
+  const canManageGames = Boolean(session) && hasPermission('games');
+  const [routeState, setRouteState] = useState({
+    loading: !canManageGames,
+    isAvailable: canManageGames,
+  });
 
+  useEffect(() => {
+    if (canManageGames) {
+      setRouteState({ loading: false, isAvailable: true });
+      return undefined;
+    }
+
+    let cancelled = false;
+    setRouteState({ loading: true, isAvailable: false });
+
+    api.games.getAll()
+      .then((data) => {
+        if (cancelled) return;
+        const activeGames = Array.isArray(data) ? data : [];
+        const isAvailable = activeGames.some((game) => String(game?.slug || '').toLowerCase() === slug);
+        setRouteState({ loading: false, isAvailable });
+      })
+      .catch((error) => {
+        console.error('Failed to load active games for route guard:', error);
+        if (!cancelled) setRouteState({ loading: false, isAvailable: false });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canManageGames, slug]);
+
+  if (routeState.loading) return <PublicPageFallback />;
+  if (!routeState.isAvailable) return <NotFoundPage />;
+  return children;
+}
 function PublicLayout() {
   const location = useLocation();
   return (
@@ -207,10 +245,10 @@ function AppContent() {
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/tipline" element={<TipLine />} />
           <Route path="/games" element={<GamesPage />} />
-          <Route path="/games/word" element={<GameWordPage />} />
-          <Route path="/games/connections" element={<GameConnectionsPage />} />
-          <Route path="/games/quiz" element={<GameQuizPage />} />
-          <Route path="/games/sudoku" element={<GameSudokuPage />} />
+          <Route path="/games/word" element={<PublicGameRoute slug="word"><GameWordPage /></PublicGameRoute>} />
+          <Route path="/games/connections" element={<PublicGameRoute slug="connections"><GameConnectionsPage /></PublicGameRoute>} />
+          <Route path="/games/quiz" element={<PublicGameRoute slug="quiz"><GameQuizPage /></PublicGameRoute>} />
+          <Route path="/games/sudoku" element={<PublicGameRoute slug="sudoku"><GameSudokuPage /></PublicGameRoute>} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

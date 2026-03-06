@@ -5,7 +5,7 @@ import { getTodayStr } from '../../utils/gameDate';
 import { Link } from 'react-router-dom';
 import { Gamepad2, ChevronRight, Check } from 'lucide-react';
 import { getGameIconComponent } from '../../utils/gameIcons';
-import { ensureSudokuGameList } from '../../utils/gamesCatalog';
+import { sortGamesCatalog } from '../../utils/gamesCatalog';
 
 export default function GamesDailyStatus() {
     const [games, setGames] = useState([]);
@@ -14,7 +14,7 @@ export default function GamesDailyStatus() {
         // Light client-side fetch for the active games
         api.games.getAll().then(data => {
             const todayStr = getTodayStr();
-            const decorated = ensureSudokuGameList(Array.isArray(data) ? data : []).map(g => {
+            const decorated = sortGamesCatalog(Array.isArray(data) ? data : []).map(g => {
                 const progress = loadGameProgress(g.slug, todayStr);
                 const gameStatus = progress?.gameStatus || '';
                 return {
@@ -27,13 +27,7 @@ export default function GamesDailyStatus() {
             setGames(decorated);
         }).catch((error) => {
             console.error(error);
-            const decorated = ensureSudokuGameList([]).map((g) => ({
-                ...g,
-                isPlayed: false,
-                isWon: false,
-                isLost: false,
-            }));
-            setGames(decorated);
+            setGames([]);
         });
     }, []);
 
