@@ -2,10 +2,10 @@ import { GameDefinition, GamePuzzle } from './models.js';
 import { createGamePuzzleTemplate } from '../shared/gamePuzzleTemplates.js';
 
 export const DEFAULT_GAME_DEFINITIONS = Object.freeze([
-  { id: 1, slug: 'word', title: 'Думата на деня', type: 'word', description: 'Познай тайната 5-буквена дума за 6 опита.', icon: 'Type', active: true, sortOrder: 1, theme: 'green' },
-  { id: 2, slug: 'connections', title: 'Връзки', type: 'connections', description: 'Групирай 16-те думи в 4 категории по 4 логически свързани думи.', icon: 'Link', active: true, sortOrder: 2, theme: 'indigo' },
-  { id: 3, slug: 'quiz', title: 'Новинарски тест', type: 'quiz', description: 'Провери знанията си за събитията в града от изминалата седмица.', icon: 'HelpCircle', active: true, sortOrder: 3, theme: 'orange' },
-  { id: 4, slug: 'sudoku', title: 'Sudoku', type: 'sudoku', description: 'Unlimited Sudoku with Easy, Medium, Hard and Expert.', icon: 'Grid3x3', active: true, sortOrder: 4, theme: 'purple' },
+  { id: 1, slug: 'word', title: '\u0414\u0443\u043c\u0430\u0442\u0430 \u043d\u0430 \u0434\u0435\u043d\u044f', type: 'word', description: '\u041f\u043e\u0437\u043d\u0430\u0439 \u0442\u0430\u0439\u043d\u0430\u0442\u0430 5-\u0431\u0443\u043a\u0432\u0435\u043d\u0430 \u0434\u0443\u043c\u0430 \u0437\u0430 6 \u043e\u043f\u0438\u0442\u0430.', icon: 'Type', active: true, sortOrder: 1, theme: 'green' },
+  { id: 2, slug: 'connections', title: '\u0412\u0440\u044a\u0437\u043a\u0438', type: 'connections', description: '\u0413\u0440\u0443\u043f\u0438\u0440\u0430\u0439 16-\u0442\u0435 \u0434\u0443\u043c\u0438 \u0432 4 \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0438 \u043f\u043e 4 \u043b\u043e\u0433\u0438\u0447\u0435\u0441\u043a\u0438 \u0441\u0432\u044a\u0440\u0437\u0430\u043d\u0438 \u0434\u0443\u043c\u0438.', icon: 'Link', active: true, sortOrder: 2, theme: 'indigo' },
+  { id: 3, slug: 'quiz', title: '\u041d\u043e\u0432\u0438\u043d\u0430\u0440\u0441\u043a\u0438 \u0442\u0435\u0441\u0442', type: 'quiz', description: '\u041f\u0440\u043e\u0432\u0435\u0440\u0438 \u0437\u043d\u0430\u043d\u0438\u044f\u0442\u0430 \u0441\u0438 \u0437\u0430 \u0441\u044a\u0431\u0438\u0442\u0438\u044f\u0442\u0430 \u0432 \u0433\u0440\u0430\u0434\u0430 \u043e\u0442 \u0438\u0437\u043c\u0438\u043d\u0430\u043b\u0430\u0442\u0430 \u0441\u0435\u0434\u043c\u0438\u0446\u0430.', icon: 'HelpCircle', active: true, sortOrder: 3, theme: 'orange' },
+  { id: 4, slug: 'sudoku', title: '\u0421\u0443\u0434\u043e\u043a\u0443', type: 'sudoku', description: '\u0411\u0435\u0437\u043a\u0440\u0430\u0439\u043d\u043e \u0421\u0443\u0434\u043e\u043a\u0443 \u0441 \u041b\u0435\u0441\u043d\u043e, \u0421\u0440\u0435\u0434\u043d\u043e, \u0422\u0440\u0443\u0434\u043d\u043e \u0438 \u0415\u043a\u0441\u043f\u0435\u0440\u0442.', icon: 'Grid3x3', active: true, sortOrder: 4, theme: 'purple' },
 ]);
 
 const DEFAULT_GAME_SLUGS = DEFAULT_GAME_DEFINITIONS.map((game) => game.slug);
@@ -161,5 +161,7 @@ export async function seedGamesOnly(options = {}) {
 
   return results;
 }
+
+
 
 
