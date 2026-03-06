@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 
-import { filterPublicAds, normalizeAdRecord, resolveAdForSlot } from '../shared/adResolver.js';
+import {
+  buildAdRotationKey,
+  filterPublicAds,
+  getAdRotationPool,
+  normalizeAdRecord,
+  resolveAdForSlot,
+} from '../shared/adResolver.js';
 
 export function runAdResolverTests() {
   const baseAds = [
@@ -111,4 +117,74 @@ export function runAdResolverTests() {
     pageType: 'home',
   });
   assert.equal(wrongType, null, 'ads with incompatible slot/type combinations should not resolve');
+
+  const rotationAds = [
+    {
+      id: 41,
+      type: 'horizontal',
+      status: 'active',
+      title: 'Rotation A',
+      cta: 'Open',
+      link: 'https://example.com/a',
+      placements: ['home.top'],
+      priority: 10,
+      weight: 1,
+    },
+    {
+      id: 42,
+      type: 'horizontal',
+      status: 'active',
+      title: 'Rotation B',
+      cta: 'Open',
+      link: 'https://example.com/b',
+      placements: ['home.top'],
+      priority: 10,
+      weight: 4,
+    },
+  ];
+
+  const rotationPool = getAdRotationPool(rotationAds, {
+    slot: 'home.top',
+    pageType: 'home',
+    rotationKey: 'rotation-check',
+  });
+  assert.deepEqual(rotationPool.map((ad) => ad.id), [41, 42], 'ads with same specificity and priority should enter the rotation pool');
+
+  const selections = new Map();
+  for (let index = 0; index < 200; index += 1) {
+    const selected = resolveAdForSlot(rotationAds, {
+      slot: 'home.top',
+      pageType: 'home',
+      rotationKey: buildAdRotationKey({
+        slot: 'home.top',
+        pageType: 'home',
+        rotationSeed: `viewer-${index}`,
+        rotationWindowKey: 10,
+      }),
+    });
+    const key = selected?.id || 0;
+    selections.set(key, (selections.get(key) || 0) + 1);
+  }
+  assert((selections.get(41) || 0) > 0, 'rotation should allow lighter ads to appear');
+  assert((selections.get(42) || 0) > (selections.get(41) || 0), 'heavier ads should win more often across the rotation pool');
+
+  const priorityStillWins = resolveAdForSlot([
+    ...rotationAds,
+    {
+      id: 43,
+      type: 'horizontal',
+      status: 'active',
+      title: 'Priority Winner',
+      cta: 'Open',
+      link: 'https://example.com/winner',
+      placements: ['home.top'],
+      priority: 11,
+      weight: 1,
+    },
+  ], {
+    slot: 'home.top',
+    pageType: 'home',
+    rotationKey: 'priority-check',
+  });
+  assert.equal(priorityStillWins?.id, 43, 'higher priority should beat the rotation pool entirely');
 }

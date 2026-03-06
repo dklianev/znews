@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { AdBannerHorizontal, AdBannerInline, AdBannerSide } from '../AdBanner';
 import { getAdSlot } from '../../../shared/adSlots.js';
-import { resolveAdForSlot } from '../../../shared/adResolver.js';
-import { AD_IMPRESSION_WINDOW_MS, buildAdImpressionStorageKey, getAnalyticsWindowKey } from '../../../shared/adAnalytics.js';
+import { AD_IMPRESSION_WINDOW_MS, AD_ROTATION_WINDOW_MS, buildAdImpressionStorageKey, getAnalyticsWindowKey } from '../../../shared/adAnalytics.js';
+import { buildAdRotationKey, resolveAdForSlot } from '../../../shared/adResolver.js';
 import { api } from '../../utils/api';
 
 const BANNERS_BY_VARIANT = {
@@ -11,12 +11,36 @@ const BANNERS_BY_VARIANT = {
   side: AdBannerSide,
 };
 
-function getSessionStorage() {
+const AD_ROTATION_SEED_KEY = 'zn_ad_rotation_seed';
+
+function getWebStorage(type) {
   if (typeof window === 'undefined') return null;
   try {
-    return window.sessionStorage;
+    return window[type];
   } catch {
     return null;
+  }
+}
+
+function getSessionStorage() {
+  return getWebStorage('sessionStorage');
+}
+
+function getPersistentRotationSeed() {
+  const storage = getWebStorage('localStorage');
+  if (!storage) return 'viewer-anon';
+
+  try {
+    const existing = storage.getItem(AD_ROTATION_SEED_KEY);
+    if (existing) return existing;
+
+    const generated = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `viewer-${Math.random().toString(36).slice(2, 12)}`;
+    storage.setItem(AD_ROTATION_SEED_KEY, generated);
+    return generated;
+  } catch {
+    return 'viewer-anon';
   }
 }
 
@@ -29,6 +53,23 @@ export default function AdSlot({
   className = '',
 }) {
   const slotMeta = getAdSlot(slot);
+  const rotationSeed = useMemo(() => getPersistentRotationSeed(), []);
+  const rotationWindowKey = useMemo(
+    () => getAnalyticsWindowKey(AD_ROTATION_WINDOW_MS),
+    [articleId, categoryId, pageType, slot]
+  );
+  const rotationKey = useMemo(() => {
+    if (!slotMeta) return '';
+    return buildAdRotationKey({
+      slot,
+      pageType: pageType || slotMeta.pageType,
+      articleId,
+      categoryId,
+      rotationSeed,
+      rotationWindowKey,
+    });
+  }, [articleId, categoryId, pageType, rotationSeed, rotationWindowKey, slot, slotMeta]);
+
   const resolvedAd = useMemo(() => {
     if (!slotMeta) return null;
     return resolveAdForSlot(ads, {
@@ -36,8 +77,10 @@ export default function AdSlot({
       pageType: pageType || slotMeta.pageType,
       articleId,
       categoryId,
+      rotationKey,
+      rotationWindowKey,
     });
-  }, [ads, articleId, categoryId, pageType, slot, slotMeta]);
+  }, [ads, articleId, categoryId, pageType, rotationKey, rotationWindowKey, slot, slotMeta]);
 
   const analyticsContext = useMemo(() => {
     if (!slotMeta || !resolvedAd) return null;
@@ -47,8 +90,9 @@ export default function AdSlot({
       pageType: pageType || slotMeta.pageType,
       articleId: Number.isInteger(parsedArticleId) ? parsedArticleId : null,
       categoryId: String(categoryId || '').trim().toLowerCase(),
+      rotationKey,
     };
-  }, [articleId, categoryId, pageType, resolvedAd, slot, slotMeta]);
+  }, [articleId, categoryId, pageType, resolvedAd, rotationKey, slot, slotMeta]);
 
   useEffect(() => {
     if (!resolvedAd || !analyticsContext) return;

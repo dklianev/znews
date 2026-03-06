@@ -4168,12 +4168,14 @@ function sanitizeAdAnalyticsContext(payload) {
   const parsedArticleId = Number.parseInt(payload?.articleId, 10);
   const articleId = Number.isInteger(parsedArticleId) && parsedArticleId > 0 ? parsedArticleId : null;
   const categoryId = normalizeText(payload?.categoryId, 64).toLowerCase();
+  const rotationKey = normalizeText(payload?.rotationKey, 240);
 
   return {
     slot: slotId,
     pageType,
     articleId,
     categoryId,
+    rotationKey,
   };
 }
 
@@ -7066,4 +7068,5 @@ export async function startServer() {
     process.exit(1);
   });
 }
+
 
