@@ -1,9 +1,9 @@
 const LOCAL_SUDOKU_GAME = Object.freeze({
   id: 'local-sudoku',
   slug: 'sudoku',
-  title: 'Sudoku',
+  title: 'Судоку',
   type: 'sudoku',
-  description: 'Unlimited Sudoku with Easy, Medium, Hard and Expert.',
+  description: 'Безкрайно Судоку с Лесно, Средно, Трудно и Експерт.',
   icon: 'Grid3x3',
   active: true,
   sortOrder: 4,
@@ -29,3 +29,4 @@ export function ensureSudokuGameList(items) {
     return leftTitle.localeCompare(rightTitle);
   });
 }
+

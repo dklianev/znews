@@ -228,7 +228,7 @@ export default function ManageGamePuzzles() {
                     <div>
                         <h1 className="text-2xl font-display font-bold text-gray-900 flex items-center gap-2"><Puzzle className="w-6 h-6 text-zn-purple" />Игрови Пъзели</h1>
                         <p className="text-sm font-sans text-gray-500 mt-1">Само games workflow: създава чернови и редактира `GamePuzzle`, без да пипа другите колекции.</p>
-                        <p className="text-xs font-sans text-gray-400 mt-1">Sudoku is an unlimited local game and is excluded from GamePuzzle management.</p>
+                        <p className="text-xs font-sans text-gray-400 mt-1">Судоку е безкрайна локална игра и не участва в управлението на GamePuzzle.</p>
                     </div>
                     <div className="flex items-center gap-4">
                         <select value={selectedGameSlug} disabled={isEditing} onChange={(e) => setSelectedGameSlug(e.target.value)} className="border border-gray-300 rounded-lg px-4 py-2 text-sm font-sans font-bold uppercase tracking-wider text-gray-800 bg-white cursor-pointer min-w-[220px] shadow-sm disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400">
@@ -333,5 +333,6 @@ export default function ManageGamePuzzles() {
         </div>
     );
 }
+
 
 

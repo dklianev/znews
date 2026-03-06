@@ -8,6 +8,7 @@ export default function SudokuKeypad({
   onHint,
   onNewGame,
   disabled = false,
+  hintDisabled = false,
 }) {
   return (
     <div className="w-full max-w-[620px] mx-auto mt-4 space-y-3">
@@ -35,7 +36,7 @@ export default function SudokuKeypad({
             : 'bg-white text-[#1C1428] hover:bg-zn-purple hover:text-white'}`}
         >
           <PencilLine className="w-4 h-4" />
-          Notes
+          Бележки
         </button>
 
         <button
@@ -45,17 +46,17 @@ export default function SudokuKeypad({
           className="inline-flex items-center justify-center gap-2 border-2 border-[#1C1428] bg-white px-3 py-2 text-xs sm:text-sm font-black uppercase tracking-wider text-[#1C1428] hover:bg-zn-hot hover:text-white transition-colors disabled:opacity-50"
         >
           <Eraser className="w-4 h-4" />
-          Clear
+          Изчисти
         </button>
 
         <button
           type="button"
-          disabled={disabled}
+          disabled={disabled || hintDisabled}
           onClick={onHint}
           className="inline-flex items-center justify-center gap-2 border-2 border-[#1C1428] bg-white px-3 py-2 text-xs sm:text-sm font-black uppercase tracking-wider text-[#1C1428] hover:bg-zn-orange hover:text-white transition-colors disabled:opacity-50"
         >
           <Lightbulb className="w-4 h-4" />
-          Hint
+          Подсказка
         </button>
 
         <button
@@ -65,9 +66,11 @@ export default function SudokuKeypad({
           className="inline-flex items-center justify-center gap-2 border-2 border-[#1C1428] bg-white px-3 py-2 text-xs sm:text-sm font-black uppercase tracking-wider text-[#1C1428] hover:bg-zn-purple hover:text-white transition-colors disabled:opacity-50"
         >
           <RefreshCw className="w-4 h-4" />
-          New
+          Нова игра
         </button>
       </div>
     </div>
   );
 }
+
+

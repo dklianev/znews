@@ -25,6 +25,12 @@ import SudokuKeypad from '../components/games/sudoku/SudokuKeypad';
 const GAME_SLUG = 'sudoku';
 const STORAGE_KEY = 'zn_sudoku_state_v1';
 const DIFFICULTIES = Object.keys(SUDOKU_DIFFICULTY_CONFIG);
+const HINT_LIMIT_BY_DIFFICULTY = Object.freeze({
+  easy: 4,
+  medium: 3,
+  hard: 2,
+  expert: 1,
+});
 
 function getDefaultSelection(grid) {
   for (let row = 0; row < 9; row += 1) {
@@ -73,6 +79,7 @@ function loadStoredSudokuState() {
     const solutionGrid = sanitizeGrid(parsed?.solutionGrid);
     const grid = sanitizeGrid(parsed?.grid);
     if (!difficulty || !initialGrid || !solutionGrid || !grid) return null;
+    const hintLimit = HINT_LIMIT_BY_DIFFICULTY[difficulty] ?? HINT_LIMIT_BY_DIFFICULTY.medium;
 
     const selectedRow = Number.parseInt(parsed?.selectedCell?.row, 10);
     const selectedColumn = Number.parseInt(parsed?.selectedCell?.column, 10);
@@ -90,6 +97,7 @@ function loadStoredSudokuState() {
       notesMode: Boolean(parsed?.notesMode),
       status: parsed?.status === 'won' ? 'won' : 'playing',
       elapsedSeconds: Math.max(0, Number.parseInt(parsed?.elapsedSeconds, 10) || 0),
+      hintsUsed: Math.max(0, Math.min(hintLimit, Number.parseInt(parsed?.hintsUsed, 10) || 0)),
     };
   } catch {
     return null;
@@ -163,11 +171,14 @@ export default function GameSudokuPage() {
   const [notesMode, setNotesMode] = useState(false);
   const [status, setStatus] = useState('loading');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [hintsUsed, setHintsUsed] = useState(0);
   const [loadingPuzzle, setLoadingPuzzle] = useState(true);
   const [message, setMessage] = useState('');
   const [showHelp, setShowHelp] = useState(false);
 
   const winRecordedRef = useRef(false);
+  const hintLimit = HINT_LIMIT_BY_DIFFICULTY[difficulty] ?? HINT_LIMIT_BY_DIFFICULTY.medium;
+  const hintsRemaining = Math.max(0, hintLimit - hintsUsed);
 
   const conflicts = useMemo(() => getConflictingCells(grid), [grid]);
 
@@ -178,7 +189,7 @@ export default function GameSudokuPage() {
 
     setLoadingPuzzle(true);
     setStatus('loading');
-    setMessage('Generating puzzle...');
+    setMessage('Генериране на пъзел...');
 
     window.setTimeout(() => {
       const generated = generateSudokuPuzzle(normalizedDifficulty);
@@ -192,6 +203,7 @@ export default function GameSudokuPage() {
       setSelectedCell(getDefaultSelection(puzzleGrid));
       setNotesMode(false);
       setElapsedSeconds(0);
+      setHintsUsed(0);
       setStatus('playing');
       setLoadingPuzzle(false);
       setMessage('');
@@ -215,6 +227,7 @@ export default function GameSudokuPage() {
     setNotesMode(Boolean(saved.notesMode));
     setStatus(saved.status === 'won' ? 'won' : 'playing');
     setElapsedSeconds(saved.elapsedSeconds);
+    setHintsUsed(saved.hintsUsed || 0);
     setLoadingPuzzle(false);
     setMessage('');
     winRecordedRef.current = saved.status === 'won';
@@ -241,8 +254,9 @@ export default function GameSudokuPage() {
       notesMode,
       status,
       elapsedSeconds,
+      hintsUsed,
     });
-  }, [difficulty, elapsedSeconds, grid, initialGrid, loadingPuzzle, notes, notesMode, selectedCell, solutionGrid, status]);
+  }, [difficulty, elapsedSeconds, grid, hintsUsed, initialGrid, loadingPuzzle, notes, notesMode, selectedCell, solutionGrid, status]);
 
   useEffect(() => {
     if (status !== 'playing') return;
@@ -251,7 +265,7 @@ export default function GameSudokuPage() {
     if (!isGridSolved(grid, solutionGrid)) return;
 
     setStatus('won');
-    setMessage('Perfect run. Puzzle solved.');
+    setMessage('Перфектна игра. Пъзелът е решен.');
 
     if (!winRecordedRef.current) {
       const today = getTodayStr();
@@ -261,10 +275,11 @@ export default function GameSudokuPage() {
         gameStatus: 'won',
         difficulty,
         elapsedSeconds,
+        hintsUsed,
       });
       winRecordedRef.current = true;
     }
-  }, [conflicts, difficulty, elapsedSeconds, grid, solutionGrid, status]);
+  }, [conflicts, difficulty, elapsedSeconds, grid, hintsUsed, solutionGrid, status]);
 
   const setCellValue = useCallback((digit) => {
     if (status !== 'playing') return;
@@ -309,6 +324,10 @@ export default function GameSudokuPage() {
 
   const giveHint = useCallback(() => {
     if (status !== 'playing') return;
+    if (hintsUsed >= hintLimit) {
+      setMessage(`Лимитът за подсказки е изчерпан (${hintLimit}).`);
+      return;
+    }
 
     let row = Number(selectedCell?.row);
     let column = Number(selectedCell?.column);
@@ -318,7 +337,7 @@ export default function GameSudokuPage() {
       row = fallbackCell.row;
       column = fallbackCell.column;
       if (!isCellEditable(initialGrid, row, column)) {
-        setMessage('No available hint cell.');
+        setMessage('Няма свободна клетка за подсказка.');
         return;
       }
     }
@@ -332,28 +351,29 @@ export default function GameSudokuPage() {
       next[row][column] = value;
       return next;
     });
+    setHintsUsed((current) => Math.min(hintLimit, current + 1));
     setNotes((current) => clearDigitFromPeers(clearCellNotes(current, row, column), row, column, value));
-    setMessage('Hint applied.');
-  }, [grid, initialGrid, selectedCell, solutionGrid, status]);
+    setMessage('Подсказката е приложена.');
+  }, [grid, hintLimit, hintsUsed, initialGrid, selectedCell, solutionGrid, status]);
 
   const runValidation = useCallback(() => {
     if (status === 'won') {
-      setMessage('Puzzle already solved.');
+      setMessage('Пъзелът вече е решен.');
       return;
     }
 
     if (conflicts.size > 0) {
-      setMessage('There are conflicting cells on the board.');
+      setMessage('Има конфликтни клетки на дъската.');
       return;
     }
 
     if (isGridSolved(grid, solutionGrid)) {
       setStatus('won');
-      setMessage('Perfect run. Puzzle solved.');
+      setMessage('Перфектна игра. Пъзелът е решен.');
       return;
     }
 
-    setMessage('Keep going. You are close.');
+    setMessage('Продължавай, близо си.');
   }, [conflicts, grid, solutionGrid, status]);
 
   const handleDifficultyChange = useCallback((target) => {
@@ -365,14 +385,14 @@ export default function GameSudokuPage() {
     if (status !== 'won') return;
 
     const shareText = [
-      `zNews Sudoku ${difficulty.toUpperCase()}`,
-      `Time: ${formatElapsedTime(elapsedSeconds)}`,
-      `Date: ${getTodayStr()}`,
+      `zNews Судоку ${difficulty.toUpperCase()}`,
+      `Време: ${formatElapsedTime(elapsedSeconds)}`,
+      `Дата: ${getTodayStr()}`,
     ].join('\n');
 
     navigator.clipboard.writeText(shareText)
-      .then(() => setMessage('Result copied to clipboard.'))
-      .catch(() => setMessage('Clipboard access failed.'));
+      .then(() => setMessage('Резултатът е копиран в клипборда.'))
+      .catch(() => setMessage('Нямам достъп до клипборда.'));
   }, [difficulty, elapsedSeconds, status]);
 
   useEffect(() => {
@@ -442,11 +462,11 @@ export default function GameSudokuPage() {
     <div className="min-h-screen bg-zn-paper text-slate-900 pb-20">
       <header className="w-full border-b border-stone-200 bg-white/80 backdrop-blur mb-6">
         <div className="w-full max-w-6xl mx-auto flex items-center justify-between p-4">
-          <Link to="/games" className="text-slate-500 hover:text-slate-900 transition-colors" aria-label="Back to games">
+          <Link to="/games" className="text-slate-500 hover:text-slate-900 transition-colors" aria-label="Назад към игрите">
             <ArrowLeft className="w-6 h-6" />
           </Link>
-          <h1 className="text-xl sm:text-2xl font-display font-black uppercase tracking-widest">Sudoku</h1>
-          <button onClick={() => setShowHelp(true)} className="text-slate-500 hover:text-slate-900 transition-colors" aria-label="Sudoku help">
+          <h1 className="text-xl sm:text-2xl font-display font-black uppercase tracking-widest">Судоку</h1>
+          <button onClick={() => setShowHelp(true)} className="text-slate-500 hover:text-slate-900 transition-colors" aria-label="Помощ за Судоку">
             <HelpCircle className="w-6 h-6" />
           </button>
         </div>
@@ -458,8 +478,8 @@ export default function GameSudokuPage() {
             <div className="absolute -top-2 right-8 w-14 h-5 bg-yellow-200/70 border border-black/5 transform rotate-4 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 relative z-[2]">
               <div>
-                <p className="text-xs font-display font-bold uppercase tracking-[0.28em] text-zn-hot">Unlimited mode</p>
-                <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-wide mt-2">Play anytime, all difficulties</h2>
+                <p className="text-xs font-display font-bold uppercase tracking-[0.28em] text-zn-hot">Безкраен режим</p>
+                <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-wide mt-2">Играй по всяко време, всички трудности</h2>
               </div>
               <div className="text-sm font-display font-black uppercase tracking-wider text-zn-text-dim inline-flex items-center gap-2">
                 <Timer className="w-4 h-4" /> {formatElapsedTime(elapsedSeconds)}
@@ -488,7 +508,7 @@ export default function GameSudokuPage() {
 
           {loadingPuzzle ? (
             <div className="w-full max-w-[620px] mx-auto h-[420px] sm:h-[620px] flex items-center justify-center border-2 border-[#1C1428] bg-white shadow-comic-heavy">
-              <span className="font-display font-black uppercase tracking-wider text-zn-text-dim">Preparing board...</span>
+              <span className="font-display font-black uppercase tracking-wider text-zn-text-dim">Подготвяне на дъската...</span>
             </div>
           ) : (
             <SudokuBoard
@@ -509,17 +529,19 @@ export default function GameSudokuPage() {
             onHint={giveHint}
             onNewGame={() => startNewGame(difficulty)}
             disabled={loadingPuzzle}
+            hintDisabled={status !== 'playing' || hintsRemaining <= 0}
           />
         </section>
 
         <aside className="space-y-4 lg:sticky lg:top-5">
           <div className="newspaper-page comic-panel comic-dots p-4">
-            <p className="text-[10px] font-display font-black uppercase tracking-[0.2em] text-zn-text-dim">Session</p>
+            <p className="text-[10px] font-display font-black uppercase tracking-[0.2em] text-zn-text-dim">Сесия</p>
             <div className="mt-3 space-y-2 text-sm font-sans text-zn-text">
-              <p><span className="font-bold">Difficulty:</span> {SUDOKU_DIFFICULTY_CONFIG[difficulty]?.label}</p>
-              <p><span className="font-bold">Filled:</span> {progress.filledCells}/81 ({progress.completionPct}%)</p>
-              <p><span className="font-bold">Today status:</span> {todayProgress?.gameStatus === 'won' ? 'Completed' : 'Not completed yet'}</p>
-              <p><span className="font-bold">Conflicts:</span> {conflicts.size}</p>
+              <p><span className="font-bold">Трудност:</span> {SUDOKU_DIFFICULTY_CONFIG[difficulty]?.label}</p>
+              <p><span className="font-bold">Попълнени:</span> {progress.filledCells}/81 ({progress.completionPct}%)</p>
+              <p><span className="font-bold">Статус за днес:</span> {todayProgress?.gameStatus === 'won' ? 'Завършено' : 'Още не е завършено'}</p>
+              <p><span className="font-bold">Конфликти:</span> {conflicts.size}</p>
+              <p><span className="font-bold">Подсказки:</span> {hintsRemaining}/{hintLimit} оставащи</p>
             </div>
 
             <div className="mt-4 grid grid-cols-1 gap-2">
@@ -528,7 +550,7 @@ export default function GameSudokuPage() {
                 onClick={runValidation}
                 className="border-2 border-[#1C1428] bg-white px-3 py-2 text-sm font-display font-black uppercase tracking-wider text-[#1C1428] hover:bg-zn-hot hover:text-white transition-colors"
               >
-                Check board
+                Провери дъската
               </button>
               <button
                 type="button"
@@ -536,7 +558,7 @@ export default function GameSudokuPage() {
                 disabled={status !== 'won'}
                 className="inline-flex items-center justify-center gap-2 border-2 border-[#1C1428] bg-white px-3 py-2 text-sm font-display font-black uppercase tracking-wider text-[#1C1428] hover:bg-zn-purple hover:text-white transition-colors disabled:opacity-40"
               >
-                <Share2 className="w-4 h-4" /> Share
+                <Share2 className="w-4 h-4" /> Сподели
               </button>
             </div>
           </div>
@@ -544,10 +566,10 @@ export default function GameSudokuPage() {
           {status === 'won' && (
             <div className="newspaper-page comic-panel comic-dots p-4 border-2 border-emerald-500/60 bg-emerald-50/70">
               <h3 className="inline-flex items-center gap-2 text-base font-display font-black uppercase tracking-wide text-emerald-800">
-                <CheckCircle2 className="w-5 h-5" /> Puzzle solved
+                <CheckCircle2 className="w-5 h-5" /> Пъзелът е решен
               </h3>
               <p className="mt-2 text-sm font-sans text-emerald-900">
-                Clean finish on <span className="font-semibold">{SUDOKU_DIFFICULTY_CONFIG[difficulty]?.label}</span> in <span className="font-semibold">{formatElapsedTime(elapsedSeconds)}</span>.
+                Отлично завършване на <span className="font-semibold">{SUDOKU_DIFFICULTY_CONFIG[difficulty]?.label}</span> за <span className="font-semibold">{formatElapsedTime(elapsedSeconds)}</span>.
               </p>
             </div>
           )}
@@ -563,19 +585,19 @@ export default function GameSudokuPage() {
       {showHelp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm" onClick={() => setShowHelp(false)}>
           <div className="w-full max-w-lg border-2 border-[#1C1428] bg-white p-6 shadow-comic-heavy" onClick={(event) => event.stopPropagation()}>
-            <h2 className="text-2xl font-display font-black uppercase tracking-wide text-zn-text">How to play</h2>
+            <h2 className="text-2xl font-display font-black uppercase tracking-wide text-zn-text">Как се играе</h2>
             <ul className="mt-4 list-disc pl-5 space-y-2 text-sm font-sans text-zn-text-muted">
-              <li>Fill the 9x9 grid so each row, column and 3x3 box contains digits 1-9 exactly once.</li>
-              <li>Use <span className="font-semibold">Notes</span> to add candidate numbers in empty cells.</li>
-              <li>Keyboard shortcuts: digits 1-9, arrows to move, Backspace/Delete to clear, <span className="font-semibold">N</span> toggles notes.</li>
-              <li>You can start a fresh board anytime on Easy, Medium, Hard or Expert.</li>
+              <li>Попълни решетката 9x9 така, че всеки ред, колона и квадрат 3x3 да съдържа числата 1-9 точно по веднъж.</li>
+              <li>Използвай <span className="font-semibold">Бележки</span>, за да добавяш възможни числа в празните клетки.</li>
+              <li>Клавишни комбинации: цифри 1-9, стрелки за движение, Backspace/Delete за изчистване, <span className="font-semibold">N</span> превключва бележките.</li>
+              <li>Можеш да започнеш нова дъска по всяко време на Лесно, Средно, Трудно или Експерт.</li>
             </ul>
             <button
               type="button"
               onClick={() => setShowHelp(false)}
               className="mt-6 w-full border-2 border-[#1C1428] bg-zn-hot px-4 py-2 text-sm font-display font-black uppercase tracking-wider text-white hover:bg-zn-hot-dark transition-colors"
             >
-              Continue
+              Продължи
             </button>
           </div>
         </div>
@@ -583,5 +605,9 @@ export default function GameSudokuPage() {
     </div>
   );
 }
+
+
+
+
 
 

@@ -3,10 +3,10 @@ const BOX_SIZE = 3;
 const ALL_DIGITS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 export const SUDOKU_DIFFICULTY_CONFIG = Object.freeze({
-  easy: { key: 'easy', label: 'Easy', clues: 41 },
-  medium: { key: 'medium', label: 'Medium', clues: 33 },
-  hard: { key: 'hard', label: 'Hard', clues: 27 },
-  expert: { key: 'expert', label: 'Expert', clues: 23 },
+  easy: { key: 'easy', label: 'Лесно', clues: 41 },
+  medium: { key: 'medium', label: 'Средно', clues: 33 },
+  hard: { key: 'hard', label: 'Трудно', clues: 27 },
+  expert: { key: 'expert', label: 'Експерт', clues: 23 },
 });
 
 const DIFFICULTY_KEYS = Object.keys(SUDOKU_DIFFICULTY_CONFIG);
@@ -277,3 +277,4 @@ export function formatElapsedTime(totalSeconds) {
   }
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
+
