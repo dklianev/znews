@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES } from '../shared/adAnalytics.js';
 
 const opts = {
   toJSON: {
@@ -10,7 +11,7 @@ const opts = {
   },
 };
 
-// ─── Article ───
+// ÄÄÄ Article ÄÄÄ
 const articleSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
   slug: String,
@@ -50,7 +51,7 @@ articleSchema.index(
   }
 );
 
-// ─── Author ───
+// ÄÄÄ Author ÄÄÄ
 const authorSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
   name: String,
@@ -58,17 +59,25 @@ const authorSchema = new mongoose.Schema({
   role: String,
 }, opts);
 
-// ─── Category ───
+// ÄÄÄ Category ÄÄÄ
 const categorySchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
   name: String,
   icon: String,
 }, opts);
 
-// ─── Ad ───
+// ÄÄÄ Ad ÄÄÄ
+const adTargetingSchema = new mongoose.Schema({
+  pageTypes: { type: [String], default: [] },
+  articleIds: { type: [Number], default: [] },
+  categoryIds: { type: [String], default: [] },
+  excludeArticleIds: { type: [Number], default: [] },
+  excludeCategoryIds: { type: [String], default: [] },
+}, { _id: false });
+
 const adSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
-  type: String,
+  type: { type: String, enum: ['horizontal', 'side', 'inline'], default: 'horizontal' },
   title: String,
   subtitle: String,
   cta: String,
@@ -78,9 +87,44 @@ const adSchema = new mongoose.Schema({
   color: String,
   image: String,
   imagePlacement: { type: String, enum: ['circle', 'cover'], default: 'circle' },
+  status: { type: String, enum: ['draft', 'active', 'paused', 'archived'], default: 'active', index: true },
+  campaignName: { type: String, default: '' },
+  notes: { type: String, default: '' },
+  placements: { type: [String], default: [] },
+  targeting: { type: adTargetingSchema, default: () => ({}) },
+  priority: { type: Number, default: 0 },
+  weight: { type: Number, default: 1 },
+  startAt: { type: Date, default: null, index: true },
+  endAt: { type: Date, default: null, index: true },
 }, opts);
 
-// ─── Breaking ───
+const adEventSchema = new mongoose.Schema({
+  adId: { type: Number, required: true, index: true },
+  eventType: { type: String, required: true, enum: AD_EVENT_TYPES, index: true },
+  slot: { type: String, required: true, index: true },
+  pageType: { type: String, required: true, index: true },
+  articleId: { type: Number, default: null, index: true },
+  categoryId: { type: String, default: '', index: true },
+  viewerHash: { type: String, default: '', index: true },
+  windowKey: { type: Number, default: null, index: true },
+  createdAt: { type: Date, default: Date.now, index: true },
+  expiresAt: {
+    type: Date,
+    default: () => new Date(Date.now() + (AD_ANALYTICS_RETENTION_DAYS * 24 * 60 * 60 * 1000)),
+  },
+}, opts);
+adEventSchema.index(
+  { adId: 1, slot: 1, pageType: 1, articleId: 1, categoryId: 1, viewerHash: 1, windowKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { eventType: 'impression' },
+    name: 'ad_impression_dedupe',
+  }
+);
+adEventSchema.index({ adId: 1, eventType: 1, createdAt: -1 }, { name: 'ad_event_summary' });
+adEventSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+// ÄÄÄ Breaking ÄÄÄ
 const breakingSchema = new mongoose.Schema({
   items: [String],
 }, opts);
@@ -450,6 +494,7 @@ export const Article = mongoose.model('Article', articleSchema);
 export const Author = mongoose.model('Author', authorSchema);
 export const Category = mongoose.model('Category', categorySchema);
 export const Ad = mongoose.model('Ad', adSchema);
+export const AdEvent = mongoose.model('AdEvent', adEventSchema);
 export const Breaking = mongoose.model('Breaking', breakingSchema);
 export const User = mongoose.model('User', userSchema);
 export const Wanted = mongoose.model('Wanted', wantedSchema);
@@ -474,3 +519,5 @@ export const Tip = mongoose.model('Tip', tipSchema);
 export const PushSubscription = mongoose.model('PushSubscription', pushSubscriptionSchema);
 export const GameDefinition = mongoose.model('GameDefinition', gameDefinitionSchema);
 export const GamePuzzle = mongoose.model('GamePuzzle', gamePuzzleSchema);
+
+

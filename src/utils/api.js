@@ -358,7 +358,18 @@ export const api = {
   },
   authors: crudEndpoints('authors'),
   categories: crudEndpoints('categories'),
-  ads: crudEndpoints('ads'),
+  ads: {
+    ...crudEndpoints('ads'),
+    trackImpression: (id, data) => request(`/ads/${id}/impression`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+    trackClick: (id, data) => request(`/ads/${id}/click`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+    getAnalyticsSummary: (days = 30) => request(`/ads/analytics/summary${toQuery({ days })}`),
+  },
   users: crudEndpoints('users'),
   wanted: crudEndpoints('wanted'),
   jobs: crudEndpoints('jobs'),

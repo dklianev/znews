@@ -30,7 +30,7 @@ function AdCircleMedia({ ad, className, iconClass = 'text-2xl' }) {
   );
 }
 
-export function AdBannerHorizontal({ ad }) {
+export function AdBannerHorizontal({ ad, onClick = null }) {
   if (!ad) return null;
   const adTilt = getAdTilt(ad, 0.22);
   const coverMode = Boolean(ad.image) && getAdImageMode(ad) === 'cover';
@@ -47,7 +47,7 @@ export function AdBannerHorizontal({ ad }) {
       animate={{ opacity: 1 }}
       className="ad-banner-horizontal"
     >
-      <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block group overflow-visible">
+      <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block group overflow-visible" onClick={onClick}>
         <div
           className="newspaper-page comic-dots comic-panel-white comic-ad-horizontal px-5 md:px-6 py-4 flex items-center justify-between gap-4 transition-shadow hover:shadow-comic-heavy relative overflow-visible"
           style={{ '--ad-tilt': `${adTilt}deg` }}
@@ -91,7 +91,7 @@ export function AdBannerHorizontal({ ad }) {
   );
 }
 
-export function AdBannerSide({ ad }) {
+export function AdBannerSide({ ad, onClick = null }) {
   if (!ad) return null;
   const adTilt = getAdTilt(ad, 0.45);
   const coverMode = Boolean(ad.image) && getAdImageMode(ad) === 'cover';
@@ -108,7 +108,7 @@ export function AdBannerSide({ ad }) {
       animate={{ opacity: 1 }}
       className="ad-banner-side"
     >
-      <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block group overflow-visible">
+      <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block group overflow-visible" onClick={onClick}>
         <div className="newspaper-page comic-dots comic-panel-white comic-ad-side p-6 flex flex-col items-center justify-center text-center gap-3 transition-shadow hover:shadow-comic-heavy relative overflow-visible" style={{ '--ad-tilt': `${adTilt}deg` }}>
           {coverMode && (
             <>
@@ -144,7 +144,7 @@ export function AdBannerSide({ ad }) {
   );
 }
 
-export function AdBannerInline({ ad }) {
+export function AdBannerInline({ ad, onClick = null }) {
   if (!ad) return null;
   const adTilt = getAdTilt(ad, 0.18);
   const coverMode = Boolean(ad.image) && getAdImageMode(ad) === 'cover';
@@ -161,7 +161,7 @@ export function AdBannerInline({ ad }) {
       animate={{ opacity: 1 }}
       className="ad-banner ad-banner-inline my-4"
     >
-      <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block group overflow-visible">
+      <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block group overflow-visible" onClick={onClick}>
         <div
           className="newspaper-page comic-dots comic-panel-white comic-ad-inline p-4 flex items-center justify-between gap-3 transition-shadow hover:shadow-comic-heavy relative overflow-visible"
           style={{ '--ad-tilt': `${adTilt}deg` }}

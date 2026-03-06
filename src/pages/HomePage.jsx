@@ -4,7 +4,7 @@ import ArticleCard from '../components/ArticleCard';
 import TrendingSidebar from '../components/TrendingSidebar';
 import MostWanted from '../components/MostWanted';
 import PollWidget from '../components/PollWidget';
-import { AdBannerHorizontal, AdBannerSide } from '../components/AdBanner';
+import AdSlot from '../components/ads/AdSlot';
 import { useData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
 import { Flame, Megaphone, Bell, Siren, TrendingUp, Eye, RefreshCw, AlertTriangle, Zap, Newspaper, ShieldAlert } from 'lucide-react';
@@ -158,8 +158,6 @@ export default function HomePage() {
     emergencyArticles,
     reportageArticles,
     categoryById,
-    horizontalAds,
-    sideAds,
     latestShowcase,
     latestWire,
     quickCategoryLinks,
@@ -173,7 +171,6 @@ export default function HomePage() {
       : null;
     const safeArticles = homepageArticlePool || (Array.isArray(articles) ? articles : []);
     const safeCategories = Array.isArray(categories) ? categories : [];
-    const safeAds = Array.isArray(ads) ? ads : [];
     const articleById = new Map(
       safeArticles
         .map((article) => [Number(article?.id), article])
@@ -244,10 +241,6 @@ export default function HomePage() {
     });
 
     const categoryById = new Map(safeCategories.map(c => [c.id, c.name]));
-
-    const horizontalAds = safeAds.filter(a => a.type === 'horizontal');
-    const sideAds = safeAds.filter(a => a.type === 'side');
-
     const navbarCategoryLinks = Array.isArray(siteSettings?.navbarLinks)
       ? siteSettings.navbarLinks.filter((item) => typeof item?.to === 'string' && item.to.startsWith('/category/'))
       : [];
@@ -308,8 +301,6 @@ export default function HomePage() {
       emergencyArticles,
       reportageArticles,
       categoryById,
-      horizontalAds,
-      sideAds,
       latestShowcase,
       latestWire,
       quickCategoryLinks,
@@ -423,7 +414,7 @@ export default function HomePage() {
       </section>
 
       {/* ═══ Ad ═══ */}
-      <section><AdBannerHorizontal ad={horizontalAds[0]} /></section>
+      <section><AdSlot ads={ads} slot="home.top" pageType="home" /></section>
 
       {/* ═══ Featured — "ГОРЕЩО ОТ РЕДАКЦИЯТА" ═══ */}
       <section>
@@ -593,11 +584,7 @@ export default function HomePage() {
             </div>
           )}
 
-          {horizontalAds[1] && (
-            <div className="pt-1">
-              <AdBannerHorizontal ad={horizontalAds[1]} />
-            </div>
-          )}
+          <AdSlot ads={ads} slot="home.feed.afterShowcase" pageType="home" className="pt-1" />
 
           {latestWire.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
@@ -718,9 +705,8 @@ export default function HomePage() {
           <ErrorBoundary fallback={null}><TrendingSidebar /></ErrorBoundary>
           <ErrorBoundary fallback={null}><MostWanted /></ErrorBoundary>
           <ErrorBoundary fallback={null}><PollWidget /></ErrorBoundary>
-          {sideAds.slice(0, 2).map(ad => (
-            <AdBannerSide key={ad.id} ad={ad} />
-          ))}
+          <AdSlot ads={ads} slot="home.sidebar.1" pageType="home" />
+          <AdSlot ads={ads} slot="home.sidebar.2" pageType="home" />
         </div>
       </div>
 
@@ -742,7 +728,11 @@ export default function HomePage() {
       </section>
 
       {/* ═══ Bottom Ad ═══ */}
-      <section><AdBannerHorizontal ad={horizontalAds[horizontalAds.length - 1]} /></section>
+      <section><AdSlot ads={ads} slot="home.bottom" pageType="home" /></section>
     </div>
   );
 }
+
+
+
+

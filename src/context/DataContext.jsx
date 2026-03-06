@@ -277,7 +277,8 @@ export function DataProvider({ children }) {
     }
 
     if (session?.token) {
-      const [usersResult, permsResult, commentsResult, mediaResult, mediaPipelineResult, heroRevisionsResult, siteRevisionsResult, tipsResult] = await Promise.allSettled([
+      const [adsResult, usersResult, permsResult, commentsResult, mediaResult, mediaPipelineResult, heroRevisionsResult, siteRevisionsResult, tipsResult] = await Promise.allSettled([
+        api.ads.getAll(),
         api.users.getAll(),
         api.permissions.getAll(),
         api.comments.getAll(),
@@ -287,6 +288,7 @@ export function DataProvider({ children }) {
         api.siteSettings.getRevisions(),
         api.tips.getAll(),
       ]);
+      setAds((prev) => (adsResult.status === 'fulfilled' ? adsResult.value : prev));
       setUsers(usersResult.status === 'fulfilled' ? usersResult.value : []);
       setPermissions(permsResult.status === 'fulfilled' ? permsResult.value : []);
       setComments(commentsResult.status === 'fulfilled' ? commentsResult.value : []);
@@ -296,6 +298,7 @@ export function DataProvider({ children }) {
       setSiteSettingsRevisions(siteRevisionsResult.status === 'fulfilled' ? siteRevisionsResult.value : []);
       setTips(tipsResult.status === 'fulfilled' ? tipsResult.value : []);
 
+      if (adsResult.status === 'rejected') console.error('Failed to load ads:', adsResult.reason);
       if (usersResult.status === 'rejected') console.error('Failed to load users:', usersResult.reason);
       if (permsResult.status === 'rejected') console.error('Failed to load permissions:', permsResult.reason);
       if (commentsResult.status === 'rejected') console.error('Failed to load comments:', commentsResult.reason);
@@ -743,3 +746,4 @@ export function DataProvider({ children }) {
 }
 
 export const useData = () => useContext(DataContext);
+

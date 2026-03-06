@@ -8,7 +8,7 @@ import dotenv from 'dotenv';
 dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
 
 import {
-  Article, Author, Category, Ad, Breaking, User,
+  Article, Author, Category, Ad, AdEvent, Breaking, User,
   Wanted, Job, Court, Event, Poll, Comment, CommentReaction, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, GameDefinition, GamePuzzle
 } from './models.js';
 
@@ -259,7 +259,38 @@ const DEFAULT_GAME_PUZZLES = [
 ];
 
 // ─── Seed Function ───
-export async function seedAll() {
+function shouldAllowDestructiveSeed(options = {}) {
+  return options?.allowDestructive === true;
+}
+
+function assertDestructiveSeedAllowed(options = {}) {
+  if (shouldAllowDestructiveSeed(options)) return;
+  throw new Error('seedAll() is destructive. Pass { allowDestructive: true } only from an explicit safe callsite.');
+}
+
+function redactMongoUri(uri) {
+  return String(uri || '').replace(/:\/\/([^:@]+):([^@]+)@/, '://$1:***@');
+}
+
+function parseSeedCliArgs(argv = []) {
+  const args = new Set((Array.isArray(argv) ? argv : []).map((item) => String(item || '').trim()));
+  return {
+    force: args.has('--force'),
+    allowProduction: args.has('--allow-production'),
+  };
+}
+
+function assertSeedCliAllowed(options = {}) {
+  if (!options.force) {
+    throw new Error('Refusing destructive seed without --force. Example: npm run seed -- --force');
+  }
+  if (process.env.NODE_ENV === 'production' && !options.allowProduction) {
+    throw new Error('Refusing production seed without --allow-production.');
+  }
+}
+
+export async function seedAll(options = {}) {
+  assertDestructiveSeedAllowed(options);
   console.log('Seeding database...');
 
   const collectionsToClear = [
@@ -267,6 +298,7 @@ export async function seedAll() {
     Author.deleteMany({}),
     Category.deleteMany({}),
     Ad.deleteMany({}),
+    AdEvent.deleteMany({}),
     Breaking.deleteMany({}),
     User.deleteMany({}),
     Wanted.deleteMany({}),
@@ -334,8 +366,16 @@ const scriptPath = fileURLToPath(import.meta.url).replace(/\\/g, '/');
 const argPath = (process.argv[1] || '').replace(/\\/g, '/');
 const isMain = argPath && scriptPath.endsWith(argPath.replace(/^\.\//, ''));
 if (isMain || scriptPath.includes(argPath)) {
-  mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/zemun-news')
-    .then(() => seedAll())
+  const cliOptions = parseSeedCliArgs(process.argv.slice(2));
+
+  Promise.resolve()
+    .then(() => assertSeedCliAllowed(cliOptions))
+    .then(() => {
+      const targetUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/zemun-news';
+      console.warn(`Running destructive seed against ${redactMongoUri(targetUri)}`);
+      return mongoose.connect(targetUri);
+    })
+    .then(() => seedAll({ allowDestructive: true, reason: 'cli' }))
     .then(() => { console.log('Done!'); process.exit(0); })
     .catch(err => { console.error(err); process.exit(1); });
 }

@@ -2,10 +2,10 @@ import { useParams, Link } from 'react-router-dom';
 import { Clock, Eye, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useData } from '../context/DataContext';
-import { AdBannerHorizontal, AdBannerInline, AdBannerSide } from '../components/AdBanner';
+import AdSlot from '../components/ads/AdSlot';
 import TrendingSidebar from '../components/TrendingSidebar';
 import CommentsSection from '../components/CommentsSection';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import ComicNewsCard from '../components/ComicNewsCard';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
@@ -47,7 +47,7 @@ function ArticleBodySkeleton() {
 
 function ArticlePageSkeleton() {
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 animate-pulse" aria-label="Зареждане на страница">
+    <div className="max-w-7xl mx-auto px-4 py-6 animate-pulse" aria-label="????????? ?? ????????">
       <nav className="flex items-center gap-2 text-sm font-sans text-zn-text-muted mb-6">
         <div className="h-3 w-80 bg-zn-text/10 rounded" />
       </nav>
@@ -110,6 +110,50 @@ function ArticlePageSkeleton() {
       </div>
     </div>
   );
+}
+
+function serializeArticleBodyNode(node) {
+  if (!node) return '';
+  if (node.nodeType === 1) return node.outerHTML || '';
+  if (node.nodeType === 3) return node.textContent || '';
+  return '';
+}
+
+function buildArticleBodySegments(root) {
+  if (!root) return [];
+
+  const breakpoints = new Map([
+    [2, 'article.inline.afterParagraph2'],
+    [5, 'article.inline.afterParagraph5'],
+  ]);
+  const segments = [];
+  let paragraphCount = 0;
+  let currentHtml = '';
+
+  Array.from(root.childNodes || []).forEach((node) => {
+    const html = serializeArticleBodyNode(node);
+    if (!html) return;
+    currentHtml += html;
+
+    if (node.nodeType === 1 && node.tagName?.toLowerCase() === 'p') {
+      paragraphCount += 1;
+      const slot = breakpoints.get(paragraphCount);
+      if (slot) {
+        segments.push({ html: currentHtml, slot });
+        currentHtml = '';
+      }
+    }
+  });
+
+  if (currentHtml.trim()) {
+    segments.push({ html: currentHtml, slot: null });
+  }
+
+  if (segments.length === 0) {
+    return [{ html: root.innerHTML || '', slot: null }];
+  }
+
+  return segments;
 }
 
 export default function ArticlePage() {
@@ -269,15 +313,18 @@ export default function ArticlePage() {
   }, [article.id, articles]);
 
   const articlePresentation = useMemo(() => {
+    const fallbackHtml = article.content || `<p>${article.excerpt || ''}</p>`;
     const fallback = {
-      html: article.content || `<p>${article.excerpt || ''}</p>`,
+      html: fallbackHtml,
       headings: [],
       pullQuote: article.excerpt || '',
+      bodySegments: [{ html: fallbackHtml, slot: null }],
     };
 
     if (typeof article.content !== 'string' || article.content.trim() === '') {
       return fallback;
     }
+
     if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
       return fallback;
     }
@@ -295,7 +342,7 @@ export default function ArticlePage() {
         if (!text) return;
         const base = text
           .toLowerCase()
-          .replace(/[^a-z0-9а-я\s-]/gi, '')
+          .replace(/[^a-z0-9?-?\s-]/gi, '')
           .replace(/\s+/g, '-')
           .slice(0, 42) || `section-${index + 1}`;
         const count = usedIds.get(base) || 0;
@@ -317,11 +364,13 @@ export default function ArticlePage() {
 
       const firstQuote = root.querySelector('blockquote');
       const pullQuoteText = firstQuote?.textContent?.trim() || article.excerpt || '';
+      const bodySegments = buildArticleBodySegments(root);
 
       return {
         html: root.innerHTML,
         headings,
         pullQuote: pullQuoteText,
+        bodySegments,
       };
     } catch {
       return fallback;
@@ -356,10 +405,6 @@ export default function ArticlePage() {
       },
     };
   }, [article?.id, article?.title, article?.excerpt, article?.image, article?.shareImage, article?.date, article?.updatedAt, author?.name]);
-
-  const horizontalAds = ads.filter(a => a.type === 'horizontal');
-  const sideAds = ads.filter(a => a.type === 'side');
-  const inlineAd = ads.find(a => a.type === 'inline') || ads[0];
 
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
@@ -666,7 +711,7 @@ export default function ArticlePage() {
           </div>
 
           {/* Inline ad */}
-          <AdBannerInline ad={inlineAd} />
+          <AdSlot ads={ads} slot="article.afterCover" pageType="article" articleId={article.id} categoryId={article.category} />
 
           {showBodySkeleton ? (
             <ArticleBodySkeleton />
@@ -691,8 +736,22 @@ export default function ArticlePage() {
                   [&_a]:text-zn-hot [&_a]:underline
                   [&_img]:w-full [&_img]:h-auto [&_img]:my-6 [&_img]:rounded-sm [&_img]:border [&_img]:border-zn-border
                 "
-                dangerouslySetInnerHTML={{ __html: articlePresentation.html }}
-              />
+              >
+                {articlePresentation.bodySegments.map((segment, index) => (
+                  <Fragment key={`segment-${index}`}>
+                    <div dangerouslySetInnerHTML={{ __html: segment.html }} />
+                    {segment.slot && (
+                      <AdSlot
+                        ads={ads}
+                        slot={segment.slot}
+                        pageType="article"
+                        articleId={article.id}
+                        categoryId={article.category}
+                      />
+                    )}
+                  </Fragment>
+                ))}
+              </div>
             </>
           )}
 
@@ -716,7 +775,7 @@ export default function ArticlePage() {
           <CommentsSection articleId={article.id} />
 
           {/* Bottom ad */}
-          {horizontalAds[1] && <AdBannerHorizontal ad={horizontalAds[1]} />}
+          <AdSlot ads={ads} slot="article.bottom" pageType="article" articleId={article.id} categoryId={article.category} />
 
           {/* Related articles */}
           {relatedArticles.length > 0 && (
@@ -799,11 +858,15 @@ export default function ArticlePage() {
 
           <ErrorBoundary fallback={null}><TrendingSidebar /></ErrorBoundary>
 
-          {sideAds.slice(0, 2).map(ad => (
-            <ErrorBoundary key={ad.id} fallback={null}><AdBannerSide ad={ad} /></ErrorBoundary>
-          ))}
+          <ErrorBoundary fallback={null}>
+            <AdSlot ads={ads} slot="article.sidebar.1" pageType="article" articleId={article.id} categoryId={article.category} />
+          </ErrorBoundary>
+          <ErrorBoundary fallback={null}>
+            <AdSlot ads={ads} slot="article.sidebar.2" pageType="article" articleId={article.id} categoryId={article.category} />
+          </ErrorBoundary>
         </aside>
       </div>
     </motion.div>
   );
 }
+

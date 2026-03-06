@@ -42,12 +42,15 @@ if (mongoDnsServersEnv && mongoDnsServersEnv.trim()) {
 }
 
 import {
-  Article, Author, Category, Ad, Breaking, User,
+  Article, Author, Category, Ad, AdEvent, Breaking, User,
   Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle
 } from './models.js';
 import { ensureGameDefinitions, seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
 import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/homepageSelectors.js';
+import { AD_PAGE_TYPES, AD_STATUS_OPTIONS, AD_TYPES, getAdSlot, getDefaultPlacementsForType, isKnownAdSlot } from '../shared/adSlots.js';
+import { filterPublicAds, normalizeAdRecord, resolveAdForSlot } from '../shared/adResolver.js';
+import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES, AD_IMPRESSION_WINDOW_MS, DEFAULT_AD_ANALYTICS_DAYS } from '../shared/adAnalytics.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -355,6 +358,11 @@ const articleViewWindowMs = Math.max(
   60 * 1000,
   Number.parseInt(process.env.ARTICLE_VIEW_WINDOW_MS || '', 10) || (6 * 60 * 60 * 1000)
 );
+const adImpressionWindowMs = Math.max(
+  60 * 1000,
+  Number.parseInt(process.env.AD_IMPRESSION_WINDOW_MS || '', 10) || AD_IMPRESSION_WINDOW_MS
+);
+const adAnalyticsRetentionMs = AD_ANALYTICS_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const storageDriverInput = String(process.env.STORAGE_DRIVER || 'disk').trim().toLowerCase();
 const storageDriver = ['disk', 'spaces', 'azure'].includes(storageDriverInput) ? storageDriverInput : 'disk';
 const isSpacesStorage = storageDriver === 'spaces';
@@ -3183,7 +3191,7 @@ async function connectDB() {
       console.log('✓ MongoDB in-memory (dev mode)');
 
       const { seedAll } = await import('./seed.js');
-      await seedAll();
+      await seedAll({ allowDestructive: true, reason: 'dev-inmemory-bootstrap' });
       console.log('✓ Database seeded with defaults');
       return;
     } catch (memoryErr) {
@@ -3215,6 +3223,7 @@ async function ensureDbIndexes() {
       Author,
       Category,
       Ad,
+      AdEvent,
       Breaking,
       User,
       Wanted,
@@ -3981,9 +3990,463 @@ usersRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
 
 app.use('/api/users', usersRouter);
 
+function stripDocumentMetadata(item) {
+  if (!item || typeof item !== 'object') return item;
+  const next = { ...item };
+  delete next._id;
+  delete next.__v;
+  return next;
+}
+
+function uniqueNormalizedStrings(values, maxLen = 80) {
+  const source = Array.isArray(values) ? values : [];
+  return [...new Set(source
+    .map((value) => normalizeText(value, maxLen))
+    .filter(Boolean))];
+}
+
+function uniqueNormalizedLowercaseStrings(values, maxLen = 80) {
+  const source = Array.isArray(values) ? values : [];
+  return [...new Set(source
+    .map((value) => normalizeText(value, maxLen).toLowerCase())
+    .filter(Boolean))];
+}
+
+function uniqueNormalizedIntegers(values) {
+  const source = Array.isArray(values) ? values : [];
+  return [...new Set(source
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isInteger(value) && value > 0))];
+}
+function normalizeAdTypeInput(value) {
+  const normalized = normalizeText(value, 24).toLowerCase();
+  return AD_TYPES.includes(normalized) ? normalized : 'horizontal';
+}
+
+function normalizeAdStatusInput(value) {
+  const normalized = normalizeText(value, 24).toLowerCase();
+  return AD_STATUS_OPTIONS.includes(normalized) ? normalized : 'active';
+}
+
+function normalizeAdImagePlacementInput(value) {
+  return normalizeText(value, 12).toLowerCase() === 'cover' ? 'cover' : 'circle';
+}
+
+function clampInteger(value, fallback, { min = Number.MIN_SAFE_INTEGER, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
+function sanitizeAdDate(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function sanitizeAdPlacements(value, fallbackType = 'horizontal') {
+  const source = Array.isArray(value) ? value : [value];
+  const placements = [...new Set(source
+    .map((item) => normalizeText(item, 64))
+    .filter((item) => isKnownAdSlot(item)))];
+  if (placements.length > 0) return placements;
+  return getDefaultPlacementsForType(fallbackType);
+}
+
+function sanitizeAdTargeting(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  return {
+    pageTypes: uniqueNormalizedLowercaseStrings(source.pageTypes, 24)
+      .filter((item) => AD_PAGE_TYPES.includes(item)),
+    articleIds: uniqueNormalizedIntegers(source.articleIds),
+    categoryIds: uniqueNormalizedLowercaseStrings(source.categoryIds, 64),
+    excludeArticleIds: uniqueNormalizedIntegers(source.excludeArticleIds),
+    excludeCategoryIds: uniqueNormalizedLowercaseStrings(source.excludeCategoryIds, 64),
+  };
+}
+
+function sanitizeAdPayload(payload, { partial = false } = {}) {
+  const source = payload && typeof payload === 'object' ? payload : {};
+  const next = {};
+  const nextType = hasOwn(source, 'type') ? normalizeAdTypeInput(source.type) : 'horizontal';
+
+  if (!partial || hasOwn(source, 'type')) next.type = nextType;
+  if (!partial || hasOwn(source, 'title')) next.title = normalizeText(source.title, 140);
+  if (!partial || hasOwn(source, 'subtitle')) next.subtitle = normalizeText(source.subtitle, 240);
+  if (!partial || hasOwn(source, 'cta')) next.cta = normalizeText(source.cta, 80) || 'Научи повече';
+  if (!partial || hasOwn(source, 'gradient')) next.gradient = normalizeText(source.gradient, 120);
+  if (!partial || hasOwn(source, 'icon')) next.icon = normalizeText(source.icon, 16);
+  if (!partial || hasOwn(source, 'link')) next.link = normalizeText(source.link, 400) || '#';
+  if (!partial || hasOwn(source, 'color')) next.color = normalizeText(source.color, 40);
+  if (!partial || hasOwn(source, 'image')) next.image = normalizeText(source.image, 600);
+  if (!partial || hasOwn(source, 'imagePlacement')) next.imagePlacement = normalizeAdImagePlacementInput(source.imagePlacement);
+  if (!partial || hasOwn(source, 'status')) next.status = normalizeAdStatusInput(source.status);
+  if (!partial || hasOwn(source, 'campaignName')) next.campaignName = normalizeText(source.campaignName, 120);
+  if (!partial || hasOwn(source, 'notes')) next.notes = normalizeText(source.notes, 2000);
+  if (!partial || hasOwn(source, 'placements')) next.placements = sanitizeAdPlacements(source.placements, next.type || nextType);
+  if (!partial || hasOwn(source, 'targeting')) next.targeting = sanitizeAdTargeting(source.targeting);
+  if (!partial || hasOwn(source, 'priority')) next.priority = clampInteger(source.priority, 0, { min: -1000, max: 1000 });
+  if (!partial || hasOwn(source, 'weight')) next.weight = clampInteger(source.weight, 1, { min: 1, max: 100 });
+  if (!partial || hasOwn(source, 'startAt')) next.startAt = sanitizeAdDate(source.startAt);
+  if (!partial || hasOwn(source, 'endAt')) next.endAt = sanitizeAdDate(source.endAt);
+
+  delete next.id;
+  delete next._id;
+  delete next.__v;
+  return next;
+}
+
+function buildAdCandidate(existing, patch) {
+  const current = existing && typeof existing === 'object' ? stripDocumentMetadata(existing) : {};
+  return normalizeAdRecord({
+    ...current,
+    ...patch,
+    targeting: hasOwn(patch, 'targeting') ? patch.targeting : current.targeting,
+  });
+}
+
+function validateAdCandidate(ad) {
+  const errors = [];
+  const targeting = ad?.targeting || {
+    pageTypes: [],
+    articleIds: [],
+    categoryIds: [],
+    excludeArticleIds: [],
+    excludeCategoryIds: [],
+  };
+  const slots = (Array.isArray(ad?.placements) ? ad.placements : [])
+    .map((slotId) => getAdSlot(slotId))
+    .filter(Boolean);
+
+  if (!ad?.title) errors.push('Ad title is required');
+  if (!ad?.cta) errors.push('Ad CTA is required');
+  if (!ad?.link) errors.push('Ad link is required');
+  if (!AD_TYPES.includes(ad?.type)) errors.push('Invalid ad type');
+  if (!AD_STATUS_OPTIONS.includes(ad?.status)) errors.push('Invalid ad status');
+  if (slots.length === 0) errors.push('Select at least one valid placement');
+  if (targeting.articleIds.length > 0 && !slots.some((slot) => slot.supportsArticleTargeting)) {
+    errors.push('Selected placements do not support article targeting');
+  }
+  if (targeting.categoryIds.length > 0 && !slots.some((slot) => slot.supportsCategoryTargeting)) {
+    errors.push('Selected placements do not support category targeting');
+  }
+  if (ad?.startAt && ad?.endAt) {
+    const startMs = new Date(ad.startAt).getTime();
+    const endMs = new Date(ad.endAt).getTime();
+    if (Number.isFinite(startMs) && Number.isFinite(endMs) && startMs > endMs) {
+      errors.push('startAt must be before endAt');
+    }
+  }
+
+  return errors;
+}
+
+async function fetchAllAdsSorted() {
+  const items = await Ad.find().sort({ priority: -1, id: -1 }).lean();
+  return items.map((item) => normalizeAdRecord(stripDocumentMetadata(item)));
+}
+
+async function listPublicAds() {
+  const items = await fetchAllAdsSorted();
+  return filterPublicAds(items);
+}
+
+async function listAdsForRequest(req) {
+  const items = await fetchAllAdsSorted();
+  const maybeUser = decodeTokenFromRequest(req);
+  const canManageAds = maybeUser ? await hasPermissionForSection(maybeUser, 'ads') : false;
+  return canManageAds ? items : filterPublicAds(items);
+}
+
+function sanitizeAdAnalyticsContext(payload) {
+  const slotId = normalizeText(payload?.slot, 120);
+  if (!isKnownAdSlot(slotId)) {
+    return { error: 'Invalid ad slot' };
+  }
+
+  const slot = getAdSlot(slotId);
+  const rawPageType = normalizeText(payload?.pageType, 24).toLowerCase();
+  const pageType = AD_PAGE_TYPES.includes(rawPageType) ? rawPageType : slot.pageType;
+  const parsedArticleId = Number.parseInt(payload?.articleId, 10);
+  const articleId = Number.isInteger(parsedArticleId) && parsedArticleId > 0 ? parsedArticleId : null;
+  const categoryId = normalizeText(payload?.categoryId, 64).toLowerCase();
+
+  return {
+    slot: slotId,
+    pageType,
+    articleId,
+    categoryId,
+  };
+}
+
+function clampAdAnalyticsDays(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed)) return DEFAULT_AD_ANALYTICS_DAYS;
+  return Math.min(365, Math.max(1, parsed));
+}
+
+async function resolveTrackedAdCandidate(adId, context) {
+  const publicAds = await listPublicAds();
+  const resolved = resolveAdForSlot(publicAds, context);
+  if (!resolved || Number.parseInt(resolved.id, 10) !== adId) return null;
+  return resolved;
+}
+
+async function recordAdAnalyticsEvent({ req, adId, eventType, context }) {
+  if (!AD_EVENT_TYPES.includes(eventType)) {
+    throw new Error('Invalid ad analytics event type');
+  }
+
+  const createdAt = new Date();
+  const expiresAt = new Date(createdAt.getTime() + adAnalyticsRetentionMs);
+  const isImpression = eventType === 'impression';
+  const payload = {
+    adId,
+    eventType,
+    slot: context.slot,
+    pageType: context.pageType,
+    articleId: context.articleId,
+    categoryId: context.categoryId,
+    viewerHash: hashClientFingerprint(req, `ad:${adId}`),
+    windowKey: isImpression ? getWindowKey(adImpressionWindowMs) : null,
+    createdAt,
+    expiresAt,
+  };
+
+  try {
+    await AdEvent.create(payload);
+    return { deduped: false };
+  } catch (error) {
+    if (isImpression && isMongoDuplicateKeyError(error)) {
+      return { deduped: true };
+    }
+    throw error;
+  }
+}
+
+async function buildAdAnalyticsSummary({ days = DEFAULT_AD_ANALYTICS_DAYS } = {}) {
+  const safeDays = clampAdAnalyticsDays(days);
+  const cutoff = new Date(Date.now() - (safeDays * 24 * 60 * 60 * 1000));
+  const rows = await AdEvent.aggregate([
+    {
+      $match: {
+        createdAt: { $gte: cutoff },
+        eventType: { $in: AD_EVENT_TYPES },
+      },
+    },
+    {
+      $group: {
+        _id: { adId: '$adId', eventType: '$eventType' },
+        count: { $sum: 1 },
+        lastAt: { $max: '$createdAt' },
+      },
+    },
+  ]);
+
+  const itemsByAdId = new Map();
+  rows.forEach((row) => {
+    const adId = Number.parseInt(row?._id?.adId, 10);
+    if (!Number.isInteger(adId)) return;
+
+    const current = itemsByAdId.get(adId) || {
+      adId,
+      impressions: 0,
+      clicks: 0,
+      ctr: 0,
+      lastImpressionAt: null,
+      lastClickAt: null,
+    };
+
+    if (row?._id?.eventType === 'impression') {
+      current.impressions = Number(row.count) || 0;
+      current.lastImpressionAt = row.lastAt || null;
+    }
+    if (row?._id?.eventType === 'click') {
+      current.clicks = Number(row.count) || 0;
+      current.lastClickAt = row.lastAt || null;
+    }
+
+    current.ctr = current.impressions > 0
+      ? Number(((current.clicks / current.impressions) * 100).toFixed(2))
+      : 0;
+
+    itemsByAdId.set(adId, current);
+  });
+
+  const items = [...itemsByAdId.values()]
+    .sort((left, right) => right.impressions - left.impressions || right.clicks - left.clicks || right.adId - left.adId);
+  const totals = items.reduce((acc, item) => {
+    acc.impressions += item.impressions;
+    acc.clicks += item.clicks;
+    return acc;
+  }, { impressions: 0, clicks: 0, ctr: 0 });
+  totals.ctr = totals.impressions > 0
+    ? Number(((totals.clicks / totals.impressions) * 100).toFixed(2))
+    : 0;
+
+  return {
+    days: safeDays,
+    generatedAt: new Date().toISOString(),
+    totals,
+    items,
+  };
+}
+
+const adsRouter = express.Router();
+
+adsRouter.get('/analytics/summary', requireAuth, requirePermission('ads'), async (req, res) => {
+  try {
+    const summary = await buildAdAnalyticsSummary({ days: req.query.days });
+    res.json(summary);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adsRouter.post('/:id/impression', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const context = sanitizeAdAnalyticsContext(req.body);
+    if (context.error) return res.status(400).json({ error: context.error });
+
+    const resolvedAd = await resolveTrackedAdCandidate(id, context);
+    if (!resolvedAd) return res.status(404).json({ error: 'Ad is not active for this slot' });
+
+    const result = await recordAdAnalyticsEvent({ req, adId: id, eventType: 'impression', context });
+    res.status(result.deduped ? 200 : 201).json({ ok: true, deduped: result.deduped });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adsRouter.post('/:id/click', async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const context = sanitizeAdAnalyticsContext(req.body);
+    if (context.error) return res.status(400).json({ error: context.error });
+
+    const resolvedAd = await resolveTrackedAdCandidate(id, context);
+    if (!resolvedAd) return res.status(404).json({ error: 'Ad is not active for this slot' });
+
+    await recordAdAnalyticsEvent({ req, adId: id, eventType: 'click', context });
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adsRouter.get('/', cacheMiddleware, async (req, res) => {
+  try {
+    const items = await listAdsForRequest(req);
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adsRouter.post('/', requireAuth, requirePermission('ads'), async (req, res) => {
+  try {
+    const patch = sanitizeAdPayload(req.body, { partial: false });
+    const candidate = buildAdCandidate(null, patch);
+    const errors = validateAdCandidate(candidate);
+    if (errors.length > 0) return res.status(400).json({ error: errors[0], errors });
+
+    const id = await nextNumericId(Ad);
+    const item = await Ad.create({ ...candidate, id });
+    const obj = normalizeAdRecord(stripDocumentMetadata(item.toJSON()));
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'create',
+      resource: 'ads',
+      resourceId: id,
+      details: obj.campaignName || obj.title || '',
+    }).catch(() => { });
+
+    clearApiCacheKeys('api_cache_/api/ads');
+    clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
+
+    res.status(201).json(obj);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adsRouter.put('/:id', requireAuth, requirePermission('ads'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const patch = sanitizeAdPayload(req.body, { partial: true });
+    if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
+
+    const existing = await Ad.findOne({ id }).lean();
+    if (!existing) return res.status(404).json({ error: 'Not found' });
+
+    const candidate = buildAdCandidate(existing, patch);
+    const errors = validateAdCandidate(candidate);
+    if (errors.length > 0) return res.status(400).json({ error: errors[0], errors });
+
+    const { id: _ignoredId, ...updateDoc } = candidate;
+    const item = await Ad.findOneAndUpdate({ id }, { $set: updateDoc }, { new: true, runValidators: true });
+    if (!item) return res.status(404).json({ error: 'Not found' });
+
+    const obj = normalizeAdRecord(stripDocumentMetadata(item.toJSON()));
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'ads',
+      resourceId: id,
+      details: obj.campaignName || obj.title || '',
+    }).catch(() => { });
+
+    clearApiCacheKeys('api_cache_/api/ads');
+    clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
+
+    res.json(obj);
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+adsRouter.delete('/:id', requireAuth, requirePermission('ads'), async (req, res) => {
+  try {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const result = await Ad.deleteOne({ id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'delete',
+      resource: 'ads',
+      resourceId: id,
+      details: '',
+    }).catch(() => { });
+
+    clearApiCacheKeys('api_cache_/api/ads');
+    clearApiCacheKeys('api_cache_/api/bootstrap');
+    clearApiCacheKeys('api_cache_/api/homepage');
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+app.use('/api/ads', adsRouter);
 // ─── Standard CRUD Routes ───
 app.use('/api/authors', numericCrud(Author, 'authors', { id: -1 }, [], 'profiles'));
-app.use('/api/ads', numericCrud(Ad, 'ads', { id: -1 }, [], 'ads'));
 app.use('/api/wanted', numericCrud(Wanted, 'wanted', { id: -1 }, [], 'wanted'));
 app.use('/api/jobs', numericCrud(Job, 'jobs', { id: -1 }, [], 'jobs'));
 app.use('/api/court', numericCrud(Court, 'court', { id: -1 }, [], 'court'));
@@ -5467,7 +5930,7 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
       })(),
       authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
-      ads: Ad.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      ads: listPublicAds(),
       breaking: Breaking.findOne().lean().then((doc) => doc?.items || []),
       heroSettings: HeroSettings.findOne({ key: 'main' }).lean().then((doc) => serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS)),
       siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),
@@ -5671,7 +6134,7 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
       })(),
       authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
-      ads: Ad.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
+      ads: listPublicAds(),
       breaking: Breaking.findOne().lean().then((doc) => doc?.items || []),
       heroSettings: HeroSettings.findOne({ key: 'main' }).lean().then((doc) => serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS)),
       siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),

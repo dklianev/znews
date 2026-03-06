@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import TrendingSidebar from '../components/TrendingSidebar';
-import { AdBannerHorizontal, AdBannerSide } from '../components/AdBanner';
+import AdSlot from '../components/ads/AdSlot';
 import { useData } from '../context/DataContext';
 import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
@@ -103,9 +103,6 @@ export default function CategoryPage() {
 
   const totalPages = Math.max(1, Math.ceil((totalArticles || 0) / PER_PAGE));
 
-  const horizontalAds = ads.filter(a => a.type === 'horizontal');
-  const sideAds = ads.filter(a => a.type === 'side');
-
   const showEmptyState = !loadingArticles && categoryArticles.length === 0;
   const showInitialSkeleton = loadingArticles && categoryArticles.length === 0;
   const showLoadMoreSkeleton = loadingArticles && categoryArticles.length > 0;
@@ -144,7 +141,7 @@ export default function CategoryPage() {
 
       {/* Ad */}
       <section className="mb-6">
-        <AdBannerHorizontal ad={horizontalAds[0]} />
+        <AdSlot ads={ads} slot="category.top" pageType="category" categoryId={category.id} />
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -178,10 +175,23 @@ export default function CategoryPage() {
                           sticker={design.sticker}
                           stripe={design.stripe}
                         />
-                        {(index + 1) % 4 === 0 && horizontalAds[Math.floor((index + 1) / 4)] && (
-                          <div className="md:col-span-2 my-1">
-                            <AdBannerHorizontal ad={horizontalAds[Math.floor((index + 1) / 4) % horizontalAds.length]} />
-                          </div>
+                        {index + 1 === 4 && (
+                          <AdSlot
+                            ads={ads}
+                            slot="category.grid.after4"
+                            pageType="category"
+                            categoryId={category.id}
+                            className="md:col-span-2 my-1"
+                          />
+                        )}
+                        {index + 1 === 8 && (
+                          <AdSlot
+                            ads={ads}
+                            slot="category.grid.after8"
+                            pageType="category"
+                            categoryId={category.id}
+                            className="md:col-span-2 my-1"
+                          />
                         )}
                       </Fragment>
                     );
@@ -220,11 +230,11 @@ export default function CategoryPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           <TrendingSidebar />
-          {sideAds.slice(0, 2).map(ad => (
-            <AdBannerSide key={ad.id} ad={ad} />
-          ))}
+          <AdSlot ads={ads} slot="category.sidebar.1" pageType="category" categoryId={category.id} />
+          <AdSlot ads={ads} slot="category.sidebar.2" pageType="category" categoryId={category.id} />
         </div>
       </div>
     </motion.div>
   );
 }
+
