@@ -7,6 +7,8 @@ import { getTodayStr } from '../../utils/gameDate';
 import { createGamePuzzleTemplate, GAME_EDITOR_GUIDES } from '../../../shared/gamePuzzleTemplates.js';
 import { hasGamePlaceholderContent } from '../../../shared/gamePlaceholderWarnings.js';
 
+const PUZZLE_MANAGED_GAME_SLUGS = new Set(['word', 'connections', 'quiz']);
+
 function cloneValue(value) {
     return JSON.parse(JSON.stringify(value));
 }
@@ -49,10 +51,13 @@ export default function ManageGamePuzzles() {
 
     const loadGames = async () => {
         const data = await api.adminGames.getAll();
-        const items = Array.isArray(data) ? data : [];
+        const items = (Array.isArray(data) ? data : [])
+            .filter((game) => PUZZLE_MANAGED_GAME_SLUGS.has(String(game?.slug || '').toLowerCase()));
         setGames(items);
         if (items.length > 0 && !items.some((game) => game.slug === selectedGameSlug)) {
             setSelectedGameSlug(items[0].slug);
+        } else if (items.length === 0) {
+            setSelectedGameSlug('');
         }
         return items;
     };
@@ -223,12 +228,13 @@ export default function ManageGamePuzzles() {
                     <div>
                         <h1 className="text-2xl font-display font-bold text-gray-900 flex items-center gap-2"><Puzzle className="w-6 h-6 text-zn-purple" />Игрови Пъзели</h1>
                         <p className="text-sm font-sans text-gray-500 mt-1">Само games workflow: създава чернови и редактира `GamePuzzle`, без да пипа другите колекции.</p>
+                        <p className="text-xs font-sans text-gray-400 mt-1">Sudoku is an unlimited local game and is excluded from GamePuzzle management.</p>
                     </div>
                     <div className="flex items-center gap-4">
                         <select value={selectedGameSlug} disabled={isEditing} onChange={(e) => setSelectedGameSlug(e.target.value)} className="border border-gray-300 rounded-lg px-4 py-2 text-sm font-sans font-bold uppercase tracking-wider text-gray-800 bg-white cursor-pointer min-w-[220px] shadow-sm disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400">
                             {games.map((game) => <option key={game.slug} value={game.slug}>{game.title}</option>)}
                         </select>
-                        <button onClick={handleCreateNew} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-bold uppercase tracking-wider rounded hover:bg-zn-purple-dark transition-colors">
+                        <button onClick={handleCreateNew} disabled={!selectedGameSlug} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-bold uppercase tracking-wider rounded hover:bg-zn-purple-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <Plus className="w-4 h-4" />Нов Пъзел
                         </button>
                     </div>
@@ -327,3 +333,5 @@ export default function ManageGamePuzzles() {
         </div>
     );
 }
+
+

@@ -45,7 +45,7 @@ import {
   Article, Author, Category, Ad, Breaking, User,
   Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle
 } from './models.js';
-import { seedGamesOnly } from './gameSeed.js';
+import { ensureGameDefinitions, seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
 import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/homepageSelectors.js';
 
@@ -4413,8 +4413,8 @@ app.put('/api/permissions/:role', requireAuth, requirePermission('permissions'),
 
 // ─── Games API (Public) ───
 const gamesRouter = express.Router();
-const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz']);
-const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz']);
+const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'sudoku']);
+const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku']);
 const SUPPORTED_PUZZLE_STATUSES = new Set(['draft', 'published', 'archived']);
 const SUPPORTED_PUZZLE_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 const TEMPORARILY_UNAVAILABLE_GAME_ERROR = 'Тази игра временно не е активна.';
@@ -6568,6 +6568,7 @@ export async function startServer() {
     await ensureDbIndexes();
     await ensureDefaultPermissionDocs();
     await migrateBreakingCategoryLabels();
+    await ensureGameDefinitions();
   } catch (err) {
     console.error('✗ MongoDB error:', err.message);
     process.exit(1);
@@ -6605,3 +6606,4 @@ export async function startServer() {
     process.exit(1);
   });
 }
+

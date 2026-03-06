@@ -54,7 +54,7 @@ export default function ManageGames() {
                         <Gamepad2 className="w-6 h-6 text-zn-purple" />
                         Управление на Игри
                     </h1>
-                    <p className="text-sm font-sans text-gray-500 mt-1">Активирайте или деактивирайте модулите с игри (Word, Connections, Quiz).</p>
+                    <p className="text-sm font-sans text-gray-500 mt-1">Активирайте или деактивирайте модулите с игри (Word, Connections, Quiz, Sudoku).</p>
                 </div>
                 <button
                     onClick={loadGames}
@@ -128,3 +128,4 @@ export default function ManageGames() {
         </div>
     );
 }
+

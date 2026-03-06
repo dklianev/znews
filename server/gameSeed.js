@@ -5,9 +5,11 @@ export const DEFAULT_GAME_DEFINITIONS = Object.freeze([
   { id: 1, slug: 'word', title: 'Думата на деня', type: 'word', description: 'Познай тайната 5-буквена дума за 6 опита.', icon: 'Type', active: true, sortOrder: 1, theme: 'green' },
   { id: 2, slug: 'connections', title: 'Връзки', type: 'connections', description: 'Групирай 16-те думи в 4 категории по 4 логически свързани думи.', icon: 'Link', active: true, sortOrder: 2, theme: 'indigo' },
   { id: 3, slug: 'quiz', title: 'Новинарски тест', type: 'quiz', description: 'Провери знанията си за събитията в града от изминалата седмица.', icon: 'HelpCircle', active: true, sortOrder: 3, theme: 'orange' },
+  { id: 4, slug: 'sudoku', title: 'Sudoku', type: 'sudoku', description: 'Unlimited Sudoku with Easy, Medium, Hard and Expert.', icon: 'Grid3x3', active: true, sortOrder: 4, theme: 'purple' },
 ]);
 
 const DEFAULT_GAME_SLUGS = DEFAULT_GAME_DEFINITIONS.map((game) => game.slug);
+const DEFAULT_PUZZLE_SEED_SLUGS = Object.freeze(['word', 'connections', 'quiz']);
 
 function isValidDateStr(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
@@ -58,7 +60,6 @@ export async function ensureGameDefinitions(gameSlugs = DEFAULT_GAME_SLUGS) {
           icon: definition.icon,
           sortOrder: definition.sortOrder,
           theme: definition.theme,
-          updatedAt: new Date(),
         },
         $setOnInsert: {
           id: definition.id,
@@ -78,9 +79,9 @@ function normalizeSeedOptions(options = {}) {
     : typeof options.gameSlugs === 'string'
       ? options.gameSlugs.split(',').map((item) => item.trim())
       : [];
-  const gameSlugs = (hasExplicitGameSelection ? requestedSlugs : DEFAULT_GAME_SLUGS)
+  const gameSlugs = (hasExplicitGameSelection ? requestedSlugs : DEFAULT_PUZZLE_SEED_SLUGS)
     .map((slug) => String(slug || '').trim().toLowerCase())
-    .filter((slug, index, arr) => DEFAULT_GAME_SLUGS.includes(slug) && arr.indexOf(slug) === index);
+    .filter((slug, index, arr) => DEFAULT_PUZZLE_SEED_SLUGS.includes(slug) && arr.indexOf(slug) === index);
   const startDate = isValidDateStr(options.startDate) ? options.startDate : getSofiaDateString(1);
   const days = Math.max(1, Math.min(Number.parseInt(options.days, 10) || 30, 62));
 
@@ -124,7 +125,6 @@ export async function seedGamesOnly(options = {}) {
           gameSlug: slug,
           ...template,
           createdAt: new Date(),
-          updatedAt: new Date(),
         });
         results.createdCount += 1;
         results.created.push({ gameSlug: slug, puzzleDate, id: nextId });
@@ -142,7 +142,6 @@ export async function seedGamesOnly(options = {}) {
               editorNotes: template.editorNotes,
               payload: template.payload,
               solution: template.solution,
-              updatedAt: new Date(),
             },
           }
         );
@@ -162,3 +161,5 @@ export async function seedGamesOnly(options = {}) {
 
   return results;
 }
+
+
