@@ -5967,7 +5967,7 @@ const BOOTSTRAP_OPTIONAL_SECTIONS = new Set(['jobs', 'court', 'events', 'gallery
 
 function parseBootstrapInclude(input) {
   if (typeof input !== 'string' || !input.trim()) {
-    return new Set(BOOTSTRAP_OPTIONAL_SECTIONS);
+    return new Set();
   }
 
   return new Set(

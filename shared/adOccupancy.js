@@ -64,30 +64,33 @@ export function buildAdSlotOccupancy(ads, { now = new Date() } = {}) {
     const currentAds = slotAds.filter((ad) => isActiveInWindow(ad, nowMs));
     const upcomingAds = slotAds.filter((ad) => isScheduledForFuture(ad, nowMs));
     const inactiveAds = slotAds.filter((ad) => !currentAds.includes(ad) && !upcomingAds.includes(ad));
-
     const warnings = [];
 
-    if (currentAds.length > 1) {
-      warnings.push({
-        type: 'overlap',
-        message: `${currentAds.length} реклами са активни на този slot в момента.`,
-      });
-    }
-
-    const rotationGroups = new Map();
+    const targetingGroups = new Map();
     currentAds.forEach((ad) => {
-      const key = `${ad.priority || 0}|${buildTargetingFingerprint(ad)}`;
-      const group = rotationGroups.get(key) || [];
+      const key = buildTargetingFingerprint(ad);
+      const group = targetingGroups.get(key) || [];
       group.push(ad);
-      rotationGroups.set(key, group);
+      targetingGroups.set(key, group);
     });
 
-    rotationGroups.forEach((group) => {
+    targetingGroups.forEach((group) => {
       if (group.length < 2) return;
-      warnings.push({
-        type: 'rotation',
-        message: `${group.length} реклами са в потенциална ротация при priority ${group[0]?.priority || 0}.`,
-      });
+
+      const uniquePriorities = new Set(group.map((ad) => ad.priority || 0));
+      if (uniquePriorities.size > 1) {
+        warnings.push({
+          type: 'overlap',
+          message: `${group.length} активни реклами споделят един и същ targeting на този slot. По-високият priority ще измести по-ниския.`,
+        });
+      }
+
+      if (uniquePriorities.size === 1) {
+        warnings.push({
+          type: 'rotation',
+          message: `${group.length} активни реклами се въртят за един и същ targeting на този slot при priority ${group[0]?.priority || 0}.`,
+        });
+      }
     });
 
     return {

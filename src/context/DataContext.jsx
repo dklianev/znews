@@ -139,7 +139,7 @@ export function DataProvider({ children }) {
     return '';
   }, [session?.token]);
 
-  // ÄÄÄ Initial fetch ÄÄÄ
+  // Initial fetch
   const fetchAll = useCallback(async () => {
     setLoading(true);
     setLoadError('');
@@ -272,6 +272,7 @@ export function DataProvider({ children }) {
       ]);
 
       const pick = (result, fallback) => (result.status === 'fulfilled' ? result.value : fallback);
+      const getSectionStatus = (result) => (result.status === 'fulfilled' ? 'loaded' : 'idle');
       setArticles(pick(publicResults[0], []));
       setAuthors(pick(publicResults[1], []));
       setCategories(pick(publicResults[2], []));
@@ -287,13 +288,23 @@ export function DataProvider({ children }) {
       setComments([]);
       setGallery(pick(publicResults[12], []));
       setGames(pick(publicResults[13], []));
-      setPublicSectionStatus({ jobs: 'loaded', court: 'loaded', events: 'loaded', gallery: 'loaded', games: 'loaded' });
+      setPublicSectionStatus({
+        jobs: getSectionStatus(publicResults[8]),
+        court: getSectionStatus(publicResults[9]),
+        events: getSectionStatus(publicResults[10]),
+        gallery: getSectionStatus(publicResults[12]),
+        games: getSectionStatus(publicResults[13]),
+      });
 
       publicResults.forEach((result, idx) => {
         if (result.status === 'rejected') {
           console.error('Failed to load ' + publicResultKeys[idx] + ':', result.reason);
         }
       });
+
+      return {
+        articlesLoaded: publicResults[0].status === 'fulfilled',
+      };
     };
 
     let loadedFromHomepagePayload = false;
@@ -330,7 +341,10 @@ export function DataProvider({ children }) {
         if (isRateLimitedError(error)) {
           hitRateLimit = true;
         } else {
-          await loadLegacyPublicData();
+          const fallbackSummary = await loadLegacyPublicData();
+          if (fallbackSummary?.articlesLoaded) {
+            setLoadError('');
+          }
         }
       }
     } else if (loadedFromHomepagePayload) {
