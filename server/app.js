@@ -7273,7 +7273,7 @@ app.get('/api/media', requireAuth, requireAnyPermission(['articles', 'ads', 'gal
   }
 });
 
-app.get('/api/media/source/:fileName', async (req, res) => {
+app.get('/api/media/source/:fileName', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (req, res) => {
   try {
     const decoded = decodeURIComponent(req.params.fileName || '');
     const fileName = path.basename(decoded);

@@ -138,7 +138,7 @@ export default function AdminImageField({
     return () => {
       cancelled = true;
     };
-  }, [editableImageUrl, value]);
+  }, [editableImageUrl]);
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
