@@ -5405,14 +5405,18 @@ function normalizeCrosswordClues(rawEntries, expectedEntries, direction, options
     rawEntries = [];
   }
 
+  const usedIndices = new Set();
   return expectedEntries.map((expected) => {
-    const match = rawEntries.find((entry) => {
-      if (!isPlainObject(entry)) return false;
+    const matchIndex = rawEntries.findIndex((entry, index) => {
+      if (usedIndices.has(index) || !isPlainObject(entry)) return false;
       const row = toSafeInteger(entry.row, -1);
       const col = toSafeInteger(entry.col, -1);
       const number = toSafeInteger(entry.number, -1);
       return (row === expected.row && col === expected.col) || number === expected.number;
     });
+
+    const match = matchIndex >= 0 ? rawEntries[matchIndex] : null;
+    if (matchIndex >= 0) usedIndices.add(matchIndex);
 
     const clue = normalizeText(match?.clue, 220);
     if (requireText && !clue) {

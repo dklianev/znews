@@ -432,13 +432,13 @@ export default function ManageGamePuzzles() {
                 return;
             }
         }
-        if (!window.confirm('??????? ?? ???, ?? ?????? ?? ??????????? ???? ??????')) return;
+        if (!window.confirm('Сигурни ли сте, че искате да публикувате този пъзел?')) return;
         try {
             await api.adminGames.publishPuzzle(selectedGameSlug, id);
-            toast.success('??????? ? ??????????.');
+            toast.success('Пъзелът е публикуван.');
             await loadPuzzles(selectedGameSlug);
         } catch (e) {
-            toast.error('??????: ' + e.message);
+            toast.error('Грешка: ' + e.message);
         }
     };
 
@@ -572,7 +572,7 @@ export default function ManageGamePuzzles() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex justify-end gap-2">
-                                                    {puzzle.status !== 'published' && <button onClick={() => handlePublish(puzzle.id)} disabled={hasPlaceholders || crosswordPublishBlocked} className="text-green-600 hover:text-green-800 p-2 disabled:text-gray-300 disabled:hover:text-gray-300" title={hasPlaceholders ? '???????? placeholder ???????????? ????? publish' : crosswordPublishBlocked ? '??????? ????????? ?? ???????????' : '??????????'}><Globe className="w-4 h-4" /></button>}
+                                                    {puzzle.status !== 'published' && <button onClick={() => handlePublish(puzzle.id)} disabled={hasPlaceholders || crosswordPublishBlocked} className="text-green-600 hover:text-green-800 p-2 disabled:text-gray-300 disabled:hover:text-gray-300" title={hasPlaceholders ? 'Премахни placeholder съдържанието преди publish' : crosswordPublishBlocked ? 'Има проблеми за публикуване' : 'Публикувай'}><Globe className="w-4 h-4" /></button>}
                                                     <button onClick={() => handleEdit(puzzle)} className="text-gray-500 hover:text-blue-600 p-2" title="Редактирай"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => handleDelete(puzzle.id)} className="text-gray-500 hover:text-red-600 p-2" title="Изтрий"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
