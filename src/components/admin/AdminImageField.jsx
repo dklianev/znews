@@ -4,6 +4,7 @@ import ImageEditorDialog from './ImageEditorDialog';
 import UploadWatermarkToggle from './UploadWatermarkToggle';
 import { useData } from '../../context/DataContext';
 import useUploadWatermarkPreference from '../../hooks/useUploadWatermarkPreference';
+import { getEditableMediaUrl } from '../../utils/editableMediaUrl';
 
 function clamp(value, min, max) {
   const numeric = Number(value);
@@ -110,6 +111,7 @@ export default function AdminImageField({
   }, [media, query]);
 
   const previewImageStyle = useMemo(() => getPreviewImageStyle(imageMeta), [imageMeta]);
+  const editableImageUrl = useMemo(() => getEditableMediaUrl(value), [value]);
   const imageRequirementStatus = useMemo(
     () => getImageRequirementStatus(imageDetails, imageRequirements),
     [imageDetails, imageRequirements],
@@ -123,7 +125,6 @@ export default function AdminImageField({
 
     let cancelled = false;
     const image = new window.Image();
-    image.crossOrigin = 'anonymous';
     image.onload = () => {
       if (cancelled) return;
       setImageDetails({ width: image.naturalWidth || image.width, height: image.naturalHeight || image.height });
@@ -132,12 +133,12 @@ export default function AdminImageField({
       if (cancelled) return;
       setImageDetails(null);
     };
-    image.src = value;
+    image.src = editableImageUrl;
 
     return () => {
       cancelled = true;
     };
-  }, [value]);
+  }, [editableImageUrl, value]);
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -289,7 +290,7 @@ export default function AdminImageField({
               type="button"
               onClick={() => {
                 setEditorFile(null);
-                setEditorUrl(value);
+                setEditorUrl(editableImageUrl);
               }}
               className="inline-flex items-center gap-1.5 px-3 py-2 border border-blue-200 text-xs font-sans font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
             >

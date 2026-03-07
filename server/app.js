@@ -7273,6 +7273,24 @@ app.get('/api/media', requireAuth, requireAnyPermission(['articles', 'ads', 'gal
   }
 });
 
+app.get('/api/media/source/:fileName', async (req, res) => {
+  try {
+    const decoded = decodeURIComponent(req.params.fileName || '');
+    const fileName = path.basename(decoded);
+    if (!isOriginalUploadFileName(fileName)) return res.status(400).json({ error: 'Invalid filename' });
+
+    const buffer = await readOriginalUploadBuffer(fileName);
+    if (!buffer || !buffer.byteLength) return res.status(404).json({ error: 'File not found' });
+
+    res.set('Cache-Control', isProd ? 'public, max-age=31536000, immutable' : 'no-store');
+    res.type(fileName);
+    res.send(buffer);
+  } catch (e) {
+    if (e?.code === 'ENOENT' || isStorageNotFoundError(e)) return res.status(404).json({ error: 'File not found' });
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
 app.get('/api/media/pipeline/status', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (_req, res) => {
   try {
     const status = await getImagePipelineStatus();
