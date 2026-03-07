@@ -52,18 +52,63 @@ export async function ensureGameDefinitions(gameSlugs = DEFAULT_GAME_SLUGS) {
   const targetSlugs = Array.isArray(gameSlugs) && gameSlugs.length > 0 ? gameSlugs : DEFAULT_GAME_SLUGS;
   const definitions = DEFAULT_GAME_DEFINITIONS.filter((definition) => targetSlugs.includes(definition.slug));
 
+  const existingDefinitions = await GameDefinition.find({
+    $or: [
+      { slug: { $in: definitions.map((definition) => definition.slug) } },
+      { id: { $in: definitions.map((definition) => definition.id) } },
+    ],
+  }).lean();
+
+  const existingBySlug = new Map(existingDefinitions.map((definition) => [definition.slug, definition]));
+  const usedIds = new Set(
+    existingDefinitions
+      .map((definition) => Number.parseInt(definition.id, 10))
+      .filter((value) => Number.isInteger(value) && value > 0),
+  );
+  let nextAvailableId = Math.max(
+    1,
+    ...usedIds,
+    ...definitions
+      .map((definition) => Number.parseInt(definition.id, 10))
+      .filter((value) => Number.isInteger(value) && value > 0),
+  ) + 1;
+
   for (const definition of definitions) {
-    await GameDefinition.updateOne(
-      { slug: definition.slug },
-      {
-        $setOnInsert: {
-          ...definition,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+    const existingDefinition = existingBySlug.get(definition.slug);
+
+    if (existingDefinition) {
+      await GameDefinition.updateOne(
+        { _id: existingDefinition._id },
+        {
+          $set: {
+            title: definition.title,
+            type: definition.type,
+            description: definition.description,
+            icon: definition.icon,
+            active: definition.active,
+            sortOrder: definition.sortOrder,
+            theme: definition.theme,
+            updatedAt: new Date(),
+          },
         },
-      },
-      { upsert: true }
-    );
+      );
+      continue;
+    }
+
+    let assignedId = Number.parseInt(definition.id, 10);
+    if (!Number.isInteger(assignedId) || assignedId <= 0 || usedIds.has(assignedId)) {
+      while (usedIds.has(nextAvailableId)) nextAvailableId += 1;
+      assignedId = nextAvailableId;
+      nextAvailableId += 1;
+    }
+
+    await GameDefinition.create({
+      ...definition,
+      id: assignedId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    usedIds.add(assignedId);
   }
 }
 
