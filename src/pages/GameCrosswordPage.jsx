@@ -368,10 +368,10 @@ export default function GameCrosswordPage() {
         <section className="rounded-[36px] border border-indigo-100/80 bg-[radial-gradient(circle_at_top_right,_rgba(125,211,252,0.24),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(99,102,241,0.18),_transparent_38%),linear-gradient(135deg,_rgba(255,255,255,0.98),_rgba(238,242,255,0.96))] p-6 shadow-[0_40px_90px_rgba(79,70,229,0.14)] dark:border-indigo-950/50 dark:bg-[radial-gradient(circle_at_top_right,_rgba(56,189,248,0.12),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(99,102,241,0.18),_transparent_38%),linear-gradient(135deg,_rgba(24,24,27,0.98),_rgba(9,9,11,0.98))] dark:shadow-none">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.4em] text-indigo-700 dark:text-sky-300">Дневен grid</p>
-              <h2 className="mt-3 text-4xl font-black uppercase font-condensed">{puzzle.payload?.title || 'Мини кръстословица за днес'}</h2>
+              <p className="text-xs font-black uppercase tracking-[0.4em] text-indigo-700 dark:text-sky-300">Дневен пъзел</p>
+              <h2 className="mt-3 text-4xl font-black uppercase font-condensed">{puzzle.payload?.title || 'Кръстословица на деня'}</h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-zinc-300">
-                {puzzle.payload?.deck || 'Работи по уликите, превключвай посоката с повторен клик върху клетка и проверявай, когато си готов.'}
+                {puzzle.payload?.deck || 'Попълни всички думи по хоризонтала и вертикала. Кликни върху клетка повторно за смяна на посоката.'}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
