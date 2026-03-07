@@ -16,6 +16,12 @@ import {
 
 const GAME_SLUG = 'crossword';
 const INPUT_PATTERN = /^[\p{L}\p{N}]$/u;
+const FEEDBACK_TONE_CLASSNAMES = {
+  info: 'border-slate-200 bg-white/90 text-slate-700 shadow-lg dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:shadow-none',
+  success: 'border-emerald-200 bg-emerald-50/90 text-emerald-950 shadow-lg dark:border-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100 dark:shadow-none',
+  warning: 'border-amber-200 bg-amber-50/90 text-amber-950 shadow-lg dark:border-amber-950 dark:bg-amber-950/30 dark:text-amber-100 dark:shadow-none',
+  error: 'border-rose-200 bg-rose-50/90 text-rose-950 shadow-lg dark:border-rose-950 dark:bg-rose-950/30 dark:text-rose-100 dark:shadow-none',
+};
 
 function findFirstFillableCell(layoutRows) {
   for (let row = 0; row < layoutRows.length; row += 1) {
@@ -68,7 +74,7 @@ export default function GameCrosswordPage() {
   const [gameStatus, setGameStatus] = useState('playing');
   const [showHelp, setShowHelp] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState(null);
   const inputRefs = useRef(new Map());
 
   const displayError = error === 'No puzzle for today'
@@ -198,7 +204,7 @@ export default function GameCrosswordPage() {
   const handleInput = (row, col, rawValue) => {
     const value = normalizeInputChar(rawValue);
     updateCell(row, col, value);
-    setFeedback('');
+    setFeedback(null);
     setSelectedCell({ row, col });
 
     if (value) {
@@ -259,7 +265,7 @@ export default function GameCrosswordPage() {
   const handleCheck = async () => {
     if (!puzzle || isChecking) return;
     setIsChecking(true);
-    setFeedback('');
+    setFeedback(null);
     try {
       const response = await api.games.validate(GAME_SLUG, getTodayStr(), {
         grid: serializeCrosswordPlayerGrid(grid, layoutRows),
@@ -269,15 +275,24 @@ export default function GameCrosswordPage() {
 
       if (response.isSolved) {
         setGameStatus('won');
-        setFeedback('Кръстословицата е решена.');
+        setFeedback({ type: 'success', message: 'Кръстословицата е решена.' });
         recordGameWin(GAME_SLUG, getTodayStr());
       } else if ((response.wrongCells || []).length > 0) {
-        setFeedback(`Има ${(response.wrongCells || []).length} грешни клетки и ${(response.emptyCells || []).length} празни.`);
+        setFeedback({
+          type: 'warning',
+          message: `Има ${(response.wrongCells || []).length} грешни клетки и ${(response.emptyCells || []).length} празни.`,
+        });
       } else {
-        setFeedback(`Остава да попълниш ${(response.emptyCells || []).length} клетки.`);
+        setFeedback({
+          type: 'info',
+          message: `Няма грешки, но остават ${(response.emptyCells || []).length} празни клетки.`,
+        });
       }
     } catch (e) {
-      alert('Грешка при проверка: ' + e.message);
+      setFeedback({
+        type: 'error',
+        message: 'Грешка при проверка: ' + e.message,
+      });
     } finally {
       setIsChecking(false);
     }
@@ -288,12 +303,31 @@ export default function GameCrosswordPage() {
     setGrid((current) => current.map((row, rowIndex) => row.map((cell, colIndex) => (
       activeEntry.cells.some((entryCell) => entryCell.row === rowIndex && entryCell.col === colIndex) ? '' : cell
     ))));
-    setFeedback('');
+    setFeedback(null);
   };
 
-  const handleShare = () => {
-    const text = `zNews Кръстословица - ${getTodayStr()}\n${layoutRows.length}x${String(layoutRows[0] || '').length}\nПопълнена.`;
-    navigator.clipboard.writeText(text).then(() => alert('Резултатът е копиран.'));
+  const handleShare = async () => {
+    const text = `zNews кръстословица - ${getTodayStr()}\n${layoutRows.length}x${String(layoutRows[0] || '').length}\nРешено.`;
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setFeedback({
+        type: 'error',
+        message: 'Копирането не се поддържа в този браузър.',
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setFeedback({
+        type: 'success',
+        message: 'Резултатът е копиран.',
+      });
+    } catch {
+      setFeedback({
+        type: 'error',
+        message: 'Не успях да копирам резултата.',
+      });
+    }
   };
 
   if (loading) {
@@ -380,9 +414,12 @@ export default function GameCrosswordPage() {
               )}
             </div>
 
-            {feedback && (
-              <div className="rounded-[28px] border border-stone-200 bg-white/90 px-5 py-4 text-sm text-slate-700 shadow-lg dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:shadow-none">
-                {feedback}
+            {feedback?.message && (
+              <div
+                aria-live="polite"
+                className={`rounded-[28px] border px-5 py-4 text-sm ${FEEDBACK_TONE_CLASSNAMES[feedback.type] || FEEDBACK_TONE_CLASSNAMES.info}`}
+              >
+                {feedback.message}
               </div>
             )}
 

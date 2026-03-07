@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, HelpCircle, Loader2, Share2, Sparkles, Target } from 'lucide-react';
 import { api } from '../utils/api';
@@ -9,6 +9,12 @@ import HangmanKeyboard from '../components/games/hangman/HangmanKeyboard';
 import { applyHangmanReveal, createHangmanSlots, getHangmanKeyboardRows, isHangmanSolved, normalizeHangmanLetter } from '../utils/hangman';
 
 const GAME_SLUG = 'hangman';
+const NOTICE_TONE_CLASSNAMES = {
+  info: 'border-sky-200 bg-sky-50/80 text-sky-950 dark:border-sky-950/50 dark:bg-sky-950/30 dark:text-sky-100',
+  success: 'border-emerald-200 bg-emerald-50/90 text-emerald-950 dark:border-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100',
+  error: 'border-rose-200 bg-rose-50/90 text-rose-950 dark:border-rose-950 dark:bg-rose-950/30 dark:text-rose-100',
+};
+
 
 function buildLetterStatusMap(statuses) {
   return statuses && typeof statuses === 'object' ? statuses : {};
@@ -26,6 +32,15 @@ export default function GameHangmanPage() {
   const [revealAnswer, setRevealAnswer] = useState('');
   const [showHelp, setShowHelp] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const processingRef = useRef(false);
+  const puzzleRef = useRef(null);
+  const guessedLettersRef = useRef([]);
+  const revealedSlotsRef = useRef([]);
+  const wrongGuessesRef = useRef(0);
+  const letterStatusesRef = useRef({});
+  const gameStatusRef = useRef('playing');
+  const maxMistakesRef = useRef(7);
 
   const displayError = error === 'No puzzle for today'
     ? 'Няма бесеница за днес. Провери пак по-късно.'
@@ -73,14 +88,31 @@ export default function GameHangmanPage() {
   const answerLength = payload.answerLength || revealedSlots.length || 0;
   const keyboardRows = useMemo(() => getHangmanKeyboardRows(payload.keyboardLayout), [payload.keyboardLayout]);
   const mistakesRemaining = Math.max(0, maxMistakes - wrongGuesses);
+  puzzleRef.current = puzzle;
+  guessedLettersRef.current = guessedLetters;
+  revealedSlotsRef.current = revealedSlots;
+  wrongGuessesRef.current = wrongGuesses;
+  letterStatusesRef.current = letterStatuses;
+  gameStatusRef.current = gameStatus;
+  maxMistakesRef.current = maxMistakes;
+  processingRef.current = isProcessing;
 
-  const handleGuess = async (rawValue) => {
+  const setProcessingState = useCallback((nextValue) => {
+    processingRef.current = nextValue;
+    setIsProcessing(nextValue);
+  }, []);
+
+  const handleGuess = useCallback(async (rawValue) => {
     const letter = normalizeHangmanLetter(rawValue);
-    if (!letter || !puzzle || gameStatus !== 'playing' || isProcessing) return;
-    if (guessedLetters.includes(letter)) return;
+    const currentPuzzle = puzzleRef.current;
+    const currentGameStatus = gameStatusRef.current;
+    const currentGuessedLetters = guessedLettersRef.current;
+    if (!letter || !currentPuzzle || currentGameStatus !== 'playing' || processingRef.current) return;
+    if (currentGuessedLetters.includes(letter)) return;
 
-    const nextGuessedLetters = [...guessedLetters, letter];
-    setIsProcessing(true);
+    const nextGuessedLetters = [...currentGuessedLetters, letter];
+    setProcessingState(true);
+    setNotice(null);
     try {
       const response = await api.games.validate(GAME_SLUG, getTodayStr(), {
         letter,
@@ -88,37 +120,46 @@ export default function GameHangmanPage() {
       });
 
       const nextStatuses = {
-        ...letterStatuses,
+        ...letterStatusesRef.current,
         [letter]: response.isCorrect ? 'correct' : 'miss',
       };
       const nextRevealedSlots = response.isCorrect
-        ? applyHangmanReveal(revealedSlots, letter, response.positions)
-        : revealedSlots;
-      const nextWrongGuesses = response.isCorrect ? wrongGuesses : wrongGuesses + 1;
+        ? applyHangmanReveal(revealedSlotsRef.current, letter, response.positions)
+        : revealedSlotsRef.current;
+      const nextWrongGuesses = response.isCorrect ? wrongGuessesRef.current : wrongGuessesRef.current + 1;
 
+      guessedLettersRef.current = nextGuessedLetters;
+      letterStatusesRef.current = nextStatuses;
+      revealedSlotsRef.current = nextRevealedSlots;
+      wrongGuessesRef.current = nextWrongGuesses;
       setGuessedLetters(nextGuessedLetters);
       setLetterStatuses(nextStatuses);
       setRevealedSlots(nextRevealedSlots);
       setWrongGuesses(nextWrongGuesses);
 
       if (response.isWin || isHangmanSolved(nextRevealedSlots)) {
+        gameStatusRef.current = 'won';
         setGameStatus('won');
         recordGameWin(GAME_SLUG, getTodayStr());
         return;
       }
 
-      if (!response.isCorrect && nextWrongGuesses >= maxMistakes) {
+      if (!response.isCorrect && nextWrongGuesses >= maxMistakesRef.current) {
+        gameStatusRef.current = 'lost';
         setGameStatus('lost');
         recordGameLoss(GAME_SLUG, getTodayStr());
         const reveal = await api.games.validate(GAME_SLUG, getTodayStr(), { action: 'reveal-answer' });
         setRevealAnswer(String(reveal?.answer || ''));
       }
     } catch (e) {
-      alert('Грешка при проверка: ' + e.message);
+      setNotice({
+        type: 'error',
+        message: 'Грешка при проверка: ' + e.message,
+      });
     } finally {
-      setIsProcessing(false);
+      setProcessingState(false);
     }
-  };
+  }, [setProcessingState]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -134,15 +175,34 @@ export default function GameHangmanPage() {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [gameStatus, guessedLetters, handleGuess, isProcessing, showHelp]);
+  }, [gameStatus, handleGuess, showHelp]);
 
   const shareText = useMemo(() => {
     const emojiTrail = guessedLetters.map((letter) => (letterStatuses[letter] === 'correct' ? '🟧' : '⬛')).join('');
     return `zNews Бесеница - ${getTodayStr()}\n${gameStatus === 'won' ? `${wrongGuesses}/${maxMistakes}` : `X/${maxMistakes}`}\n${emojiTrail}`;
   }, [gameStatus, guessedLetters, letterStatuses, maxMistakes, wrongGuesses]);
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(shareText).then(() => alert('Резултатът е копиран.'));
+  const handleShare = async () => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setNotice({
+        type: 'error',
+        message: 'Копирането не се поддържа в този браузър.',
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setNotice({
+        type: 'success',
+        message: 'Резултатът е копиран.',
+      });
+    } catch {
+      setNotice({
+        type: 'error',
+        message: 'Не успях да копирам резултата.',
+      });
+    }
   };
 
   if (loading) {
@@ -227,8 +287,17 @@ export default function GameHangmanPage() {
 
             <div className="mt-6 rounded-[28px] border border-orange-100 bg-orange-50/70 px-5 py-4 text-sm text-orange-950 dark:border-orange-950/40 dark:bg-orange-950/20 dark:text-orange-100">
               <p className="font-black uppercase tracking-[0.25em] text-[11px]">Подсказка</p>
-              <p className="mt-2 leading-6">{payload.hint || 'Няма допълнителна подсказка за тази игра.'}</p>
+              <p className="mt-2 leading-6">{payload.hint || 'Тук автоматично ще се покаже жокерът за думата.'}</p>
             </div>
+
+            {notice?.message && (
+              <div
+                aria-live="polite"
+                className={`mt-6 rounded-[28px] border px-5 py-4 text-sm shadow-sm ${NOTICE_TONE_CLASSNAMES[notice.type] || NOTICE_TONE_CLASSNAMES.info}`}
+              >
+                {notice.message}
+              </div>
+            )}
 
             <div className="mt-6 flex flex-wrap gap-2">
               {guessedLetters.length === 0 ? (

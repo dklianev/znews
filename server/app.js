@@ -5227,7 +5227,7 @@ function validateQuizPuzzle(payloadInput, solutionInput) {
 }
 
 const HANGMAN_ANSWER_PATTERN = /^[\p{L}\p{N}]+$/u;
-const CROSSWORD_ENTRY_PATTERN = /^[\p{L}\p{N}]$/u;
+const SINGLE_CHAR_PATTERN = /^[\p{L}\p{N}]$/u;
 
 function validateHangmanPuzzle(payloadInput, solutionInput) {
   if (!isPlainObject(payloadInput) || !isPlainObject(solutionInput)) {
@@ -5302,7 +5302,7 @@ function normalizeCrosswordSolutionRows(rawGrid, layoutRows, width, height) {
         if (char !== '#') throw badRequest('Crossword solution must use "#" in every blocked cell.');
         return '#';
       }
-      if (char !== '?' && !CROSSWORD_ENTRY_PATTERN.test(char)) {
+      if (char !== '?' && !SINGLE_CHAR_PATTERN.test(char)) {
         throw badRequest('Crossword solution cells must contain a single letter, digit or ? placeholder.');
       }
       return char;
@@ -5417,7 +5417,7 @@ function normalizeCrosswordSubmissionGrid(rawGrid, layoutRows) {
         : String(chars[colIndex] || '').trim().toUpperCase();
       if (!rawValue) return '.';
       const char = Array.from(rawValue)[0] || '';
-      if (!CROSSWORD_ENTRY_PATTERN.test(char)) {
+      if (!SINGLE_CHAR_PATTERN.test(char)) {
         throw badRequest('Crossword submission cells must contain only one letter or digit.');
       }
       return char;
@@ -5704,7 +5704,7 @@ gamesRouter.post('/:slug/:date/validate', async (req, res) => {
 
       const letter = normalizeText(req.body?.letter, 8).toUpperCase();
       const normalizedLetter = Array.from(letter)[0] || '';
-      if (!CROSSWORD_ENTRY_PATTERN.test(normalizedLetter)) {
+      if (!SINGLE_CHAR_PATTERN.test(normalizedLetter)) {
         return res.status(400).json({ error: 'Invalid letter' });
       }
 
