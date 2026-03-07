@@ -85,7 +85,6 @@ export async function ensureGameDefinitions(gameSlugs = DEFAULT_GAME_SLUGS) {
             type: definition.type,
             description: definition.description,
             icon: definition.icon,
-            active: definition.active,
             sortOrder: definition.sortOrder,
             theme: definition.theme,
             updatedAt: new Date(),
