@@ -8,7 +8,7 @@ export function looksLikePlaceholderText(value) {
     || normalized.includes('TODO')
     || normalized.includes('PLACEHOLDER')
     || normalized.includes('REPLACE_ME')
-    || normalized.includes('??????');
+    || normalized.includes('ЗАМЕНИ');
 }
 
 export function getGamePlaceholderWarnings(gameSlug, puzzle) {
