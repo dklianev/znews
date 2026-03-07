@@ -7,7 +7,7 @@ import { getTodayStr, isValidDateStr } from '../../utils/gameDate';
 import { addPuzzleDays, getPuzzleDurationDays, normalizePuzzleActiveUntilDate } from '../../utils/puzzleDateUtils';
 import { createGamePuzzleTemplate, GAME_EDITOR_GUIDES } from '../../../shared/gamePuzzleTemplates.js';
 import { hasGamePlaceholderContent } from '../../../shared/gamePlaceholderWarnings.js';
-import { getCrosswordEntries } from '../../../shared/crossword.js';
+import { analyzeCrosswordConstruction, getCrosswordEntries, MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH } from '../../../shared/crossword.js';
 import { analyzeSpellingBeeWords, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, SPELLING_BEE_MIN_WORD_LENGTH } from '../../../shared/spellingBee.js';
 
 const PUZZLE_MANAGED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword']);
@@ -47,6 +47,19 @@ function clampCrosswordSize(value) {
 
 function clampSpellingBeeMinWordLength(value) {
     return Math.max(SPELLING_BEE_MIN_LENGTH_MIN, Math.min(SPELLING_BEE_MIN_LENGTH_MAX, Number.parseInt(value, 10) || SPELLING_BEE_MIN_LENGTH_MIN));
+}
+
+function getCrosswordPublishAnalysis(puzzle) {
+    return analyzeCrosswordConstruction({
+        width: puzzle?.payload?.width,
+        height: puzzle?.payload?.height,
+        layoutRows: puzzle?.payload?.layout,
+        clues: puzzle?.payload?.clues,
+        solutionGrid: puzzle?.solution?.grid,
+        minEntryLength: MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH,
+        requireClueText: true,
+        requireCompleteSolution: true,
+    });
 }
 
 function syncCrosswordDraftState(draft) {
@@ -411,13 +424,21 @@ export default function ManageGamePuzzles() {
     };
 
     const handlePublish = async (id) => {
-        if (!window.confirm('Сигурни ли сте, че искате да публикувате този пъзел?')) return;
+        const puzzle = puzzles.find((entry) => entry.id === id) || null;
+        if (selectedGameSlug === 'crossword' && puzzle) {
+            const crosswordHealth = getCrosswordPublishAnalysis(puzzle);
+            if (crosswordHealth.blockers.length > 0) {
+                toast.error('Кръстословицата има ' + crosswordHealth.blockers.length + ' проблема за публикуване. Отвори редакцията и ги поправи.');
+                return;
+            }
+        }
+        if (!window.confirm('??????? ?? ???, ?? ?????? ?? ??????????? ???? ??????')) return;
         try {
             await api.adminGames.publishPuzzle(selectedGameSlug, id);
-            toast.success('Пъзелът е публикуван.');
+            toast.success('??????? ? ??????????.');
             await loadPuzzles(selectedGameSlug);
         } catch (e) {
-            toast.error('Грешка: ' + e.message);
+            toast.error('??????: ' + e.message);
         }
     };
 
@@ -527,6 +548,8 @@ export default function ManageGamePuzzles() {
                                 puzzles.map((puzzle) => {
                                     const hasPlaceholders = hasGamePlaceholderContent(selectedGameSlug, puzzle);
                                     const puzzleDurationDays = getPuzzleDurationDays(puzzle.puzzleDate, puzzle.activeUntilDate);
+                                    const crosswordHealth = selectedGameSlug === 'crossword' ? getCrosswordPublishAnalysis(puzzle) : null;
+                                    const crosswordPublishBlocked = Boolean(crosswordHealth && crosswordHealth.blockers.length > 0);
                                     return (
                                         <tr key={puzzle.id} className="hover:bg-gray-50/50">
                                             <td className="px-6 py-4">
@@ -549,7 +572,7 @@ export default function ManageGamePuzzles() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex justify-end gap-2">
-                                                    {puzzle.status !== 'published' && <button onClick={() => handlePublish(puzzle.id)} disabled={hasPlaceholders} className="text-green-600 hover:text-green-800 p-2 disabled:text-gray-300 disabled:hover:text-gray-300" title={hasPlaceholders ? 'Премахни placeholder съдържанието преди publish' : 'Публикувай'}><Globe className="w-4 h-4" /></button>}
+                                                    {puzzle.status !== 'published' && <button onClick={() => handlePublish(puzzle.id)} disabled={hasPlaceholders || crosswordPublishBlocked} className="text-green-600 hover:text-green-800 p-2 disabled:text-gray-300 disabled:hover:text-gray-300" title={hasPlaceholders ? '???????? placeholder ???????????? ????? publish' : crosswordPublishBlocked ? '??????? ????????? ?? ???????????' : '??????????'}><Globe className="w-4 h-4" /></button>}
                                                     <button onClick={() => handleEdit(puzzle)} className="text-gray-500 hover:text-blue-600 p-2" title="Редактирай"><Edit2 className="w-4 h-4" /></button>
                                                     <button onClick={() => handleDelete(puzzle.id)} className="text-gray-500 hover:text-red-600 p-2" title="Изтрий"><Trash2 className="w-4 h-4" /></button>
                                                 </div>

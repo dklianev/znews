@@ -51,7 +51,7 @@ import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/
 import { AD_PAGE_TYPES, AD_STATUS_OPTIONS, AD_TYPES, getAdSlot, getDefaultPlacementsForType, isKnownAdSlot } from '../shared/adSlots.js';
 import { filterPublicAds, getAdRotationPool, normalizeAdImageMeta, normalizeAdRecord } from '../shared/adResolver.js';
 import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES, AD_IMPRESSION_WINDOW_MS, DEFAULT_AD_ANALYTICS_DAYS } from '../shared/adAnalytics.js';
-import { getCrosswordEntries } from '../shared/crossword.js';
+import { analyzeCrosswordConstruction, getCrosswordEntries, MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH } from '../shared/crossword.js';
 import { analyzeSpellingBeeWords, getSpellingBeeWordScore, getSpellingBeeWordValidation, hasCompleteSpellingBeeHive, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, normalizeSpellingBeeWord, normalizeSpellingBeeWords, SPELLING_BEE_MIN_WORD_LENGTH } from '../shared/spellingBee.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -5396,28 +5396,28 @@ function normalizeCrosswordSolutionRows(rawGrid, layoutRows, width, height) {
   });
 }
 
-function normalizeCrosswordClues(rawEntries, expectedEntries, direction) {
+function normalizeCrosswordClues(rawEntries, expectedEntries, direction, options = {}) {
+  const { requireText = true, allowMissingEntries = false } = options;
   if (!Array.isArray(rawEntries)) {
-    throw badRequest(`Crossword ${direction} clues must be an array.`);
+    if (!allowMissingEntries) {
+      throw badRequest(`Crossword ${direction} clues must be an array.`);
+    }
+    rawEntries = [];
   }
 
-  const usedIndices = new Set();
-  const normalized = expectedEntries.map((expected) => {
-    const matchIndex = rawEntries.findIndex((entry, index) => {
-      if (usedIndices.has(index) || !isPlainObject(entry)) return false;
+  return expectedEntries.map((expected) => {
+    const match = rawEntries.find((entry) => {
+      if (!isPlainObject(entry)) return false;
       const row = toSafeInteger(entry.row, -1);
       const col = toSafeInteger(entry.col, -1);
       const number = toSafeInteger(entry.number, -1);
       return (row === expected.row && col === expected.col) || number === expected.number;
     });
 
-    if (matchIndex < 0) {
-      throw badRequest(`Missing ${direction} clue for #${expected.number}.`);
+    const clue = normalizeText(match?.clue, 220);
+    if (requireText && !clue) {
+      throw badRequest(`Crossword clue #${expected.number} must have text.`);
     }
-
-    usedIndices.add(matchIndex);
-    const clue = normalizeText(rawEntries[matchIndex].clue, 220);
-    if (!clue) throw badRequest(`Crossword clue #${expected.number} must have text.`);
 
     return {
       number: expected.number,
@@ -5427,20 +5427,14 @@ function normalizeCrosswordClues(rawEntries, expectedEntries, direction) {
       clue,
     };
   });
-
-  const extraEntries = rawEntries.filter((entry, index) => isPlainObject(entry) && !usedIndices.has(index));
-  if (extraEntries.length > 0) {
-    throw badRequest(`Unexpected extra ${direction} clues were provided.`);
-  }
-
-  return normalized;
 }
 
-function validateCrosswordPuzzle(payloadInput, solutionInput) {
+function validateCrosswordPuzzle(payloadInput, solutionInput, options = {}) {
   if (!isPlainObject(payloadInput) || !isPlainObject(solutionInput)) {
     throw badRequest('Crossword puzzle payload and solution must be JSON objects.');
   }
 
+  const { requireClueText = true, requireCompleteSolution = true, minEntryLength = MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH } = options;
   const rawLayout = Array.isArray(payloadInput.layout) ? payloadInput.layout : [];
   const derivedHeight = rawLayout.length;
   const derivedWidth = derivedHeight > 0 ? Array.from(String(rawLayout[0] || '')).length : 0;
@@ -5462,9 +5456,23 @@ function validateCrosswordPuzzle(payloadInput, solutionInput) {
 
   const rawClues = isPlainObject(payloadInput.clues) ? payloadInput.clues : {};
   const clues = {
-    across: normalizeCrosswordClues(rawClues.across, expectedEntries.across, 'across'),
-    down: normalizeCrosswordClues(rawClues.down, expectedEntries.down, 'down'),
+    across: normalizeCrosswordClues(rawClues.across, expectedEntries.across, 'across', { requireText: requireClueText, allowMissingEntries: !requireClueText }),
+    down: normalizeCrosswordClues(rawClues.down, expectedEntries.down, 'down', { requireText: requireClueText, allowMissingEntries: !requireClueText }),
   };
+
+  const analysis = analyzeCrosswordConstruction({
+    width,
+    height,
+    layoutRows: layout,
+    clues,
+    solutionGrid,
+    minEntryLength,
+    requireClueText,
+    requireCompleteSolution,
+  });
+  if (analysis.blockers.length > 0) {
+    throw badRequest(analysis.blockers[0].message);
+  }
 
   return {
     payload: {
@@ -5635,7 +5643,11 @@ function sanitizeGamePuzzleInput(game, input, existingPuzzle = null) {
   } else if (game.type === 'spellingbee') {
     validatedPuzzle = validateSpellingBeePuzzle(rawPayload, rawSolution);
   } else if (game.type === 'crossword') {
-    validatedPuzzle = validateCrosswordPuzzle(rawPayload, rawSolution);
+    validatedPuzzle = validateCrosswordPuzzle(rawPayload, rawSolution, {
+      requireClueText: status === 'published',
+      requireCompleteSolution: status === 'published',
+      minEntryLength: status === 'published' ? MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH : 1,
+    });
   } else if (game.type === 'quiz') {
     validatedPuzzle = validateQuizPuzzle(rawPayload, rawSolution);
   } else {
@@ -6075,6 +6087,13 @@ adminGamesRouter.post('/:slug/puzzles/:id/publish', async (req, res) => {
     if (!existingPuzzle) return res.status(404).json({ error: 'Not found' });
     if (isPlaceholderGamePuzzle(game.type, existingPuzzle.payload, existingPuzzle.solution)) {
       return res.status(400).json({ error: 'Replace the placeholder game content before publishing.' });
+    }
+    if (game.type === 'crossword') {
+      validateCrosswordPuzzle(existingPuzzle.payload, existingPuzzle.solution, {
+        requireClueText: true,
+        requireCompleteSolution: true,
+        minEntryLength: MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH,
+      });
     }
     const puzzle = await GamePuzzle.findOneAndUpdate({ id, gameSlug: slug }, { $set: { status: 'published', publishAt: new Date(), updatedAt: new Date() } }, { new: true });
     if (!puzzle) return res.status(404).json({ error: 'Not found' });

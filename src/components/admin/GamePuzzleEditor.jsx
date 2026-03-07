@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { getGamePlaceholderWarnings } from '../../../shared/gamePlaceholderWarnings.js';
+import { analyzeCrosswordConstruction, MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH } from '../../../shared/crossword.js';
 import { analyzeSpellingBeeWords, hasCompleteSpellingBeeHive, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, SPELLING_BEE_MIN_WORD_LENGTH } from '../../../shared/spellingBee.js';
 import SpellingBeeHive from '../games/spellingbee/SpellingBeeHive';
 import { getPuzzleDurationDays } from '../../utils/puzzleDateUtils';
@@ -305,12 +306,15 @@ function renderConnectionsEditor(editForm, actions, fieldClass) {
     );
 }
 
-function renderCrosswordEditor(editForm, actions, fieldClass) {
+function renderCrosswordEditor(editForm, actions, fieldClass, crosswordAnalysis) {
     const payload = editForm?.payload || {};
     const solution = editForm?.solution || {};
     const layout = Array.isArray(payload.layout) ? payload.layout : [];
     const solutionGrid = Array.isArray(solution.grid) ? solution.grid : [];
     const clues = payload.clues || { across: [], down: [] };
+    const crosswordBlockers = Array.isArray(crosswordAnalysis?.blockers) ? crosswordAnalysis.blockers : [];
+    const crosswordWarnings = Array.isArray(crosswordAnalysis?.warnings) ? crosswordAnalysis.warnings : [];
+    const crosswordStats = crosswordAnalysis?.stats || {};
 
     return (
         <div className="space-y-8">
@@ -341,6 +345,59 @@ function renderCrosswordEditor(editForm, actions, fieldClass) {
                 </div>
             </div>
 
+            {(crosswordBlockers.length > 0 || crosswordWarnings.length > 0) && (
+                <div className="rounded-[28px] border border-amber-200 bg-[linear-gradient(135deg,rgba(255,251,235,0.98),rgba(254,243,199,0.78))] px-5 py-5 shadow-sm">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="flex items-start gap-3">
+                            <div className="mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-700">
+                                <AlertTriangle className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <p className="text-[11px] font-black uppercase tracking-[0.32em] text-amber-700">Crossword Health</p>
+                                <h3 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-stone-900">Провери решетката преди публикуване</h3>
+                                <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-700">Публикуването се блокира, ако има думи под 3 букви, липсващи clues или непопълнени клетки в решението.</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-black uppercase tracking-[0.2em] text-stone-600">
+                            <div className="rounded-2xl border border-white/80 bg-white/80 px-3 py-3 shadow-sm">
+                                <div className="text-xl tracking-normal text-stone-950">{crosswordStats.totalEntries || 0}</div>
+                                <div className="mt-1">Entries</div>
+                            </div>
+                            <div className="rounded-2xl border border-white/80 bg-white/80 px-3 py-3 shadow-sm">
+                                <div className="text-xl tracking-normal text-red-700">{crosswordBlockers.length}</div>
+                                <div className="mt-1">Blockers</div>
+                            </div>
+                            <div className="rounded-2xl border border-white/80 bg-white/80 px-3 py-3 shadow-sm">
+                                <div className="text-xl tracking-normal text-amber-700">{crosswordWarnings.length}</div>
+                                <div className="mt-1">Warnings</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                        <div className="rounded-2xl border border-red-200 bg-white/80 px-4 py-4 shadow-sm">
+                            <p className="text-xs font-black uppercase tracking-[0.24em] text-red-700">Проблеми за публикуване</p>
+                            <div className="mt-3 space-y-2 text-sm text-stone-800">
+                                {crosswordBlockers.length > 0 ? crosswordBlockers.slice(0, 8).map((issue) => (
+                                    <p key={`${issue.code}:${issue.number ?? issue.row ?? issue.message}`} className="rounded-xl border border-red-100 bg-red-50/80 px-3 py-2">{issue.message}</p>
+                                )) : (
+                                    <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800">Няма blockers за публикуване.</p>
+                                )}
+                                {crosswordBlockers.length > 8 && <p className="text-xs font-semibold text-red-700">+ още {crosswordBlockers.length - 8} проблема</p>}
+                            </div>
+                        </div>
+                        <div className="rounded-2xl border border-amber-200 bg-white/80 px-4 py-4 shadow-sm">
+                            <p className="text-xs font-black uppercase tracking-[0.24em] text-amber-700">Предупреждения</p>
+                            <div className="mt-3 space-y-2 text-sm text-stone-800">
+                                {crosswordWarnings.length > 0 ? crosswordWarnings.slice(0, 6).map((issue) => (
+                                    <p key={`${issue.code}:${issue.message}`} className="rounded-xl border border-amber-100 bg-amber-50/80 px-3 py-2">{issue.message}</p>
+                                )) : (
+                                    <p className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-stone-600">Няма допълнителни предупреждения.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
                 <div className="rounded-2xl border border-gray-200 bg-white p-5">
                     <div className="flex items-center justify-between gap-3 mb-4">
@@ -510,6 +567,19 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
         }
     }, [solutionJsonFocused, solutionJsonPreview]);
 
+    const crosswordAnalysis = useMemo(() => (gameSlug === 'crossword'
+        ? analyzeCrosswordConstruction({
+            width: editForm?.payload?.width,
+            height: editForm?.payload?.height,
+            layoutRows: editForm?.payload?.layout,
+            clues: editForm?.payload?.clues,
+            solutionGrid: editForm?.solution?.grid,
+            minEntryLength: MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH,
+            requireClueText: true,
+            requireCompleteSolution: true,
+        })
+        : null), [gameSlug, editForm?.payload, editForm?.solution]);
+
     const fieldClass = (key, extra = '') => [
         'w-full rounded-lg px-3 py-2 border transition-colors',
         warningKeys.has(key)
@@ -574,7 +644,7 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
                 : gameSlug === 'connections'
                     ? renderConnectionsEditor(editForm, actions, fieldClass)
                     : gameSlug === 'crossword'
-                        ? renderCrosswordEditor(editForm, actions, fieldClass)
+                        ? renderCrosswordEditor(editForm, actions, fieldClass, crosswordAnalysis)
                         : renderQuizEditor(editForm, actions, fieldClass);
 
     return (

@@ -1,8 +1,10 @@
 import {
+  analyzeCrosswordConstruction,
   createEmptyCrosswordFillGrid,
   getCrosswordCellNumberMap,
   getCrosswordEntries,
   getCrosswordEntryCells,
+  MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH,
   normalizeCrosswordPatternRow,
   serializeCrosswordPlayerGrid,
 } from '../shared/crossword.js';
@@ -70,4 +72,35 @@ export function runCrosswordTests() {
     ['#', 'delta', ''],
   ], layout);
   assertDeepEqual(serialized, ['AB#', '.3C', '#D.'], 'serializeCrosswordPlayerGrid should uppercase and trim player entries');
+
+  const publishAnalysis = analyzeCrosswordConstruction({
+    width: 3,
+    height: 3,
+    layoutRows: layout,
+    clues: {
+      across: [
+        { number: 1, row: 0, col: 0, clue: 'A clue' },
+      ],
+      down: [],
+    },
+    solutionGrid: ['AB#', '.3C', '#D.'],
+    minEntryLength: MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH,
+    requireClueText: true,
+    requireCompleteSolution: true,
+  });
+  assert(publishAnalysis.blockers.some((issue) => issue.code === 'entry-too-short'), 'analyzeCrosswordConstruction should report short publish-blocking entries');
+  assert(publishAnalysis.blockers.some((issue) => issue.code === 'missing-clue'), 'analyzeCrosswordConstruction should report missing clues');
+  assert(publishAnalysis.blockers.some((issue) => issue.code === 'incomplete-solution'), 'analyzeCrosswordConstruction should report incomplete solution cells');
+
+  const draftAnalysis = analyzeCrosswordConstruction({
+    width: 3,
+    height: 3,
+    layoutRows: layout,
+    clues: { across: [], down: [] },
+    solutionGrid: ['AB#', '.3C', '#D.'],
+    minEntryLength: 1,
+    requireClueText: false,
+    requireCompleteSolution: false,
+  });
+  assert(draftAnalysis.blockers.length === 0, 'analyzeCrosswordConstruction should allow incomplete draft state when publish rules are relaxed');
 }
