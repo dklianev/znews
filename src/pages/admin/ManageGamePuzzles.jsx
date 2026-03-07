@@ -8,11 +8,14 @@ import { addPuzzleDays, getPuzzleDurationDays, normalizePuzzleActiveUntilDate } 
 import { createGamePuzzleTemplate, GAME_EDITOR_GUIDES } from '../../../shared/gamePuzzleTemplates.js';
 import { hasGamePlaceholderContent } from '../../../shared/gamePlaceholderWarnings.js';
 import { getCrosswordEntries } from '../../../shared/crossword.js';
+import { analyzeSpellingBeeWords, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, SPELLING_BEE_MIN_WORD_LENGTH } from '../../../shared/spellingBee.js';
 
-const PUZZLE_MANAGED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'hangman', 'crossword']);
+const PUZZLE_MANAGED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword']);
 const CROSSWORD_SIZE_MIN = 3;
 const CROSSWORD_SIZE_MAX = 12;
 const CROSSWORD_CHAR_PATTERN = /^[\p{L}\p{N}\?]$/u;
+const SPELLING_BEE_MIN_LENGTH_MIN = SPELLING_BEE_MIN_WORD_LENGTH;
+const SPELLING_BEE_MIN_LENGTH_MAX = 12;
 
 function cloneValue(value) {
     return JSON.parse(JSON.stringify(value));
@@ -40,6 +43,10 @@ function createQuestionTemplate(index) {
 
 function clampCrosswordSize(value) {
     return Math.max(CROSSWORD_SIZE_MIN, Math.min(CROSSWORD_SIZE_MAX, Number.parseInt(value, 10) || 5));
+}
+
+function clampSpellingBeeMinWordLength(value) {
+    return Math.max(SPELLING_BEE_MIN_LENGTH_MIN, Math.min(SPELLING_BEE_MIN_LENGTH_MAX, Number.parseInt(value, 10) || SPELLING_BEE_MIN_LENGTH_MIN));
 }
 
 function syncCrosswordDraftState(draft) {
@@ -112,10 +119,46 @@ function syncCrosswordDraftState(draft) {
     };
 }
 
+function syncSpellingBeeDraftState(draft) {
+    if (!draft || draft.gameSlug !== 'spellingbee') return draft;
+
+    const payload = draft.payload && typeof draft.payload === 'object' ? draft.payload : {};
+    const solution = draft.solution && typeof draft.solution === 'object' ? draft.solution : {};
+    const centerLetter = normalizeSpellingBeeLetter(payload.centerLetter);
+    const outerLetters = normalizeSpellingBeeOuterLetters(payload.outerLetters);
+    const minWordLength = clampSpellingBeeMinWordLength(payload.minWordLength);
+    const analysis = analyzeSpellingBeeWords(solution.words || [], {
+        centerLetter,
+        outerLetters,
+        minWordLength,
+    });
+
+    return {
+        ...draft,
+        payload: {
+            ...payload,
+            centerLetter,
+            outerLetters,
+            minWordLength,
+            totalWords: analysis.totalWords,
+            pangramCount: analysis.pangramCount,
+            maxScore: analysis.maxScore,
+            longestWordLength: analysis.longestWordLength,
+        },
+        solution: {
+            ...solution,
+            words: analysis.normalizedWords,
+            pangrams: analysis.pangrams,
+            scoreByWord: analysis.scoreByWord,
+        },
+    };
+}
+
 function normalizeDraftState(draft) {
     const normalizedDraft = syncPuzzleScheduleState(draft);
     if (!normalizedDraft || typeof normalizedDraft !== 'object') return normalizedDraft;
     if (normalizedDraft.gameSlug === 'crossword') return syncCrosswordDraftState(normalizedDraft);
+    if (normalizedDraft.gameSlug === 'spellingbee') return syncSpellingBeeDraftState(normalizedDraft);
     return normalizedDraft;
 }
 

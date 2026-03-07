@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { getGamePlaceholderWarnings } from '../../../shared/gamePlaceholderWarnings.js';
+import { analyzeSpellingBeeWords, hasCompleteSpellingBeeHive, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, SPELLING_BEE_MIN_WORD_LENGTH } from '../../../shared/spellingBee.js';
+import SpellingBeeHive from '../games/spellingbee/SpellingBeeHive';
 import { getPuzzleDurationDays } from '../../utils/puzzleDateUtils';
 
 function joinMultiValue(values) {
@@ -29,6 +31,13 @@ const PUZZLE_DURATION_PRESETS = Object.freeze([
     { label: '30 дни', days: 30 },
 ]);
 
+function getSpellingBeeReasonLabel(reason) {
+    if (reason === 'missing-center') return 'Липсва централната буква.';
+    if (reason === 'invalid-letter') return 'Използвани са букви извън кошера.';
+    if (reason === 'too-short') return 'Думата е по-къса от минималната дължина.';
+    if (reason === 'invalid-hive') return 'Кошерът още не е попълнен коректно.';
+    return 'Невалиден формат на думата.';
+}
 
 function renderWordEditor(editForm, actions, fieldClass) {
     const payload = editForm?.payload || {};
@@ -97,6 +106,165 @@ function renderHangmanEditor(editForm, actions, fieldClass) {
                     <p className="mt-2 text-base font-semibold">{payload.category || 'Категория'}</p>
                     <p className="mt-1 text-orange-800/80">{payload.hint || 'Подсказката ще се вижда под дъската.'}</p>
                     <p className="mt-3 text-xs uppercase tracking-[0.3em] text-orange-700">{solution.answer ? `${String(solution.answer).length} букви` : 'Без дума'}</p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function renderSpellingBeeEditor(editForm, actions, fieldClass) {
+    const payload = editForm?.payload || {};
+    const solution = editForm?.solution || {};
+    const centerLetter = normalizeSpellingBeeLetter(payload.centerLetter);
+    const outerLetters = normalizeSpellingBeeOuterLetters(payload.outerLetters);
+    const minWordLength = Math.max(SPELLING_BEE_MIN_WORD_LENGTH, Math.min(12, Number.parseInt(payload.minWordLength, 10) || SPELLING_BEE_MIN_WORD_LENGTH));
+    const analysis = analyzeSpellingBeeWords(solution.words || [], {
+        centerLetter,
+        outerLetters,
+        minWordLength,
+    });
+    const hasCompleteHive = hasCompleteSpellingBeeHive(centerLetter, outerLetters);
+    const stats = [
+        { label: 'Валидни думи', value: analysis.totalWords },
+        { label: 'Панграми', value: analysis.pangramCount },
+        { label: 'Макс. точки', value: analysis.maxScore },
+        { label: 'Най-дълга', value: analysis.longestWordLength || '—' },
+    ];
+
+    return (
+        <div className="space-y-8">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6">
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Заглавие</label>
+                        <input type="text" value={payload.title || ''} onChange={(e) => actions.setPayloadField('title', e.target.value)} className={fieldClass('payload.title')} placeholder="Пример: Сутрешен кошер" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Подзаглавие</label>
+                        <textarea value={payload.deck || ''} onChange={(e) => actions.setPayloadField('deck', e.target.value)} className={fieldClass('payload.deck', 'h-28 text-sm')} placeholder="Кратък редакционен текст за играта на деня." />
+                    </div>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-[linear-gradient(180deg,rgba(255,251,235,0.96),rgba(254,243,199,0.92))] p-5">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-amber-700">Редакторски насоки</p>
+                    <div className="mt-4 space-y-3 text-sm leading-6 text-amber-950">
+                        <p>Централната буква трябва да присъства във всяка валидна дума.</p>
+                        <p>За publish са нужни 7 уникални букви, поне една панграма и реален списък с думи.</p>
+                        <p>Дръж заглавието кратко, а deck-а като малък intro, подобно на NYT daily game картите.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <label className="block">
+                            <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Централна буква</span>
+                            <input
+                                type="text"
+                                maxLength={1}
+                                value={centerLetter}
+                                onChange={(e) => actions.setPayloadField('centerLetter', normalizeSpellingBeeLetter(e.target.value))}
+                                className={fieldClass('payload.centerLetter', 'text-center font-mono text-2xl font-bold uppercase')}
+                            />
+                        </label>
+                        <label className="block">
+                            <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Мин. дължина</span>
+                            <input
+                                type="number"
+                                min={SPELLING_BEE_MIN_WORD_LENGTH}
+                                max="12"
+                                value={minWordLength}
+                                onChange={(e) => actions.setPayloadField('minWordLength', Number.parseInt(e.target.value, 10) || SPELLING_BEE_MIN_WORD_LENGTH)}
+                                className={fieldClass('payload.minWordLength')}
+                            />
+                        </label>
+                    </div>
+
+                    <div className="mt-5">
+                        <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">Външни букви</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {outerLetters.map((letter, index) => (
+                                <label key={`outer-letter-${index}`} className="block">
+                                    <span className="block text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-2">Буква {index + 1}</span>
+                                    <input
+                                        type="text"
+                                        maxLength={1}
+                                        value={letter}
+                                        onChange={(e) => {
+                                            const nextOuterLetters = [...outerLetters];
+                                            nextOuterLetters[index] = normalizeSpellingBeeLetter(e.target.value);
+                                            actions.setPayloadField('outerLetters', nextOuterLetters);
+                                        }}
+                                        className={fieldClass('payload.outerLetters', 'text-center font-mono text-xl font-bold uppercase')}
+                                    />
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-stone-200 bg-[linear-gradient(180deg,rgba(250,250,249,0.96),rgba(245,245,244,0.92))] p-5">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-stone-500">Преглед</p>
+                            <h3 className="mt-2 text-lg font-semibold text-stone-900">Spelling Bee кошер</h3>
+                        </div>
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] ${hasCompleteHive ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                            {hasCompleteHive ? 'Готов' : 'Непълен'}
+                        </span>
+                    </div>
+                    <div className="mt-6">
+                        <SpellingBeeHive centerLetter={centerLetter} outerLetters={outerLetters} size="md" disabled />
+                    </div>
+                    <p className="mt-4 text-sm leading-6 text-stone-600">Провери визуално за повтарящи се букви и дали централната буква стои четимо и в светла, и в тъмна тема.</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-6">
+                <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700">Списък с думи</h3>
+                            <p className="text-xs text-gray-500 mt-1">По една дума на ред или разделени със запетая.</p>
+                        </div>
+                        <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500">{analysis.normalizedWords.length}</span>
+                    </div>
+                    <textarea
+                        value={joinMultiValue(solution.words)}
+                        onChange={(e) => actions.setSolutionField('words', splitMultiValue(e.target.value))}
+                        className={fieldClass('solution.words', 'h-[320px] font-mono text-sm uppercase')}
+                        placeholder="Пиши валидните думи тук"
+                        spellCheck={false}
+                    />
+                </div>
+
+                <div className="space-y-4">
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-5">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-gray-500">Статистика</p>
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                            {stats.map((item) => (
+                                <div key={item.label} className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">{item.label}</p>
+                                    <p className="mt-2 text-2xl font-black text-gray-900">{item.value}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {analysis.rejectedWords.length > 0 ? (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+                            <p className="text-sm font-bold text-amber-950">Има думи, които няма да минат при save</p>
+                            <div className="mt-3 space-y-2 text-sm text-amber-900">
+                                {analysis.rejectedWords.map((entry) => (
+                                    <p key={`${entry.word}-${entry.reason}`}><span className="font-bold">{entry.word}</span> - {getSpellingBeeReasonLabel(entry.reason)}</p>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm leading-6 text-emerald-900">
+                            Текущият списък с думи е валиден. Ако кошерът е пълен и има поне една панграма, записът е готов за publish review.
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -401,11 +569,13 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
         ? renderWordEditor(editForm, actions, fieldClass)
         : gameSlug === 'hangman'
             ? renderHangmanEditor(editForm, actions, fieldClass)
-            : gameSlug === 'connections'
-                ? renderConnectionsEditor(editForm, actions, fieldClass)
-                : gameSlug === 'crossword'
-                    ? renderCrosswordEditor(editForm, actions, fieldClass)
-                    : renderQuizEditor(editForm, actions, fieldClass);
+            : gameSlug === 'spellingbee'
+                ? renderSpellingBeeEditor(editForm, actions, fieldClass)
+                : gameSlug === 'connections'
+                    ? renderConnectionsEditor(editForm, actions, fieldClass)
+                    : gameSlug === 'crossword'
+                        ? renderCrosswordEditor(editForm, actions, fieldClass)
+                        : renderQuizEditor(editForm, actions, fieldClass);
 
     return (
         <div className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col gap-6 shadow-sm">

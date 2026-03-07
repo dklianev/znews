@@ -468,7 +468,7 @@ const gameDefinitionSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
   slug: { type: String, required: true, unique: true, index: true },
   title: String,
-  type: { type: String, enum: ['word', 'connections', 'quiz', 'sudoku'], required: true },
+  type: { type: String, enum: ['word', 'connections', 'quiz', 'sudoku', 'hangman', 'crossword', 'spellingbee'], required: true },
   description: String,
   icon: String,
   active: { type: Boolean, default: true },

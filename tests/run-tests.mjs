@@ -7,6 +7,7 @@ import { runAdMigrationTests } from './adMigration.test.mjs';
 import { runAdOccupancyTests } from './adOccupancy.test.mjs';
 import { runHangmanTests } from './hangman.test.mjs';
 import { runCrosswordTests } from './crossword.test.mjs';
+import { runSpellingBeeTests } from './spellingBee.test.mjs';
 
 function runTest(name, fn) {
   try {
@@ -27,6 +28,6 @@ runTest('adMigration', runAdMigrationTests);
 runTest('adOccupancy', runAdOccupancyTests);
 runTest('hangman', runHangmanTests);
 runTest('crossword', runCrosswordTests);
+runTest('spellingbee', runSpellingBeeTests);
 
 console.log('All tests passed.');
-

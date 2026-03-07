@@ -1,5 +1,6 @@
 const GAME_HUB_DESCRIPTION_BY_SLUG = Object.freeze({
-  sudoku: '\u0418\u0433\u0440\u0430\u0439 \u043f\u043e \u0432\u0441\u044f\u043a\u043e \u0432\u0440\u0435\u043c\u0435, \u0441\u043c\u0435\u043d\u044f\u0439 \u0442\u0440\u0443\u0434\u043d\u043e\u0441\u0442\u0442\u0430 \u043e\u0442 \u041b\u0435\u0441\u043d\u043e \u0434\u043e \u0415\u043a\u0441\u043f\u0435\u0440\u0442.',
+  sudoku: 'Играй по всяко време, сменяй трудността от Лесно до Експерт.',
+  spellingbee: 'Сглоби възможно най-много думи от седем букви и стигни до ранга „Гений“.',
 });
 
 export function sortGamesCatalog(items) {

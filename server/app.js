@@ -52,6 +52,7 @@ import { AD_PAGE_TYPES, AD_STATUS_OPTIONS, AD_TYPES, getAdSlot, getDefaultPlacem
 import { filterPublicAds, getAdRotationPool, normalizeAdImageMeta, normalizeAdRecord } from '../shared/adResolver.js';
 import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES, AD_IMPRESSION_WINDOW_MS, DEFAULT_AD_ANALYTICS_DAYS } from '../shared/adAnalytics.js';
 import { getCrosswordEntries } from '../shared/crossword.js';
+import { analyzeSpellingBeeWords, getSpellingBeeWordScore, getSpellingBeeWordValidation, hasCompleteSpellingBeeHive, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, normalizeSpellingBeeWord, normalizeSpellingBeeWords, SPELLING_BEE_MIN_WORD_LENGTH } from '../shared/spellingBee.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -4959,8 +4960,8 @@ app.put('/api/permissions/:role', requireAuth, requirePermission('permissions'),
 
 // ─── Games API (Public) ───
 const gamesRouter = express.Router();
-const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'crossword']);
-const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'crossword']);
+const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword']);
+const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword']);
 const SUPPORTED_PUZZLE_STATUSES = new Set(['draft', 'published', 'archived']);
 const SUPPORTED_PUZZLE_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 const TEMPORARILY_UNAVAILABLE_GAME_ERROR = 'Тази игра временно не е активна.';
@@ -5298,6 +5299,61 @@ function validateHangmanPuzzle(payloadInput, solutionInput) {
   };
 }
 
+function validateSpellingBeePuzzle(payloadInput, solutionInput) {
+  if (!isPlainObject(payloadInput) || !isPlainObject(solutionInput)) {
+    throw badRequest('Spelling Bee payload and solution must be JSON objects.');
+  }
+
+  const title = normalizeText(payloadInput.title, 120);
+  const deck = normalizeText(payloadInput.deck, 220);
+  const centerLetter = normalizeSpellingBeeLetter(payloadInput.centerLetter);
+  const outerLetters = normalizeSpellingBeeOuterLetters(payloadInput.outerLetters);
+  const minWordLength = Math.max(
+    SPELLING_BEE_MIN_WORD_LENGTH,
+    Math.min(12, toSafeInteger(payloadInput.minWordLength, SPELLING_BEE_MIN_WORD_LENGTH))
+  );
+
+  if (!hasCompleteSpellingBeeHive(centerLetter, outerLetters)) {
+    throw badRequest('Spelling Bee requires 7 unique hive letters.');
+  }
+
+  const analysis = analyzeSpellingBeeWords(solutionInput.words, {
+    centerLetter,
+    outerLetters,
+    minWordLength,
+  });
+
+  if (analysis.normalizedWords.length === 0 || analysis.totalWords === 0) {
+    throw badRequest('Spelling Bee requires at least one valid word.');
+  }
+  if (analysis.rejectedWords.length > 0) {
+    const firstRejectedWord = analysis.rejectedWords[0];
+    throw badRequest('Spelling Bee word "' + firstRejectedWord.word + '" is invalid (' + firstRejectedWord.reason + ').');
+  }
+  if (analysis.pangramCount === 0) {
+    throw badRequest('Spelling Bee requires at least one pangram.');
+  }
+
+  return {
+    payload: {
+      ...(title ? { title } : {}),
+      ...(deck ? { deck } : {}),
+      centerLetter,
+      outerLetters,
+      minWordLength,
+      totalWords: analysis.totalWords,
+      pangramCount: analysis.pangramCount,
+      maxScore: analysis.maxScore,
+      longestWordLength: analysis.longestWordLength,
+    },
+    solution: {
+      words: analysis.acceptedWords,
+      pangrams: analysis.pangrams,
+      scoreByWord: analysis.scoreByWord,
+    },
+  };
+}
+
 function normalizeCrosswordLayoutRows(rawLayout, width, height) {
   if (!Array.isArray(rawLayout) || rawLayout.length !== height) {
     throw badRequest('Crossword layout must contain one row per grid row.');
@@ -5518,10 +5574,17 @@ function isPlaceholderCrosswordPuzzle(payload, solution) {
   return hasPlaceholderClues || hasPlaceholderSolution;
 }
 
+function isPlaceholderSpellingBeePuzzle(payload, solution) {
+  return isGenericPlaceholderText(payload?.title)
+    || isGenericPlaceholderText(payload?.deck)
+    || (Array.isArray(solution?.words) ? solution.words.some((word) => isGenericPlaceholderText(word)) : false);
+}
+
 function isPlaceholderGamePuzzle(gameType, payload, solution) {
   if (gameType === 'word') return isPlaceholderWordPuzzle(payload, solution);
   if (gameType === 'hangman') return isPlaceholderHangmanPuzzle(payload, solution);
   if (gameType === 'connections') return isPlaceholderConnectionsPuzzle(payload, solution);
+  if (gameType === 'spellingbee') return isPlaceholderSpellingBeePuzzle(payload, solution);
   if (gameType === 'crossword') return isPlaceholderCrosswordPuzzle(payload, solution);
   if (gameType === 'quiz') return isPlaceholderQuizPuzzle(payload, solution);
   return false;
@@ -5569,6 +5632,8 @@ function sanitizeGamePuzzleInput(game, input, existingPuzzle = null) {
     validatedPuzzle = validateHangmanPuzzle(rawPayload, rawSolution);
   } else if (game.type === 'connections') {
     validatedPuzzle = validateConnectionsPuzzle(rawPayload, rawSolution);
+  } else if (game.type === 'spellingbee') {
+    validatedPuzzle = validateSpellingBeePuzzle(rawPayload, rawSolution);
   } else if (game.type === 'crossword') {
     validatedPuzzle = validateCrosswordPuzzle(rawPayload, rawSolution);
   } else if (game.type === 'quiz') {
@@ -5781,6 +5846,46 @@ gamesRouter.post('/:slug/:date/validate', async (req, res) => {
         return res.json({ correct: true, group: foundGroup });
       }
       return res.json({ correct: false, isOneAway });
+    }
+
+    if (game.type === 'spellingbee') {
+      const centerLetter = normalizeSpellingBeeLetter(puzzle.payload?.centerLetter);
+      const outerLetters = normalizeSpellingBeeOuterLetters(puzzle.payload?.outerLetters);
+      const minWordLength = Math.max(
+        SPELLING_BEE_MIN_WORD_LENGTH,
+        Math.min(12, toSafeInteger(puzzle.payload?.minWordLength, SPELLING_BEE_MIN_WORD_LENGTH))
+      );
+      const guess = normalizeSpellingBeeWord(req.body?.guess);
+      const validation = getSpellingBeeWordValidation(guess, {
+        centerLetter,
+        outerLetters,
+        minWordLength,
+      });
+
+      if (!validation.isValid) {
+        return res.json({ accepted: false, reason: validation.reason });
+      }
+
+      const acceptedWords = new Set(normalizeSpellingBeeWords(puzzle.solution?.words || []));
+      if (!acceptedWords.has(validation.normalizedWord)) {
+        return res.json({ accepted: false, reason: 'not-in-list' });
+      }
+
+      const score = Math.max(
+        1,
+        toSafeInteger(puzzle.solution?.scoreByWord?.[validation.normalizedWord], 0)
+          || getSpellingBeeWordScore(validation.normalizedWord, { centerLetter, outerLetters, minWordLength })
+      );
+
+      return res.json({
+        accepted: true,
+        word: validation.normalizedWord,
+        score,
+        isPangram: validation.isPangram,
+        totalWords: Math.max(0, toSafeInteger(puzzle.payload?.totalWords, acceptedWords.size)),
+        maxScore: Math.max(0, toSafeInteger(puzzle.payload?.maxScore, 0)),
+        pangramCount: Math.max(0, toSafeInteger(puzzle.payload?.pangramCount, 0)),
+      });
     }
 
     if (game.type === 'crossword') {

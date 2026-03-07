@@ -7,11 +7,12 @@ export const DEFAULT_GAME_DEFINITIONS = Object.freeze([
   { id: 3, slug: 'quiz', title: 'Новинарски тест', type: 'quiz', description: 'Провери знанията си за най-важните местни истории.', icon: 'HelpCircle', active: true, sortOrder: 3, theme: 'orange' },
   { id: 4, slug: 'sudoku', title: 'Судоку', type: 'sudoku', description: 'Играй по всяко време и сменяй трудността от лесно до експерт.', icon: 'Grid3x3', active: true, sortOrder: 4, theme: 'purple' },
   { id: 5, slug: 'hangman', title: 'Бесеница', type: 'hangman', description: 'Отгатни думата буква по буква, преди шансовете ти да свършат.', icon: 'Type', active: true, sortOrder: 5, theme: 'orange' },
-  { id: 6, slug: 'crossword', title: 'Кръстословица', type: 'crossword', description: 'Попълни мини кръстословица с думи по хоризонтала и вертикала.', icon: 'Hash', active: true, sortOrder: 6, theme: 'indigo' },
+  { id: 6, slug: 'spellingbee', title: 'Spelling Bee', type: 'spellingbee', description: 'Събери възможно най-много думи от седем букви, като централната е задължителна.', icon: 'Hexagon', active: true, sortOrder: 6, theme: 'orange' },
+  { id: 7, slug: 'crossword', title: 'Кръстословица', type: 'crossword', description: 'Попълни мини кръстословица с думи по хоризонтала и вертикала.', icon: 'Hash', active: true, sortOrder: 7, theme: 'indigo' },
 ]);
 
 const DEFAULT_GAME_SLUGS = DEFAULT_GAME_DEFINITIONS.map((game) => game.slug);
-const DEFAULT_PUZZLE_SEED_SLUGS = Object.freeze(['word', 'connections', 'quiz', 'hangman', 'crossword']);
+const DEFAULT_PUZZLE_SEED_SLUGS = Object.freeze(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword']);
 
 function isValidDateStr(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
