@@ -3,7 +3,8 @@ import { CalendarDays, CheckCircle2, Edit2, FileText, Globe, Loader2, Plus, Puzz
 import GamePuzzleEditor from '../../components/admin/GamePuzzleEditor';
 import { useToast } from '../../components/admin/Toast';
 import { api } from '../../utils/api';
-import { getTodayStr } from '../../utils/gameDate';
+import { getTodayStr, isValidDateStr } from '../../utils/gameDate';
+import { addPuzzleDays, getPuzzleDurationDays, normalizePuzzleActiveUntilDate } from '../../utils/puzzleDateUtils';
 import { createGamePuzzleTemplate, GAME_EDITOR_GUIDES } from '../../../shared/gamePuzzleTemplates.js';
 import { hasGamePlaceholderContent } from '../../../shared/gamePlaceholderWarnings.js';
 import { getCrosswordEntries } from '../../../shared/crossword.js';
@@ -17,33 +18,10 @@ function cloneValue(value) {
     return JSON.parse(JSON.stringify(value));
 }
 
-function addDays(dateStr, offsetDays) {
-    const [year, month, day] = String(dateStr || getTodayStr()).split('-').map(Number);
-    return new Date(Date.UTC(year, month - 1, day + offsetDays)).toISOString().slice(0, 10);
-}
-
-function isValidPuzzleDate(value) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
-}
-
-function getPuzzleDurationDays(startDate, endDate) {
-    if (!isValidPuzzleDate(startDate)) return 1;
-    const safeEndDate = isValidPuzzleDate(endDate) && endDate >= startDate ? endDate : startDate;
-    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
-    const [endYear, endMonth, endDay] = safeEndDate.split('-').map(Number);
-    const diffMs = Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay);
-    return Math.max(1, Math.round(diffMs / 86400000) + 1);
-}
-
-function normalizePuzzleActiveUntilDate(startDate, endDate) {
-    const safeStartDate = isValidPuzzleDate(startDate) ? startDate : getTodayStr();
-    if (!isValidPuzzleDate(endDate) || endDate < safeStartDate) return safeStartDate;
-    return endDate;
-}
 
 function syncPuzzleScheduleState(draft) {
     if (!draft || typeof draft !== 'object') return draft;
-    const puzzleDate = isValidPuzzleDate(draft.puzzleDate) ? draft.puzzleDate : getTodayStr();
+    const puzzleDate = isValidDateStr(draft.puzzleDate) ? draft.puzzleDate : getTodayStr();
     return {
         ...draft,
         puzzleDate,
@@ -151,7 +129,7 @@ export default function ManageGamePuzzles() {
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState(null);
     const [bulkConfig, setBulkConfig] = useState({
-        startDate: addDays(getTodayStr(), 1),
+        startDate: addPuzzleDays(getTodayStr(), 1),
         days: 30,
         allActiveGames: true,
         overwriteDrafts: false,
@@ -200,7 +178,7 @@ export default function ManageGamePuzzles() {
     const handleCreateNew = () => {
         setEditForm(normalizeDraftState({
             gameSlug: selectedGameSlug,
-            ...cloneValue(createGamePuzzleTemplate(selectedGameSlug, addDays(getTodayStr(), 1))),
+            ...cloneValue(createGamePuzzleTemplate(selectedGameSlug, addPuzzleDays(getTodayStr(), 1))),
         }));
         setIsEditing(true);
     };
@@ -217,29 +195,29 @@ export default function ManageGamePuzzles() {
     const actions = {
         setTopLevelField: (field, value) => updateEditForm((current) => ({ ...current, [field]: value })),
         setPuzzleDate: (value) => updateEditForm((current) => {
-            const nextPuzzleDate = isValidPuzzleDate(value) ? value : (current?.puzzleDate || getTodayStr());
-            const currentStartDate = isValidPuzzleDate(current?.puzzleDate) ? current.puzzleDate : nextPuzzleDate;
+            const nextPuzzleDate = isValidDateStr(value) ? value : (current?.puzzleDate || getTodayStr());
+            const currentStartDate = isValidDateStr(current?.puzzleDate) ? current.puzzleDate : nextPuzzleDate;
             const currentEndDate = normalizePuzzleActiveUntilDate(currentStartDate, current?.activeUntilDate);
             const dayOffset = getPuzzleDurationDays(currentStartDate, currentEndDate) - 1;
             return {
                 ...current,
                 puzzleDate: nextPuzzleDate,
-                activeUntilDate: addDays(nextPuzzleDate, dayOffset),
+                activeUntilDate: addPuzzleDays(nextPuzzleDate, dayOffset),
             };
         }),
         setActiveUntilDate: (value) => updateEditForm((current) => {
-            const puzzleDate = isValidPuzzleDate(current?.puzzleDate) ? current.puzzleDate : getTodayStr();
+            const puzzleDate = isValidDateStr(current?.puzzleDate) ? current.puzzleDate : getTodayStr();
             return {
                 ...current,
                 activeUntilDate: normalizePuzzleActiveUntilDate(puzzleDate, value),
             };
         }),
         applyPuzzleDuration: (days) => updateEditForm((current) => {
-            const puzzleDate = isValidPuzzleDate(current?.puzzleDate) ? current.puzzleDate : getTodayStr();
+            const puzzleDate = isValidDateStr(current?.puzzleDate) ? current.puzzleDate : getTodayStr();
             const safeDays = Math.max(1, Number.parseInt(days, 10) || 1);
             return {
                 ...current,
-                activeUntilDate: addDays(puzzleDate, safeDays - 1),
+                activeUntilDate: addPuzzleDays(puzzleDate, safeDays - 1),
             };
         }),
         setPayloadField: (field, value) => updateEditForm((current) => ({ ...current, payload: { ...(current?.payload || {}), [field]: value } })),

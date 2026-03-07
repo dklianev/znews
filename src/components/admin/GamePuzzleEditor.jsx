@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { getGamePlaceholderWarnings } from '../../../shared/gamePlaceholderWarnings.js';
+import { getPuzzleDurationDays } from '../../utils/puzzleDateUtils';
 
 function joinMultiValue(values) {
     return Array.isArray(values) ? values.join('\n') : '';
@@ -28,18 +29,6 @@ const PUZZLE_DURATION_PRESETS = Object.freeze([
     { label: '30 дни', days: 30 },
 ]);
 
-function isValidPuzzleDate(value) {
-    return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
-}
-
-function getPuzzleDurationDays(startDate, endDate) {
-    if (!isValidPuzzleDate(startDate)) return 1;
-    const safeEndDate = isValidPuzzleDate(endDate) && endDate >= startDate ? endDate : startDate;
-    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
-    const [endYear, endMonth, endDay] = safeEndDate.split('-').map(Number);
-    const diffMs = Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay);
-    return Math.max(1, Math.round(diffMs / 86400000) + 1);
-}
 
 function renderWordEditor(editForm, actions, fieldClass) {
     const payload = editForm?.payload || {};

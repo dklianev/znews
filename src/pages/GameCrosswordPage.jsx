@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Eraser, HelpCircle, Loader2, Send, Share2 } from 'lucide-react';
 import { api } from '../utils/api';
 import { getTodayStr } from '../utils/gameDate';
-import { loadScopedGameProgress, recordGameWin, saveScopedGameProgress } from '../utils/gameStorage';
+import { formatPuzzleDateLabel, getPuzzleDurationDays, getPuzzleWindowLabel } from '../utils/puzzleDateUtils';
+import { loadGameProgress, loadScopedGameProgress, recordGameWin, saveScopedGameProgress } from '../utils/gameStorage';
 import CrosswordBoard from '../components/games/crossword/CrosswordBoard';
 import CrosswordCluePanel from '../components/games/crossword/CrosswordCluePanel';
 import {
@@ -79,39 +80,28 @@ function getAdjacentFillable(layoutRows, row, col, deltaRow, deltaCol) {
   return { row: nextRow, col: nextCol };
 }
 
-function isValidGameDate(value) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
-}
-
-function getPuzzleDurationDays(startDate, endDate) {
-  if (!isValidGameDate(startDate)) return 1;
-  const safeEndDate = isValidGameDate(endDate) && endDate >= startDate ? endDate : startDate;
-  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
-  const [endYear, endMonth, endDay] = safeEndDate.split('-').map(Number);
-  const diffMs = Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay);
-  return Math.max(1, Math.round(diffMs / 86400000) + 1);
-}
-
-function formatPuzzleDateLabel(dateStr) {
-  if (!isValidGameDate(dateStr)) return '';
-  const [year, month, day] = dateStr.split('-').map(Number);
-  return new Intl.DateTimeFormat('bg-BG', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(year, month - 1, day)));
-}
-
-function getPuzzleWindowLabel(startDate, endDate) {
-  const safeStartDate = isValidGameDate(startDate) ? startDate : getTodayStr();
-  const safeEndDate = isValidGameDate(endDate) && endDate >= safeStartDate ? endDate : safeStartDate;
-  if (safeStartDate === safeEndDate) return formatPuzzleDateLabel(safeStartDate);
-  return formatPuzzleDateLabel(safeStartDate) + ' – ' + formatPuzzleDateLabel(safeEndDate);
-}
 
 function getCrosswordProgressKey(puzzle) {
   return puzzle?.id ? 'puzzle-' + puzzle.id : getTodayStr();
+}
+
+function loadCrosswordProgress(puzzle) {
+  const scopedKey = getCrosswordProgressKey(puzzle);
+  const scopedProgress = loadScopedGameProgress(GAME_SLUG, scopedKey);
+  if (scopedProgress && scopedProgress.puzzleId === puzzle?.id) {
+    return scopedProgress;
+  }
+
+  const legacyProgress = loadGameProgress(GAME_SLUG, puzzle?.puzzleDate || '');
+  if (!legacyProgress) return null;
+  if (legacyProgress.puzzleId && legacyProgress.puzzleId !== puzzle?.id) return null;
+
+  const migratedProgress = {
+    ...legacyProgress,
+    puzzleId: puzzle?.id || legacyProgress.puzzleId,
+  };
+  saveScopedGameProgress(GAME_SLUG, scopedKey, migratedProgress);
+  return migratedProgress;
 }
 
 export default function GameCrosswordPage() {
@@ -138,7 +128,7 @@ export default function GameCrosswordPage() {
       .then((data) => {
         setPuzzle(data);
         const layoutRows = Array.isArray(data?.payload?.layout) ? data.payload.layout : [];
-        const saved = loadScopedGameProgress(GAME_SLUG, getCrosswordProgressKey(data));
+        const saved = loadCrosswordProgress(data);
         if (saved && saved.puzzleId === data.id) {
           setGrid(normalizeGridForLayout(saved.grid, layoutRows));
           setSelectedCell(saved.selectedCell || findFirstFillableCell(layoutRows));
