@@ -413,6 +413,7 @@ export const api = {
       }),
     }),
     delete: (fileName) => request(`/media/${encodeURIComponent(fileName)}`, { method: 'DELETE' }),
+    getSourceBlob: (fileName) => requestBlob(`/media/source/${encodeURIComponent(fileName)}`),
     upload: (file, options = {}) => {
       const fd = new FormData();
       fd.append('image', file);

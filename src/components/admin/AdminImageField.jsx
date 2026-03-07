@@ -4,7 +4,8 @@ import ImageEditorDialog from './ImageEditorDialog';
 import UploadWatermarkToggle from './UploadWatermarkToggle';
 import { useData } from '../../context/DataContext';
 import useUploadWatermarkPreference from '../../hooks/useUploadWatermarkPreference';
-import { getEditableMediaUrl } from '../../utils/editableMediaUrl';
+import { api } from '../../utils/api';
+import { getUploadFilenameFromMediaUrl } from '../../utils/editableMediaUrl';
 
 function clamp(value, min, max) {
   const numeric = Number(value);
@@ -101,6 +102,7 @@ export default function AdminImageField({
   const [editorFile, setEditorFile] = useState(null);
   const [applyWatermark, setApplyWatermark] = useUploadWatermarkPreference();
   const [imageDetails, setImageDetails] = useState(null);
+  const [editableImageUrl, setEditableImageUrl] = useState('');
   const fileRef = useRef(null);
   const uploadLockRef = useRef(false);
 
@@ -111,11 +113,42 @@ export default function AdminImageField({
   }, [media, query]);
 
   const previewImageStyle = useMemo(() => getPreviewImageStyle(imageMeta), [imageMeta]);
-  const editableImageUrl = useMemo(() => getEditableMediaUrl(value), [value]);
+  const uploadFileName = useMemo(() => getUploadFilenameFromMediaUrl(value), [value]);
   const imageRequirementStatus = useMemo(
     () => getImageRequirementStatus(imageDetails, imageRequirements),
     [imageDetails, imageRequirements],
   );
+
+  useEffect(() => {
+    if (!value) {
+      setEditableImageUrl('');
+      return undefined;
+    }
+
+    if (!uploadFileName) {
+      setEditableImageUrl(value);
+      return undefined;
+    }
+
+    let cancelled = false;
+    let objectUrl = '';
+
+    api.media.getSourceBlob(uploadFileName)
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setEditableImageUrl(objectUrl);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setEditableImageUrl(value);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [uploadFileName, value]);
 
   useEffect(() => {
     if (!value) {
@@ -133,12 +166,12 @@ export default function AdminImageField({
       if (cancelled) return;
       setImageDetails(null);
     };
-    image.src = editableImageUrl;
+    image.src = editableImageUrl || value;
 
     return () => {
       cancelled = true;
     };
-  }, [editableImageUrl]);
+  }, [editableImageUrl, value]);
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -290,7 +323,7 @@ export default function AdminImageField({
               type="button"
               onClick={() => {
                 setEditorFile(null);
-                setEditorUrl(editableImageUrl);
+                setEditorUrl(editableImageUrl || value);
               }}
               className="inline-flex items-center gap-1.5 px-3 py-2 border border-blue-200 text-xs font-sans font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
             >
