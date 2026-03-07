@@ -1173,9 +1173,9 @@ export default function ManageArticles() {
                     label="Основна Снимка"
                     required
                     value={form.image}
-                    onChange={(nextValue) => setForm({ ...form, image: nextValue })}
+                    onChange={(nextValue) => setForm(prev => ({ ...prev, image: nextValue }))}
                     imageMeta={form.imageMeta}
-                    onChangeMeta={(nextMeta) => setForm({ ...form, imageMeta: nextMeta })}
+                    onChangeMeta={(nextMeta) => setForm(prev => ({ ...prev, imageMeta: nextMeta }))}
                     helperText="Избери снимка (16:9 препоръчително) или качи нова от компютъра."
                     previewClassName="h-64"
                   />
