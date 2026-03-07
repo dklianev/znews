@@ -5016,6 +5016,36 @@ function getTodayGameDate() {
   return `${year}-${month}-${day}`;
 }
 
+function getPuzzleActiveUntilDate(puzzle) {
+  const activeUntilDate = normalizeText(puzzle?.activeUntilDate, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(activeUntilDate || '')) return activeUntilDate;
+  return normalizeText(puzzle?.puzzleDate, 10);
+}
+
+function buildActiveGamePuzzleDateExpr(date) {
+  return {
+    $and: [
+      { $lte: ['$puzzleDate', date] },
+      { $gte: [{ $ifNull: ['$activeUntilDate', '$puzzleDate'] }, date] },
+    ],
+  };
+}
+
+async function findActivePublishedGamePuzzle(gameSlug, date) {
+  return GamePuzzle.findOne({
+    gameSlug,
+    status: 'published',
+    $expr: buildActiveGamePuzzleDateExpr(date),
+    $or: [
+      { publishAt: { $exists: false } },
+      { publishAt: null },
+      { publishAt: { $lte: new Date() } },
+    ],
+  })
+    .sort({ puzzleDate: -1, activeUntilDate: -1, publishAt: -1, id: -1 })
+    .lean();
+}
+
 function stripPuzzleForPublic(puzzle) {
   const safePuzzle = { ...(puzzle || {}) };
   delete safePuzzle.editorNotes;
@@ -5521,8 +5551,14 @@ function sanitizeGamePuzzleInput(game, input, existingPuzzle = null) {
   const requestedPublishAt = hasOwn(input, 'publishAt')
     ? sanitizeDateTime(input.publishAt)
     : existingPuzzle?.publishAt || null;
+  const requestedActiveUntilDate = hasOwn(input, 'activeUntilDate')
+    ? normalizeText(input.activeUntilDate, 10)
+    : getPuzzleActiveUntilDate(existingPuzzle) || puzzleDate;
+  const activeUntilDate = requestedActiveUntilDate || puzzleDate;
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(puzzleDate || '')) throw badRequest('Puzzle date must be in YYYY-MM-DD format.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(activeUntilDate || '')) throw badRequest('Active until date must be in YYYY-MM-DD format.');
+  if (activeUntilDate < puzzleDate) throw badRequest('Active until date cannot be before puzzle date.');
   if (!SUPPORTED_PUZZLE_STATUSES.has(status)) throw badRequest('Invalid puzzle status.');
   if (!SUPPORTED_PUZZLE_DIFFICULTIES.has(difficulty)) throw badRequest('Invalid puzzle difficulty.');
 
@@ -5549,6 +5585,7 @@ function sanitizeGamePuzzleInput(game, input, existingPuzzle = null) {
   return {
     gameSlug: game.slug,
     puzzleDate,
+    activeUntilDate,
     status,
     publishAt: status === 'published' ? (requestedPublishAt || new Date()) : requestedPublishAt,
     difficulty,
@@ -5576,11 +5613,7 @@ gamesRouter.get('/:slug/today', async (req, res) => {
       return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
     }
 
-    const puzzle = await GamePuzzle.findOne({
-      gameSlug: slug,
-      puzzleDate: getTodayGameDate(),
-      status: 'published',
-    }).lean();
+    const puzzle = await findActivePublishedGamePuzzle(slug, getTodayGameDate());
     if (!puzzle) return res.status(404).json({ error: 'No puzzle for today' });
     if (isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution) && !canManageGames) {
       return res.status(404).json({ error: 'No puzzle for today' });
@@ -5602,7 +5635,7 @@ gamesRouter.get('/:slug/archive', async (req, res) => {
 
     const limit = Math.min(Number.parseInt(req.query.limit, 10) || 30, 100);
     const puzzles = await GamePuzzle.find({ gameSlug: slug, status: 'published' })
-      .sort({ puzzleDate: -1 })
+      .sort({ puzzleDate: -1, activeUntilDate: -1 })
       .limit(limit)
       .lean();
     res.json(
@@ -5658,7 +5691,7 @@ gamesRouter.post('/:slug/:date/validate', async (req, res) => {
     }
 
     const date = normalizeText(req.params.date, 10);
-    const puzzle = await GamePuzzle.findOne({ gameSlug: slug, puzzleDate: date, status: 'published' }).lean();
+    const puzzle = await findActivePublishedGamePuzzle(slug, date);
     if (!puzzle) return res.status(404).json({ error: 'Not found' });
     if (isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution) && !canManageGames) {
       return res.status(404).json({ error: 'Not found' });
@@ -5874,7 +5907,7 @@ adminGamesRouter.get('/:slug/puzzles', async (req, res) => {
     const slug = normalizeText(req.params.slug, 64).toLowerCase();
     const game = await GameDefinition.findOne({ slug }).lean();
     if (!game) return res.status(404).json({ error: 'Game not found' });
-    const puzzles = await GamePuzzle.find({ gameSlug: slug }).sort({ puzzleDate: -1 }).lean();
+    const puzzles = await GamePuzzle.find({ gameSlug: slug }).sort({ puzzleDate: -1, activeUntilDate: -1 }).lean();
     res.json(puzzles);
   } catch (e) {
     res.status(500).json({ error: publicError(e) });

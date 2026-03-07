@@ -344,6 +344,7 @@ export function createGamePuzzleTemplate(gameSlug, puzzleDate = '') {
 
   return {
     puzzleDate,
+    activeUntilDate: puzzleDate,
     ...template,
   };
 }

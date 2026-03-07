@@ -21,6 +21,26 @@ function parseJsonObject(rawValue) {
     return parsed;
 }
 
+const PUZZLE_DURATION_PRESETS = Object.freeze([
+    { label: '1 ден', days: 1 },
+    { label: '7 дни', days: 7 },
+    { label: '14 дни', days: 14 },
+    { label: '30 дни', days: 30 },
+]);
+
+function isValidPuzzleDate(value) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+}
+
+function getPuzzleDurationDays(startDate, endDate) {
+    if (!isValidPuzzleDate(startDate)) return 1;
+    const safeEndDate = isValidPuzzleDate(endDate) && endDate >= startDate ? endDate : startDate;
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = safeEndDate.split('-').map(Number);
+    const diffMs = Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay);
+    return Math.max(1, Math.round(diffMs / 86400000) + 1);
+}
+
 function renderWordEditor(editForm, actions, fieldClass) {
     const payload = editForm?.payload || {};
     const solution = editForm?.solution || {};
@@ -308,6 +328,7 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
     const isPublished = editForm?.status === 'published';
     const placeholderWarnings = getGamePlaceholderWarnings(gameSlug, editForm);
     const warningKeys = new Set(placeholderWarnings.map((warning) => warning.key));
+    const puzzleDurationDays = getPuzzleDurationDays(editForm?.puzzleDate, editForm?.activeUntilDate);
 
     const payloadJsonPreview = useMemo(() => JSON.stringify(editForm?.payload || {}, null, 2), [editForm?.payload]);
     const solutionJsonPreview = useMemo(() => JSON.stringify(editForm?.solution || {}, null, 2), [editForm?.solution]);
@@ -438,11 +459,17 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
                 </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className={gameSlug === 'crossword' ? 'grid grid-cols-1 lg:grid-cols-5 gap-6' : 'grid grid-cols-1 lg:grid-cols-4 gap-6'}>
                 <label className="block">
-                    <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Дата на пъзела</span>
-                    <input type="date" value={editForm?.puzzleDate || ''} onChange={(e) => actions.setTopLevelField('puzzleDate', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
+                    <span className="block text-xs font-bold uppercase text-gray-500 mb-2">{gameSlug === 'crossword' ? 'Активна от' : 'Дата на пъзела'}</span>
+                    <input type="date" value={editForm?.puzzleDate || ''} onChange={(e) => (gameSlug === 'crossword' ? actions.setPuzzleDate(e.target.value) : actions.setTopLevelField('puzzleDate', e.target.value))} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
                 </label>
+                {gameSlug === 'crossword' && (
+                    <label className="block">
+                        <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Активна до</span>
+                        <input type="date" value={editForm?.activeUntilDate || editForm?.puzzleDate || ''} onChange={(e) => actions.setActiveUntilDate(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" />
+                    </label>
+                )}
                 <label className="block">
                     <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Трудност</span>
                     <select value={editForm?.difficulty || 'medium'} onChange={(e) => actions.setTopLevelField('difficulty', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2">
@@ -455,7 +482,7 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
                     <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Статус</span>
                     {isPublished ? (
                         <div className="w-full rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
-                            Публикувано. Промени статуса само чрез нова редакция на пъзела.
+                            Публикувано. Следващият save ще пази редакциите като публикувани.
                         </div>
                     ) : (
                         <select value={editForm?.status === 'archived' ? 'archived' : 'draft'} onChange={(e) => actions.setTopLevelField('status', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2">
@@ -465,10 +492,39 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
                     )}
                 </label>
                 <label className="block">
-                    <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Бележка за редактора</span>
-                    <input type="text" value={editForm?.editorNotes || ''} onChange={(e) => actions.setTopLevelField('editorNotes', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Вътрешна бележка" />
+                    <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Бележки за редактора</span>
+                    <input type="text" value={editForm?.editorNotes || ''} onChange={(e) => actions.setTopLevelField('editorNotes', e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Вътрешни бележки" />
                 </label>
             </div>
+
+            {gameSlug === 'crossword' && (
+                <div className="rounded-[26px] border border-stone-200 bg-[linear-gradient(135deg,rgba(248,250,252,0.96),rgba(241,245,249,0.86))] px-5 py-5 shadow-sm">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                        <div>
+                            <p className="text-[11px] font-black uppercase tracking-[0.32em] text-stone-500">Период на видимост</p>
+                            <h3 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-slate-900">Кръстословицата може да стои повече от един ден</h3>
+                            <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">Началната дата остава основният слот, а крайната дата определя докога този пъзел остава активен на сайта. Прогресът на играча се пази за целия период.</p>
+                        </div>
+                        <div className="rounded-full border border-stone-200 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-stone-600 shadow-sm">
+                            {puzzleDurationDays} {puzzleDurationDays === 1 ? 'ден' : 'дни'}
+                        </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        {PUZZLE_DURATION_PRESETS.map((preset) => (
+                            <button
+                                key={preset.days}
+                                type="button"
+                                onClick={() => actions.applyPuzzleDuration(preset.days)}
+                                className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] transition-colors ${puzzleDurationDays === preset.days
+                                    ? 'bg-slate-950 text-white'
+                                    : 'border border-stone-300 bg-white text-stone-600 hover:border-stone-400 hover:text-stone-900'}`}
+                            >
+                                {preset.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {editor}
 

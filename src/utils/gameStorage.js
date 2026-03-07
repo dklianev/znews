@@ -22,15 +22,19 @@ function getStorage() {
     }
 }
 
-function getGameKey(gameSlug, dateStr) {
-    return `zn_game_${gameSlug}_${dateStr}`;
+function getScopedGameKey(gameSlug, scope) {
+    return `zn_game_${gameSlug}_${scope}`;
 }
 
-export function saveGameProgress(gameSlug, dateStr, data) {
+function getGameKey(gameSlug, dateStr) {
+    return getScopedGameKey(gameSlug, dateStr);
+}
+
+export function saveScopedGameProgress(gameSlug, scope, data) {
     const storage = getStorage();
     if (!storage) return false;
     try {
-        const key = getGameKey(gameSlug, dateStr);
+        const key = getScopedGameKey(gameSlug, scope);
         storage.setItem(key, JSON.stringify(data));
         return true;
     } catch {
@@ -38,16 +42,24 @@ export function saveGameProgress(gameSlug, dateStr, data) {
     }
 }
 
-export function loadGameProgress(gameSlug, dateStr) {
+export function loadScopedGameProgress(gameSlug, scope) {
     const storage = getStorage();
     if (!storage) return null;
     try {
-        const key = getGameKey(gameSlug, dateStr);
+        const key = getScopedGameKey(gameSlug, scope);
         const stored = storage.getItem(key);
         return stored ? JSON.parse(stored) : null;
     } catch {
         return null;
     }
+}
+
+export function saveGameProgress(gameSlug, dateStr, data) {
+    return saveScopedGameProgress(gameSlug, dateStr, data);
+}
+
+export function loadGameProgress(gameSlug, dateStr) {
+    return loadScopedGameProgress(gameSlug, dateStr);
 }
 
 export function saveGameProfile(profileData) {

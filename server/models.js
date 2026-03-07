@@ -482,6 +482,7 @@ const gamePuzzleSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
   gameSlug: { type: String, required: true, index: true },
   puzzleDate: { type: String, required: true },
+  activeUntilDate: { type: String, default: null, index: true },
   status: { type: String, default: 'draft', enum: ['draft', 'published', 'archived'], index: true },
   publishAt: { type: Date, default: null, index: true },
   difficulty: String,

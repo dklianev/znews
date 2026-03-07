@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Eraser, HelpCircle, Loader2, Send, Share2 } from 'lucide-react';
 import { api } from '../utils/api';
 import { getTodayStr } from '../utils/gameDate';
-import { loadGameProgress, recordGameWin, saveGameProgress } from '../utils/gameStorage';
+import { loadScopedGameProgress, recordGameWin, saveScopedGameProgress } from '../utils/gameStorage';
 import CrosswordBoard from '../components/games/crossword/CrosswordBoard';
 import CrosswordCluePanel from '../components/games/crossword/CrosswordCluePanel';
 import {
@@ -17,11 +17,27 @@ import {
 const GAME_SLUG = 'crossword';
 const INPUT_PATTERN = /^[\p{L}\p{N}]$/u;
 const FEEDBACK_TONE_CLASSNAMES = {
-  info: 'border-slate-200 bg-white/90 text-slate-700 shadow-lg dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:shadow-none',
-  success: 'border-emerald-200 bg-emerald-50/90 text-emerald-950 shadow-lg dark:border-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100 dark:shadow-none',
-  warning: 'border-amber-200 bg-amber-50/90 text-amber-950 shadow-lg dark:border-amber-950 dark:bg-amber-950/30 dark:text-amber-100 dark:shadow-none',
-  error: 'border-rose-200 bg-rose-50/90 text-rose-950 shadow-lg dark:border-rose-950 dark:bg-rose-950/30 dark:text-rose-100 dark:shadow-none',
+  info: 'border-stone-300 bg-white text-stone-700 shadow-[0_14px_30px_rgba(28,25,23,0.06)] dark:border-zinc-800 dark:bg-[#151619] dark:text-zinc-200 dark:shadow-none',
+  success: 'border-emerald-300 bg-emerald-50/95 text-emerald-950 shadow-[0_14px_30px_rgba(16,185,129,0.08)] dark:border-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100 dark:shadow-none',
+  warning: 'border-amber-300 bg-amber-50/95 text-amber-950 shadow-[0_14px_30px_rgba(245,158,11,0.08)] dark:border-amber-950 dark:bg-amber-950/30 dark:text-amber-100 dark:shadow-none',
+  error: 'border-rose-300 bg-rose-50/95 text-rose-950 shadow-[0_14px_30px_rgba(244,63,94,0.08)] dark:border-rose-950 dark:bg-rose-950/30 dark:text-rose-100 dark:shadow-none',
 };
+const DIRECTION_META = {
+  across: {
+    title: 'По хоризонтала',
+    shortTitle: 'Хоризонтални',
+    compactTitle: 'Хор.',
+    tone: 'sky',
+  },
+  down: {
+    title: 'По вертикала',
+    shortTitle: 'Вертикални',
+    compactTitle: 'Верт.',
+    tone: 'amber',
+  },
+};
+const PRIMARY_ACTION_CLASS = 'inline-flex items-center justify-center gap-2 rounded-full bg-slate-950 px-5 py-3 text-sm font-black uppercase tracking-[0.24em] text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-stone-300 dark:bg-white dark:text-black dark:hover:bg-zinc-200 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400';
+const SECONDARY_ACTION_CLASS = 'inline-flex items-center justify-center gap-2 rounded-full border border-stone-300 bg-white px-5 py-3 text-sm font-black uppercase tracking-[0.24em] text-stone-700 transition-colors hover:border-stone-400 hover:bg-stone-50 dark:border-zinc-800 dark:bg-[#151619] dark:text-zinc-100 dark:hover:bg-zinc-900';
 
 function findFirstFillableCell(layoutRows) {
   for (let row = 0; row < layoutRows.length; row += 1) {
@@ -63,6 +79,41 @@ function getAdjacentFillable(layoutRows, row, col, deltaRow, deltaCol) {
   return { row: nextRow, col: nextCol };
 }
 
+function isValidGameDate(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+}
+
+function getPuzzleDurationDays(startDate, endDate) {
+  if (!isValidGameDate(startDate)) return 1;
+  const safeEndDate = isValidGameDate(endDate) && endDate >= startDate ? endDate : startDate;
+  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+  const [endYear, endMonth, endDay] = safeEndDate.split('-').map(Number);
+  const diffMs = Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay);
+  return Math.max(1, Math.round(diffMs / 86400000) + 1);
+}
+
+function formatPuzzleDateLabel(dateStr) {
+  if (!isValidGameDate(dateStr)) return '';
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Intl.DateTimeFormat('bg-BG', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+function getPuzzleWindowLabel(startDate, endDate) {
+  const safeStartDate = isValidGameDate(startDate) ? startDate : getTodayStr();
+  const safeEndDate = isValidGameDate(endDate) && endDate >= safeStartDate ? endDate : safeStartDate;
+  if (safeStartDate === safeEndDate) return formatPuzzleDateLabel(safeStartDate);
+  return formatPuzzleDateLabel(safeStartDate) + ' – ' + formatPuzzleDateLabel(safeEndDate);
+}
+
+function getCrosswordProgressKey(puzzle) {
+  return puzzle?.id ? 'puzzle-' + puzzle.id : getTodayStr();
+}
+
 export default function GameCrosswordPage() {
   const [puzzle, setPuzzle] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -70,6 +121,7 @@ export default function GameCrosswordPage() {
   const [grid, setGrid] = useState([]);
   const [selectedCell, setSelectedCell] = useState({ row: 0, col: 0 });
   const [selectedDirection, setSelectedDirection] = useState('across');
+  const [mobileClueDirection, setMobileClueDirection] = useState('across');
   const [wrongCellKeys, setWrongCellKeys] = useState(new Set());
   const [gameStatus, setGameStatus] = useState('playing');
   const [showHelp, setShowHelp] = useState(false);
@@ -78,7 +130,7 @@ export default function GameCrosswordPage() {
   const inputRefs = useRef(new Map());
 
   const displayError = error === 'No puzzle for today'
-    ? 'Няма кръстословица за днес. Провери пак по-късно.'
+    ? 'Няма кръстословица за днес. Върни се по-късно.'
     : error;
 
   useEffect(() => {
@@ -86,12 +138,12 @@ export default function GameCrosswordPage() {
       .then((data) => {
         setPuzzle(data);
         const layoutRows = Array.isArray(data?.payload?.layout) ? data.payload.layout : [];
-        const todayStr = getTodayStr();
-        const saved = loadGameProgress(GAME_SLUG, todayStr);
+        const saved = loadScopedGameProgress(GAME_SLUG, getCrosswordProgressKey(data));
         if (saved && saved.puzzleId === data.id) {
           setGrid(normalizeGridForLayout(saved.grid, layoutRows));
           setSelectedCell(saved.selectedCell || findFirstFillableCell(layoutRows));
           setSelectedDirection(saved.selectedDirection === 'down' ? 'down' : 'across');
+          setMobileClueDirection(saved.selectedDirection === 'down' ? 'down' : 'across');
           setGameStatus(saved.gameStatus === 'won' ? 'won' : 'playing');
         } else {
           setGrid(createEmptyCrosswordFillGrid(layoutRows));
@@ -103,6 +155,8 @@ export default function GameCrosswordPage() {
   }, []);
 
   const layoutRows = Array.isArray(puzzle?.payload?.layout) ? puzzle.payload.layout : [];
+  const gridWidth = useMemo(() => (layoutRows[0] ? Array.from(String(layoutRows[0] || '')).length : 0), [layoutRows]);
+  const gridHeight = layoutRows.length;
   const cellNumbers = useMemo(() => getCrosswordCellNumberMap(layoutRows), [layoutRows]);
 
   const entries = useMemo(() => {
@@ -121,20 +175,17 @@ export default function GameCrosswordPage() {
 
   const entryMaps = useMemo(() => {
     const maps = { across: new Map(), down: new Map() };
-    const lookup = new Map();
 
     ['across', 'down'].forEach((direction) => {
       entries[direction].forEach((entry) => {
-        lookup.set(getEntryKey(entry), entry);
         entry.cells.forEach((cell) => {
           maps[direction].set(cell.key, entry);
         });
       });
     });
 
-    return { maps, lookup };
+    return { maps };
   }, [entries]);
-
   const activeEntry = useMemo(() => {
     const key = getCrosswordCellKey(selectedCell.row, selectedCell.col);
     return entryMaps.maps[selectedDirection].get(key)
@@ -148,11 +199,31 @@ export default function GameCrosswordPage() {
   const activeCellKeys = useMemo(() => new Set((activeEntry?.cells || []).map((cell) => cell.key)), [activeEntry]);
   const totalCells = useMemo(() => layoutRows.reduce((count, row) => count + Array.from(String(row || '')).filter((cell) => cell !== '#').length, 0), [layoutRows]);
   const filledCells = useMemo(() => grid.flat().filter((cell) => cell && cell !== '#').length, [grid]);
+  const completionPercent = totalCells > 0 ? Math.round((filledCells / totalCells) * 100) : 0;
+  const selectedCellKey = getCrosswordCellKey(selectedCell.row, selectedCell.col);
+  const cellHasAcross = entryMaps.maps.across.has(selectedCellKey);
+  const cellHasDown = entryMaps.maps.down.has(selectedCellKey);
+  const canToggleDirection = cellHasAcross && cellHasDown;
+  const currentDirection = activeEntry?.direction || selectedDirection;
+  const currentDirectionMeta = DIRECTION_META[currentDirection] || DIRECTION_META.across;
+  const mobileEntries = mobileClueDirection === 'down' ? entries.down : entries.across;
+  const mobileDirectionMeta = DIRECTION_META[mobileClueDirection] || DIRECTION_META.across;
+  const crosswordTitle = puzzle?.payload?.title || 'Кръстословица на деня';
+  const crosswordDeck = puzzle?.payload?.deck || 'Попълни всички думи по хоризонтала и вертикала. Кликни повторно върху клетка, за да смениш посоката.';
+  const activeUntilDate = puzzle?.activeUntilDate || puzzle?.puzzleDate || getTodayStr();
+  const puzzleWindowDays = getPuzzleDurationDays(puzzle?.puzzleDate, activeUntilDate);
+  const availabilityLabel = getPuzzleWindowLabel(puzzle?.puzzleDate || getTodayStr(), activeUntilDate);
+  const availabilityHint = puzzleWindowDays > 1 ? 'Активна ' + puzzleWindowDays + ' дни' : 'Еднодневна кръстословица';
+  const activeClueTitle = activeEntry ? `${currentDirectionMeta.title} ${activeEntry.number}` : 'Избери улика';
+  const activeClueText = activeEntry?.clue || 'Кликни върху клетка в мрежата или върху улика от списъка, за да започнеш.';
+  const activeClueMeta = activeEntry
+    ? `${activeEntry.length} букви  /  старт ${activeEntry.row + 1}:${activeEntry.col + 1}`
+    : `${gridWidth}x${gridHeight}  /  ${entries.across.length + entries.down.length} улики`;
 
   useEffect(() => {
     if (!puzzle) return;
     if (filledCells === 0 && gameStatus === 'playing') return;
-    saveGameProgress(GAME_SLUG, getTodayStr(), {
+    saveScopedGameProgress(GAME_SLUG, getCrosswordProgressKey(puzzle), {
       puzzleId: puzzle.id,
       grid,
       selectedCell,
@@ -160,6 +231,10 @@ export default function GameCrosswordPage() {
       gameStatus,
     });
   }, [filledCells, gameStatus, grid, puzzle, selectedCell, selectedDirection]);
+
+  useEffect(() => {
+    setMobileClueDirection(selectedDirection);
+  }, [selectedDirection]);
 
   const focusCell = (row, col) => {
     const node = inputRefs.current.get(getCrosswordCellKey(row, col));
@@ -180,6 +255,36 @@ export default function GameCrosswordPage() {
       return current;
     });
     setSelectedCell({ row, col });
+  };
+
+  const handleSelectEntry = (direction, entry) => {
+    setSelectedDirection(direction);
+    setMobileClueDirection(direction);
+    setSelectedCell({ row: entry.row, col: entry.col });
+    window.requestAnimationFrame(() => focusCell(entry.row, entry.col));
+  };
+
+  const handleSetDirection = (direction) => {
+    const inCurrentCell = entryMaps.maps[direction].get(selectedCellKey);
+    if (inCurrentCell) {
+      setSelectedDirection(direction);
+      setMobileClueDirection(direction);
+      window.requestAnimationFrame(() => focusCell(selectedCell.row, selectedCell.col));
+      return;
+    }
+
+    const fallbackEntry = entries[direction][0];
+    if (fallbackEntry) {
+      handleSelectEntry(direction, fallbackEntry);
+    }
+  };
+
+  const handleToggleDirection = () => {
+    if (!canToggleDirection) return;
+    const nextDirection = currentDirection === 'across' ? 'down' : 'across';
+    setSelectedDirection(nextDirection);
+    setMobileClueDirection(nextDirection);
+    window.requestAnimationFrame(() => focusCell(selectedCell.row, selectedCell.col));
   };
 
   const updateCell = (row, col, value) => {
@@ -220,7 +325,6 @@ export default function GameCrosswordPage() {
       }
     }
   };
-
   const handleKeyDown = (event, row, col) => {
     if (event.key === 'Backspace') {
       event.preventDefault();
@@ -240,6 +344,15 @@ export default function GameCrosswordPage() {
     if (event.key === ' ') {
       event.preventDefault();
       selectCell(row, col, true);
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const key = getCrosswordCellKey(row, col);
+      if (entryMaps.maps.across.has(key) && entryMaps.maps.down.has(key)) {
+        handleToggleDirection();
+      }
       return;
     }
 
@@ -307,7 +420,7 @@ export default function GameCrosswordPage() {
   };
 
   const handleShare = async () => {
-    const text = `zNews кръстословица - ${getTodayStr()}\n${layoutRows.length}x${String(layoutRows[0] || '').length}\nРешено.`;
+    const text = `zNews Кръстословица - ${getTodayStr()}\n${gridHeight}x${gridWidth}\nРешено.`;
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
       setFeedback({
         type: 'error',
@@ -332,57 +445,130 @@ export default function GameCrosswordPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zn-paper dark:bg-zinc-950 flex justify-center items-center">
-        <Loader2 className="w-12 h-12 text-indigo-500 animate-spin" />
+      <div className="flex min-h-screen items-center justify-center bg-stone-100 dark:bg-[#101113]">
+        <Loader2 className="h-12 w-12 animate-spin text-slate-950 dark:text-white" />
       </div>
     );
   }
 
   if (error || !puzzle) {
     return (
-      <div className="min-h-screen bg-zn-paper dark:bg-zinc-950 text-center py-20 px-4">
-        <div className="max-w-xl mx-auto rounded-[28px] border border-stone-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900 p-10 shadow-xl">
-          <h1 className="text-3xl text-slate-900 dark:text-white mb-4 font-black uppercase font-condensed">Няма активна игра</h1>
-          <p className="text-slate-500 dark:text-zinc-400 mb-8">{displayError || 'Възникна неочаквана грешка.'}</p>
-          <Link to="/games" className="text-indigo-600 hover:text-indigo-500 font-bold">Към всички игри</Link>
+      <div className="min-h-screen bg-stone-100 px-4 py-20 text-center dark:bg-[#101113]">
+        <div className="mx-auto max-w-xl rounded-[28px] border border-stone-300 bg-white/95 p-10 shadow-xl dark:border-zinc-800 dark:bg-[#151619]">
+          <h1 className="mb-4 text-3xl font-black uppercase text-slate-900 dark:text-white">Няма активен пъзел</h1>
+          <p className="mb-8 text-stone-500 dark:text-zinc-400">{displayError || 'Пъзелът временно не е наличен.'}</p>
+          <Link to="/games" className="font-bold text-slate-900 hover:text-stone-700 dark:text-white dark:hover:text-zinc-300">Към игрите</Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zn-paper dark:bg-zinc-950 text-slate-900 dark:text-white pb-20">
-      <header className="w-full border-b border-stone-200 dark:border-zinc-900 bg-white/80 dark:bg-zinc-950/80 backdrop-blur mb-8">
-        <div className="w-full max-w-7xl mx-auto flex items-center justify-between p-4">
-          <Link to="/games" className="text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white transition-colors">
-            <ArrowLeft className="w-6 h-6" />
+    <div className="min-h-screen bg-stone-100 pb-20 text-stone-950 dark:bg-[#101113] dark:text-stone-100">
+      <header className="mb-8 border-b border-stone-300 bg-white/80 backdrop-blur dark:border-zinc-900 dark:bg-[#101113]/90">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-between p-4">
+          <Link to="/games" className="text-stone-500 transition-colors hover:text-stone-950 dark:text-zinc-500 dark:hover:text-white">
+            <ArrowLeft className="h-6 w-6" />
           </Link>
-          <h1 className="text-xl font-black uppercase tracking-widest font-condensed">Кръстословица</h1>
-          <button onClick={() => setShowHelp(true)} className="text-slate-500 dark:text-zinc-500 hover:text-slate-900 dark:hover:text-white transition-colors">
-            <HelpCircle className="w-6 h-6" />
+          <h1 className="text-sm font-black uppercase tracking-[0.42em] text-stone-700 dark:text-zinc-200">Кръстословица</h1>
+          <button onClick={() => setShowHelp(true)} className="text-stone-500 transition-colors hover:text-stone-950 dark:text-zinc-500 dark:hover:text-white">
+            <HelpCircle className="h-6 w-6" />
           </button>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 space-y-8">
-        <section className="rounded-[36px] border border-indigo-100/80 bg-[radial-gradient(circle_at_top_right,_rgba(125,211,252,0.24),_transparent_35%),radial-gradient(circle_at_bottom_left,_rgba(99,102,241,0.18),_transparent_38%),linear-gradient(135deg,_rgba(255,255,255,0.98),_rgba(238,242,255,0.96))] p-6 shadow-[0_40px_90px_rgba(79,70,229,0.14)] dark:border-indigo-950/50 dark:bg-[radial-gradient(circle_at_top_right,_rgba(56,189,248,0.12),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(99,102,241,0.18),_transparent_38%),linear-gradient(135deg,_rgba(24,24,27,0.98),_rgba(9,9,11,0.98))] dark:shadow-none">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.4em] text-indigo-700 dark:text-sky-300">Дневен пъзел</p>
-              <h2 className="mt-3 text-4xl font-black uppercase font-condensed">{puzzle.payload?.title || 'Кръстословица на деня'}</h2>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600 dark:text-zinc-300">
-                {puzzle.payload?.deck || 'Попълни всички думи по хоризонтала и вертикала. Кликни върху клетка повторно за смяна на посоката.'}
-              </p>
+      <main className="mx-auto max-w-7xl space-y-6 px-4">
+        <section className="overflow-hidden rounded-[32px] border border-stone-300 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,240,232,0.96))] shadow-[0_24px_55px_rgba(28,25,23,0.08)] dark:border-zinc-800 dark:bg-[linear-gradient(180deg,rgba(24,24,27,0.98),rgba(12,12,13,0.98))] dark:shadow-none">
+          <div className="border-b border-stone-200 px-6 py-5 dark:border-zinc-800">
+            <p className="text-[11px] font-black uppercase tracking-[0.35em] text-stone-500 dark:text-zinc-500">zNews редакция</p>
+            <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <div>
+                  <p className="text-sm uppercase tracking-[0.28em] text-stone-500 dark:text-zinc-400">{availabilityLabel}</p>
+                  <p className="mt-2 text-[11px] font-black uppercase tracking-[0.26em] text-stone-400 dark:text-zinc-500">{availabilityHint}</p>
+                </div>
+                <h2 className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-slate-950 [font-family:Georgia,'Times_New_Roman',serif] dark:text-white sm:text-5xl">
+                  {crosswordTitle}
+                </h2>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600 dark:text-zinc-300">
+                  {crosswordDeck}
+                </p>
+                <p className="mt-2 text-xs uppercase tracking-[0.24em] text-stone-400 dark:text-zinc-500">
+                  {puzzleWindowDays > 1 ? 'Прогресът се пази до ' + formatPuzzleDateLabel(activeUntilDate) + '.' : 'Прогресът се пази за днешния пъзел.'}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:justify-end">
+                <div className="rounded-[22px] border border-stone-200 bg-white/90 px-4 py-3 dark:border-zinc-800 dark:bg-[#151619]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.26em] text-stone-400 dark:text-zinc-500">Период</p>
+                  <p className="mt-2 text-lg font-black text-slate-950 dark:text-white">{puzzleWindowDays} {puzzleWindowDays === 1 ? 'ден' : 'дни'}</p>
+                </div>
+                <div className="rounded-[22px] border border-stone-200 bg-white/90 px-4 py-3 dark:border-zinc-800 dark:bg-[#151619]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.26em] text-stone-400 dark:text-zinc-500">Размер</p>
+                  <p className="mt-2 text-lg font-black text-slate-950 dark:text-white">{gridWidth} × {gridHeight}</p>
+                </div>
+                <div className="rounded-[22px] border border-stone-200 bg-white/90 px-4 py-3 dark:border-zinc-800 dark:bg-[#151619]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.26em] text-stone-400 dark:text-zinc-500">Прогрес</p>
+                  <p className="mt-2 text-lg font-black text-slate-950 dark:text-white">{completionPercent}%</p>
+                </div>
+                <div className="rounded-[22px] border border-stone-200 bg-white/90 px-4 py-3 dark:border-zinc-800 dark:bg-[#151619]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.26em] text-stone-400 dark:text-zinc-500">Клетки</p>
+                  <p className="mt-2 text-lg font-black text-slate-950 dark:text-white">{filledCells}/{totalCells}</p>
+                </div>
+                <div className="rounded-[22px] border border-stone-200 bg-white/90 px-4 py-3 dark:border-zinc-800 dark:bg-[#151619]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.26em] text-stone-400 dark:text-zinc-500">Улики</p>
+                  <p className="mt-2 text-lg font-black text-slate-950 dark:text-white">{entries.across.length + entries.down.length}</p>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-indigo-200 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.3em] text-indigo-700 dark:border-indigo-900 dark:bg-zinc-900 dark:text-sky-300">{getTodayStr()}</span>
-              <span className="rounded-full border border-stone-200 bg-white/80 px-4 py-2 text-xs font-black uppercase tracking-[0.3em] text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">{filledCells}/{totalCells} клетки</span>
+          </div>
+
+          <div className="grid gap-4 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="rounded-[28px] border border-sky-200 bg-sky-50/70 px-5 py-4 dark:border-sky-950/60 dark:bg-sky-950/20">
+              <p className="text-[11px] font-black uppercase tracking-[0.32em] text-sky-700 dark:text-sky-300">Активна улика</p>
+              <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <h3 className="text-2xl font-semibold tracking-[-0.04em] text-slate-950 [font-family:Georgia,'Times_New_Roman',serif] dark:text-white">
+                    {activeClueTitle}
+                  </h3>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-700 dark:text-zinc-200">{activeClueText}</p>
+                </div>
+                <div className="rounded-full border border-white/80 bg-white/85 px-4 py-2 text-[11px] font-black uppercase tracking-[0.26em] text-stone-600 dark:border-zinc-800 dark:bg-[#111214] dark:text-zinc-300">
+                  {activeClueMeta}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {(['across', 'down']).map((direction) => {
+                const meta = DIRECTION_META[direction];
+                const isCurrent = currentDirection === direction;
+                return (
+                  <button
+                    key={direction}
+                    type="button"
+                    onClick={() => handleSetDirection(direction)}
+                    className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.26em] transition-colors ${isCurrent
+                      ? 'bg-slate-950 text-white dark:bg-white dark:text-black'
+                      : 'border border-stone-300 bg-white text-stone-600 hover:border-stone-400 hover:text-stone-900 dark:border-zinc-800 dark:bg-[#151619] dark:text-zinc-300 dark:hover:text-white'}`}
+                  >
+                    {meta.compactTitle}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={handleToggleDirection}
+                disabled={!canToggleDirection}
+                className={`${SECONDARY_ACTION_CLASS} disabled:cursor-not-allowed disabled:opacity-50`}
+              >
+                Смени посока
+              </button>
             </div>
           </div>
         </section>
 
-        <section className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)] gap-6 items-start">
-          <div className="space-y-5">
+        <section className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)]">
+          <div className="space-y-4">
             <CrosswordBoard
               layoutRows={layoutRows}
               grid={grid}
@@ -401,66 +587,128 @@ export default function GameCrosswordPage() {
             />
 
             <div className="flex flex-wrap gap-3">
-              <button onClick={handleCheck} disabled={gameStatus === 'won' || isChecking} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black uppercase tracking-[0.25em] text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 dark:bg-white dark:text-black dark:hover:bg-zinc-200 dark:disabled:bg-zinc-700 dark:disabled:text-zinc-400">
-                {isChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Провери
+              <button onClick={handleCheck} disabled={gameStatus === 'won' || isChecking} className={PRIMARY_ACTION_CLASS}>
+                {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Провери
               </button>
-              <button onClick={handleClearActiveEntry} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-5 py-3 text-sm font-black uppercase tracking-[0.25em] text-slate-700 transition-colors hover:border-slate-300 hover:bg-stone-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800">
-                <Eraser className="w-4 h-4" /> Изчисти дума
+              <button onClick={handleClearActiveEntry} className={SECONDARY_ACTION_CLASS}>
+                <Eraser className="h-4 w-4" /> Изчисти дума
               </button>
               {gameStatus === 'won' && (
-                <button onClick={handleShare} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-5 py-3 text-sm font-black uppercase tracking-[0.25em] text-indigo-700 transition-colors hover:bg-indigo-100 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200 dark:hover:bg-indigo-950/60">
-                  <Share2 className="w-4 h-4" /> Сподели
+                <button onClick={handleShare} className={SECONDARY_ACTION_CLASS}>
+                  <Share2 className="h-4 w-4" /> Сподели
                 </button>
               )}
+            </div>
+
+            <div className="rounded-[26px] border border-stone-300 bg-white px-5 py-4 text-sm text-stone-600 shadow-[0_14px_35px_rgba(28,25,23,0.05)] dark:border-zinc-800 dark:bg-[#151619] dark:text-zinc-300 dark:shadow-none">
+              <p className="text-[11px] font-black uppercase tracking-[0.3em] text-stone-500 dark:text-zinc-500">Навигация</p>
+              <p className="mt-2 leading-6">
+                Повторен клик, <span className="font-black">Space</span> или <span className="font-black">Enter</span> сменя посоката. Дъската се оразмерява автоматично според зададените ширина и височина в администрацията.
+              </p>
             </div>
 
             {feedback?.message && (
               <div
                 aria-live="polite"
-                className={`rounded-[28px] border px-5 py-4 text-sm ${FEEDBACK_TONE_CLASSNAMES[feedback.type] || FEEDBACK_TONE_CLASSNAMES.info}`}
+                className={`rounded-[26px] border px-5 py-4 text-sm ${FEEDBACK_TONE_CLASSNAMES[feedback.type] || FEEDBACK_TONE_CLASSNAMES.info}`}
               >
                 {feedback.message}
               </div>
             )}
 
             {gameStatus === 'won' && (
-              <div className="rounded-[32px] border border-emerald-200 bg-emerald-50/90 px-5 py-5 text-emerald-950 dark:border-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100">
+              <div className="rounded-[28px] border border-emerald-300 bg-emerald-50/95 px-5 py-5 text-emerald-950 shadow-[0_16px_35px_rgba(16,185,129,0.08)] dark:border-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100 dark:shadow-none">
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="w-6 h-6 shrink-0 text-emerald-600 dark:text-emerald-300" />
+                  <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-700 dark:text-emerald-300" />
                   <div>
-                    <h3 className="text-2xl font-black uppercase font-condensed">Кръстословицата е готова</h3>
-                    <p className="mt-2 text-sm leading-6">Попълни правилно всички клетки. Резултатът вече е отчетен за днешната серия.</p>
+                    <h3 className="text-2xl font-semibold tracking-[-0.04em] [font-family:Georgia,'Times_New_Roman',serif]">Решено без излишен шум</h3>
+                    <p className="mt-2 text-sm leading-6">Кръстословицата е завършена. Можеш да споделиш резултата или да минеш към следващата дневна игра.</p>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="space-y-5">
-            <CrosswordCluePanel title="Хоризонтални" entries={entries.across} activeEntryKey={activeEntryKey} onSelect={(entry) => {
-              setSelectedDirection('across');
-              setSelectedCell({ row: entry.row, col: entry.col });
-              window.requestAnimationFrame(() => focusCell(entry.row, entry.col));
-            }} />
-            <CrosswordCluePanel title="Вертикални" tone="rose" entries={entries.down} activeEntryKey={activeEntryKey} onSelect={(entry) => {
-              setSelectedDirection('down');
-              setSelectedCell({ row: entry.row, col: entry.col });
-              window.requestAnimationFrame(() => focusCell(entry.row, entry.col));
-            }} />
-          </div>
+          <aside className="space-y-4 xl:sticky xl:top-24">
+            <section className="rounded-[32px] border border-stone-300 bg-white p-4 shadow-[0_20px_45px_rgba(28,25,23,0.08)] dark:border-zinc-800 dark:bg-[#141518] dark:shadow-none">
+              <div className="flex flex-col gap-3 border-b border-stone-200 pb-4 dark:border-zinc-800 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.32em] text-stone-500 dark:text-zinc-500">Подсказки</p>
+                  <h3 className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-slate-950 [font-family:Georgia,'Times_New_Roman',serif] dark:text-white">
+                    Подсказки и навигация
+                  </h3>
+                  <p className="mt-1 text-sm text-stone-600 dark:text-zinc-300">Кликни върху улика, за да скочиш директно към думата в мрежата.</p>
+                </div>
+                <div className="rounded-full border border-stone-200 bg-stone-100 px-4 py-2 text-[11px] font-black uppercase tracking-[0.25em] text-stone-500 dark:border-zinc-800 dark:bg-[#111214] dark:text-zinc-400">
+                  {entries.across.length + entries.down.length} общо
+                </div>
+              </div>
+
+              <div className="mt-4 xl:hidden">
+                <div className="mb-4 inline-flex rounded-full border border-stone-300 bg-stone-100 p-1 dark:border-zinc-800 dark:bg-[#111214]">
+                  {(['across', 'down']).map((direction) => {
+                    const meta = DIRECTION_META[direction];
+                    const isCurrent = mobileClueDirection === direction;
+                    return (
+                      <button
+                        key={direction}
+                        type="button"
+                        onClick={() => setMobileClueDirection(direction)}
+                        className={`rounded-full px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] transition-colors ${isCurrent
+                          ? 'bg-white text-slate-950 shadow-sm dark:bg-white dark:text-black'
+                          : 'text-stone-500 hover:text-stone-900 dark:text-zinc-400 dark:hover:text-white'}`}
+                      >
+                        {meta.compactTitle}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <CrosswordCluePanel
+                  title={mobileDirectionMeta.shortTitle}
+                  tone={mobileDirectionMeta.tone}
+                  entries={mobileEntries}
+                  activeEntryKey={activeEntryKey}
+                  onSelect={(entry) => handleSelectEntry(mobileClueDirection, entry)}
+                  scrollClass="max-h-[26rem]"
+                />
+              </div>
+
+              <div className="hidden xl:grid xl:grid-cols-2 xl:gap-4">
+                <CrosswordCluePanel
+                  title={DIRECTION_META.across.shortTitle}
+                  tone={DIRECTION_META.across.tone}
+                  entries={entries.across}
+                  activeEntryKey={activeEntryKey}
+                  onSelect={(entry) => handleSelectEntry('across', entry)}
+                  scrollClass="max-h-[34rem]"
+                />
+                <CrosswordCluePanel
+                  title={DIRECTION_META.down.shortTitle}
+                  tone={DIRECTION_META.down.tone}
+                  entries={entries.down}
+                  activeEntryKey={activeEntryKey}
+                  onSelect={(entry) => handleSelectEntry('down', entry)}
+                  scrollClass="max-h-[34rem]"
+                />
+              </div>
+            </section>
+          </aside>
         </section>
       </main>
 
       {showHelp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/70 dark:bg-black/80 px-4 backdrop-blur-sm" onClick={() => setShowHelp(false)}>
-          <div className="bg-white dark:bg-zinc-900 border border-stone-200 dark:border-zinc-700 p-6 rounded-2xl max-w-md w-full shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <h2 className="text-2xl font-black mb-4 text-slate-900 dark:text-white uppercase font-condensed">Как се играе</h2>
-            <ul className="list-disc pl-5 text-sm text-slate-500 dark:text-zinc-400 space-y-2 mb-6">
-              <li>Кликни върху клетка, за да я активираш. Повтори клик, за да смениш посоката.</li>
-              <li>Използвай клавиатурата, за да въвеждаш букви, и стрелките за навигация.</li>
-              <li>Бутонът „Провери“ маркира грешните и празните клетки, без да разкрива решението.</li>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-100/70 px-4 backdrop-blur-sm dark:bg-black/80" onClick={() => setShowHelp(false)}>
+          <div className="w-full max-w-md rounded-[28px] border border-stone-300 bg-white p-6 shadow-2xl dark:border-zinc-800 dark:bg-[#151619]" onClick={(event) => event.stopPropagation()}>
+            <h2 className="text-2xl font-semibold tracking-[-0.04em] text-slate-950 [font-family:Georgia,'Times_New_Roman',serif] dark:text-white">Как се играе</h2>
+            <ul className="mt-4 space-y-3 text-sm leading-6 text-stone-600 dark:text-zinc-300">
+              <li>Кликни клетка или улика, за да избереш активната дума.</li>
+              <li>Повторен клик, <span className="font-black">Space</span> или <span className="font-black">Enter</span> сменя посоката, когато клетката е част и от хоризонтална, и от вертикална дума.</li>
+              <li>С бутон <span className="font-black">Провери</span> маркираш грешните клетки, а <span className="font-black">Изчисти дума</span> чисти само активния отговор.</li>
             </ul>
-            <button onClick={() => setShowHelp(false)} className="mt-4 w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-black font-bold hover:bg-slate-800 dark:hover:bg-zinc-200 transition-colors rounded-xl uppercase tracking-wider">Затвори</button>
+            <button onClick={() => setShowHelp(false)} className="mt-6 w-full rounded-full bg-slate-950 px-5 py-3 text-sm font-black uppercase tracking-[0.24em] text-white transition-colors hover:bg-slate-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200">
+              Затвори
+            </button>
           </div>
         </div>
       )}

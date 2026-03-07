@@ -22,6 +22,35 @@ function addDays(dateStr, offsetDays) {
     return new Date(Date.UTC(year, month - 1, day + offsetDays)).toISOString().slice(0, 10);
 }
 
+function isValidPuzzleDate(value) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+}
+
+function getPuzzleDurationDays(startDate, endDate) {
+    if (!isValidPuzzleDate(startDate)) return 1;
+    const safeEndDate = isValidPuzzleDate(endDate) && endDate >= startDate ? endDate : startDate;
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = safeEndDate.split('-').map(Number);
+    const diffMs = Date.UTC(endYear, endMonth - 1, endDay) - Date.UTC(startYear, startMonth - 1, startDay);
+    return Math.max(1, Math.round(diffMs / 86400000) + 1);
+}
+
+function normalizePuzzleActiveUntilDate(startDate, endDate) {
+    const safeStartDate = isValidPuzzleDate(startDate) ? startDate : getTodayStr();
+    if (!isValidPuzzleDate(endDate) || endDate < safeStartDate) return safeStartDate;
+    return endDate;
+}
+
+function syncPuzzleScheduleState(draft) {
+    if (!draft || typeof draft !== 'object') return draft;
+    const puzzleDate = isValidPuzzleDate(draft.puzzleDate) ? draft.puzzleDate : getTodayStr();
+    return {
+        ...draft,
+        puzzleDate,
+        activeUntilDate: normalizePuzzleActiveUntilDate(puzzleDate, draft.activeUntilDate),
+    };
+}
+
 function createQuestionTemplate(index) {
     return {
         question: `TODO: въпрос номер ${index + 1}`,
@@ -106,9 +135,10 @@ function syncCrosswordDraftState(draft) {
 }
 
 function normalizeDraftState(draft) {
-    if (!draft || typeof draft !== 'object') return draft;
-    if (draft.gameSlug === 'crossword') return syncCrosswordDraftState(draft);
-    return draft;
+    const normalizedDraft = syncPuzzleScheduleState(draft);
+    if (!normalizedDraft || typeof normalizedDraft !== 'object') return normalizedDraft;
+    if (normalizedDraft.gameSlug === 'crossword') return syncCrosswordDraftState(normalizedDraft);
+    return normalizedDraft;
 }
 
 export default function ManageGamePuzzles() {
@@ -148,7 +178,7 @@ export default function ManageGamePuzzles() {
 
     const loadPuzzles = async (slug) => {
         const data = await api.adminGames.getPuzzles(slug);
-        setPuzzles(Array.isArray(data) ? data : []);
+        setPuzzles(Array.isArray(data) ? data.map((item) => normalizeDraftState(item)) : []);
     };
 
     useEffect(() => {
@@ -186,6 +216,32 @@ export default function ManageGamePuzzles() {
 
     const actions = {
         setTopLevelField: (field, value) => updateEditForm((current) => ({ ...current, [field]: value })),
+        setPuzzleDate: (value) => updateEditForm((current) => {
+            const nextPuzzleDate = isValidPuzzleDate(value) ? value : (current?.puzzleDate || getTodayStr());
+            const currentStartDate = isValidPuzzleDate(current?.puzzleDate) ? current.puzzleDate : nextPuzzleDate;
+            const currentEndDate = normalizePuzzleActiveUntilDate(currentStartDate, current?.activeUntilDate);
+            const dayOffset = getPuzzleDurationDays(currentStartDate, currentEndDate) - 1;
+            return {
+                ...current,
+                puzzleDate: nextPuzzleDate,
+                activeUntilDate: addDays(nextPuzzleDate, dayOffset),
+            };
+        }),
+        setActiveUntilDate: (value) => updateEditForm((current) => {
+            const puzzleDate = isValidPuzzleDate(current?.puzzleDate) ? current.puzzleDate : getTodayStr();
+            return {
+                ...current,
+                activeUntilDate: normalizePuzzleActiveUntilDate(puzzleDate, value),
+            };
+        }),
+        applyPuzzleDuration: (days) => updateEditForm((current) => {
+            const puzzleDate = isValidPuzzleDate(current?.puzzleDate) ? current.puzzleDate : getTodayStr();
+            const safeDays = Math.max(1, Number.parseInt(days, 10) || 1);
+            return {
+                ...current,
+                activeUntilDate: addDays(puzzleDate, safeDays - 1),
+            };
+        }),
         setPayloadField: (field, value) => updateEditForm((current) => ({ ...current, payload: { ...(current?.payload || {}), [field]: value } })),
         setSolutionField: (field, value) => updateEditForm((current) => ({ ...current, solution: { ...(current?.solution || {}), [field]: value } })),
         replacePayload: (payload) => updateEditForm((current) => ({ ...current, payload: cloneValue(payload || {}) })),
@@ -449,9 +505,14 @@ export default function ManageGamePuzzles() {
                             ) : (
                                 puzzles.map((puzzle) => {
                                     const hasPlaceholders = hasGamePlaceholderContent(selectedGameSlug, puzzle);
+                                    const puzzleDurationDays = getPuzzleDurationDays(puzzle.puzzleDate, puzzle.activeUntilDate);
                                     return (
                                         <tr key={puzzle.id} className="hover:bg-gray-50/50">
-                                            <td className="px-6 py-4"><p className="font-mono font-bold text-gray-900">{puzzle.puzzleDate}</p><p className="text-xs text-gray-400 mt-1">#{puzzle.id}</p></td>
+                                            <td className="px-6 py-4">
+                                                <p className="font-mono font-bold text-gray-900">{puzzle.puzzleDate}</p>
+                                                <p className="text-xs text-gray-400 mt-1">{puzzle.activeUntilDate && puzzle.activeUntilDate !== puzzle.puzzleDate ? `до ${puzzle.activeUntilDate}` : 'еднодневен период'}</p>
+                                                <p className="text-xs text-gray-400 mt-1">#{puzzle.id}</p>
+                                            </td>
                                             <td className="px-6 py-4">
                                                 {puzzle.status === 'published'
                                                     ? <span className="inline-flex items-center gap-1.5 text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded-full uppercase"><Globe className="w-4 h-4" />Публикуван</span>
@@ -461,6 +522,7 @@ export default function ManageGamePuzzles() {
                                             </td>
                                             <td className="px-6 py-4 text-xs text-gray-500">
                                                 <p><span className="font-bold opacity-70">Трудност:</span> {puzzle.difficulty}</p>
+                                                <p className="mt-2"><span className="font-bold opacity-70">Период:</span> {puzzleDurationDays} {puzzleDurationDays === 1 ? 'ден' : 'дни'}</p>
                                                 {hasPlaceholders && <p className="mt-2 inline-flex items-center rounded-full bg-amber-50 px-2 py-1 font-bold uppercase tracking-wide text-amber-700">Има TODO / placeholder</p>}
                                                 {puzzle.editorNotes && <p className="italic mt-2 text-gray-400">“{puzzle.editorNotes}”</p>}
                                             </td>
