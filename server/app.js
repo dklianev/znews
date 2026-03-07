@@ -51,6 +51,7 @@ import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/
 import { AD_PAGE_TYPES, AD_STATUS_OPTIONS, AD_TYPES, getAdSlot, getDefaultPlacementsForType, isKnownAdSlot } from '../shared/adSlots.js';
 import { filterPublicAds, getAdRotationPool, normalizeAdImageMeta, normalizeAdRecord } from '../shared/adResolver.js';
 import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES, AD_IMPRESSION_WINDOW_MS, DEFAULT_AD_ANALYTICS_DAYS } from '../shared/adAnalytics.js';
+import { getCrosswordEntries } from '../shared/crossword.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -4958,8 +4959,8 @@ app.put('/api/permissions/:role', requireAuth, requirePermission('permissions'),
 
 // ─── Games API (Public) ───
 const gamesRouter = express.Router();
-const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'sudoku']);
-const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku']);
+const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'crossword']);
+const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'crossword']);
 const SUPPORTED_PUZZLE_STATUSES = new Set(['draft', 'published', 'archived']);
 const SUPPORTED_PUZZLE_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 const TEMPORARILY_UNAVAILABLE_GAME_ERROR = 'Тази игра временно не е активна.';
@@ -5225,6 +5226,205 @@ function validateQuizPuzzle(payloadInput, solutionInput) {
   };
 }
 
+const HANGMAN_ANSWER_PATTERN = /^[\p{L}\p{N}]+$/u;
+const CROSSWORD_ENTRY_PATTERN = /^[\p{L}\p{N}]$/u;
+
+function validateHangmanPuzzle(payloadInput, solutionInput) {
+  if (!isPlainObject(payloadInput) || !isPlainObject(solutionInput)) {
+    throw badRequest('Hangman puzzle payload and solution must be JSON objects.');
+  }
+
+  const answer = normalizeText(solutionInput.answer, 32).toUpperCase();
+  const answerLength = Array.from(answer).length;
+  const category = normalizeText(payloadInput.category, 80);
+  const hint = normalizeText(payloadInput.hint, 180);
+  const maxMistakes = toSafeInteger(payloadInput.maxMistakes, 7);
+  const keyboardLayout = Array.isArray(payloadInput.keyboardLayout)
+    ? sanitizeStringArray(payloadInput.keyboardLayout, 64, { uppercase: true })
+    : normalizeText(String(payloadInput.keyboardLayout || 'bg'), 160);
+
+  if (!category) throw badRequest('Hangman puzzles require a category.');
+  if (!answer || answerLength < 3 || answerLength > 18) {
+    throw badRequest('Hangman answer must be between 3 and 18 characters.');
+  }
+  if (!HANGMAN_ANSWER_PATTERN.test(answer)) {
+    throw badRequest('Hangman answer must contain only letters or digits and no spaces.');
+  }
+  if (maxMistakes < 4 || maxMistakes > 10) {
+    throw badRequest('Hangman puzzles must allow between 4 and 10 mistakes.');
+  }
+
+  return {
+    payload: {
+      category,
+      ...(hint ? { hint } : {}),
+      maxMistakes,
+      keyboardLayout,
+      answerLength,
+    },
+    solution: {
+      answer,
+    },
+  };
+}
+
+function normalizeCrosswordLayoutRows(rawLayout, width, height) {
+  if (!Array.isArray(rawLayout) || rawLayout.length !== height) {
+    throw badRequest('Crossword layout must contain one row per grid row.');
+  }
+
+  return rawLayout.map((row, rowIndex) => {
+    const chars = Array.from(String(row || '').toUpperCase());
+    if (chars.length !== width) {
+      throw badRequest(`Crossword layout row #${rowIndex + 1} must have exactly ${width} cells.`);
+    }
+    if (chars.some((char) => char !== '#' && char !== '.')) {
+      throw badRequest('Crossword layout rows may only contain "." and "#" characters.');
+    }
+    return chars.join('');
+  });
+}
+
+function normalizeCrosswordSolutionRows(rawGrid, layoutRows, width, height) {
+  if (!Array.isArray(rawGrid) || rawGrid.length !== height) {
+    throw badRequest('Crossword solution must contain one row per grid row.');
+  }
+
+  return rawGrid.map((row, rowIndex) => {
+    const chars = Array.from(String(row || '').toUpperCase());
+    if (chars.length !== width) {
+      throw badRequest(`Crossword solution row #${rowIndex + 1} must have exactly ${width} cells.`);
+    }
+
+    return chars.map((char, colIndex) => {
+      const isBlock = layoutRows[rowIndex][colIndex] === '#';
+      if (isBlock) {
+        if (char !== '#') throw badRequest('Crossword solution must use "#" in every blocked cell.');
+        return '#';
+      }
+      if (char !== '?' && !CROSSWORD_ENTRY_PATTERN.test(char)) {
+        throw badRequest('Crossword solution cells must contain a single letter, digit or ? placeholder.');
+      }
+      return char;
+    }).join('');
+  });
+}
+
+function normalizeCrosswordClues(rawEntries, expectedEntries, direction) {
+  if (!Array.isArray(rawEntries)) {
+    throw badRequest(`Crossword ${direction} clues must be an array.`);
+  }
+
+  const usedIndices = new Set();
+  const normalized = expectedEntries.map((expected) => {
+    const matchIndex = rawEntries.findIndex((entry, index) => {
+      if (usedIndices.has(index) || !isPlainObject(entry)) return false;
+      const row = toSafeInteger(entry.row, -1);
+      const col = toSafeInteger(entry.col, -1);
+      const number = toSafeInteger(entry.number, -1);
+      return (row === expected.row && col === expected.col) || number === expected.number;
+    });
+
+    if (matchIndex < 0) {
+      throw badRequest(`Missing ${direction} clue for #${expected.number}.`);
+    }
+
+    usedIndices.add(matchIndex);
+    const clue = normalizeText(rawEntries[matchIndex].clue, 220);
+    if (!clue) throw badRequest(`Crossword clue #${expected.number} must have text.`);
+
+    return {
+      number: expected.number,
+      row: expected.row,
+      col: expected.col,
+      length: expected.length,
+      clue,
+    };
+  });
+
+  const extraEntries = rawEntries.filter((entry, index) => isPlainObject(entry) && !usedIndices.has(index));
+  if (extraEntries.length > 0) {
+    throw badRequest(`Unexpected extra ${direction} clues were provided.`);
+  }
+
+  return normalized;
+}
+
+function validateCrosswordPuzzle(payloadInput, solutionInput) {
+  if (!isPlainObject(payloadInput) || !isPlainObject(solutionInput)) {
+    throw badRequest('Crossword puzzle payload and solution must be JSON objects.');
+  }
+
+  const rawLayout = Array.isArray(payloadInput.layout) ? payloadInput.layout : [];
+  const derivedHeight = rawLayout.length;
+  const derivedWidth = derivedHeight > 0 ? Array.from(String(rawLayout[0] || '')).length : 0;
+  const width = toSafeInteger(payloadInput.width, derivedWidth);
+  const height = toSafeInteger(payloadInput.height, derivedHeight);
+  const title = normalizeText(payloadInput.title, 80);
+  const deck = normalizeText(payloadInput.deck, 180);
+
+  if (width < 3 || width > 12 || height < 3 || height > 12) {
+    throw badRequest('Crossword grid must be between 3x3 and 12x12.');
+  }
+
+  const layout = normalizeCrosswordLayoutRows(rawLayout, width, height);
+  const solutionGrid = normalizeCrosswordSolutionRows(solutionInput.grid, layout, width, height);
+  const expectedEntries = getCrosswordEntries(layout);
+  if (expectedEntries.across.length === 0 || expectedEntries.down.length === 0) {
+    throw badRequest('Crossword grid must include at least one across and one down entry.');
+  }
+
+  const rawClues = isPlainObject(payloadInput.clues) ? payloadInput.clues : {};
+  const clues = {
+    across: normalizeCrosswordClues(rawClues.across, expectedEntries.across, 'across'),
+    down: normalizeCrosswordClues(rawClues.down, expectedEntries.down, 'down'),
+  };
+
+  return {
+    payload: {
+      ...(title ? { title } : {}),
+      ...(deck ? { deck } : {}),
+      width,
+      height,
+      layout,
+      clues,
+    },
+    solution: {
+      grid: solutionGrid,
+    },
+  };
+}
+
+function normalizeCrosswordSubmissionGrid(rawGrid, layoutRows) {
+  if (!Array.isArray(rawGrid) || rawGrid.length !== layoutRows.length) {
+    throw badRequest('Crossword submission must contain one row per grid row.');
+  }
+
+  return layoutRows.map((layoutRow, rowIndex) => {
+    const width = Array.from(layoutRow).length;
+    const chars = Array.isArray(rawGrid[rowIndex])
+      ? rawGrid[rowIndex].map((value) => String(value || '').trim().toUpperCase())
+      : Array.from(String(rawGrid[rowIndex] || '').toUpperCase());
+
+    if (chars.length !== width) {
+      throw badRequest(`Crossword submission row #${rowIndex + 1} must have exactly ${width} cells.`);
+    }
+
+    return Array.from(layoutRow).map((layoutChar, colIndex) => {
+      if (layoutChar === '#') return '#';
+      const rawValue = Array.isArray(rawGrid[rowIndex])
+        ? String(rawGrid[rowIndex][colIndex] || '').trim().toUpperCase()
+        : String(chars[colIndex] || '').trim().toUpperCase();
+      if (!rawValue) return '.';
+      const char = Array.from(rawValue)[0] || '';
+      if (!CROSSWORD_ENTRY_PATTERN.test(char)) {
+        throw badRequest('Crossword submission cells must contain only one letter or digit.');
+      }
+      return char;
+    }).join('');
+  });
+}
+
 function isGenericPlaceholderText(value) {
   const normalized = normalizeText(String(value || ''), 240).toUpperCase();
   if (!normalized) return false;
@@ -5264,9 +5464,35 @@ function isPlaceholderQuizPuzzle(payload) {
   });
 }
 
+function isPlaceholderHangmanPuzzle(payload, solution) {
+  return isGenericPlaceholderText(solution?.answer)
+    || isGenericPlaceholderText(payload?.category)
+    || isGenericPlaceholderText(payload?.hint);
+}
+
+function isPlaceholderCrosswordPuzzle(payload, solution) {
+  if (isGenericPlaceholderText(payload?.title) || isGenericPlaceholderText(payload?.deck)) {
+    return true;
+  }
+
+  const hasPlaceholderClues = ['across', 'down'].some((direction) => (
+    Array.isArray(payload?.clues?.[direction])
+      ? payload.clues[direction].some((entry) => isGenericPlaceholderText(entry?.clue))
+      : false
+  ));
+
+  const hasPlaceholderSolution = Array.isArray(solution?.grid)
+    ? solution.grid.some((row) => String(row || '').includes('?'))
+    : false;
+
+  return hasPlaceholderClues || hasPlaceholderSolution;
+}
+
 function isPlaceholderGamePuzzle(gameType, payload, solution) {
   if (gameType === 'word') return isPlaceholderWordPuzzle(payload, solution);
+  if (gameType === 'hangman') return isPlaceholderHangmanPuzzle(payload, solution);
   if (gameType === 'connections') return isPlaceholderConnectionsPuzzle(payload, solution);
+  if (gameType === 'crossword') return isPlaceholderCrosswordPuzzle(payload, solution);
   if (gameType === 'quiz') return isPlaceholderQuizPuzzle(payload, solution);
   return false;
 }
@@ -5303,8 +5529,12 @@ function sanitizeGamePuzzleInput(game, input, existingPuzzle = null) {
   let validatedPuzzle;
   if (game.type === 'word') {
     validatedPuzzle = validateWordPuzzle(rawPayload, rawSolution);
+  } else if (game.type === 'hangman') {
+    validatedPuzzle = validateHangmanPuzzle(rawPayload, rawSolution);
   } else if (game.type === 'connections') {
     validatedPuzzle = validateConnectionsPuzzle(rawPayload, rawSolution);
+  } else if (game.type === 'crossword') {
+    validatedPuzzle = validateCrosswordPuzzle(rawPayload, rawSolution);
   } else if (game.type === 'quiz') {
     validatedPuzzle = validateQuizPuzzle(rawPayload, rawSolution);
   } else {
@@ -5464,6 +5694,39 @@ gamesRouter.post('/:slug/:date/validate', async (req, res) => {
       return res.json({ evaluated, isWin: guess === answer });
     }
 
+    if (game.type === 'hangman') {
+      const action = normalizeText(req.body?.action, 32).toLowerCase();
+      const answer = normalizeText(puzzle.solution?.answer, 32).toUpperCase();
+
+      if (action === 'reveal-answer') {
+        return res.json({ answer });
+      }
+
+      const letter = normalizeText(req.body?.letter, 8).toUpperCase();
+      const normalizedLetter = Array.from(letter)[0] || '';
+      if (!CROSSWORD_ENTRY_PATTERN.test(normalizedLetter)) {
+        return res.status(400).json({ error: 'Invalid letter' });
+      }
+
+      const guessedLetters = [...new Set(sanitizeStringArray(req.body?.guessedLetters, 8, { uppercase: true }).map((value) => Array.from(value)[0] || '').filter(Boolean))];
+      const effectiveGuesses = [...new Set([...guessedLetters, normalizedLetter])];
+      const answerChars = Array.from(answer);
+      const positions = answerChars.reduce((indexes, char, index) => {
+        if (char === normalizedLetter) indexes.push(index);
+        return indexes;
+      }, []);
+      const uniqueAnswerChars = [...new Set(answerChars)];
+      const isWin = uniqueAnswerChars.every((char) => effectiveGuesses.includes(char));
+
+      return res.json({
+        letter: normalizedLetter,
+        positions,
+        isCorrect: positions.length > 0,
+        isWin,
+        answerLength: answerChars.length,
+      });
+    }
+
     if (game.type === 'connections') {
       const { selection } = req.body;
       if (!Array.isArray(selection) || selection.length !== 4) return res.status(400).json({ error: 'Invalid selection' });
@@ -5487,9 +5750,43 @@ gamesRouter.post('/:slug/:date/validate', async (req, res) => {
       return res.json({ correct: false, isOneAway });
     }
 
+    if (game.type === 'crossword') {
+      const layoutRows = Array.isArray(puzzle.payload?.layout) ? puzzle.payload.layout : [];
+      const submission = normalizeCrosswordSubmissionGrid(req.body?.grid, layoutRows);
+      const solutionGrid = Array.isArray(puzzle.solution?.grid) ? puzzle.solution.grid : [];
+      const wrongCells = [];
+      const emptyCells = [];
+      let totalCells = 0;
+      let filledCells = 0;
+
+      layoutRows.forEach((layoutRow, rowIndex) => {
+        Array.from(layoutRow).forEach((cell, colIndex) => {
+          if (cell === '#') return;
+          totalCells += 1;
+          const value = submission[rowIndex][colIndex];
+          if (value === '.') {
+            emptyCells.push({ row: rowIndex, col: colIndex });
+            return;
+          }
+          filledCells += 1;
+          if (value !== solutionGrid[rowIndex][colIndex]) {
+            wrongCells.push({ row: rowIndex, col: colIndex });
+          }
+        });
+      });
+
+      return res.json({
+        isSolved: wrongCells.length === 0 && emptyCells.length === 0,
+        wrongCells,
+        emptyCells,
+        totalCells,
+        filledCells,
+      });
+    }
+
     res.json({ ok: true });
   } catch (e) {
-    res.status(500).json({ error: publicError(e) });
+    res.status(e.status || 500).json({ error: statusAwarePublicError(e) });
   }
 });
 

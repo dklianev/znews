@@ -3,11 +3,12 @@ export function looksLikePlaceholderText(value) {
   if (!normalized) return false;
 
   return normalized === '?'
-    || normalized === 'ДУМА1'
+    || normalized === 'TODO5'
+    || normalized === 'TODOWORD'
     || normalized.includes('TODO')
     || normalized.includes('PLACEHOLDER')
     || normalized.includes('REPLACE_ME')
-    || normalized.includes('ПОПЪЛНИ');
+    || normalized.includes('ЗАМЕНИ');
 }
 
 export function getGamePlaceholderWarnings(gameSlug, puzzle) {
@@ -17,10 +18,23 @@ export function getGamePlaceholderWarnings(gameSlug, puzzle) {
 
   if (gameSlug === 'word') {
     if (looksLikePlaceholderText(solution.answer)) {
-      warnings.push({ key: 'solution.answer', label: 'Смени тайната дума с реална дума.' });
+      warnings.push({ key: 'solution.answer', label: 'Отговорът още е placeholder текст.' });
     }
     if ((Array.isArray(solution.allowedWords) ? solution.allowedWords : []).some(looksLikePlaceholderText)) {
-      warnings.push({ key: 'solution.allowedWords', label: 'Премахни placeholder guesses от списъка.' });
+      warnings.push({ key: 'solution.allowedWords', label: 'Допустимите guesses съдържат placeholder стойности.' });
+    }
+    return warnings;
+  }
+
+  if (gameSlug === 'hangman') {
+    if (looksLikePlaceholderText(solution.answer)) {
+      warnings.push({ key: 'solution.answer', label: 'Думата за бесеницата още е placeholder.' });
+    }
+    if (looksLikePlaceholderText(payload.category)) {
+      warnings.push({ key: 'payload.category', label: 'Категорията още е placeholder.' });
+    }
+    if (looksLikePlaceholderText(payload.hint)) {
+      warnings.push({ key: 'payload.hint', label: 'Подсказката още е placeholder.' });
     }
     return warnings;
   }
@@ -28,19 +42,19 @@ export function getGamePlaceholderWarnings(gameSlug, puzzle) {
   if (gameSlug === 'connections') {
     (Array.isArray(payload.items) ? payload.items : []).forEach((item, index) => {
       if (looksLikePlaceholderText(item)) {
-        warnings.push({ key: `payload.items.${index}`, label: `Елемент ${index + 1} на дъската още е placeholder.` });
+        warnings.push({ key: `payload.items.${index}`, label: `Елемент ${index + 1} още е placeholder.` });
       }
     });
 
     (Array.isArray(solution.groups) ? solution.groups : []).forEach((group, groupIndex) => {
       if (looksLikePlaceholderText(group?.label)) {
-        warnings.push({ key: `solution.groups.${groupIndex}.label`, label: `Група ${groupIndex + 1} още няма реално име.` });
+        warnings.push({ key: `solution.groups.${groupIndex}.label`, label: `Група ${groupIndex + 1} още няма финален етикет.` });
       }
       (Array.isArray(group?.items) ? group.items : []).forEach((item, itemIndex) => {
         if (looksLikePlaceholderText(item)) {
           warnings.push({
             key: `solution.groups.${groupIndex}.items.${itemIndex}`,
-            label: `Група ${groupIndex + 1}, елемент ${itemIndex + 1} още е placeholder.`,
+            label: `Група ${groupIndex + 1}, елемент ${itemIndex + 1} е placeholder.`,
           });
         }
       });
@@ -48,21 +62,46 @@ export function getGamePlaceholderWarnings(gameSlug, puzzle) {
     return warnings;
   }
 
+  if (gameSlug === 'crossword') {
+    if (looksLikePlaceholderText(payload.title)) {
+      warnings.push({ key: 'payload.title', label: 'Заглавието на кръстословицата още е placeholder.' });
+    }
+    if (looksLikePlaceholderText(payload.deck)) {
+      warnings.push({ key: 'payload.deck', label: 'Подзаглавието на кръстословицата още е placeholder.' });
+    }
+
+    ['across', 'down'].forEach((direction) => {
+      (Array.isArray(payload?.clues?.[direction]) ? payload.clues[direction] : []).forEach((entry, index) => {
+        if (looksLikePlaceholderText(entry?.clue)) {
+          warnings.push({
+            key: `payload.clues.${direction}.${index}.clue`,
+            label: `${direction === 'across' ? 'Хоризонтална' : 'Вертикална'} улика ${index + 1} е placeholder.`,
+          });
+        }
+      });
+    });
+
+    if ((Array.isArray(solution?.grid) ? solution.grid : []).some((row) => String(row || '').includes('?'))) {
+      warnings.push({ key: 'solution.grid', label: 'Решението съдържа непопълнени клетки с ?.' });
+    }
+    return warnings;
+  }
+
   if (gameSlug === 'quiz') {
     (Array.isArray(payload.questions) ? payload.questions : []).forEach((question, questionIndex) => {
       if (looksLikePlaceholderText(question?.question)) {
-        warnings.push({ key: `payload.questions.${questionIndex}.question`, label: `Въпрос ${questionIndex + 1} още е placeholder.` });
+        warnings.push({ key: `payload.questions.${questionIndex}.question`, label: `Въпрос ${questionIndex + 1} е placeholder.` });
       }
       (Array.isArray(question?.options) ? question.options : []).forEach((option, optionIndex) => {
         if (looksLikePlaceholderText(option)) {
           warnings.push({
             key: `payload.questions.${questionIndex}.options.${optionIndex}`,
-            label: `Въпрос ${questionIndex + 1}, отговор ${optionIndex + 1} още е placeholder.`,
+            label: `Въпрос ${questionIndex + 1}, отговор ${optionIndex + 1} е placeholder.`,
           });
         }
       });
       if (looksLikePlaceholderText(question?.explanation)) {
-        warnings.push({ key: `payload.questions.${questionIndex}.explanation`, label: `Обяснението на въпрос ${questionIndex + 1} още е placeholder.` });
+        warnings.push({ key: `payload.questions.${questionIndex}.explanation`, label: `Обяснението към въпрос ${questionIndex + 1} е placeholder.` });
       }
     });
   }
