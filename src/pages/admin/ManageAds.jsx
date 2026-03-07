@@ -86,6 +86,8 @@ const emptyForm = {
   campaignName: '',
   title: '',
   subtitle: '',
+  showTitle: true,
+  showButton: true,
   cta: '\u0412\u0438\u0436 \u043f\u043e\u0432\u0435\u0447\u0435',
   type: 'horizontal',
   status: 'active',
@@ -174,6 +176,8 @@ function buildPayloadFromForm(form) {
     campaignName: String(form.campaignName || '').trim(),
     title: String(form.title || '').trim(),
     subtitle: String(form.subtitle || '').trim(),
+    showTitle: form.showTitle !== false,
+    showButton: form.showButton !== false,
     cta: String(form.cta || '').trim(),
     type: form.type || 'horizontal',
     status: form.status || 'active',
@@ -374,8 +378,8 @@ export default function ManageAds() {
   const validationErrors = useMemo(() => {
     const errors = [];
     if (!draftPayload.title) errors.push('\u0417\u0430\u0433\u043b\u0430\u0432\u0438\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.');
-    if (!draftPayload.cta) errors.push('CTA \u0442\u0435\u043a\u0441\u0442\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.');
-    if (!draftPayload.link) errors.push('\u041b\u0438\u043d\u043a\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.');
+    if (draftPayload.showButton !== false && !draftPayload.cta) errors.push('CTA \u0442\u0435\u043a\u0441\u0442\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.');
+    if (draftPayload.showButton !== false && !draftPayload.link) errors.push('\u041b\u0438\u043d\u043a\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.');
     if (!draftPayload.placements.length) errors.push('\u0418\u0437\u0431\u0435\u0440\u0438 \u043f\u043e\u043d\u0435 \u0435\u0434\u043d\u0430 \u043f\u043e\u0437\u0438\u0446\u0438\u044f.');
     if (draftPayload.startAt && draftPayload.endAt && new Date(draftPayload.startAt).getTime() > new Date(draftPayload.endAt).getTime()) errors.push('\u041d\u0430\u0447\u0430\u043b\u043d\u0430\u0442\u0430 \u0434\u0430\u0442\u0430 \u0442\u0440\u044f\u0431\u0432\u0430 \u0434\u0430 \u0435 \u043f\u0440\u0435\u0434\u0438 \u043a\u0440\u0430\u0439\u043d\u0430\u0442\u0430.');
     return errors;
@@ -566,9 +570,47 @@ export default function ManageAds() {
               <div><label className={labelCls}>{'\u0421\u0442\u0430\u0442\u0443\u0441'}</label><select className={inputCls} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{AD_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{AD_STATUS_LABELS[status] || status}</option>)}</select></div>
               <div><label className={labelCls}>{'\u0417\u0430\u0433\u043b\u0430\u0432\u0438\u0435'}</label><input className={inputCls} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={'\u041d\u043e\u0432 \u043f\u0440\u043e\u0434\u0443\u043a\u0442'} /></div>
               <div><label className={labelCls}>{'\u041f\u043e\u0434\u0437\u0430\u0433\u043b\u0430\u0432\u0438\u0435'}</label><input className={inputCls} value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} placeholder={'\u041a\u0440\u0430\u0442\u044a\u043a \u0442\u0435\u043a\u0441\u0442'} /></div>
-              <div><label className={labelCls}>CTA</label><input className={inputCls} value={form.cta} onChange={(e) => setForm({ ...form, cta: e.target.value })} placeholder={'\u0412\u0438\u0436 \u043f\u043e\u0432\u0435\u0447\u0435'} /></div>
+              <div className="md:col-span-2 rounded-xl border border-gray-200 bg-[#fbfaf7] px-4 py-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <label className={labelCls}>{'Заглавие в банера'}</label>
+                    <p className="text-sm text-gray-600">{'Когато е изключено, заглавието не се показва в самия банер, но остава за вътрешна организация и списъците в администрацията.'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, showTitle: !prev.showTitle }))}
+                    className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${form.showTitle ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'}`}
+                  >
+                    {form.showTitle ? 'Заглавието е видимо' : 'Без заглавие'}
+                  </button>
+                </div>
+              </div>
+              <div className="md:col-span-2 rounded-xl border border-gray-200 bg-[#fbfaf7] px-4 py-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <label className={labelCls}>{'\u0411\u0443\u0442\u043e\u043d \u0438 \u043f\u0440\u0435\u043d\u0430\u0441\u043e\u0447\u0432\u0430\u043d\u0435'}</label>
+                    <p className="text-sm text-gray-600">{'\u041a\u043e\u0433\u0430\u0442\u043e \u0435 \u0438\u0437\u043a\u043b\u044e\u0447\u0435\u043d\u043e, \u0431\u0430\u043d\u0435\u0440\u044a\u0442 \u043e\u0441\u0442\u0430\u0432\u0430 \u0441\u0442\u0430\u0442\u0438\u0447\u0435\u043d \u0438 \u043d\u0435 \u043f\u0440\u0435\u043f\u0440\u0430\u0449\u0430 \u043d\u0438\u043a\u044a\u0434\u0435.'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, showButton: !prev.showButton }))}
+                    className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${form.showButton ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'}`}
+                  >
+                    {form.showButton ? '\u0411\u0443\u0442\u043e\u043d\u044a\u0442 \u0435 \u0432\u043a\u043b\u044e\u0447\u0435\u043d' : '\u0411\u0435\u0437 \u0431\u0443\u0442\u043e\u043d'}
+                  </button>
+                </div>
+              </div>
+              {form.showButton ? (
+                <div><label className={labelCls}>CTA</label><input className={inputCls} value={form.cta} onChange={(e) => setForm({ ...form, cta: e.target.value })} placeholder={'\u0412\u0438\u0436 \u043f\u043e\u0432\u0435\u0447\u0435'} /></div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">{'\u0411\u0430\u043d\u0435\u0440\u044a\u0442 \u0449\u0435 \u0441\u0435 \u043f\u043e\u043a\u0430\u0437\u0432\u0430 \u0431\u0435\u0437 CTA \u0431\u0443\u0442\u043e\u043d.'}</div>
+              )}
               <div><label className={labelCls}>{'\u0422\u0438\u043f \u0431\u0430\u043d\u0435\u0440'}</label><select className={inputCls} value={form.type} onChange={(e) => { const nextType = e.target.value; setForm((prev) => ({ ...prev, type: nextType, placements: prev.placements.filter((slotId) => AD_SLOT_DEFINITIONS.find((slot) => slot.id === slotId)?.variant === nextType) })); }}>{AD_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select><p className="mt-1 text-[11px] text-gray-500">{AD_TYPES.find((item) => item.value === form.type)?.description}</p></div>
-              <div className="md:col-span-2"><label className={labelCls}>{'\u041b\u0438\u043d\u043a'}</label><input className={inputCls} value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} placeholder="https://example.com" /></div>
+              {form.showButton ? (
+                <div className="md:col-span-2"><label className={labelCls}>{'\u041b\u0438\u043d\u043a'}</label><input className={inputCls} value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} placeholder="https://example.com" /></div>
+              ) : (
+                <div className="md:col-span-2 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">{'\u041b\u0438\u043d\u043a\u044a\u0442 \u0441\u0435 \u0438\u0433\u043d\u043e\u0440\u0438\u0440\u0430, \u0434\u043e\u043a\u0430\u0442\u043e \u0431\u0443\u0442\u043e\u043d\u044a\u0442 \u0435 \u0438\u0437\u043a\u043b\u044e\u0447\u0435\u043d.'}</div>
+              )}
               <div><label className={labelCls}>{'\u0426\u0432\u044f\u0442'}</label><div className="flex items-center gap-2"><input type="color" className="h-10 w-10 border border-gray-200" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /><input className={`${inputCls} flex-1`} value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div></div>
               <div><label className={labelCls}>{'\u0418\u043a\u043e\u043d\u0430'}</label><div className="flex flex-wrap gap-1.5">{AD_ICONS.map((icon) => <button key={icon} type="button" onClick={() => setForm({ ...form, icon })} className={`flex h-10 w-10 items-center justify-center border text-xl ${form.icon === icon ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200'}`}>{icon}</button>)}</div></div>
                             <div className="md:col-span-2">
@@ -816,11 +858,10 @@ export default function ManageAds() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {normalizedAds.map((ad) => {
           const metrics = analyticsByAdId.get(Number(ad.id)) || { impressions: 0, clicks: 0, ctr: 0, lastImpressionAt: null, lastClickAt: null };
-          return <div key={ad.id} className="border border-gray-200 bg-white"><div className="relative overflow-hidden p-4 text-white" style={{ backgroundColor: ad.color || '#990F3D' }}>{ad.image && <img src={ad.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${ad.imagePlacement === 'cover' ? 'opacity-100' : 'opacity-30'}`} style={getAdAdminCardImageStyle(ad)} />}<div className="relative z-10 flex items-center gap-2"><span className="text-xl">{ad.icon}</span><div><p className="text-sm font-bold">{ad.campaignName || ad.title}</p><p className="text-xs opacity-90">{ad.subtitle}</p></div></div><span className="relative z-10 mt-3 inline-block bg-white/20 px-3 py-1 text-xs font-semibold">{ad.cta}</span></div><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider"><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_TYPE_LABELS[ad.type] || ad.type}</span><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_STATUS_LABELS[ad.status] || ad.status}</span><span className="bg-blue-100 px-1.5 py-0.5 text-blue-700">P {ad.priority}</span><span className="bg-violet-100 px-1.5 py-0.5 text-violet-700">W {ad.weight}</span>{ad.link && ad.link !== '#' && <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-zn-hot"><ExternalLink className="h-3.5 w-3.5" /></a>}{ad.image && <span className="bg-purple-100 px-1.5 py-0.5 text-purple-700"><ImageIcon className="mr-0.5 inline h-3 w-3" />media</span>}</div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</p><div className="flex flex-wrap gap-1.5">{ad.placements.map((placement) => <span key={placement} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">{AD_SLOT_DEFINITIONS.find((slot) => slot.id === placement)?.label || placement}</span>)}</div></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Targeting</p><p className="text-sm text-gray-600">{summarizeTargeting(ad, categoriesById, articlesById)}</p></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Analytics</p><div className="grid grid-cols-3 gap-2 text-xs text-gray-600"><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Impr.</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.impressions}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Clicks</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.clicks}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">CTR</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : `${metrics.ctr}%`}</div></div></div></div><div className="flex items-center gap-1 border-t border-gray-100 pt-2"><button onClick={() => { setError(''); setEditing(ad.id); setForm(normalizeAdForm(ad)); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="h-4 w-4" /></button><button onClick={() => handleDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div></div>;
+          return <div key={ad.id} className="border border-gray-200 bg-white"><div className="relative overflow-hidden p-4 text-white" style={{ backgroundColor: ad.color || '#990F3D' }}>{ad.image && <img src={ad.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${ad.imagePlacement === 'cover' ? 'opacity-100' : 'opacity-30'}`} style={getAdAdminCardImageStyle(ad)} />}<div className="relative z-10 flex items-center gap-2"><span className="text-xl">{ad.icon}</span><div><p className="text-sm font-bold">{ad.campaignName || ad.title}</p><p className="text-xs opacity-90">{ad.subtitle}</p></div></div>{ad.showButton !== false ? <span className="relative z-10 mt-3 inline-block bg-white/20 px-3 py-1 text-xs font-semibold">{ad.cta}</span> : <span className="relative z-10 mt-3 inline-block bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">{'\u0411\u0435\u0437 \u0431\u0443\u0442\u043e\u043d'}</span>}</div><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider"><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_TYPE_LABELS[ad.type] || ad.type}</span><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_STATUS_LABELS[ad.status] || ad.status}</span><span className="bg-blue-100 px-1.5 py-0.5 text-blue-700">P {ad.priority}</span><span className="bg-violet-100 px-1.5 py-0.5 text-violet-700">W {ad.weight}</span>{ad.showButton !== false && ad.link && ad.link !== '#' && <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-zn-hot"><ExternalLink className="h-3.5 w-3.5" /></a>}{ad.image && <span className="bg-purple-100 px-1.5 py-0.5 text-purple-700"><ImageIcon className="mr-0.5 inline h-3 w-3" />media</span>}</div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</p><div className="flex flex-wrap gap-1.5">{ad.placements.map((placement) => <span key={placement} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">{AD_SLOT_DEFINITIONS.find((slot) => slot.id === placement)?.label || placement}</span>)}</div></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Targeting</p><p className="text-sm text-gray-600">{summarizeTargeting(ad, categoriesById, articlesById)}</p></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Analytics</p><div className="grid grid-cols-3 gap-2 text-xs text-gray-600"><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Impr.</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.impressions}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Clicks</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.clicks}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">CTR</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : `${metrics.ctr}%`}</div></div></div></div><div className="flex items-center gap-1 border-t border-gray-100 pt-2"><button onClick={() => { setError(''); setEditing(ad.id); setForm(normalizeAdForm(ad)); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="h-4 w-4" /></button><button onClick={() => handleDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div></div>;
         })}
         {normalizedAds.length === 0 && <div className="col-span-full py-12 text-center text-sm text-gray-400">{'\u041d\u044f\u043c\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0438'}</div>}
       </div>
     </div>
   );
 }
-

@@ -264,6 +264,8 @@ export function normalizeAdRecord(ad) {
   const normalizedTargeting = normalizeTargeting(ad?.targeting);
   const normalizedPlacements = normalizePlacements(ad?.placements, normalizedType)
     .filter((slotId) => isAdTypeAllowedInSlot(normalizedType, slotId));
+  const showButton = ad?.showButton !== false;
+  const showTitle = ad?.showTitle !== false;
 
   return {
     ...(ad || {}),
@@ -275,6 +277,8 @@ export function normalizeAdRecord(ad) {
     imageMeta: normalizeAdImageMeta(ad?.imageMeta),
     placements: normalizedPlacements,
     targeting: normalizedTargeting,
+    showTitle,
+    showButton,
     priority: normalizeNumber(ad?.priority, 0, { min: -1000, max: 1000 }),
     weight: normalizeNumber(ad?.weight, 1, { min: 1, max: 100 }),
     startAt: normalizeDate(ad?.startAt),
