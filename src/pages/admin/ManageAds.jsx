@@ -4,7 +4,7 @@ import { useData } from '../../context/DataContext';
 import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
 import { AdBannerHorizontal, AdBannerSide, AdBannerInline } from '../../components/AdBanner';
-import { AD_PAGE_TYPES, AD_SLOT_DEFINITIONS, AD_STATUS_OPTIONS } from '../../../shared/adSlots.js';
+import { AD_PAGE_TYPES, AD_SLOT_DEFINITIONS, AD_STATUS_OPTIONS, getAdSlot } from '../../../shared/adSlots.js';
 import { explainAdResolution, normalizeAdImageMeta, normalizeAdRecord } from '../../../shared/adResolver.js';
 import { buildAdSlotOccupancy } from '../../../shared/adOccupancy.js';
 import { api } from '../../utils/api';
@@ -232,10 +232,22 @@ function buildPreviewContext(slot, previewAd, articlesById) {
   return { slot: slot.id, pageType: slot.pageType, articleId, categoryId, rotationKey: `preview|${slot.id}|${articleId || 'na'}|${categoryId || 'na'}` };
 }
 
-function PreviewBanner({ ad }) {
-  if (ad.type === 'side') return <AdBannerSide ad={ad} />;
-  if (ad.type === 'inline') return <AdBannerInline ad={ad} />;
-  return <AdBannerHorizontal ad={ad} />;
+function parseSizeLabel(value) {
+  const match = String(value || '').match(/(\d+)\s*x\s*(\d+)/i);
+  if (!match) return null;
+  return { width: Number(match[1]), height: Number(match[2]) };
+}
+
+function getAdGuideMode(type) {
+  if (type === 'side') return 'ad-side';
+  if (type === 'inline') return 'ad-inline';
+  return 'ad-horizontal';
+}
+
+function PreviewBanner({ ad, slotMeta = null, showSafeArea = false }) {
+  if (ad.type === 'side') return <AdBannerSide ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} />;
+  if (ad.type === 'inline') return <AdBannerInline ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} />;
+  return <AdBannerHorizontal ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} />;
 }
 
 function formatDateTimeShort(value) {
@@ -270,6 +282,7 @@ export default function ManageAds() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [analyticsSummary, setAnalyticsSummary] = useState({ items: [], totals: { impressions: 0, clicks: 0, ctr: 0 }, days: 30, loading: true, error: '' });
+  const [previewSlotId, setPreviewSlotId] = useState('');
   const toast = useToast();
 
   const normalizedAds = useMemo(() => (Array.isArray(ads) ? ads : []).map((ad) => normalizeAdRecord(ad)).sort((a, b) => (b.priority || 0) - (a.priority || 0) || (b.id || 0) - (a.id || 0)), [ads]);
@@ -278,6 +291,7 @@ export default function ManageAds() {
   const analyticsByAdId = useMemo(() => new Map((Array.isArray(analyticsSummary.items) ? analyticsSummary.items : []).map((item) => [Number(item.adId), item])), [analyticsSummary.items]);
   const slotOccupancy = useMemo(() => buildAdSlotOccupancy(normalizedAds), [normalizedAds]);
   const occupancyWarningCount = useMemo(() => slotOccupancy.reduce((sum, entry) => sum + entry.warnings.length, 0), [slotOccupancy]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -303,6 +317,31 @@ export default function ManageAds() {
   const draftPayload = useMemo(() => buildPayloadFromForm(form), [form]);
   const selectedTypeMeta = useMemo(() => AD_TYPES.find((item) => item.value === form.type) || AD_TYPES[0], [form.type]);
   const selectedSlots = useMemo(() => AD_SLOT_DEFINITIONS.filter((slot) => draftPayload.placements.includes(slot.id)), [draftPayload.placements]);
+  const previewSlotOptions = useMemo(() => (
+    selectedSlots.length > 0
+      ? selectedSlots
+      : AD_SLOT_DEFINITIONS.filter((slot) => slot.variant === form.type)
+  ), [form.type, selectedSlots]);
+  const previewSlotMeta = useMemo(
+    () => previewSlotOptions.find((slot) => slot.id === previewSlotId) || previewSlotOptions[0] || null,
+    [previewSlotId, previewSlotOptions],
+  );
+  const previewGuideMode = useMemo(() => getAdGuideMode(form.type), [form.type]);
+  const imageRequirements = useMemo(() => ({
+    label: previewSlotMeta?.label || selectedTypeMeta.label,
+    recommended: parseSizeLabel(selectedTypeMeta.recommendedSize),
+    minimum: parseSizeLabel(selectedTypeMeta.minSize),
+  }), [previewSlotMeta, selectedTypeMeta]);
+
+  useEffect(() => {
+    if (!previewSlotOptions.length) {
+      setPreviewSlotId('');
+      return;
+    }
+    if (!previewSlotOptions.some((slot) => slot.id === previewSlotId)) {
+      setPreviewSlotId(previewSlotOptions[0].id);
+    }
+  }, [previewSlotId, previewSlotOptions]);
   const previewAd = useMemo(() => normalizeAdRecord({ ...draftPayload, id: editing || 'preview' }), [draftPayload, editing]);
   const selectedArticleIds = useMemo(() => parseNumericCsv(form.articleIdsInput), [form.articleIdsInput]);
   const coverImageMeta = useMemo(() => normalizeAdImageMeta(form.imageMeta), [form.imageMeta]);
@@ -550,6 +589,8 @@ export default function ManageAds() {
                   previewClassName="h-36"
                   editorAspectPresets={editorAspectPresets}
                   defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
+                  guideMode={previewGuideMode}
+                  imageRequirements={imageRequirements}
                 />
               </div>
               <div className="md:col-span-2"><label className={labelCls}>{'\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 \u0432 \u0431\u0430\u043d\u0435\u0440\u0430'}</label><select className={inputCls} value={form.imagePlacement} onChange={(e) => setForm({ ...form, imagePlacement: e.target.value })}>{AD_IMAGE_PLACEMENTS.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></div>
@@ -726,10 +767,41 @@ export default function ManageAds() {
           </div>
 
           <div className="space-y-4">
-            <div className="border border-gray-200 bg-white p-4">
+                        <div className="border border-gray-200 bg-white p-4">
               <div className="mb-3 flex items-center gap-2"><Eye className="h-4 w-4 text-gray-500" /><p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Preview</p></div>
-              <div className="newspaper-page bg-[#EDE6DA] p-3 overflow-visible"><PreviewBanner ad={previewAd} /></div>
-              <div className="mt-4 space-y-3 text-xs text-gray-600"><div><p className="font-semibold text-gray-900">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</p><div className="mt-1 flex flex-wrap gap-1.5">{selectedSlots.length > 0 ? selectedSlots.map((slot) => <span key={slot.id} className="border border-gray-200 bg-gray-100 px-2 py-1">{slot.label}</span>) : <span className="text-gray-400">{'\u041d\u044f\u043c\u0430 \u0438\u0437\u0431\u0440\u0430\u043d\u0438 \u043f\u043e\u0437\u0438\u0446\u0438\u0438'}</span>}</div></div><div><p className="font-semibold text-gray-900">Targeting</p><p>{summarizeTargeting(previewAd, categoriesById, articlesById)}</p></div></div>
+              {previewSlotOptions.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {previewSlotOptions.map((slot) => (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      onClick={() => setPreviewSlotId(slot.id)}
+                      className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors ${previewSlotMeta?.id === slot.id ? "border-zn-purple bg-zn-purple text-white" : "border-gray-200 bg-white text-gray-600 hover:border-zn-purple/40 hover:text-zn-purple"}`}
+                    >
+                      {slot.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="newspaper-page bg-[#EDE6DA] p-3 overflow-visible"><PreviewBanner ad={previewAd} slotMeta={previewSlotMeta} showSafeArea /></div>
+              <div className="mt-4 space-y-3 text-xs text-gray-600">
+                <div>
+                  <p className="font-semibold text-gray-900">{'Позиции'}</p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {selectedSlots.length > 0 ? selectedSlots.map((slot) => <span key={slot.id} className="border border-gray-200 bg-gray-100 px-2 py-1">{slot.label}</span>) : <span className="text-gray-400">{'Няма избрани позиции'}</span>}
+                  </div>
+                </div>
+                {previewSlotMeta && (
+                  <div>
+                    <p className="font-semibold text-gray-900">Контекст</p>
+                    <p>{`${previewSlotMeta.label} (${previewSlotMeta.id})`}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="font-semibold text-gray-900">Targeting</p>
+                  <p>{summarizeTargeting(previewAd, categoriesById, articlesById)}</p>
+                </div>
+              </div>
             </div>
 
             <div className="border border-gray-200 bg-white p-4">

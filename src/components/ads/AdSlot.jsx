@@ -129,7 +129,7 @@ export default function AdSlot({
   const Banner = BANNERS_BY_VARIANT[slotMeta.variant];
   if (!Banner) return null;
 
-  const content = <Banner ad={resolvedAd} onClick={handleClick} />;
+  const content = <Banner ad={resolvedAd} slotMeta={slotMeta} onClick={handleClick} />;
   if (!className) return content;
   return <div className={className}>{content}</div>;
 }

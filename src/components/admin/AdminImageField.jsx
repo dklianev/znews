@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image as ImageIcon, Search, Upload, X, RefreshCw, Crop } from 'lucide-react';
 import ImageEditorDialog from './ImageEditorDialog';
 import UploadWatermarkToggle from './UploadWatermarkToggle';
@@ -40,6 +40,41 @@ function getPreviewImageStyle(imageMeta) {
   };
 }
 
+function getImageRequirementStatus(details, requirements) {
+  if (!details || !requirements || typeof requirements !== 'object') return null;
+
+  const recommended = requirements.recommended && typeof requirements.recommended === 'object'
+    ? requirements.recommended
+    : null;
+  const minimum = requirements.minimum && typeof requirements.minimum === 'object'
+    ? requirements.minimum
+    : null;
+  const label = String(requirements.label || 'изображението');
+
+  if (minimum && (details.width < minimum.width || details.height < minimum.height)) {
+    return {
+      tone: 'warning',
+      message: `Размерът е под минимума за ${label}: нужно е поне ${minimum.width} x ${minimum.height}px.`,
+    };
+  }
+
+  if (recommended && (details.width < recommended.width || details.height < recommended.height)) {
+    return {
+      tone: 'notice',
+      message: `Размерът е под препоръчителния за ${label}: добре е да качиш ${recommended.width} x ${recommended.height}px или повече.`,
+    };
+  }
+
+  if (recommended) {
+    return {
+      tone: 'ok',
+      message: `Размерът покрива препоръчителния профил за ${label}.`,
+    };
+  }
+
+  return null;
+}
+
 export default function AdminImageField({
   label = 'Изображение',
   value,
@@ -53,6 +88,8 @@ export default function AdminImageField({
   onChangeMeta = null,
   editorAspectPresets = null,
   defaultEditorMode = 'focal',
+  guideMode = '',
+  imageRequirements = null,
 }) {
   const { media, uploadMedia, refreshMedia } = useData();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -62,6 +99,7 @@ export default function AdminImageField({
   const [editorUrl, setEditorUrl] = useState(null);
   const [editorFile, setEditorFile] = useState(null);
   const [applyWatermark, setApplyWatermark] = useUploadWatermarkPreference();
+  const [imageDetails, setImageDetails] = useState(null);
   const fileRef = useRef(null);
   const uploadLockRef = useRef(false);
 
@@ -72,6 +110,34 @@ export default function AdminImageField({
   }, [media, query]);
 
   const previewImageStyle = useMemo(() => getPreviewImageStyle(imageMeta), [imageMeta]);
+  const imageRequirementStatus = useMemo(
+    () => getImageRequirementStatus(imageDetails, imageRequirements),
+    [imageDetails, imageRequirements],
+  );
+
+  useEffect(() => {
+    if (!value) {
+      setImageDetails(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const image = new window.Image();
+    image.crossOrigin = 'anonymous';
+    image.onload = () => {
+      if (cancelled) return;
+      setImageDetails({ width: image.naturalWidth || image.width, height: image.naturalHeight || image.height });
+    };
+    image.onerror = () => {
+      if (cancelled) return;
+      setImageDetails(null);
+    };
+    image.src = value;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [value]);
 
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
@@ -139,21 +205,26 @@ export default function AdminImageField({
       objectScale: result?.imageMeta?.objectScale ?? imageMeta?.objectScale ?? 1,
     });
 
-    if (result.action === 'crop') {
-      const croppedFile = new File([result.file], 'cropped-image.jpg', { type: 'image/jpeg' });
-      await processFile(croppedFile, { resetMeta: false });
-      if (onChangeMeta) {
+    const editedFile = result?.file
+      ? new File([result.file], result.action === 'crop' ? 'cropped-image.jpg' : 'edited-image.jpg', {
+        type: result.file.type || 'image/jpeg',
+      })
+      : null;
+
+    if (editedFile) {
+      await processFile(editedFile, { resetMeta: false });
+    } else if (result.action === 'focal' && editorFile) {
+      await processFile(editorFile, { resetMeta: false });
+    }
+
+    if (onChangeMeta) {
+      if (result.action === 'crop') {
         onChangeMeta({
           ...normalizedMeta,
           objectPosition: '50% 50%',
           objectScale: 1,
         });
-      }
-    } else if (result.action === 'focal') {
-      if (editorFile) {
-        await processFile(editorFile, { resetMeta: false });
-      }
-      if (onChangeMeta) {
+      } else {
         onChangeMeta(normalizedMeta);
       }
     }
@@ -248,6 +319,23 @@ export default function AdminImageField({
 
       {helperText && (
         <p className="mt-1.5 text-xs font-sans text-gray-400">{helperText}</p>
+      )}
+
+      {(imageDetails || imageRequirementStatus) && (
+        <div className="mt-2 space-y-1.5">
+          {imageDetails && (
+            <p className="text-[11px] font-sans font-semibold text-gray-500">{`${imageDetails.width} x ${imageDetails.height}px`}</p>
+          )}
+          {imageRequirementStatus && (
+            <p className={`rounded-lg border px-3 py-2 text-[11px] font-sans ${imageRequirementStatus.tone === "warning"
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : imageRequirementStatus.tone === "ok"
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-sky-200 bg-sky-50 text-sky-800'}`}>
+              {imageRequirementStatus.message}
+            </p>
+          )}
+        </div>
       )}
 
       <div
@@ -379,6 +467,7 @@ export default function AdminImageField({
           initialImageMeta={imageMeta}
           aspectPresets={editorAspectPresets}
           defaultEditorMode={defaultEditorMode}
+          guideMode={guideMode}
           onClose={() => {
             setEditorUrl(null);
             setEditorFile(null);
@@ -389,3 +478,4 @@ export default function AdminImageField({
     </div>
   );
 }
+

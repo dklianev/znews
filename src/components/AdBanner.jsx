@@ -2,12 +2,77 @@ import { motion } from 'framer-motion';
 import { ExternalLink } from 'lucide-react';
 import { normalizeAdImageMeta } from '../../shared/adResolver.js';
 
+const BANNER_LAYOUTS = Object.freeze({
+  horizontal: Object.freeze({
+    hero: Object.freeze({
+      frameClass: 'min-h-[8.25rem] gap-3 px-4 py-3.5 md:min-h-0 md:aspect-[5/1] md:max-h-[12rem] md:px-5',
+      contentClass: 'gap-3.5 md:gap-4',
+      circleClass: 'h-12 w-12 border-[3px] outline-[2px] text-xl md:h-14 md:w-14 md:border-[4px] md:outline-[3px] md:text-2xl',
+      titleClass: 'text-sm md:text-base',
+      subtitleClass: 'text-xs md:text-sm',
+      ctaClass: 'px-4 py-2 text-[11px]',
+      labelClass: '-right-1 -top-2 md:-right-2 md:-top-3',
+    }),
+    regular: Object.freeze({
+      frameClass: 'min-h-[7.5rem] gap-3 px-4 py-3.5 md:min-h-0 md:aspect-[11/2] md:max-h-[10.5rem] md:px-5',
+      contentClass: 'gap-3 md:gap-3.5',
+      circleClass: 'h-11 w-11 border-[3px] outline-[2px] text-lg md:h-12 md:w-12 md:border-[4px] md:outline-[3px] md:text-xl',
+      titleClass: 'text-sm',
+      subtitleClass: 'text-xs md:text-sm',
+      ctaClass: 'px-4 py-2 text-[11px]',
+      labelClass: '-right-1 -top-2 md:-right-2 md:-top-3',
+    }),
+    compact: Object.freeze({
+      frameClass: 'min-h-[6.75rem] gap-3 px-4 py-3 md:min-h-0 md:aspect-[6/1] md:max-h-[8.75rem] md:px-4',
+      contentClass: 'gap-3',
+      circleClass: 'h-10 w-10 border-[3px] outline-[2px] text-base md:h-11 md:w-11 md:border-[3px] md:outline-[2px] md:text-lg',
+      titleClass: 'text-[13px] md:text-sm',
+      subtitleClass: 'text-[11px] md:text-xs',
+      ctaClass: 'px-3.5 py-1.5 text-[10px] md:text-[11px]',
+      labelClass: '-right-1 -top-2',
+    }),
+  }),
+  side: Object.freeze({
+    tall: Object.freeze({
+      frameClass: 'min-h-[18rem] gap-3 p-5 lg:min-h-0 lg:aspect-[4/5] lg:max-h-[22rem]',
+      circleClass: 'h-14 w-14 border-[4px] outline-[3px] text-2xl',
+      titleClass: 'text-base',
+      subtitleClass: 'text-sm',
+      ctaClass: 'px-4 py-2 text-[11px]',
+      labelClass: '-right-2 -top-2',
+    }),
+    compact: Object.freeze({
+      frameClass: 'min-h-[15.5rem] gap-2.5 p-4 lg:min-h-0 lg:aspect-[10/13] lg:max-h-[19rem]',
+      circleClass: 'h-12 w-12 border-[3px] outline-[2px] text-xl',
+      titleClass: 'text-sm',
+      subtitleClass: 'text-xs',
+      ctaClass: 'px-3.5 py-1.5 text-[10px]',
+      labelClass: '-right-1.5 -top-2',
+    }),
+  }),
+  inline: Object.freeze({
+    compact: Object.freeze({
+      frameClass: 'min-h-[5.75rem] gap-2.5 p-3 sm:min-h-0 sm:aspect-[6/1] sm:max-h-[6.75rem]',
+      contentClass: 'gap-2.5',
+      circleClass: 'h-9 w-9 border-[2px] outline-[2px] text-base',
+      titleClass: 'text-[12px] sm:text-[13px]',
+      subtitleClass: 'text-[10px] sm:text-[11px]',
+      ctaClass: 'px-2.5 py-1 text-[10px]',
+      labelClass: '-right-1 -top-2',
+    }),
+  }),
+});
+
+const DEFAULT_LAYOUT_KEYS = Object.freeze({
+  horizontal: 'regular',
+  side: 'tall',
+  inline: 'compact',
+});
 
 function getAdTilt(ad, factor = 0.32) {
   const seed = typeof ad?.id === 'number' ? ad.id : (String(ad?.id || '').charCodeAt(0) || 0);
   return ((seed % 5) - 2) * factor;
 }
-
 
 function getAdCoverImageStyle(ad) {
   const imageMeta = normalizeAdImageMeta(ad?.imageMeta);
@@ -18,10 +83,19 @@ function getAdCoverImageStyle(ad) {
   };
 }
 
+function getBannerLayout(variant, slotMeta) {
+  const layouts = BANNER_LAYOUTS[variant] || BANNER_LAYOUTS.horizontal;
+  const requestedKey = String(slotMeta?.sizeProfile || '').trim();
+  const layoutKey = Object.prototype.hasOwnProperty.call(layouts, requestedKey)
+    ? requestedKey
+    : DEFAULT_LAYOUT_KEYS[variant];
+  return layouts[layoutKey] || layouts[DEFAULT_LAYOUT_KEYS[variant]] || Object.values(layouts)[0];
+}
+
 function AdLabel({ className = '' }) {
   return (
     <span
-      className={`absolute z-20 rotate-3 border-2 border-white/40 bg-gradient-to-r from-zn-hot to-zn-orange px-2.5 py-1 text-[9px] font-display font-black uppercase tracking-widest text-white ${className}`}
+      className={`absolute z-20 rotate-3 border-2 border-white/40 bg-gradient-to-r from-zn-hot to-zn-orange px-2 py-1 text-[9px] font-display font-black uppercase tracking-widest text-white ${className}`}
       style={{ boxShadow: '2px 2px 0 #1C1428' }}
     >
       Реклама
@@ -64,22 +138,50 @@ function AdCoverBackground({ ad, overlayClassName = '', glowClassName = '' }) {
   );
 }
 
-export function AdBannerHorizontal({ ad, onClick = null }) {
+function AdSafeAreaOverlay({ variant }) {
+  if (variant === 'side') {
+    return (
+      <>
+        <div className="pointer-events-none absolute inset-x-[15%] top-[16%] bottom-[22%] rounded-[24px] border border-dashed border-white/40" />
+        <div className="pointer-events-none absolute inset-x-[28%] bottom-[12%] h-8 rounded-full border border-dashed border-white/35" />
+      </>
+    );
+  }
+
+  if (variant === 'inline') {
+    return (
+      <>
+        <div className="pointer-events-none absolute left-[5%] top-[20%] bottom-[20%] w-[58%] rounded-[18px] border border-dashed border-white/40" />
+        <div className="pointer-events-none absolute right-[5%] top-1/2 h-7 w-[18%] -translate-y-1/2 rounded-full border border-dashed border-white/35" />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="pointer-events-none absolute left-[6%] top-[18%] bottom-[18%] w-[56%] rounded-[22px] border border-dashed border-white/40" />
+      <div className="pointer-events-none absolute right-[5%] top-1/2 h-8 w-[16%] -translate-y-1/2 rounded-full border border-dashed border-white/35" />
+    </>
+  );
+}
+
+export function AdBannerHorizontal({ ad, slotMeta = null, showSafeArea = false, onClick = null }) {
   if (!ad) return null;
   const adTilt = getAdTilt(ad, 0.22);
   const coverMode = Boolean(ad.image) && getAdImageMode(ad) === 'cover';
+  const layout = getBannerLayout('horizontal', slotMeta);
   const headingClass = coverMode
-    ? 'font-display font-black tracking-wider uppercase leading-none text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.55)]'
-    : 'font-display font-black text-zn-text tracking-wider uppercase leading-none';
+    ? `${layout.titleClass} font-display font-black tracking-wider uppercase leading-none text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.55)]`
+    : `${layout.titleClass} font-display font-black text-zn-text tracking-wider uppercase leading-none`;
   const subtitleClass = coverMode
-    ? 'mt-1 truncate text-sm text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]'
-    : 'mt-1 truncate text-sm text-zn-text-muted';
+    ? `${layout.subtitleClass} mt-1 truncate text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]`
+    : `${layout.subtitleClass} mt-1 truncate text-zn-text-muted`;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ad-banner-horizontal">
       <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block group overflow-visible" onClick={onClick}>
         <div
-          className="newspaper-page comic-dots comic-panel-white comic-ad-horizontal relative flex min-h-[9.5rem] items-center justify-between gap-4 overflow-visible px-5 py-4 transition-shadow hover:shadow-comic-heavy md:min-h-0 md:aspect-[4/1] md:px-6"
+          className={`newspaper-page comic-dots comic-panel-white comic-ad-horizontal relative flex items-center justify-between overflow-visible transition-shadow hover:shadow-comic-heavy ${layout.frameClass}`}
           style={{ '--ad-tilt': `${adTilt}deg` }}
         >
           {coverMode && (
@@ -90,14 +192,14 @@ export function AdBannerHorizontal({ ad, onClick = null }) {
             />
           )}
           <div className="absolute inset-x-0 top-0 z-[1] h-2 bg-gradient-to-r from-zn-hot to-zn-orange" />
-          {!coverMode && <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-zn-hot/10 to-transparent" />}
-          <AdLabel className="-right-1 -top-2 md:-right-2 md:-top-3" />
-          <div className="relative z-[2] flex min-w-0 items-center gap-4">
+          {!coverMode && <div className="pointer-events-none absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-zn-hot/10 to-transparent" />}
+          {showSafeArea && <AdSafeAreaOverlay variant="horizontal" />}
+          <AdLabel className={layout.labelClass} />
+          <div className={`relative z-[2] flex min-w-0 items-center ${layout.contentClass}`}>
             {!coverMode && (
               <AdCircleMedia
                 ad={ad}
-                className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-[4px] border-white bg-white outline outline-[3px] outline-[#1C1428]"
-                iconClass="text-2xl"
+                className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border-white bg-white outline-[#1C1428] ${layout.circleClass}`}
               />
             )}
             <div className="min-w-0">
@@ -106,7 +208,7 @@ export function AdBannerHorizontal({ ad, onClick = null }) {
             </div>
           </div>
           <span
-            className={`relative z-[2] flex shrink-0 items-center gap-1.5 border-2 bg-gradient-to-r from-zn-hot to-zn-orange px-5 py-2 text-xs font-display font-black uppercase tracking-wider text-white transition-all group-hover:shadow-lg ${coverMode ? 'border-white/50' : 'border-white/30'}`}
+            className={`relative z-[2] flex shrink-0 items-center gap-1.5 border-2 bg-gradient-to-r from-zn-hot to-zn-orange font-display font-black uppercase tracking-wider text-white transition-all group-hover:shadow-lg ${layout.ctaClass} ${coverMode ? 'border-white/50' : 'border-white/30'}`}
             style={{ boxShadow: '2px 2px 0 rgba(0,0,0,0.3)' }}
           >
             {ad.cta}
@@ -118,22 +220,23 @@ export function AdBannerHorizontal({ ad, onClick = null }) {
   );
 }
 
-export function AdBannerSide({ ad, onClick = null }) {
+export function AdBannerSide({ ad, slotMeta = null, showSafeArea = false, onClick = null }) {
   if (!ad) return null;
   const adTilt = getAdTilt(ad, 0.45);
   const coverMode = Boolean(ad.image) && getAdImageMode(ad) === 'cover';
+  const layout = getBannerLayout('side', slotMeta);
   const headingClass = coverMode
-    ? 'relative z-[2] font-display font-black uppercase tracking-wider text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.58)]'
-    : 'relative z-[2] font-display font-black text-zn-text tracking-wider uppercase';
+    ? `${layout.titleClass} relative z-[2] font-display font-black uppercase tracking-wider text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.58)]`
+    : `${layout.titleClass} relative z-[2] font-display font-black text-zn-text tracking-wider uppercase`;
   const subtitleClass = coverMode
-    ? 'relative z-[2] whitespace-pre-line text-sm text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]'
-    : 'relative z-[2] whitespace-pre-line text-sm text-zn-text-muted';
+    ? `${layout.subtitleClass} relative z-[2] whitespace-pre-line text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]`
+    : `${layout.subtitleClass} relative z-[2] whitespace-pre-line text-zn-text-muted`;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ad-banner-side">
       <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block group overflow-visible" onClick={onClick}>
         <div
-          className="newspaper-page comic-dots comic-panel-white comic-ad-side relative flex min-h-[22rem] flex-col items-center justify-center gap-3 overflow-visible p-6 text-center transition-shadow hover:shadow-comic-heavy lg:min-h-0 lg:aspect-[3/4]"
+          className={`newspaper-page comic-dots comic-panel-white comic-ad-side relative flex flex-col items-center justify-center overflow-visible text-center transition-shadow hover:shadow-comic-heavy ${layout.frameClass}`}
           style={{ '--ad-tilt': `${adTilt}deg` }}
         >
           {coverMode && (
@@ -144,19 +247,19 @@ export function AdBannerSide({ ad, onClick = null }) {
             />
           )}
           <div className="absolute inset-x-0 top-0 z-[1] h-2 bg-gradient-to-r from-zn-hot to-zn-orange" />
-          <AdLabel className="-right-2 -top-2" />
-          {!coverMode && <div className="pointer-events-none absolute left-1/2 top-5 h-24 w-24 -translate-x-1/2 rounded-full bg-zn-hot/10 blur-xl" />}
+          {showSafeArea && <AdSafeAreaOverlay variant="side" />}
+          <AdLabel className={layout.labelClass} />
+          {!coverMode && <div className="pointer-events-none absolute left-1/2 top-5 h-20 w-20 -translate-x-1/2 rounded-full bg-zn-hot/10 blur-xl" />}
           {!coverMode && (
             <AdCircleMedia
               ad={ad}
-              className="relative z-[2] flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-[4px] border-white bg-white outline outline-[3px] outline-[#1C1428]"
-              iconClass="text-3xl"
+              className={`relative z-[2] flex items-center justify-center overflow-hidden rounded-full border-white bg-white outline-[#1C1428] ${layout.circleClass}`}
             />
           )}
           <h4 className={headingClass}>{ad.title}</h4>
           <p className={subtitleClass}>{ad.subtitle}</p>
           <span
-            className={`relative z-[2] mt-1 inline-block border-2 bg-gradient-to-r from-zn-hot to-zn-orange px-5 py-2 text-xs font-display font-black uppercase tracking-wider text-white transition-all group-hover:shadow-lg ${coverMode ? 'border-white/50' : 'border-white/30'}`}
+            className={`relative z-[2] mt-1 inline-block border-2 bg-gradient-to-r from-zn-hot to-zn-orange font-display font-black uppercase tracking-wider text-white transition-all group-hover:shadow-lg ${layout.ctaClass} ${coverMode ? 'border-white/50' : 'border-white/30'}`}
             style={{ boxShadow: '2px 2px 0 rgba(0,0,0,0.3)' }}
           >
             {ad.cta}
@@ -167,22 +270,23 @@ export function AdBannerSide({ ad, onClick = null }) {
   );
 }
 
-export function AdBannerInline({ ad, onClick = null }) {
+export function AdBannerInline({ ad, slotMeta = null, showSafeArea = false, onClick = null }) {
   if (!ad) return null;
   const adTilt = getAdTilt(ad, 0.18);
   const coverMode = Boolean(ad.image) && getAdImageMode(ad) === 'cover';
+  const layout = getBannerLayout('inline', slotMeta);
   const headingClass = coverMode
-    ? 'font-display font-black uppercase text-sm tracking-wider text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.58)]'
-    : 'font-display font-black uppercase text-sm text-zn-text tracking-wider';
+    ? `${layout.titleClass} font-display font-black uppercase tracking-wider text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.58)]`
+    : `${layout.titleClass} font-display font-black uppercase text-zn-text tracking-wider`;
   const subtitleClass = coverMode
-    ? 'text-xs text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]'
-    : 'text-xs text-zn-text-muted';
+    ? `${layout.subtitleClass} text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]`
+    : `${layout.subtitleClass} text-zn-text-muted`;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ad-banner ad-banner-inline my-4">
       <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block group overflow-visible" onClick={onClick}>
         <div
-          className="newspaper-page comic-dots comic-panel-white comic-ad-inline relative flex min-h-[7.5rem] items-center justify-between gap-3 overflow-visible p-4 transition-shadow hover:shadow-comic-heavy sm:min-h-0 sm:aspect-[4/1]"
+          className={`newspaper-page comic-dots comic-panel-white comic-ad-inline relative flex items-center justify-between overflow-visible transition-shadow hover:shadow-comic-heavy ${layout.frameClass}`}
           style={{ '--ad-tilt': `${adTilt}deg` }}
         >
           {coverMode && (
@@ -192,13 +296,13 @@ export function AdBannerInline({ ad, onClick = null }) {
             />
           )}
           <div className="absolute inset-x-0 top-0 z-[1] h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange" />
-          <AdLabel className="-right-1 -top-2" />
-          <div className="relative z-[2] flex min-w-0 items-center gap-3">
+          {showSafeArea && <AdSafeAreaOverlay variant="inline" />}
+          <AdLabel className={layout.labelClass} />
+          <div className={`relative z-[2] flex min-w-0 items-center ${layout.contentClass}`}>
             {!coverMode && (
               <AdCircleMedia
                 ad={ad}
-                className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-[3px] border-white bg-white outline outline-[2px] outline-[#1C1428]"
-                iconClass="text-xl"
+                className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border-white bg-white outline-[#1C1428] ${layout.circleClass}`}
               />
             )}
             <div className="min-w-0">
@@ -207,7 +311,7 @@ export function AdBannerInline({ ad, onClick = null }) {
             </div>
           </div>
           <span
-            className={`relative z-[2] border bg-gradient-to-r from-zn-hot to-zn-orange px-3 py-1 text-xs font-display font-black uppercase tracking-wider text-white ${coverMode ? 'border-white/55' : 'border-white/35'}`}
+            className={`relative z-[2] border bg-gradient-to-r from-zn-hot to-zn-orange font-display font-black uppercase tracking-wider text-white ${layout.ctaClass} ${coverMode ? 'border-white/55' : 'border-white/35'}`}
             style={{ boxShadow: '2px 2px 0 rgba(0,0,0,0.28)' }}
           >
             {ad.cta}
