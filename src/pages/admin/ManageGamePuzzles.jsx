@@ -12,7 +12,7 @@ import { analyzeSpellingBeeWords, normalizeSpellingBeeLetter, normalizeSpellingB
 
 const PUZZLE_MANAGED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword']);
 const CROSSWORD_SIZE_MIN = 3;
-const CROSSWORD_SIZE_MAX = 12;
+const CROSSWORD_SIZE_MAX = 15;
 const CROSSWORD_CHAR_PATTERN = /^[\p{L}\p{N}\?]$/u;
 const SPELLING_BEE_MIN_LENGTH_MIN = SPELLING_BEE_MIN_WORD_LENGTH;
 const SPELLING_BEE_MIN_LENGTH_MAX = 12;

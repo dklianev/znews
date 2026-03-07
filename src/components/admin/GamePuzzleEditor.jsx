@@ -330,11 +330,11 @@ function renderCrosswordEditor(editForm, actions, fieldClass) {
                     <div className="mt-4 grid grid-cols-2 gap-4">
                         <label className="block">
                             <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Ширина</span>
-                            <input type="number" min="3" max="12" value={payload.width || 5} onChange={(e) => actions.setCrosswordDimensions(Number.parseInt(e.target.value, 10) || 5, payload.height || 5)} className={fieldClass('payload.width')} />
+                            <input type="number" min="3" max="15" value={payload.width || 5} onChange={(e) => actions.setCrosswordDimensions(Number.parseInt(e.target.value, 10) || 5, payload.height || 5)} className={fieldClass('payload.width')} />
                         </label>
                         <label className="block">
                             <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Височина</span>
-                            <input type="number" min="3" max="12" value={payload.height || 5} onChange={(e) => actions.setCrosswordDimensions(payload.width || 5, Number.parseInt(e.target.value, 10) || 5)} className={fieldClass('payload.height')} />
+                            <input type="number" min="3" max="15" value={payload.height || 5} onChange={(e) => actions.setCrosswordDimensions(payload.width || 5, Number.parseInt(e.target.value, 10) || 5)} className={fieldClass('payload.height')} />
                         </label>
                     </div>
                     <p className="mt-4 text-sm text-indigo-900">Клик върху клетка в мрежата, за да я блокираш или отключиш. В решението използвай <span className="font-mono">?</span> за непопълнена буква.</p>

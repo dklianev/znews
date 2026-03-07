@@ -5449,8 +5449,8 @@ function validateCrosswordPuzzle(payloadInput, solutionInput) {
   const title = normalizeText(payloadInput.title, 80);
   const deck = normalizeText(payloadInput.deck, 180);
 
-  if (width < 3 || width > 12 || height < 3 || height > 12) {
-    throw badRequest('Crossword grid must be between 3x3 and 12x12.');
+  if (width < 3 || width > 15 || height < 3 || height > 15) {
+    throw badRequest('Crossword grid must be between 3x3 and 15x15.');
   }
 
   const layout = normalizeCrosswordLayoutRows(rawLayout, width, height);
