@@ -2301,6 +2301,49 @@ async function findArticlesByRecency(filter, fieldsProjection, limit, options = 
   return stripDocumentList(items);
 }
 
+function isLegacyPublicArticle(article, now = new Date()) {
+  if (!article || typeof article !== 'object') return false;
+
+  const status = normalizeText(article.status, 24).toLowerCase();
+  if (status === 'draft' || status === 'archived') return false;
+
+  if (article.publishAt === null || article.publishAt === undefined || article.publishAt === '') {
+    return true;
+  }
+
+  const publishAtTs = new Date(article.publishAt).getTime();
+  if (!Number.isFinite(publishAtTs)) {
+    return true;
+  }
+
+  return publishAtTs <= now.getTime();
+}
+
+async function findLegacyPublicArticles(fieldsProjection, { limit = 0, skip = 0, fetchLimit = 600 } = {}) {
+  let query = Article.find().sort({ id: -1 });
+  if (fieldsProjection && typeof fieldsProjection === 'object') {
+    query = query.select(fieldsProjection);
+  } else {
+    query = query.select({ _id: 0, __v: 0 });
+  }
+
+  const desired = Number.isInteger(limit) && limit > 0 ? limit : 160;
+  const offset = Number.isInteger(skip) && skip > 0 ? skip : 0;
+  const safeFetchLimit = Math.min(1500, Math.max(fetchLimit, offset + desired + 80));
+  const items = stripDocumentList(await query.limit(safeFetchLimit).lean());
+  const visible = sortArticlesByRecency(items.filter((article) => isLegacyPublicArticle(article)));
+
+  if (offset > 0) {
+    return desired > 0 ? visible.slice(offset, offset + desired) : visible.slice(offset);
+  }
+  return desired > 0 ? visible.slice(0, desired) : visible;
+}
+
+async function countLegacyPublicArticles(fetchLimit = 3000) {
+  const items = await Article.find().sort({ id: -1 }).select({ _id: 0, id: 1, status: 1, publishAt: 1 }).limit(fetchLimit).lean();
+  return items.filter((article) => isLegacyPublicArticle(article)).length;
+}
+
 const HOMEPAGE_SECTION_BUFFER = 10;
 const HOMEPAGE_LATEST_BUFFER = 24;
 
@@ -6629,6 +6672,16 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     if (!Array.isArray(payload.games)) payload.games = [];
     payload.totalArticles = Number.isInteger(payload.totalArticles) ? payload.totalArticles : 0;
 
+    if (payload.articleCandidates.length === 0) {
+      const legacyCandidates = await findLegacyPublicArticles(fieldsProjection, {
+        limit: Math.min(160, Math.max(36, latestShowcaseLimit + latestWireLimit + HOMEPAGE_LATEST_BUFFER)),
+      });
+      if (legacyCandidates.length > 0) {
+        payload.articleCandidates = legacyCandidates;
+        payload.totalArticles = await countLegacyPublicArticles();
+      }
+    }
+
     payload.authors = stripDocumentList(payload.authors);
     payload.categories = stripDocumentList(payload.categories);
     payload.ads = stripDocumentList(payload.ads);
@@ -6832,6 +6885,17 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
     if (includeSections.has('events') && !Array.isArray(payload.events)) payload.events = [];
     if (!Array.isArray(payload.polls)) payload.polls = [];
     if (includeSections.has('gallery') && !Array.isArray(payload.gallery)) payload.gallery = [];
+    if (payload.articles.length === 0) {
+      const legacyArticles = await findLegacyPublicArticles(fieldsProjection, {
+        limit: articlePagination.shouldPaginate ? articlePagination.limit : 0,
+        skip: articlePagination.shouldPaginate ? articlePagination.skip : 0,
+      });
+      if (legacyArticles.length > 0) {
+        payload.articles = legacyArticles;
+        payload.articleTotal = await countLegacyPublicArticles();
+      }
+    }
+
     payload.authors = stripDocumentList(payload.authors);
     payload.categories = stripDocumentList(payload.categories);
     payload.ads = stripDocumentList(payload.ads);
