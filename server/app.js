@@ -2286,7 +2286,15 @@ function buildArticleRecencyPipeline(filter, fieldsProjection, { skip = 0, limit
     : { _id: 0, __v: 0 };
   delete projection.__recencySortTs;
   projection._id = 0;
-  projection.__v = 0;
+  // In MongoDB $project, mixing exclusion fields (like __v: 0) with inclusion
+  // fields (like title: 1) is not allowed — only _id: 0 is the exception.
+  // When using an inclusion projection, unlisted fields are already excluded.
+  const hasInclusionFields = Object.entries(projection).some(
+    ([key, val]) => key !== '_id' && (val === 1 || val === true)
+  );
+  if (!hasInclusionFields) {
+    projection.__v = 0;
+  }
   pipeline.push({ $project: projection });
 
   return pipeline;
