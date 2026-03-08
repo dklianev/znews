@@ -10,6 +10,7 @@ import { runCrosswordTests } from './crossword.test.mjs';
 import { runSpellingBeeTests } from './spellingBee.test.mjs';
 import { runRequestIdentityTests } from './requestIdentity.test.mjs';
 import { runNumericIdTests } from './numericId.test.mjs';
+import { runArticleRecencyPipelineTests } from './articleRecencyPipeline.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -33,5 +34,6 @@ await runTest('crossword', runCrosswordTests);
 await runTest('spellingBee', runSpellingBeeTests);
 await runTest('requestIdentity', runRequestIdentityTests);
 await runTest('numericId', runNumericIdTests);
+await runTest('articleRecencyPipeline', runArticleRecencyPipelineTests);
 
 console.log('All tests passed.');

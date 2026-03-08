@@ -2251,7 +2251,7 @@ function stripDocumentList(items) {
   return (Array.isArray(items) ? items : []).map((item) => stripDocumentMetadata(item));
 }
 
-function buildArticleRecencyPipeline(filter, fieldsProjection, { skip = 0, limit = 0 } = {}) {
+export function buildArticleRecencyPipeline(filter, fieldsProjection, { skip = 0, limit = 0 } = {}) {
   const pipeline = [
     { $match: filter || {} },
     {
