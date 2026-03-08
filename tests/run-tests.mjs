@@ -8,10 +8,12 @@ import { runAdOccupancyTests } from './adOccupancy.test.mjs';
 import { runHangmanTests } from './hangman.test.mjs';
 import { runCrosswordTests } from './crossword.test.mjs';
 import { runSpellingBeeTests } from './spellingBee.test.mjs';
+import { runRequestIdentityTests } from './requestIdentity.test.mjs';
+import { runNumericIdTests } from './numericId.test.mjs';
 
-function runTest(name, fn) {
+async function runTest(name, fn) {
   try {
-    fn();
+    await fn();
     console.log(`PASS ${name}`);
   } catch (error) {
     console.error(`FAIL ${name}`);
@@ -19,15 +21,17 @@ function runTest(name, fn) {
   }
 }
 
-runTest('comicCardDesign', runComicCardDesignTests);
-runTest('homepageSelectors', runHomepageSelectorTests);
-runTest('heroTitleScale', runHeroTitleScaleTests);
-runTest('sudoku', runSudokuTests);
-runTest('adResolver', runAdResolverTests);
-runTest('adMigration', runAdMigrationTests);
-runTest('adOccupancy', runAdOccupancyTests);
-runTest('hangman', runHangmanTests);
-runTest('crossword', runCrosswordTests);
-runTest('spellingbee', runSpellingBeeTests);
+await runTest('comicCardDesign', runComicCardDesignTests);
+await runTest('homepageSelectors', runHomepageSelectorTests);
+await runTest('heroTitleScale', runHeroTitleScaleTests);
+await runTest('sudoku', runSudokuTests);
+await runTest('adResolver', runAdResolverTests);
+await runTest('adMigration', runAdMigrationTests);
+await runTest('adOccupancy', runAdOccupancyTests);
+await runTest('hangman', runHangmanTests);
+await runTest('crossword', runCrosswordTests);
+await runTest('spellingBee', runSpellingBeeTests);
+await runTest('requestIdentity', runRequestIdentityTests);
+await runTest('numericId', runNumericIdTests);
 
 console.log('All tests passed.');

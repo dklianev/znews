@@ -15,6 +15,9 @@ import multer from 'multer';
 import webpush from 'web-push';
 import NodeCache from 'node-cache';
 import { isIP } from 'node:net';
+import { allocateNumericId } from './numericId.js';
+import { streamJsonArray, writeJsonChunk } from './jsonExport.js';
+import { getClientUserAgent, getTrustedClientIp, hashTrustedClientFingerprint } from './requestIdentity.js';
 import {
   S3Client,
   PutObjectCommand,
@@ -43,7 +46,7 @@ if (mongoDnsServersEnv && mongoDnsServersEnv.trim()) {
 
 import {
   Article, Author, Category, Ad, AdEvent, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle
+  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle, Counter
 } from './models.js';
 import { ensureGameDefinitions, seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
@@ -473,86 +476,8 @@ app.use(cors({
   credentials: true,
 }));
 
-function stripPortFromIpMaybe(value) {
-  let raw = String(value || '').trim();
-  if (!raw) return '';
-
-  // Remove surrounding quotes.
-  raw = raw.replace(/^['"]+|['"]+$/g, '').trim();
-
-  // If a list is passed (X-Forwarded-For), take the first value.
-  if (raw.includes(',')) raw = raw.split(',')[0].trim();
-
-  // Handle RFC 7239 Forwarded header value fragments: for=...
-  raw = raw.replace(/^for=/i, '').trim();
-  raw = raw.replace(/^['"]+|['"]+$/g, '').trim();
-
-  // Handle bracketed IPv6: [::1]:1234
-  const bracketMatch = raw.match(/^\[(.+)\](?::\d+)?$/);
-  if (bracketMatch) raw = bracketMatch[1];
-
-  // Handle IPv4:port
-  const ipv4Port = raw.match(/^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/);
-  if (ipv4Port) raw = ipv4Port[1];
-
-  // Handle IPv6 (or IPv6-mapped IPv4) with an appended :port (rare, but seen in some proxies)
-  if (!isIP(raw) && /:\d+$/.test(raw)) {
-    const idx = raw.lastIndexOf(':');
-    const head = raw.slice(0, idx);
-    if (isIP(head)) raw = head;
-  }
-
-  // Strip zone index if present (e.g. fe80::1%eth0)
-  if (!isIP(raw) && raw.includes('%')) {
-    const noZone = raw.split('%')[0];
-    if (isIP(noZone)) raw = noZone;
-  }
-
-  return raw;
-}
-
 function getClientIpForRateLimit(req) {
-  const directHeaders = [
-    'cf-connecting-ip',
-    'x-real-ip',
-    'x-client-ip',
-    'true-client-ip',
-    'x-arr-clientip',
-  ];
-  for (const headerName of directHeaders) {
-    const headerValue = req.headers?.[headerName];
-    if (typeof headerValue !== 'string' || !headerValue.trim()) continue;
-    const parsed = stripPortFromIpMaybe(headerValue);
-    if (isIP(parsed)) return parsed;
-  }
-
-  const xff = req.headers['x-forwarded-for'];
-  if (typeof xff === 'string' && xff.trim()) {
-    const fromXff = stripPortFromIpMaybe(xff);
-    if (isIP(fromXff)) return fromXff;
-  }
-
-  const forwarded = req.headers.forwarded;
-  if (typeof forwarded === 'string' && forwarded.trim()) {
-    // Forwarded: for=1.2.3.4:1234;proto=https, for="[2001:db8::1]:1234"
-    const entries = forwarded.split(',').map(s => s.trim()).filter(Boolean);
-    for (const entry of entries) {
-      const parts = entry.split(';').map(s => s.trim());
-      const forPart = parts.find(p => p.toLowerCase().startsWith('for='));
-      if (!forPart) continue;
-      const fromForwarded = stripPortFromIpMaybe(forPart);
-      if (isIP(fromForwarded)) return fromForwarded;
-    }
-  }
-
-  const fromReqIp = stripPortFromIpMaybe(req.ip);
-  if (isIP(fromReqIp)) return fromReqIp;
-
-  const fromSocket = stripPortFromIpMaybe(req.socket?.remoteAddress);
-  if (isIP(fromSocket)) return fromSocket;
-
-  // As a last resort return a stable non-empty key.
-  return fromReqIp || fromSocket || 'unknown';
+  return getTrustedClientIp(req);
 }
 
 function rateLimitKeyGenerator(req) {
@@ -2294,6 +2219,120 @@ function getArticleSectionFilter(section) {
   return ARTICLE_SECTION_FILTERS[key] || null;
 }
 
+function combineMongoFilters(...filters) {
+  const normalized = filters.filter((item) => item && typeof item === 'object' && Object.keys(item).length > 0);
+  if (normalized.length === 0) return {};
+  if (normalized.length === 1) return normalized[0];
+  return { $and: normalized };
+}
+
+function parseCollectionPagination(query, { defaultLimit = 50, maxLimit = 250 } = {}) {
+  const shouldPaginate = hasOwn(query, 'page') || hasOwn(query, 'limit');
+  if (!shouldPaginate) {
+    return {
+      shouldPaginate: false,
+      page: 1,
+      limit: defaultLimit,
+      skip: 0,
+    };
+  }
+
+  const limit = parsePositiveInt(query.limit, defaultLimit, { min: 1, max: maxLimit });
+  const page = parsePositiveInt(query.page, 1, { min: 1, max: 5000 });
+  return {
+    shouldPaginate: true,
+    page,
+    limit,
+    skip: (page - 1) * limit,
+  };
+}
+
+function stripDocumentList(items) {
+  return (Array.isArray(items) ? items : []).map((item) => stripDocumentMetadata(item));
+}
+
+async function findArticlesByRecency(filter, fieldsProjection, limit) {
+  let query = Article.find(filter).sort({ id: -1 });
+  query = query.select(fieldsProjection || { _id: 0, __v: 0 });
+  if (Number.isInteger(limit) && limit > 0) {
+    query = query.limit(limit);
+  }
+  const items = await query.lean();
+  return stripDocumentList(items);
+}
+
+const HOMEPAGE_SECTION_BUFFER = 10;
+const HOMEPAGE_LATEST_BUFFER = 24;
+
+async function fetchHomepageArticleCandidates({ articleFilter, fieldsProjection, heroSettings, latestShowcaseLimit, latestWireLimit }) {
+  const selectedHeroIds = [...new Set([
+    Number.parseInt(heroSettings?.mainPhotoArticleId, 10),
+    ...(Array.isArray(heroSettings?.photoArticleIds) ? heroSettings.photoArticleIds : []).map((value) => Number.parseInt(value, 10)),
+  ].filter((value) => Number.isInteger(value) && value > 0))];
+
+  const latestLimit = Math.min(
+    160,
+    Math.max(36, latestShowcaseLimit + latestWireLimit + HOMEPAGE_LATEST_BUFFER)
+  );
+
+  const [latest, hero, selected, featured, crime, breaking, emergency, reportage] = await Promise.all([
+    findArticlesByRecency(articleFilter, fieldsProjection, latestLimit),
+    findArticlesByRecency(combineMongoFilters(articleFilter, { $or: [{ hero: true }, { breaking: true }] }), fieldsProjection, 8),
+    selectedHeroIds.length > 0
+      ? findArticlesByRecency(combineMongoFilters(articleFilter, { id: { $in: selectedHeroIds } }), fieldsProjection, selectedHeroIds.length)
+      : Promise.resolve([]),
+    findArticlesByRecency(combineMongoFilters(articleFilter, { featured: true }), fieldsProjection, 3 + HOMEPAGE_SECTION_BUFFER),
+    findArticlesByRecency(combineMongoFilters(articleFilter, { category: { $in: ['crime', 'underground'] } }), fieldsProjection, 4 + HOMEPAGE_SECTION_BUFFER),
+    findArticlesByRecency(combineMongoFilters(articleFilter, { category: 'breaking' }), fieldsProjection, 2 + HOMEPAGE_SECTION_BUFFER),
+    findArticlesByRecency(combineMongoFilters(articleFilter, { category: 'emergency' }), fieldsProjection, 2 + HOMEPAGE_SECTION_BUFFER),
+    findArticlesByRecency(combineMongoFilters(articleFilter, { category: 'reportage' }), fieldsProjection, 3 + HOMEPAGE_SECTION_BUFFER),
+  ]);
+
+  const seen = new Set();
+  const merged = [];
+  [selected, hero, featured, crime, breaking, emergency, reportage, latest].forEach((group) => {
+    group.forEach((article) => {
+      const articleId = Number.parseInt(article?.id, 10);
+      if (!Number.isInteger(articleId) || seen.has(articleId)) return;
+      seen.add(articleId);
+      merged.push(article);
+    });
+  });
+
+  return sortArticlesByRecency(merged);
+}
+
+async function searchCollectionByTextAndRegex(Model, { textSearch, regexFilter, limit, projection, textSortField = 'id' }) {
+  const textItems = await Model.find({ $text: { $search: textSearch } })
+    .sort({ score: { $meta: 'textScore' }, [textSortField]: -1 })
+    .limit(limit)
+    .select(projection || { _id: 0, __v: 0 })
+    .lean();
+
+  const normalizedTextItems = stripDocumentList(textItems);
+  if (normalizedTextItems.length >= limit) {
+    return normalizedTextItems.slice(0, limit);
+  }
+
+  const existingIds = new Set(normalizedTextItems.map((item) => JSON.stringify(item?.id ?? item?.title ?? item?.name)));
+  const fallbackItems = await Model.find(regexFilter)
+    .sort({ [textSortField]: -1 })
+    .limit(Math.max(limit * 2, limit + 4))
+    .select(projection || { _id: 0, __v: 0 })
+    .lean();
+
+  const merged = [...normalizedTextItems];
+  for (const item of stripDocumentList(fallbackItems)) {
+    const dedupeKey = JSON.stringify(item?.id ?? item?.title ?? item?.name);
+    if (existingIds.has(dedupeKey)) continue;
+    existingIds.add(dedupeKey);
+    merged.push(item);
+    if (merged.length >= limit) break;
+  }
+
+  return merged;
+}
+
 function sanitizeSafeHtml(value) {
   if (typeof value !== 'string') return '';
   let html = value.replace(/\u0000/g, '').slice(0, 50000);
@@ -2944,26 +2983,11 @@ async function rotateTokensForUser(req, user, previousJti = null) {
 }
 
 function getClientIp(req) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length > 0) {
-    return forwarded.split(',')[0].trim();
-  }
-  return req.ip || req.socket?.remoteAddress || 'unknown';
-}
-
-function getClientUserAgent(req) {
-  const ua = typeof req.headers['user-agent'] === 'string'
-    ? req.headers['user-agent']
-    : '';
-  return ua.trim().slice(0, 300) || 'unknown';
+  return getTrustedClientIp(req);
 }
 
 function hashClientFingerprint(req, scope = '') {
-  const ip = getClientIp(req);
-  const ua = getClientUserAgent(req);
-  return createHash('sha256')
-    .update(`${scope}|${ip}|${ua}`)
-    .digest('hex');
+  return hashTrustedClientFingerprint(req, scope);
 }
 
 function getWindowKey(windowMs) {
@@ -3024,9 +3048,8 @@ async function collectCommentThreadIds(rootId) {
   return ids;
 }
 
-async function nextNumericId(Model) {
-  const last = await Model.findOne().sort({ id: -1 }).lean();
-  return (last?.id || 0) + 1;
+async function nextNumericId(Model, counterKey = '') {
+  return allocateNumericId(Model, Counter, counterKey);
 }
 
 async function hasPermissionForSection(user, section) {
@@ -3335,6 +3358,7 @@ async function ensureDbIndexes() {
       PushSubscription,
       GameDefinition,
       GamePuzzle,
+      Counter,
     ];
 
     await Promise.all(modelsWithIndexes.map((Model) => Model.init()));
@@ -3358,15 +3382,30 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
     return next;
   };
 
-  router.get('/', cacheMiddleware, async (_req, res) => {
+  router.get('/', cacheMiddleware, async (req, res) => {
     try {
-      const items = await Model.find().sort(defaultSort).lean();
+      const pagination = parseCollectionPagination(req.query, { defaultLimit: 50, maxLimit: 250 });
+      let query = Model.find().sort(defaultSort);
+      if (pagination.shouldPaginate) {
+        query = query.skip(pagination.skip).limit(pagination.limit);
+      }
+      const items = await query.lean();
       items.forEach(i => {
         delete i._id;
         delete i.__v;
         sensitiveFields.forEach(f => delete i[f]);
       });
-      res.json(items);
+      if (!pagination.shouldPaginate) {
+        return res.json(items);
+      }
+      const total = await Model.countDocuments({});
+      return res.json({
+        items,
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
+      });
     } catch (e) {
       res.status(500).json({ error: publicError(e) });
     }
@@ -4559,9 +4598,26 @@ commentsRouter.get('/', async (req, res) => {
       else if (approvedRaw === 'false') filter.approved = false;
     }
 
-    const items = await Comment.find(filter).sort({ id: -1 }).lean();
+    const pagination = parseCollectionPagination(req.query, { defaultLimit: 80, maxLimit: 250 });
+    let query = Comment.find(filter).sort({ id: -1 });
+    if (pagination.shouldPaginate) {
+      query = query.skip(pagination.skip).limit(pagination.limit);
+    }
+
+    const items = await query.lean();
     items.forEach(i => { delete i._id; delete i.__v; });
-    res.json(items);
+    if (!pagination.shouldPaginate) {
+      return res.json(items);
+    }
+
+    const total = await Comment.countDocuments(filter);
+    return res.json({
+      items,
+      page: pagination.page,
+      limit: pagination.limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
+    });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
   }
@@ -5980,9 +6036,7 @@ adminGamesRouter.post('/bulk-generate', async (req, res) => {
 adminGamesRouter.post('/', async (req, res) => {
   try {
     const payload = sanitizeGameDefinitionInput(req.body);
-    let newId = 1;
-    const last = await GameDefinition.findOne().sort({ id: -1 });
-    if (last) newId = last.id + 1;
+    const newId = await nextNumericId(GameDefinition);
 
     const game = await GameDefinition.create({ ...payload, id: newId });
     clearGameDefinitionCache();
@@ -6041,9 +6095,7 @@ adminGamesRouter.post('/:slug/puzzles', async (req, res) => {
     const game = await GameDefinition.findOne({ slug }).lean();
     if (!game) return res.status(404).json({ error: 'Game not found' });
     const payload = sanitizeGamePuzzleInput(game, req.body);
-    let newId = 1;
-    const last = await GamePuzzle.findOne().sort({ id: -1 });
-    if (last) newId = last.id + 1;
+    const newId = await nextNumericId(GamePuzzle);
 
     const puzzle = await GamePuzzle.create({ ...payload, id: newId });
     res.json(puzzle.toJSON());
@@ -6454,40 +6506,42 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     const latestWireLimit = parsePositiveInt(req.query.latestWireLimit, 16, { min: 0, max: 48 });
     const fieldsProjection = buildArticleProjection(req.query.fields) || HOMEPAGE_DEFAULT_ARTICLE_PROJECTION;
 
-    const stripMongooseFields = (item) => {
-      if (!item || typeof item !== 'object') return item;
-      delete item._id;
-      delete item.__v;
-      return item;
-    };
-
     const homepagePayloadFallbacks = {
-      articles: [],
+      articleCandidates: [],
+      totalArticles: 0,
       authors: [],
       categories: [],
       ads: [],
       breaking: [],
-      heroSettings: null,
       siteSettings: null,
       wanted: [],
       polls: [],
       games: [],
     };
 
-    const tasks = {
-      articles: (async () => {
-        let query = Article.find(articleFilter).sort({ id: -1 });
-        query = query.select(fieldsProjection);
+    let heroSettings = DEFAULT_HERO_SETTINGS;
+    const errors = {};
 
-        const items = await query.lean();
-        items.forEach(stripMongooseFields);
-        return sortArticlesByRecency(items);
-      })(),
+    try {
+      const heroDoc = await HeroSettings.findOne({ key: 'main' }).lean();
+      heroSettings = serializeHeroSettings(heroDoc || DEFAULT_HERO_SETTINGS);
+    } catch (error) {
+      errors.heroSettings = publicError(error, 'Failed to load heroSettings');
+    }
+
+    const tasks = {
+      articleCandidates: fetchHomepageArticleCandidates({
+        articleFilter,
+        fieldsProjection,
+        heroSettings,
+        latestShowcaseLimit,
+        latestWireLimit,
+      }),
+      totalArticles: Article.countDocuments(articleFilter),
       authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
       ads: listPublicAds(),
       breaking: Breaking.findOne().lean().then((doc) => doc?.items || []),
-      heroSettings: HeroSettings.findOne({ key: 'main' }).lean().then((doc) => serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS)),
       siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),
       wanted: Wanted.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       polls: Poll.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
@@ -6497,7 +6551,6 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     const entries = Object.entries(tasks);
     const settled = await Promise.allSettled(entries.map(([, promise]) => promise));
     const payload = {};
-    const errors = {};
 
     settled.forEach((result, idx) => {
       const key = entries[idx][0];
@@ -6506,11 +6559,11 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
         return;
       }
 
-      errors[key] = publicError(result.reason, `Failed to load ${key}`);
+      errors[key] = publicError(result.reason, 'Failed to load ' + key);
       payload[key] = homepagePayloadFallbacks[key] ?? null;
     });
 
-    if (!Array.isArray(payload.articles)) payload.articles = [];
+    if (!Array.isArray(payload.articleCandidates)) payload.articleCandidates = [];
     if (!Array.isArray(payload.authors)) payload.authors = [];
     if (!Array.isArray(payload.categories)) payload.categories = [];
     if (!Array.isArray(payload.ads)) payload.ads = [];
@@ -6518,16 +6571,17 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     if (!Array.isArray(payload.wanted)) payload.wanted = [];
     if (!Array.isArray(payload.polls)) payload.polls = [];
     if (!Array.isArray(payload.games)) payload.games = [];
+    payload.totalArticles = Number.isInteger(payload.totalArticles) ? payload.totalArticles : 0;
 
-    payload.authors.forEach(stripMongooseFields);
-    payload.categories.forEach(stripMongooseFields);
-    payload.ads.forEach(stripMongooseFields);
-    payload.wanted.forEach(stripMongooseFields);
-    payload.polls.forEach(stripMongooseFields);
+    payload.authors = stripDocumentList(payload.authors);
+    payload.categories = stripDocumentList(payload.categories);
+    payload.ads = stripDocumentList(payload.ads);
+    payload.wanted = stripDocumentList(payload.wanted);
+    payload.polls = stripDocumentList(payload.polls);
 
     const homepageSections = buildHomepageSections({
-      articles: payload.articles,
-      heroSettings: payload.heroSettings || DEFAULT_HERO_SETTINGS,
+      articles: payload.articleCandidates,
+      heroSettings,
       latestShowcaseLimit,
       latestWireLimit,
     });
@@ -6538,16 +6592,15 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     res.json({
       schemaVersion: 2,
       generatedAt: new Date().toISOString(),
-      totalArticles: payload.articles.length,
+      totalArticles: payload.totalArticles,
       articlePool,
       sections,
-      // Backward-compatible key for older clients.
       articles: articlePool,
       authors: payload.authors,
       categories: payload.categories,
       ads: payload.ads,
       breaking: payload.breaking,
-      heroSettings: payload.heroSettings,
+      heroSettings,
       siteSettings: payload.siteSettings,
       wanted: payload.wanted,
       polls: payload.polls,
@@ -6558,7 +6611,6 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     res.status(500).json({ error: publicError(e) });
   }
 });
-
 // ─── Search payload (public query data across homepage-related entities) ───
 app.get('/api/search', cacheMiddleware, async (req, res) => {
   try {
@@ -6590,46 +6642,61 @@ app.get('/api/search', cacheMiddleware, async (req, res) => {
 
     const [articleMatches, jobMatches, courtMatches, eventMatches, wantedMatches] = await Promise.all([
       (async () => {
-        let query = Article.find(articleFilter)
+        const items = await Article.find(articleFilter)
           .sort({ score: { $meta: 'textScore' }, id: -1 })
           .limit(articleLimit)
-          .select(articleFieldsProjection);
-
-        const items = await query.lean();
-        items.forEach((item) => {
-          delete item._id;
-          delete item.__v;
-        });
-        return sortArticlesByRecency(items);
+          .select(articleFieldsProjection)
+          .lean();
+        return sortArticlesByRecency(stripDocumentList(items));
       })(),
-      Job.find({
-        $or: [
-          { title: regex },
-          { org: regex },
-          { description: regex },
-        ],
-      }).sort({ id: -1 }).limit(sectionLimit).select({ _id: 0, __v: 0 }).lean(),
-      Court.find({
-        $or: [
-          { title: regex },
-          { details: regex },
-          { defendant: regex },
-          { charge: regex },
-        ],
-      }).sort({ id: -1 }).limit(sectionLimit).select({ _id: 0, __v: 0 }).lean(),
-      Event.find({
-        $or: [
-          { title: regex },
-          { description: regex },
-          { location: regex },
-        ],
-      }).sort({ id: -1 }).limit(sectionLimit).select({ _id: 0, __v: 0 }).lean(),
-      Wanted.find({
-        $or: [
-          { name: regex },
-          { charge: regex },
-        ],
-      }).sort({ id: -1 }).limit(sectionLimit).select({ _id: 0, __v: 0 }).lean(),
+      searchCollectionByTextAndRegex(Job, {
+        textSearch: trimmedQuery,
+        regexFilter: {
+          $or: [
+            { title: regex },
+            { org: regex },
+            { description: regex },
+          ],
+        },
+        limit: sectionLimit,
+        projection: { _id: 0, __v: 0 },
+      }),
+      searchCollectionByTextAndRegex(Court, {
+        textSearch: trimmedQuery,
+        regexFilter: {
+          $or: [
+            { title: regex },
+            { details: regex },
+            { defendant: regex },
+            { charge: regex },
+          ],
+        },
+        limit: sectionLimit,
+        projection: { _id: 0, __v: 0 },
+      }),
+      searchCollectionByTextAndRegex(Event, {
+        textSearch: trimmedQuery,
+        regexFilter: {
+          $or: [
+            { title: regex },
+            { description: regex },
+            { location: regex },
+          ],
+        },
+        limit: sectionLimit,
+        projection: { _id: 0, __v: 0 },
+      }),
+      searchCollectionByTextAndRegex(Wanted, {
+        textSearch: trimmedQuery,
+        regexFilter: {
+          $or: [
+            { name: regex },
+            { charge: regex },
+          ],
+        },
+        limit: sectionLimit,
+        projection: { _id: 0, __v: 0 },
+      }),
     ]);
 
     res.setHeader('Cache-Control', 'no-store');
@@ -6646,7 +6713,6 @@ app.get('/api/search', cacheMiddleware, async (req, res) => {
     res.status(500).json({ error: publicError(e) });
   }
 });
-
 // ─── Bootstrap (public initial payload) ───
 // Consolidates the public "homepage" requests into a single roundtrip.
 // Uses the same visibility rules as /api/articles (drafts are visible only to users with articles permission).
@@ -6657,23 +6723,18 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
     const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
     const fieldsProjection = buildArticleProjection(req.query.fields);
     const includeSections = parseBootstrapInclude(req.query.include);
-
-    const stripMongooseFields = (item) => {
-      if (!item || typeof item !== 'object') return item;
-      delete item._id;
-      delete item.__v;
-      return item;
-    };
+    const articlePagination = parseCollectionPagination(req.query, { defaultLimit: 120, maxLimit: 500 });
 
     const tasks = {
       articles: (async () => {
         let query = Article.find(articleFilter).sort({ id: -1 });
         if (fieldsProjection) query = query.select(fieldsProjection);
         else query = query.select({ _id: 0, __v: 0 });
-
+        if (articlePagination.shouldPaginate) {
+          query = query.skip(articlePagination.skip).limit(articlePagination.limit);
+        }
         const items = await query.lean();
-        items.forEach(stripMongooseFields);
-        return sortArticlesByRecency(items);
+        return sortArticlesByRecency(stripDocumentList(items));
       })(),
       authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
@@ -6688,6 +6749,7 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
       ...(includeSections.has('court') ? { court: Court.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean() } : {}),
       ...(includeSections.has('events') ? { events: Event.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean() } : {}),
       ...(includeSections.has('gallery') ? { gallery: Gallery.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean() } : {}),
+      ...(articlePagination.shouldPaginate ? { articleTotal: Article.countDocuments(articleFilter) } : {}),
     };
 
     const entries = Object.entries(tasks);
@@ -6702,11 +6764,10 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
         return;
       }
 
-      errors[key] = publicError(result.reason, `Failed to load ${key}`);
-      payload[key] = Array.isArray(tasks[key]) ? [] : null;
+      errors[key] = publicError(result.reason, 'Failed to load ' + key);
+      payload[key] = key === 'articleTotal' ? 0 : null;
     });
 
-    // Ensure missing values align with the client expectations.
     if (!Array.isArray(payload.articles)) payload.articles = [];
     if (!Array.isArray(payload.authors)) payload.authors = [];
     if (!Array.isArray(payload.categories)) payload.categories = [];
@@ -6719,28 +6780,39 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
     if (includeSections.has('events') && !Array.isArray(payload.events)) payload.events = [];
     if (!Array.isArray(payload.polls)) payload.polls = [];
     if (includeSections.has('gallery') && !Array.isArray(payload.gallery)) payload.gallery = [];
-
-    // Some items are already projected, but keep stripping in case a select() path changes.
-    payload.authors.forEach(stripMongooseFields);
-    payload.categories.forEach(stripMongooseFields);
-    payload.ads.forEach(stripMongooseFields);
-    payload.wanted.forEach(stripMongooseFields);
-    (payload.jobs || []).forEach(stripMongooseFields);
-    (payload.court || []).forEach(stripMongooseFields);
-    (payload.events || []).forEach(stripMongooseFields);
-    payload.polls.forEach(stripMongooseFields);
-    (payload.gallery || []).forEach(stripMongooseFields);
+    payload.authors = stripDocumentList(payload.authors);
+    payload.categories = stripDocumentList(payload.categories);
+    payload.ads = stripDocumentList(payload.ads);
+    payload.wanted = stripDocumentList(payload.wanted);
+    if (includeSections.has('jobs')) payload.jobs = stripDocumentList(payload.jobs);
+    else delete payload.jobs;
+    if (includeSections.has('court')) payload.court = stripDocumentList(payload.court);
+    else delete payload.court;
+    if (includeSections.has('events')) payload.events = stripDocumentList(payload.events);
+    else delete payload.events;
+    payload.polls = stripDocumentList(payload.polls);
+    if (includeSections.has('gallery')) payload.gallery = stripDocumentList(payload.gallery);
+    else delete payload.gallery;
+    const articleTotal = Number.isInteger(payload.articleTotal) ? payload.articleTotal : 0;
+    delete payload.articleTotal;
 
     res.setHeader('Cache-Control', 'no-store');
     res.json({
       ...payload,
+      ...(articlePagination.shouldPaginate ? {
+        pagination: {
+          page: articlePagination.page,
+          limit: articlePagination.limit,
+          total: articleTotal,
+          totalPages: Math.max(1, Math.ceil(articleTotal / articlePagination.limit)),
+        },
+      } : {}),
       ...(Object.keys(errors).length ? { errors } : {}),
     });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
   }
 });
-
 // ─── Auth ───
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
@@ -6906,6 +6978,67 @@ function parseAuditLogCursor(value) {
   };
 }
 
+function cleanExportItem(item) {
+  const next = stripDocumentMetadata(item);
+  if (next && typeof next === 'object') {
+    delete next.password;
+  }
+  return next;
+}
+
+function createExportCursor(Model, sort = null) {
+  let query = Model.find();
+  if (sort && typeof sort === 'object') {
+    query = query.sort(sort);
+  }
+  return query.cursor();
+}
+
+async function streamBackupExport(res) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename=znews-backup-' + Date.now() + '.json');
+
+  const sections = [
+    { key: 'articles', cursor: createExportCursor(Article) },
+    { key: 'articleRevisions', cursor: createExportCursor(ArticleRevision, { createdAt: -1 }) },
+    { key: 'settingsRevisions', cursor: createExportCursor(SettingsRevision, { createdAt: -1 }) },
+    { key: 'authors', cursor: createExportCursor(Author) },
+    { key: 'categories', cursor: createExportCursor(Category) },
+    { key: 'ads', cursor: createExportCursor(Ad) },
+    { key: 'users', cursor: createExportCursor(User) },
+    { key: 'wanted', cursor: createExportCursor(Wanted) },
+    { key: 'jobs', cursor: createExportCursor(Job) },
+    { key: 'court', cursor: createExportCursor(Court) },
+    { key: 'events', cursor: createExportCursor(Event) },
+    { key: 'polls', cursor: createExportCursor(Poll) },
+    { key: 'comments', cursor: createExportCursor(Comment) },
+    { key: 'commentReactions', cursor: createExportCursor(CommentReaction) },
+    { key: 'gallery', cursor: createExportCursor(Gallery) },
+    { key: 'games', cursor: createExportCursor(GameDefinition) },
+    { key: 'gamePuzzles', cursor: createExportCursor(GamePuzzle) },
+    { key: 'permissions', cursor: createExportCursor(Permission) },
+  ];
+
+  await writeJsonChunk(res, '{');
+  await writeJsonChunk(res, '"exportDate":' + JSON.stringify(new Date().toISOString()));
+
+  const breaking = (await Breaking.findOne().lean())?.items || [];
+  await writeJsonChunk(res, ',"breaking":' + JSON.stringify(breaking));
+
+  for (const section of sections) {
+    await writeJsonChunk(res, ',"' + section.key + '":[');
+    await streamJsonArray(res, section.cursor, cleanExportItem);
+    await writeJsonChunk(res, ']');
+  }
+
+  const heroSettings = cleanExportItem(await HeroSettings.findOne({ key: 'main' }).lean()) || { key: 'main', ...DEFAULT_HERO_SETTINGS };
+  const siteSettings = cleanExportItem(await SiteSettings.findOne({ key: 'main' }).lean()) || { key: 'main', ...DEFAULT_SITE_SETTINGS };
+  await writeJsonChunk(res, ',"heroSettings":' + JSON.stringify(heroSettings));
+  await writeJsonChunk(res, ',"siteSettings":' + JSON.stringify(siteSettings));
+  await writeJsonChunk(res, '}');
+  res.end();
+}
+
 app.get('/api/audit-log', requireAuth, requirePermission('permissions'), async (req, res) => {
   try {
     const limit = parsePositiveInt(req.query.limit, 200, { min: 1, max: 200 });
@@ -6938,51 +7071,15 @@ app.get('/api/audit-log', requireAuth, requirePermission('permissions'), async (
 
 app.get('/api/backup', requireAuth, requireAdmin, async (_req, res) => {
   try {
-    const clean = items => {
-      items.forEach(i => {
-        delete i._id;
-        delete i.__v;
-        delete i.password;
-      });
-      return items;
-    };
-    const cleanOne = (item) => {
-      if (!item) return null;
-      delete item._id;
-      delete item.__v;
-      return item;
-    };
-    const data = {
-      exportDate: new Date().toISOString(),
-      articles: clean(await Article.find().lean()),
-      articleRevisions: clean(await ArticleRevision.find().sort({ createdAt: -1 }).lean()),
-      settingsRevisions: clean(await SettingsRevision.find().sort({ createdAt: -1 }).lean()),
-      authors: clean(await Author.find().lean()),
-      categories: clean(await Category.find().lean()),
-      ads: clean(await Ad.find().lean()),
-      breaking: (await Breaking.findOne().lean())?.items || [],
-      users: clean(await User.find().lean()),
-      wanted: clean(await Wanted.find().lean()),
-      jobs: clean(await Job.find().lean()),
-      court: clean(await Court.find().lean()),
-      events: clean(await Event.find().lean()),
-      polls: clean(await Poll.find().lean()),
-      comments: clean(await Comment.find().lean()),
-      commentReactions: clean(await CommentReaction.find().lean()),
-      gallery: clean(await Gallery.find().lean()),
-      games: clean(await GameDefinition.find().lean()),
-      gamePuzzles: clean(await GamePuzzle.find().lean()),
-      permissions: clean(await Permission.find().lean()),
-      heroSettings: cleanOne(await HeroSettings.findOne({ key: 'main' }).lean()) || { key: 'main', ...DEFAULT_HERO_SETTINGS },
-      siteSettings: cleanOne(await SiteSettings.findOne({ key: 'main' }).lean()) || { key: 'main', ...DEFAULT_SITE_SETTINGS },
-    };
-    res.setHeader('Content-Disposition', `attachment; filename=znews-backup-${Date.now()}.json`);
-    res.json(data);
+    await streamBackupExport(res);
   } catch (e) {
-    res.status(500).json({ error: publicError(e) });
+    if (!res.headersSent) {
+      res.status(500).json({ error: publicError(e) });
+      return;
+    }
+    res.end();
   }
 });
-
 app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
   try {
     if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PRODUCTION_RESET !== 'true') {
@@ -7203,11 +7300,11 @@ app.post('/api/tips', tipRateLimiter, (req, res) => {
         return res.status(400).json({ error: 'Моля, добавете текст или снимка към сигнала.' });
       }
 
-      const ipRaw = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '0.0.0.0';
-      const ipHash = createHash('sha256').update(String(ipRaw)).digest('hex');
+      const ipHash = createHash('sha256').update(getTrustedClientIp(req)).digest('hex');
+      const tipId = await nextNumericId(Tip);
 
       const newTip = new Tip({
-        id: Date.now(),
+        id: tipId,
         text,
         location: normalizeText(req.body.location || '', 300),
         image: imageUrl,
@@ -7637,3 +7734,8 @@ export async function startServer() {
     process.exit(1);
   });
 }
+
+
+
+
+

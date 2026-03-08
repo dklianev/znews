@@ -50,6 +50,10 @@ articleSchema.index(
     default_language: 'none',
   }
 );
+articleSchema.index({ status: 1, publishAt: -1, id: -1 }, { name: 'article_publish_sort' });
+articleSchema.index({ hero: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_hero_publish_sort' });
+articleSchema.index({ featured: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_featured_publish_sort' });
+articleSchema.index({ category: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_category_publish_sort' });
 
 // ÄÄÄ Author ÄÄÄ
 const authorSchema = new mongoose.Schema({
@@ -161,6 +165,10 @@ const wantedSchema = new mongoose.Schema({
   charge: String,
   danger: String,
 }, opts);
+wantedSchema.index(
+  { name: 'text', charge: 'text', danger: 'text' },
+  { name: 'wanted_text', weights: { name: 8, charge: 5, danger: 2 }, default_language: 'none' }
+);
 
 // ─── Job ───
 const jobSchema = new mongoose.Schema({
@@ -175,6 +183,10 @@ const jobSchema = new mongoose.Schema({
   date: String,
   active: { type: Boolean, default: true },
 }, opts);
+jobSchema.index(
+  { title: 'text', org: 'text', description: 'text', requirements: 'text' },
+  { name: 'job_text', weights: { title: 8, org: 6, description: 4, requirements: 2 }, default_language: 'none' }
+);
 
 // ─── Court ───
 const courtSchema = new mongoose.Schema({
@@ -190,6 +202,10 @@ const courtSchema = new mongoose.Schema({
   status: { type: String, default: 'completed', enum: ['completed', 'scheduled', 'ongoing'] },
   nextHearing: String,
 }, opts);
+courtSchema.index(
+  { title: 'text', defendant: 'text', charge: 'text', details: 'text', verdict: 'text' },
+  { name: 'court_text', weights: { title: 7, defendant: 6, charge: 6, details: 3, verdict: 2 }, default_language: 'none' }
+);
 
 // ─── Event ───
 const eventSchema = new mongoose.Schema({
@@ -203,6 +219,10 @@ const eventSchema = new mongoose.Schema({
   type: String,
   image: String,
 }, opts);
+eventSchema.index(
+  { title: 'text', description: 'text', location: 'text', organizer: 'text', type: 'text' },
+  { name: 'event_text', weights: { title: 8, location: 6, organizer: 4, type: 3, description: 2 }, default_language: 'none' }
+);
 
 // ─── Poll ───
 const pollSchema = new mongoose.Schema({
@@ -462,6 +482,11 @@ const pushSubscriptionSchema = new mongoose.Schema({
   },
   createdAt: { type: Date, default: Date.now, index: true }
 }, opts);
+const counterSchema = new mongoose.Schema({
+  key: { type: String, required: true, unique: true, index: true },
+  seq: { type: Number, required: true, default: 0 },
+  updatedAt: { type: Date, default: Date.now },
+}, opts);
 
 // ─── Games ───
 const gameDefinitionSchema = new mongoose.Schema({
@@ -523,3 +548,5 @@ export const Tip = mongoose.model('Tip', tipSchema);
 export const PushSubscription = mongoose.model('PushSubscription', pushSubscriptionSchema);
 export const GameDefinition = mongoose.model('GameDefinition', gameDefinitionSchema);
 export const GamePuzzle = mongoose.model('GamePuzzle', gamePuzzleSchema);
+export const Counter = mongoose.model('Counter', counterSchema);
+
