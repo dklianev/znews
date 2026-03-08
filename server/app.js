@@ -2251,13 +2251,53 @@ function stripDocumentList(items) {
   return (Array.isArray(items) ? items : []).map((item) => stripDocumentMetadata(item));
 }
 
-async function findArticlesByRecency(filter, fieldsProjection, limit) {
-  let query = Article.find(filter).sort({ id: -1 });
-  query = query.select(fieldsProjection || { _id: 0, __v: 0 });
-  if (Number.isInteger(limit) && limit > 0) {
-    query = query.limit(limit);
+function buildArticleRecencyPipeline(filter, fieldsProjection, { skip = 0, limit = 0 } = {}) {
+  const pipeline = [
+    { $match: filter || {} },
+    {
+      $addFields: {
+        __recencySortTs: {
+          $ifNull: [
+            '$publishAt',
+            {
+              $dateFromString: {
+                dateString: '$date',
+                format: '%Y-%m-%d',
+                onError: new Date(0),
+                onNull: new Date(0),
+              },
+            },
+          ],
+        },
+      },
+    },
+    { $sort: { __recencySortTs: -1, id: -1 } },
+  ];
+
+  if (Number.isInteger(skip) && skip > 0) {
+    pipeline.push({ $skip: skip });
   }
-  const items = await query.lean();
+  if (Number.isInteger(limit) && limit > 0) {
+    pipeline.push({ $limit: limit });
+  }
+
+  const projection = fieldsProjection && typeof fieldsProjection === 'object'
+    ? { ...fieldsProjection }
+    : { _id: 0, __v: 0 };
+  delete projection.__recencySortTs;
+  projection._id = 0;
+  projection.__v = 0;
+  pipeline.push({ $project: projection });
+
+  return pipeline;
+}
+
+async function findArticlesByRecency(filter, fieldsProjection, limit, options = {}) {
+  const pipeline = buildArticleRecencyPipeline(filter, fieldsProjection, {
+    skip: options.skip,
+    limit,
+  });
+  const items = await Article.aggregate(pipeline);
   return stripDocumentList(items);
 }
 
@@ -2302,14 +2342,30 @@ async function fetchHomepageArticleCandidates({ articleFilter, fieldsProjection,
   return sortArticlesByRecency(merged);
 }
 
-async function searchCollectionByTextAndRegex(Model, { textSearch, regexFilter, limit, projection, textSortField = 'id' }) {
-  const textItems = await Model.find({ $text: { $search: textSearch } })
-    .sort({ score: { $meta: 'textScore' }, [textSortField]: -1 })
-    .limit(limit)
-    .select(projection || { _id: 0, __v: 0 })
-    .lean();
+function isTextSearchUnavailableError(error) {
+  const code = Number(error?.code);
+  if (code === 27) return true;
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('text index required')
+    || message.includes('index not found for $text')
+    || message.includes('text index not found');
+}
 
-  const normalizedTextItems = stripDocumentList(textItems);
+async function searchCollectionByTextAndRegex(Model, { textSearch, regexFilter, limit, projection, textSortField = 'id' }) {
+  let normalizedTextItems = [];
+  try {
+    const textItems = await Model.find({ $text: { $search: textSearch } })
+      .sort({ score: { $meta: 'textScore' }, [textSortField]: -1 })
+      .limit(limit)
+      .select(projection || { _id: 0, __v: 0 })
+      .lean();
+    normalizedTextItems = stripDocumentList(textItems);
+  } catch (error) {
+    if (!isTextSearchUnavailableError(error)) {
+      throw error;
+    }
+  }
+
   if (normalizedTextItems.length >= limit) {
     return normalizedTextItems.slice(0, limit);
   }
@@ -6726,16 +6782,12 @@ app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
     const articlePagination = parseCollectionPagination(req.query, { defaultLimit: 120, maxLimit: 500 });
 
     const tasks = {
-      articles: (async () => {
-        let query = Article.find(articleFilter).sort({ id: -1 });
-        if (fieldsProjection) query = query.select(fieldsProjection);
-        else query = query.select({ _id: 0, __v: 0 });
-        if (articlePagination.shouldPaginate) {
-          query = query.skip(articlePagination.skip).limit(articlePagination.limit);
-        }
-        const items = await query.lean();
-        return sortArticlesByRecency(stripDocumentList(items));
-      })(),
+      articles: findArticlesByRecency(
+        articleFilter,
+        fieldsProjection,
+        articlePagination.shouldPaginate ? articlePagination.limit : 0,
+        articlePagination.shouldPaginate ? { skip: articlePagination.skip } : {}
+      ),
       authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
       ads: listPublicAds(),
@@ -7077,7 +7129,7 @@ app.get('/api/backup', requireAuth, requireAdmin, async (_req, res) => {
       res.status(500).json({ error: publicError(e) });
       return;
     }
-    res.end();
+    res.destroy(e);
   }
 });
 app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
