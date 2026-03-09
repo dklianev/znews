@@ -10,7 +10,7 @@ import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const PER_PAGE = 6;
-const CATEGORY_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt';
+const CATEGORY_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt';
 
 function CategoryCardSkeleton({ compact = true }) {
   return (

@@ -76,7 +76,7 @@ function normalizeCompareValue(key, value) {
     if (Array.isArray(value)) return value.map(v => String(v).trim()).filter(Boolean).join(', ');
     return String(value || '').trim();
   }
-  if (key === 'featured' || key === 'breaking' || key === 'hero') return value ? '1' : '0';
+  if (key === 'featured' || key === 'breaking' || key === 'sponsored' || key === 'hero') return value ? '1' : '0';
   if (key === 'authorId' || key === 'readTime' || key === 'views') {
     const num = Number(value);
     return Number.isFinite(num) ? String(num) : '';
@@ -278,6 +278,7 @@ export default function ManageArticles() {
     youtubeUrl: form.youtubeUrl || '',
     featured: Boolean(form.featured),
     breaking: Boolean(form.breaking),
+    sponsored: Boolean(form.sponsored),
     hero: Boolean(form.hero),
     tags: typeof form.tags === 'string'
       ? form.tags.split(',').map(tag => tag.trim()).filter(Boolean)
@@ -313,7 +314,7 @@ export default function ManageArticles() {
       if (!normalized) return '—';
       if (key === 'authorId') return authorNameMap.get(Number(normalized)) || normalized;
       if (key === 'category') return categoryNameMap.get(normalized) || normalized;
-      if (key === 'featured' || key === 'breaking' || key === 'hero') return normalized === '1' ? 'Да' : 'Не';
+      if (key === 'featured' || key === 'breaking' || key === 'sponsored' || key === 'hero') return normalized === '1' ? 'Да' : 'Не';
       if (key === 'status') return normalized === 'draft' ? 'Чернова' : 'Публикувана';
       if (key === 'publishAt') {
         const parsed = new Date(normalized);
