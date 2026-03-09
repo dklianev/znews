@@ -93,7 +93,9 @@ export function buildHomepageSections(input = {}) {
   const breakingArticles = takeFromPool((article) => article?.category === 'breaking', 2);
   const emergencyArticles = takeFromPool((article) => article?.category === 'emergency', 2);
   const reportageArticles = takeFromPool((article) => article?.category === 'reportage', 3);
-  const sponsoredArticles = takeFromPool((article) => Boolean(article?.sponsored), 3, { claim: false });
+  const sponsoredArticles = takeFromPool((article) => (
+    Boolean(article?.sponsored) && !usedIds.has(toNumericArticleId(article?.id))
+  ), 3, { claim: false });
   const sponsoredIds = new Set(sponsoredArticles.map((article) => toNumericArticleId(article?.id)).filter(Boolean));
   const latestRemaining = sortedArticles.filter((article) => {
     const articleId = toNumericArticleId(article?.id);
