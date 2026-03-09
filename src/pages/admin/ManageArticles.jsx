@@ -842,6 +842,7 @@ export default function ManageArticles() {
       status: 'draft',
       featured: false,
       breaking: false,
+      sponsored: false,
       hero: false,
       date: new Date().toISOString().slice(0, 10),
       views: 0,

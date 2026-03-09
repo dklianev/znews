@@ -26,7 +26,7 @@ const articleSchema = new mongoose.Schema({
   imageMeta: { type: mongoose.Schema.Types.Mixed, default: null },
   featured: { type: Boolean, default: false, index: true },
   breaking: { type: Boolean, default: false, index: true },
-  sponsored: { type: Boolean, default: false },
+  sponsored: { type: Boolean, default: false, index: true },
   hero: { type: Boolean, default: false, index: true },
   views: { type: Number, default: 0 },
   tags: [String],

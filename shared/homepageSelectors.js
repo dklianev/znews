@@ -38,13 +38,13 @@ export function buildHomepageSections(input = {}) {
     return true;
   };
 
-  const takeFromPool = (predicate, limit) => {
+  const takeFromPool = (predicate, limit, { claim = true } = {}) => {
     const result = [];
     if (!Number.isFinite(Number(limit)) || Number(limit) <= 0) return result;
     for (const article of sortedArticles) {
       if (result.length >= Number(limit)) break;
       if (!predicate(article)) continue;
-      if (!claimArticle(article)) continue;
+      if (claim && !claimArticle(article)) continue;
       result.push(article);
     }
     return result;
@@ -88,12 +88,12 @@ export function buildHomepageSections(input = {}) {
   claimArticle(heroPrimaryPhoto);
   heroSiblings.forEach((article) => claimArticle(article));
 
-  const sponsoredArticles = takeFromPool((article) => Boolean(article?.sponsored), 3);
   const featuredArticles = takeFromPool((article) => Boolean(article?.featured), 3);
   const crimeArticles = takeFromPool((article) => article?.category === 'crime' || article?.category === 'underground', 4);
   const breakingArticles = takeFromPool((article) => article?.category === 'breaking', 2);
   const emergencyArticles = takeFromPool((article) => article?.category === 'emergency', 2);
   const reportageArticles = takeFromPool((article) => article?.category === 'reportage', 3);
+  const sponsoredArticles = takeFromPool((article) => Boolean(article?.sponsored), 3, { claim: false });
   const latestRemaining = sortedArticles.filter((article) => !usedIds.has(toNumericArticleId(article?.id)));
   const latestShowcase = latestRemaining.slice(0, latestShowcaseLimit);
   const latestWire = latestRemaining.slice(latestShowcaseLimit, latestShowcaseLimit + latestWireLimit);
