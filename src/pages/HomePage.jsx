@@ -157,6 +157,7 @@ export default function HomePage() {
     breakingArticles,
     emergencyArticles,
     reportageArticles,
+    sponsoredArticles,
     categoryById,
     latestShowcase,
     latestWire,
@@ -222,6 +223,9 @@ export default function HomePage() {
     const reportageArticles = hasSectionKey('reportageIds')
       ? pickArticleList(sectionPayload.reportageIds)
       : derivedSections.reportageArticles;
+    const sponsoredArticles = hasSectionKey('sponsoredIds')
+      ? pickArticleList(sectionPayload.sponsoredIds)
+      : derivedSections.sponsoredArticles;
     const latestShowcaseRaw = hasSectionKey('latestShowcaseIds')
       ? pickArticleList(sectionPayload.latestShowcaseIds)
       : derivedSections.latestShowcase;
@@ -300,6 +304,7 @@ export default function HomePage() {
       breakingArticles,
       emergencyArticles,
       reportageArticles,
+      sponsoredArticles,
       categoryById,
       latestShowcase,
       latestWire,
@@ -440,6 +445,33 @@ export default function HomePage() {
           })}
         </div>
       </section>
+
+      {/* ═══ Sponsored / Платени публикации ═══ */}
+      {sponsoredArticles.length > 0 && (
+        <section className="relative">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-emerald-600 text-white px-4 py-1.5 font-display font-black text-sm uppercase tracking-wider border-2 border-emerald-800 shadow-md flex items-center gap-2" style={{ transform: 'rotate(-0.5deg)' }}>
+              💰 Платени публикации
+            </div>
+            <div className="flex-1 h-1 bg-gradient-to-r from-emerald-500/40 to-transparent" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {sponsoredArticles.map((article, index) => {
+              const design = getComicCardStyle('homeFeatured', index, article, layoutPresets.homeFeatured);
+              return (
+                <ComicNewsCard
+                  key={article.id}
+                  article={article}
+                  tilt={design.tilt}
+                  variant={design.variant}
+                  sticker={design.sticker}
+                  stripe={design.stripe}
+                />
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ═══ Crime & Underground ═══ */}
       <section className="comic-grid-backdrop overflow-visible p-4 md:p-6 relative" style={{ transform: 'rotate(-0.35deg)' }}>

@@ -2144,6 +2144,7 @@ const ARTICLE_FIELD_ALLOWLIST = new Set([
   'imageMeta',
   'featured',
   'breaking',
+  'sponsored',
   'hero',
   'views',
   'tags',
@@ -2169,6 +2170,7 @@ const HOMEPAGE_DEFAULT_ARTICLE_FIELDS = Object.freeze([
   'imageMeta',
   'featured',
   'breaking',
+  'sponsored',
   'hero',
   'views',
   'status',
@@ -2366,7 +2368,7 @@ async function fetchHomepageArticleCandidates({ articleFilter, fieldsProjection,
     Math.max(36, latestShowcaseLimit + latestWireLimit + HOMEPAGE_LATEST_BUFFER)
   );
 
-  const [latest, hero, selected, featured, crime, breaking, emergency, reportage] = await Promise.all([
+  const [latest, hero, selected, featured, crime, breaking, emergency, reportage, sponsored] = await Promise.all([
     findArticlesByRecency(articleFilter, fieldsProjection, latestLimit),
     findArticlesByRecency(combineMongoFilters(articleFilter, { $or: [{ hero: true }, { breaking: true }] }), fieldsProjection, 8),
     selectedHeroIds.length > 0
@@ -2377,11 +2379,12 @@ async function fetchHomepageArticleCandidates({ articleFilter, fieldsProjection,
     findArticlesByRecency(combineMongoFilters(articleFilter, { category: 'breaking' }), fieldsProjection, 2 + HOMEPAGE_SECTION_BUFFER),
     findArticlesByRecency(combineMongoFilters(articleFilter, { category: 'emergency' }), fieldsProjection, 2 + HOMEPAGE_SECTION_BUFFER),
     findArticlesByRecency(combineMongoFilters(articleFilter, { category: 'reportage' }), fieldsProjection, 3 + HOMEPAGE_SECTION_BUFFER),
+    findArticlesByRecency(combineMongoFilters(articleFilter, { sponsored: true }), fieldsProjection, 3 + HOMEPAGE_SECTION_BUFFER),
   ]);
 
   const seen = new Set();
   const merged = [];
-  [selected, hero, featured, crime, breaking, emergency, reportage, latest].forEach((group) => {
+  [selected, hero, featured, crime, breaking, emergency, reportage, sponsored, latest].forEach((group) => {
     group.forEach((article) => {
       const articleId = Number.parseInt(article?.id, 10);
       if (!Number.isInteger(articleId) || seen.has(articleId)) return;
@@ -2547,6 +2550,7 @@ function sanitizeArticlePayload(payload, { partial = false } = {}) {
   }
   if (!partial || hasOwn(payload, 'featured')) out.featured = Boolean(payload.featured);
   if (!partial || hasOwn(payload, 'breaking')) out.breaking = Boolean(payload.breaking);
+  if (!partial || hasOwn(payload, 'sponsored')) out.sponsored = Boolean(payload.sponsored);
   if (!partial || hasOwn(payload, 'hero')) out.hero = Boolean(payload.hero);
 
   if (!partial || hasOwn(payload, 'tags')) out.tags = sanitizeTags(payload.tags);
@@ -2604,6 +2608,7 @@ function buildArticleSnapshot(articleLike) {
     imageMeta: articleLike?.imageMeta && typeof articleLike.imageMeta === 'object' ? articleLike.imageMeta : null,
     featured: Boolean(articleLike?.featured),
     breaking: Boolean(articleLike?.breaking),
+    sponsored: Boolean(articleLike?.sponsored),
     hero: Boolean(articleLike?.hero),
     views: Number.isFinite(Number(articleLike?.views)) ? Math.max(0, Math.floor(Number(articleLike.views))) : 0,
     tags: sanitizeTags(articleLike?.tags),

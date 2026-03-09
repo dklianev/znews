@@ -87,6 +87,11 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
                 <Flame className="w-2.5 h-2.5" /> {breakingBadgeLabel}
               </span>
             )}
+            {article.sponsored && (
+              <span className="absolute top-2 right-2 bg-emerald-600 text-white text-[9px] font-display font-black uppercase tracking-wider px-2 py-0.5 border border-emerald-800 shadow-sm">
+                Платена
+              </span>
+            )}
             {/* Red caption banner on photo */}
             <div className="photo-caption">
               {category?.name || 'НОВИНА'}
@@ -136,6 +141,11 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
           {article.breaking && (
             <span className="absolute top-4 left-4 breaking-badge text-[9px] flex items-center gap-1">
               <Flame className="w-2.5 h-2.5" /> {breakingBadgeLabel}
+            </span>
+          )}
+          {article.sponsored && (
+            <span className="absolute top-4 right-4 bg-emerald-600 text-white text-[9px] font-display font-black uppercase tracking-wider px-2 py-0.5 border border-emerald-800 shadow-sm z-10">
+              Платена
             </span>
           )}
           {/* Tape strip */}

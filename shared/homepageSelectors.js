@@ -93,6 +93,7 @@ export function buildHomepageSections(input = {}) {
   const breakingArticles = takeFromPool((article) => article?.category === 'breaking', 2);
   const emergencyArticles = takeFromPool((article) => article?.category === 'emergency', 2);
   const reportageArticles = takeFromPool((article) => article?.category === 'reportage', 3);
+  const sponsoredArticles = takeFromPool((article) => Boolean(article?.sponsored), 3);
   const latestRemaining = sortedArticles.filter((article) => !usedIds.has(toNumericArticleId(article?.id)));
   const latestShowcase = latestRemaining.slice(0, latestShowcaseLimit);
   const latestWire = latestRemaining.slice(latestShowcaseLimit, latestShowcaseLimit + latestWireLimit);
@@ -106,6 +107,7 @@ export function buildHomepageSections(input = {}) {
     ...breakingArticles,
     ...emergencyArticles,
     ...reportageArticles,
+    ...sponsoredArticles,
     ...latestShowcase,
     ...latestWire,
   ]);
@@ -119,6 +121,7 @@ export function buildHomepageSections(input = {}) {
     breakingArticles,
     emergencyArticles,
     reportageArticles,
+    sponsoredArticles,
     latestShowcase,
     latestWire,
     selectedArticles,
@@ -139,6 +142,7 @@ export function buildHomepageSectionIdPayload(sections = {}) {
     breakingIds: toIdList(sections.breakingArticles),
     emergencyIds: toIdList(sections.emergencyArticles),
     reportageIds: toIdList(sections.reportageArticles),
+    sponsoredIds: toIdList(sections.sponsoredArticles),
     latestShowcaseIds: toIdList(sections.latestShowcase),
     latestWireIds: toIdList(sections.latestWire),
   };

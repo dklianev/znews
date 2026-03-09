@@ -596,6 +596,11 @@ export default function ArticlePage() {
             {article.breaking && (
               <span className="breaking-badge font-sans">Извънредно</span>
             )}
+            {article.sponsored && (
+              <span className="bg-emerald-600 text-white text-xs font-display font-black uppercase tracking-wider px-2.5 py-0.5 border border-emerald-800">
+                Платена публикация
+              </span>
+            )}
             {category && (
               <Link
                 to={`/category/${category.id}`}

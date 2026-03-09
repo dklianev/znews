@@ -37,6 +37,13 @@ export default memo(function ComicNewsCard({
       <div className="absolute -top-3 -right-2 z-30">
         <span className={`comic-sticker comic-sticker-${resolvedVariant}`}>{sticker}</span>
       </div>
+      {article.sponsored && (
+        <div className="absolute top-3 right-14 z-20">
+          <span className="bg-emerald-600 text-white text-[9px] font-display font-black uppercase tracking-wider px-2 py-0.5 border border-emerald-800 shadow-sm">
+            Платена
+          </span>
+        </div>
+      )}
 
       <div className={`relative overflow-hidden bg-zn-black leading-none -mb-px ${compact ? 'aspect-[16/9]' : 'h-52'}`}>
         <ResponsiveImage

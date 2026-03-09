@@ -47,6 +47,7 @@ const REVISION_COMPARE_FIELDS = [
   { key: 'youtubeUrl', label: 'YouTube Линк' },
   { key: 'featured', label: 'Водеща' },
   { key: 'breaking', label: 'Breaking' },
+  { key: 'sponsored', label: 'Платена' },
   { key: 'hero', label: 'Hero' },
   { key: 'status', label: 'Статус' },
   { key: 'publishAt', label: 'Планирано публикуване' },
@@ -106,6 +107,7 @@ const emptyForm = {
   youtubeUrl: '',
   featured: false,
   breaking: false,
+  sponsored: false,
   hero: false,
   tags: '',
   relatedArticles: [],
@@ -219,6 +221,7 @@ export default function ManageArticles() {
       || refTags !== formTags
       || JSON.stringify(ref.imageMeta || null) !== JSON.stringify(form.imageMeta || null)
       || ref.cardSticker !== form.cardSticker
+      || Boolean(ref.sponsored) !== Boolean(form.sponsored)
       || ref.shareTitle !== form.shareTitle || ref.shareSubtitle !== form.shareSubtitle
       || ref.shareBadge !== form.shareBadge || ref.shareAccent !== form.shareAccent
       || ref.shareImage !== form.shareImage
@@ -470,6 +473,7 @@ export default function ManageArticles() {
           image: form.image,
           featured: Boolean(form.featured),
           breaking: Boolean(form.breaking),
+          sponsored: Boolean(form.sponsored),
           hero: Boolean(form.hero),
           tags: typeof form.tags === 'string' ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : form.tags,
           status: form.status,
@@ -1240,6 +1244,15 @@ export default function ManageArticles() {
                         Извънредна новина (Breaking)
                       </span>
                       <p className="text-xs font-sans text-gray-500 mt-0.5">Ще бъде маркирана с червена лента.</p>
+                    </div>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-white border border-transparent hover:border-gray-200 transition-all">
+                    <input type="checkbox" checked={form.sponsored} onChange={e => setForm({ ...form, sponsored: e.target.checked })} className="w-5 h-5 accent-emerald-600 cursor-pointer" />
+                    <div>
+                      <span className="flex items-center gap-1.5 text-sm font-sans font-semibold text-emerald-700">
+                        💰 Платена публикация (Sponsored)
+                      </span>
+                      <p className="text-xs font-sans text-gray-500 mt-0.5">Ще бъде маркирана с етикет „Платена публикация".</p>
                     </div>
                   </label>
                 </div>

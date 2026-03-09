@@ -2,8 +2,8 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, u
 import { api, getSession, saveSession, clearSession } from '../utils/api';
 
 const DataContext = createContext();
-const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
-const HOMEPAGE_ARTICLE_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,hero,views,status,publishAt,cardSticker';
+const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
+const HOMEPAGE_ARTICLE_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,status,publishAt,cardSticker';
 const EMPTY_PUBLIC_SECTION_STATUS = Object.freeze({ jobs: 'idle', court: 'idle', events: 'idle', gallery: 'idle', games: 'idle' });
 
 function collectCommentThreadIdsLocal(items, rootId) {
