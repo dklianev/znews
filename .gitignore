@@ -38,3 +38,11 @@ nul
 # Local scratch outputs
 test-card-aligned.mjs
 test-card-aligned.png
+
+frontend_diff.txt
+git_log*.txt
+git_show.txt
+last_commit.txt
+last3_commits.txt
+temp_*.txt
+.codex-tmp/
