@@ -1,6 +1,7 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ExternalLink } from 'lucide-react';
-import { normalizeAdImageMeta } from '../../shared/adResolver.js';
+import { resolveAdCreative } from '../../shared/adResolver.js';
 
 const BANNER_LAYOUTS = Object.freeze({
   horizontal: Object.freeze({
@@ -12,6 +13,7 @@ const BANNER_LAYOUTS = Object.freeze({
       subtitleClass: 'text-xs md:text-sm',
       ctaClass: 'px-4 py-2 text-[11px]',
       labelClass: '-right-1 -top-2 md:-right-2 md:-top-3',
+      containPaddingClass: 'p-3 md:p-4',
     }),
     regular: Object.freeze({
       frameClass: 'min-h-[7.5rem] gap-3 px-4 py-3.5 md:min-h-0 md:aspect-[11/2] md:max-h-[10.5rem] md:px-5',
@@ -21,6 +23,7 @@ const BANNER_LAYOUTS = Object.freeze({
       subtitleClass: 'text-xs md:text-sm',
       ctaClass: 'px-4 py-2 text-[11px]',
       labelClass: '-right-1 -top-2 md:-right-2 md:-top-3',
+      containPaddingClass: 'p-3 md:p-4',
     }),
     compact: Object.freeze({
       frameClass: 'min-h-[6.75rem] gap-3 px-4 py-3 md:min-h-0 md:aspect-[6/1] md:max-h-[8.75rem] md:px-4',
@@ -30,6 +33,27 @@ const BANNER_LAYOUTS = Object.freeze({
       subtitleClass: 'text-[11px] md:text-xs',
       ctaClass: 'px-3.5 py-1.5 text-[10px] md:text-[11px]',
       labelClass: '-right-1 -top-2',
+      containPaddingClass: 'p-3',
+    }),
+    mobileHero: Object.freeze({
+      frameClass: 'aspect-[4/1] min-h-0 gap-3 px-4 py-3.5',
+      contentClass: 'gap-3',
+      circleClass: 'h-11 w-11 border-[3px] outline-[2px] text-lg',
+      titleClass: 'text-sm',
+      subtitleClass: 'text-xs',
+      ctaClass: 'px-3.5 py-1.5 text-[10px]',
+      labelClass: '-right-1 -top-2',
+      containPaddingClass: 'p-3',
+    }),
+    mobileRegular: Object.freeze({
+      frameClass: 'aspect-[4/1] min-h-0 gap-3 px-4 py-3.5',
+      contentClass: 'gap-3',
+      circleClass: 'h-10.5 w-10.5 border-[3px] outline-[2px] text-base',
+      titleClass: 'text-[13px]',
+      subtitleClass: 'text-[11px]',
+      ctaClass: 'px-3 py-1.5 text-[10px]',
+      labelClass: '-right-1 -top-2',
+      containPaddingClass: 'p-3',
     }),
   }),
   side: Object.freeze({
@@ -40,6 +64,7 @@ const BANNER_LAYOUTS = Object.freeze({
       subtitleClass: 'text-sm',
       ctaClass: 'px-4 py-2 text-[11px]',
       labelClass: '-right-2 -top-2',
+      containPaddingClass: 'p-4',
     }),
     compact: Object.freeze({
       frameClass: 'min-h-[15.5rem] gap-2.5 p-4 lg:min-h-0 lg:aspect-[10/13] lg:max-h-[19rem]',
@@ -48,6 +73,25 @@ const BANNER_LAYOUTS = Object.freeze({
       subtitleClass: 'text-xs',
       ctaClass: 'px-3.5 py-1.5 text-[10px]',
       labelClass: '-right-1.5 -top-2',
+      containPaddingClass: 'p-4',
+    }),
+    mobileCard: Object.freeze({
+      frameClass: 'aspect-[4/3] w-full max-w-[30rem] gap-3 p-4 mx-auto',
+      circleClass: 'h-12 w-12 border-[3px] outline-[2px] text-xl',
+      titleClass: 'text-sm',
+      subtitleClass: 'text-xs',
+      ctaClass: 'px-3.5 py-1.5 text-[10px]',
+      labelClass: '-right-1.5 -top-2',
+      containPaddingClass: 'p-4',
+    }),
+    mobileSquare: Object.freeze({
+      frameClass: 'aspect-square w-full max-w-[24rem] gap-3 p-4 mx-auto',
+      circleClass: 'h-12 w-12 border-[3px] outline-[2px] text-xl',
+      titleClass: 'text-sm',
+      subtitleClass: 'text-xs',
+      ctaClass: 'px-3.5 py-1.5 text-[10px]',
+      labelClass: '-right-1.5 -top-2',
+      containPaddingClass: 'p-4',
     }),
   }),
   inline: Object.freeze({
@@ -59,6 +103,17 @@ const BANNER_LAYOUTS = Object.freeze({
       subtitleClass: 'text-[10px] sm:text-[11px]',
       ctaClass: 'px-2.5 py-1 text-[10px]',
       labelClass: '-right-1 -top-2',
+      containPaddingClass: 'p-2.5 sm:p-3',
+    }),
+    mobileInline: Object.freeze({
+      frameClass: 'aspect-[16/5] min-h-0 gap-2.5 p-3',
+      contentClass: 'gap-2.5',
+      circleClass: 'h-9 w-9 border-[2px] outline-[2px] text-base',
+      titleClass: 'text-[12px]',
+      subtitleClass: 'text-[10px]',
+      ctaClass: 'px-2.5 py-1 text-[10px]',
+      labelClass: '-right-1 -top-2',
+      containPaddingClass: 'p-2.5',
     }),
   }),
 });
@@ -69,19 +124,48 @@ const DEFAULT_LAYOUT_KEYS = Object.freeze({
   inline: 'compact',
 });
 
-const MOBILE_COVER_FRAME_CLASSES = Object.freeze({
-  horizontal: 'aspect-[4/1] min-h-0',
-  inline: 'aspect-[4/1] min-h-0',
-  side: 'min-h-0 aspect-[4/3] w-full max-w-[30rem] mx-auto',
-});
-
 function getAdTilt(ad, factor = 0.32) {
   const seed = typeof ad?.id === 'number' ? ad.id : (String(ad?.id || '').charCodeAt(0) || 0);
   return ((seed % 5) - 2) * factor;
 }
 
-function getAdCoverImageStyle(ad) {
-  const imageMeta = normalizeAdImageMeta(ad?.imageMeta);
+function useBannerViewport(viewport = 'auto') {
+  const forcedMobile = viewport === 'mobile';
+  const forcedDesktop = viewport === 'desktop';
+  const [isMobile, setIsMobile] = useState(() => {
+    if (forcedMobile) return true;
+    if (forcedDesktop) return false;
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
+
+  useEffect(() => {
+    if (forcedMobile) {
+      setIsMobile(true);
+      return undefined;
+    }
+    if (forcedDesktop) {
+      setIsMobile(false);
+      return undefined;
+    }
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined;
+
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, [forcedDesktop, forcedMobile]);
+
+  return forcedMobile ? 'mobile' : (forcedDesktop ? 'desktop' : (isMobile ? 'mobile' : 'desktop'));
+}
+
+function getAdCoverImageStyle(creative) {
+  const imageMeta = creative?.imageMeta || { objectPosition: '50% 50%', objectScale: 1 };
   return {
     objectPosition: imageMeta.objectPosition,
     transform: imageMeta.objectScale !== 1 ? `scale(${imageMeta.objectScale})` : undefined,
@@ -89,19 +173,15 @@ function getAdCoverImageStyle(ad) {
   };
 }
 
-function getBannerLayout(variant, slotMeta) {
+function getBannerLayout(variant, slotMeta, viewport) {
   const layouts = BANNER_LAYOUTS[variant] || BANNER_LAYOUTS.horizontal;
-  const requestedKey = String(slotMeta?.sizeProfile || '').trim();
+  const requestedKey = viewport === 'mobile'
+    ? String(slotMeta?.mobileSizeProfile || slotMeta?.sizeProfile || '').trim()
+    : String(slotMeta?.sizeProfile || '').trim();
   const layoutKey = Object.prototype.hasOwnProperty.call(layouts, requestedKey)
     ? requestedKey
     : DEFAULT_LAYOUT_KEYS[variant];
   return layouts[layoutKey] || layouts[DEFAULT_LAYOUT_KEYS[variant]] || Object.values(layouts)[0];
-}
-
-function getBannerFrameClass(layoutFrameClass, variant, coverMode) {
-  if (!coverMode) return layoutFrameClass;
-  const mobileClass = MOBILE_COVER_FRAME_CLASSES[variant] || '';
-  return [layoutFrameClass, mobileClass].filter(Boolean).join(' ');
 }
 
 function getBannerInteraction(ad, onClick) {
@@ -126,7 +206,7 @@ function AdLabel({ className = '' }) {
       className={`absolute z-20 rotate-3 border-2 border-white/40 bg-gradient-to-r from-zn-hot to-zn-orange px-2 py-1 text-[9px] font-display font-black uppercase tracking-widest text-white ${className}`}
       style={{ boxShadow: '2px 2px 0 #1C1428' }}
     >
-      Реклама
+      РЕКЛАМА
     </span>
   );
 }
@@ -135,11 +215,11 @@ function getAdImageMode(ad) {
   return ad?.imagePlacement === 'cover' ? 'cover' : 'circle';
 }
 
-function AdCircleMedia({ ad, className, iconClass = 'text-2xl' }) {
+function AdCircleMedia({ ad, creative, className, iconClass = 'text-2xl' }) {
   return (
     <div className={className}>
-      {ad.image ? (
-        <img src={ad.image} alt={ad.title} className="h-full w-full object-cover" loading="lazy" decoding="async" fetchPriority="low" />
+      {creative.image ? (
+        <img src={creative.image} alt={ad.title} className="h-full w-full object-cover" loading="lazy" decoding="async" fetchPriority="low" />
       ) : (
         <span className={iconClass}>{ad.icon}</span>
       )}
@@ -147,29 +227,46 @@ function AdCircleMedia({ ad, className, iconClass = 'text-2xl' }) {
   );
 }
 
-function AdCoverBackground({ ad, overlayClassName = '', glowClassName = '' }) {
-  if (!ad?.image) return null;
+function AdCreativeBackground({ ad, creative, overlayClassName = '', glowClassName = '', containPaddingClass = 'p-3' }) {
+  if (!creative?.image) return null;
+  const containMode = creative.fitMode === 'contain';
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {containMode && (
+        <div
+          className="absolute inset-0"
+          style={{
+            background: `linear-gradient(135deg, ${ad?.color || '#3b1f54'} 0%, #1C1428 55%, #120d1f 100%)`,
+          }}
+        />
+      )}
       <img
-        src={ad.image}
+        src={creative.image}
         alt=""
-        className="absolute inset-0 h-full w-full object-cover"
-        style={getAdCoverImageStyle(ad)}
+        className={containMode
+          ? `absolute inset-0 h-full w-full object-contain ${containPaddingClass}`
+          : 'absolute inset-0 h-full w-full object-cover'}
+        style={getAdCoverImageStyle(creative)}
         loading="lazy"
         decoding="async"
         fetchPriority="low"
       />
       {overlayClassName ? <div className={`absolute inset-0 ${overlayClassName}`} /> : null}
+      {containMode ? <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1),transparent_60%)]" /> : null}
       {glowClassName ? <div className={`absolute inset-0 ${glowClassName}`} /> : null}
     </div>
   );
 }
 
-function AdSafeAreaOverlay({ variant }) {
+function AdSafeAreaOverlay({ variant, viewport = 'desktop' }) {
   if (variant === 'side') {
-    return (
+    return viewport === 'mobile' ? (
+      <>
+        <div className="pointer-events-none absolute inset-x-[12%] top-[14%] bottom-[18%] rounded-[22px] border border-dashed border-white/40" />
+        <div className="pointer-events-none absolute inset-x-[24%] bottom-[10%] h-8 rounded-full border border-dashed border-white/35" />
+      </>
+    ) : (
       <>
         <div className="pointer-events-none absolute inset-x-[15%] top-[16%] bottom-[22%] rounded-[24px] border border-dashed border-white/40" />
         <div className="pointer-events-none absolute inset-x-[28%] bottom-[12%] h-8 rounded-full border border-dashed border-white/35" />
@@ -178,7 +275,12 @@ function AdSafeAreaOverlay({ variant }) {
   }
 
   if (variant === 'inline') {
-    return (
+    return viewport === 'mobile' ? (
+      <>
+        <div className="pointer-events-none absolute left-[6%] top-[18%] bottom-[18%] w-[60%] rounded-[16px] border border-dashed border-white/40" />
+        <div className="pointer-events-none absolute right-[6%] top-1/2 h-7 w-[20%] -translate-y-1/2 rounded-full border border-dashed border-white/35" />
+      </>
+    ) : (
       <>
         <div className="pointer-events-none absolute left-[5%] top-[20%] bottom-[20%] w-[58%] rounded-[18px] border border-dashed border-white/40" />
         <div className="pointer-events-none absolute right-[5%] top-1/2 h-7 w-[18%] -translate-y-1/2 rounded-full border border-dashed border-white/35" />
@@ -186,7 +288,12 @@ function AdSafeAreaOverlay({ variant }) {
     );
   }
 
-  return (
+  return viewport === 'mobile' ? (
+    <>
+      <div className="pointer-events-none absolute left-[7%] top-[18%] bottom-[18%] w-[58%] rounded-[20px] border border-dashed border-white/40" />
+      <div className="pointer-events-none absolute right-[6%] top-1/2 h-8 w-[18%] -translate-y-1/2 rounded-full border border-dashed border-white/35" />
+    </>
+  ) : (
     <>
       <div className="pointer-events-none absolute left-[6%] top-[18%] bottom-[18%] w-[56%] rounded-[22px] border border-dashed border-white/40" />
       <div className="pointer-events-none absolute right-[5%] top-1/2 h-8 w-[16%] -translate-y-1/2 rounded-full border border-dashed border-white/35" />
@@ -194,46 +301,60 @@ function AdSafeAreaOverlay({ variant }) {
   );
 }
 
-export function AdBannerHorizontal({ ad, slotMeta = null, showSafeArea = false, onClick = null }) {
+function getHeadingClass(layout, coverMode) {
+  return coverMode
+    ? `${layout.titleClass} font-display font-black tracking-wider uppercase leading-none text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.55)]`
+    : `${layout.titleClass} font-display font-black text-zn-text tracking-wider uppercase leading-none`;
+}
+
+function getSubtitleClass(layout, coverMode, showTitle) {
+  return coverMode
+    ? `${layout.subtitleClass} ${showTitle ? 'mt-1 ' : ''}whitespace-pre-line text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]`
+    : `${layout.subtitleClass} ${showTitle ? 'mt-1 ' : ''}whitespace-pre-line text-zn-text-muted`;
+}
+
+export function AdBannerHorizontal({ ad, slotMeta = null, showSafeArea = false, onClick = null, viewport = 'auto' }) {
   if (!ad) return null;
+  const activeViewport = useBannerViewport(viewport);
+  const creative = resolveAdCreative(ad, { viewport: activeViewport });
   const adTilt = getAdTilt(ad, 0.22);
-  const coverMode = Boolean(ad.image) && getAdImageMode(ad) === 'cover';
-  const layout = getBannerLayout('horizontal', slotMeta);
+  const coverMode = Boolean(creative.image) && getAdImageMode(ad) === 'cover';
+  const layout = getBannerLayout('horizontal', slotMeta, activeViewport);
   const { interactive, wrapperProps } = getBannerInteraction(ad, onClick);
   const Wrapper = interactive ? 'a' : 'div';
   const showButton = ad?.showButton !== false && interactive && Boolean(String(ad?.cta || '').trim());
   const showTitle = ad?.showTitle !== false && Boolean(String(ad?.title || '').trim());
   const showSubtitle = Boolean(String(ad?.subtitle || '').trim());
-  const frameClass = getBannerFrameClass(layout.frameClass, 'horizontal', coverMode);
-  const headingClass = coverMode
-    ? `${layout.titleClass} font-display font-black tracking-wider uppercase leading-none text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.55)]`
-    : `${layout.titleClass} font-display font-black text-zn-text tracking-wider uppercase leading-none`;
-  const subtitleClass = coverMode
-    ? `${layout.subtitleClass} ${showTitle ? 'mt-1 ' : ''}truncate text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]`
-    : `${layout.subtitleClass} ${showTitle ? 'mt-1 ' : ''}truncate text-zn-text-muted`;
+  const headingClass = getHeadingClass(layout, coverMode);
+  const subtitleClass = getSubtitleClass(layout, coverMode, showTitle);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ad-banner-horizontal">
       <Wrapper {...wrapperProps}>
         <div
-          className={`newspaper-page comic-dots comic-panel-white comic-ad-horizontal relative flex items-center justify-between overflow-visible ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${frameClass}`}
+          className={`newspaper-page comic-dots comic-panel-white comic-ad-horizontal relative flex items-center justify-between overflow-visible ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${layout.frameClass}`}
           style={{ '--ad-tilt': `${adTilt}deg` }}
         >
           {coverMode && (
-            <AdCoverBackground
+            <AdCreativeBackground
               ad={ad}
-              overlayClassName="bg-gradient-to-r from-[#1C1428]/76 via-[#1C1428]/58 to-[#1C1428]/64"
+              creative={creative}
+              containPaddingClass={layout.containPaddingClass}
+              overlayClassName={creative.fitMode === 'contain'
+                ? 'bg-gradient-to-r from-[#1C1428]/44 via-[#1C1428]/12 to-[#1C1428]/36'
+                : 'bg-gradient-to-r from-[#1C1428]/76 via-[#1C1428]/58 to-[#1C1428]/64'}
               glowClassName="bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.14),transparent_38%)]"
             />
           )}
           <div className="absolute inset-x-0 top-0 z-[1] h-2 bg-gradient-to-r from-zn-hot to-zn-orange" />
           {!coverMode && <div className="pointer-events-none absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-zn-hot/10 to-transparent" />}
-          {showSafeArea && <AdSafeAreaOverlay variant="horizontal" />}
+          {showSafeArea && <AdSafeAreaOverlay variant="horizontal" viewport={activeViewport} />}
           <AdLabel className={layout.labelClass} />
           <div className={`relative z-[2] flex min-w-0 items-center ${layout.contentClass}`}>
             {!coverMode && (
               <AdCircleMedia
                 ad={ad}
+                creative={creative}
                 className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border-white bg-white outline-[#1C1428] ${layout.circleClass}`}
               />
             )}
@@ -257,50 +378,52 @@ export function AdBannerHorizontal({ ad, slotMeta = null, showSafeArea = false, 
   );
 }
 
-export function AdBannerSide({ ad, slotMeta = null, showSafeArea = false, onClick = null }) {
+export function AdBannerSide({ ad, slotMeta = null, showSafeArea = false, onClick = null, viewport = 'auto' }) {
   if (!ad) return null;
+  const activeViewport = useBannerViewport(viewport);
+  const creative = resolveAdCreative(ad, { viewport: activeViewport });
   const adTilt = getAdTilt(ad, 0.45);
-  const coverMode = Boolean(ad.image) && getAdImageMode(ad) === 'cover';
-  const layout = getBannerLayout('side', slotMeta);
+  const coverMode = Boolean(creative.image) && getAdImageMode(ad) === 'cover';
+  const layout = getBannerLayout('side', slotMeta, activeViewport);
   const { interactive, wrapperProps } = getBannerInteraction(ad, onClick);
   const Wrapper = interactive ? 'a' : 'div';
   const showButton = ad?.showButton !== false && interactive && Boolean(String(ad?.cta || '').trim());
   const showTitle = ad?.showTitle !== false && Boolean(String(ad?.title || '').trim());
   const showSubtitle = Boolean(String(ad?.subtitle || '').trim());
-  const frameClass = getBannerFrameClass(layout.frameClass, 'side', coverMode);
-  const headingClass = coverMode
-    ? `${layout.titleClass} relative z-[2] font-display font-black uppercase tracking-wider text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.58)]`
-    : `${layout.titleClass} relative z-[2] font-display font-black text-zn-text tracking-wider uppercase`;
-  const subtitleClass = coverMode
-    ? `${layout.subtitleClass} relative z-[2] whitespace-pre-line text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]`
-    : `${layout.subtitleClass} relative z-[2] whitespace-pre-line text-zn-text-muted`;
+  const headingClass = getHeadingClass(layout, coverMode);
+  const subtitleClass = getSubtitleClass(layout, coverMode, showTitle);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ad-banner-side">
       <Wrapper {...wrapperProps}>
         <div
-          className={`newspaper-page comic-dots comic-panel-white comic-ad-side relative flex flex-col items-center justify-center overflow-visible text-center ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${frameClass}`}
+          className={`newspaper-page comic-dots comic-panel-white comic-ad-side relative flex flex-col items-center justify-center overflow-visible text-center ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${layout.frameClass}`}
           style={{ '--ad-tilt': `${adTilt}deg` }}
         >
           {coverMode && (
-            <AdCoverBackground
+            <AdCreativeBackground
               ad={ad}
-              overlayClassName="bg-gradient-to-b from-[#1C1428]/70 via-[#1C1428]/52 to-[#1C1428]/76"
+              creative={creative}
+              containPaddingClass={layout.containPaddingClass}
+              overlayClassName={creative.fitMode === 'contain'
+                ? 'bg-gradient-to-b from-[#1C1428]/46 via-[#1C1428]/12 to-[#1C1428]/44'
+                : 'bg-gradient-to-b from-[#1C1428]/70 via-[#1C1428]/52 to-[#1C1428]/76'}
               glowClassName="bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.16),transparent_56%)]"
             />
           )}
           <div className="absolute inset-x-0 top-0 z-[1] h-2 bg-gradient-to-r from-zn-hot to-zn-orange" />
-          {showSafeArea && <AdSafeAreaOverlay variant="side" />}
+          {showSafeArea && <AdSafeAreaOverlay variant="side" viewport={activeViewport} />}
           <AdLabel className={layout.labelClass} />
           {!coverMode && <div className="pointer-events-none absolute left-1/2 top-5 h-20 w-20 -translate-x-1/2 rounded-full bg-zn-hot/10 blur-xl" />}
           {!coverMode && (
             <AdCircleMedia
               ad={ad}
+              creative={creative}
               className={`relative z-[2] flex items-center justify-center overflow-hidden rounded-full border-white bg-white outline-[#1C1428] ${layout.circleClass}`}
             />
           )}
-              {showTitle && <h4 className={headingClass}>{ad.title}</h4>}
-              {showSubtitle && <p className={subtitleClass}>{ad.subtitle}</p>}
+          {showTitle && <h4 className={`relative z-[2] ${headingClass}`}>{ad.title}</h4>}
+          {showSubtitle && <p className={`relative z-[2] ${subtitleClass}`}>{ad.subtitle}</p>}
           {showButton && (
             <span
               className={`relative z-[2] mt-1 inline-block border-2 bg-gradient-to-r from-zn-hot to-zn-orange font-display font-black uppercase tracking-wider text-white transition-all group-hover:shadow-lg ${layout.ctaClass} ${coverMode ? 'border-white/50' : 'border-white/30'}`}
@@ -315,44 +438,46 @@ export function AdBannerSide({ ad, slotMeta = null, showSafeArea = false, onClic
   );
 }
 
-export function AdBannerInline({ ad, slotMeta = null, showSafeArea = false, onClick = null }) {
+export function AdBannerInline({ ad, slotMeta = null, showSafeArea = false, onClick = null, viewport = 'auto' }) {
   if (!ad) return null;
+  const activeViewport = useBannerViewport(viewport);
+  const creative = resolveAdCreative(ad, { viewport: activeViewport });
   const adTilt = getAdTilt(ad, 0.18);
-  const coverMode = Boolean(ad.image) && getAdImageMode(ad) === 'cover';
-  const layout = getBannerLayout('inline', slotMeta);
+  const coverMode = Boolean(creative.image) && getAdImageMode(ad) === 'cover';
+  const layout = getBannerLayout('inline', slotMeta, activeViewport);
   const { interactive, wrapperProps } = getBannerInteraction(ad, onClick);
   const Wrapper = interactive ? 'a' : 'div';
   const showButton = ad?.showButton !== false && interactive && Boolean(String(ad?.cta || '').trim());
   const showTitle = ad?.showTitle !== false && Boolean(String(ad?.title || '').trim());
   const showSubtitle = Boolean(String(ad?.subtitle || '').trim());
-  const frameClass = getBannerFrameClass(layout.frameClass, 'inline', coverMode);
-  const headingClass = coverMode
-    ? `${layout.titleClass} font-display font-black uppercase tracking-wider text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.58)]`
-    : `${layout.titleClass} font-display font-black uppercase text-zn-text tracking-wider`;
-  const subtitleClass = coverMode
-    ? `${layout.subtitleClass} text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.55)]`
-    : `${layout.subtitleClass} text-zn-text-muted`;
+  const headingClass = getHeadingClass(layout, coverMode);
+  const subtitleClass = getSubtitleClass(layout, coverMode, showTitle);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ad-banner ad-banner-inline my-4">
       <Wrapper {...wrapperProps}>
         <div
-          className={`newspaper-page comic-dots comic-panel-white comic-ad-inline relative flex items-center justify-between overflow-visible ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${frameClass}`}
+          className={`newspaper-page comic-dots comic-panel-white comic-ad-inline relative flex items-center justify-between overflow-visible ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${layout.frameClass}`}
           style={{ '--ad-tilt': `${adTilt}deg` }}
         >
           {coverMode && (
-            <AdCoverBackground
+            <AdCreativeBackground
               ad={ad}
-              overlayClassName="bg-gradient-to-r from-[#1C1428]/72 to-[#1C1428]/56"
+              creative={creative}
+              containPaddingClass={layout.containPaddingClass}
+              overlayClassName={creative.fitMode === 'contain'
+                ? 'bg-gradient-to-r from-[#1C1428]/38 to-[#1C1428]/24'
+                : 'bg-gradient-to-r from-[#1C1428]/72 to-[#1C1428]/56'}
             />
           )}
           <div className="absolute inset-x-0 top-0 z-[1] h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange" />
-          {showSafeArea && <AdSafeAreaOverlay variant="inline" />}
+          {showSafeArea && <AdSafeAreaOverlay variant="inline" viewport={activeViewport} />}
           <AdLabel className={layout.labelClass} />
           <div className={`relative z-[2] flex min-w-0 items-center ${layout.contentClass}`}>
             {!coverMode && (
               <AdCircleMedia
                 ad={ad}
+                creative={creative}
                 className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full border-white bg-white outline-[#1C1428] ${layout.circleClass}`}
               />
             )}

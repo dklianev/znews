@@ -5,7 +5,7 @@ import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
 import { AdBannerHorizontal, AdBannerSide, AdBannerInline } from '../../components/AdBanner';
 import { AD_PAGE_TYPES, AD_SLOT_DEFINITIONS, AD_STATUS_OPTIONS, getAdSlot } from '../../../shared/adSlots.js';
-import { explainAdResolution, normalizeAdImageMeta, normalizeAdRecord } from '../../../shared/adResolver.js';
+import { explainAdResolution, normalizeAdImageMeta, normalizeAdRecord, resolveAdCreative } from '../../../shared/adResolver.js';
 import { buildAdSlotOccupancy } from '../../../shared/adOccupancy.js';
 import { api } from '../../utils/api';
 
@@ -74,6 +74,18 @@ const AD_IMAGE_PLACEMENTS = [
   { value: 'circle', label: '\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433' },
   { value: 'cover', label: '\u041f\u044a\u043b\u0435\u043d \u0444\u043e\u043d' },
 ];
+const AD_FIT_MODES = [
+  {
+    value: 'cover',
+    label: 'Cover',
+    description: '\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435\u0442\u043e \u0437\u0430\u043f\u044a\u043b\u0432\u0430 \u0446\u0435\u043b\u0438\u044f banner \u0438 \u043c\u043e\u0436\u0435 \u0434\u0430 \u0440\u0435\u0436\u0435 \u043a\u0440\u0430\u0438\u0449\u0430\u0442\u0430.',
+  },
+  {
+    value: 'contain',
+    label: 'Contain',
+    description: '\u041f\u0430\u0437\u0438 \u0446\u0435\u043b\u0438\u044f creative \u0432 \u0440\u0430\u043c\u043a\u0430 \u0438 \u0435 \u043f\u043e-\u043f\u043e\u0434\u0445\u043e\u0434\u044f\u0449\u043e \u0437\u0430 \u0431\u0430\u043d\u0435\u0440\u0438 \u0441 \u043c\u043d\u043e\u0433\u043e \u0442\u0435\u043a\u0441\u0442.',
+  },
+];
 const AD_ICONS = ['\u{1F4F0}', '\u{1F697}', '\u{1F4B8}', '\u{1F3E6}', '\u{1F3AF}', '\u{1F354}', '\u{1F6D2}', '\u{1F525}', '\u{1F3B2}', '\u{1F3B5}', '\u{1F3C6}', '\u{1F4F1}'];
 const DELIVERY_RULES = [
   '\u041f\u043e\u0437\u0438\u0446\u0438\u044f\u0442\u0430 \u043e\u043f\u0440\u0435\u0434\u0435\u043b\u044f \u043a\u044a\u0434\u0435 \u043d\u0430 \u0441\u0430\u0439\u0442\u0430 \u043c\u043e\u0436\u0435 \u0434\u0430 \u0441\u0435 \u043f\u043e\u043a\u0430\u0436\u0435 \u0440\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430.',
@@ -97,7 +109,10 @@ const emptyForm = {
   color: '#990F3D',
   image: '',
   imageMeta: { ...AD_DEFAULT_IMAGE_META },
+  imageMobile: '',
+  imageMetaMobile: { ...AD_DEFAULT_IMAGE_META },
   imagePlacement: 'circle',
+  fitMode: 'cover',
   placements: [],
   pageTypes: [],
   categoryIds: [],
@@ -140,11 +155,11 @@ function buildAdObjectPosition(x, y) {
 }
 
 function getAdAdminCardImageStyle(ad) {
-  const imageMeta = normalizeAdImageMeta(ad?.imageMeta);
+  const creative = resolveAdCreative(ad, { viewport: 'desktop' });
   return {
-    objectPosition: imageMeta.objectPosition,
-    transform: ad?.imagePlacement === 'cover' && imageMeta.objectScale !== 1 ? `scale(${imageMeta.objectScale})` : undefined,
-    transformOrigin: imageMeta.objectPosition,
+    objectPosition: creative.imageMeta.objectPosition,
+    transform: ad?.imagePlacement === 'cover' && creative.imageMeta.objectScale !== 1 ? `scale(${creative.imageMeta.objectScale})` : undefined,
+    transformOrigin: creative.imageMeta.objectPosition,
   };
 }
 
@@ -186,9 +201,12 @@ function buildPayloadFromForm(form) {
     icon: String(form.icon || '').trim(),
     link: String(form.link || '').trim(),
     color: String(form.color || '').trim(),
-    image: String(form.image || '').trim(),
-    imageMeta: normalizeAdImageMeta(form.imageMeta),
+    imageDesktop: String(form.image || '').trim(),
+    imageMetaDesktop: normalizeAdImageMeta(form.imageMeta),
+    imageMobile: String(form.imageMobile || '').trim(),
+    imageMetaMobile: normalizeAdImageMeta(form.imageMetaMobile),
     imagePlacement: form.imagePlacement === 'cover' ? 'cover' : 'circle',
+    fitMode: form.fitMode === 'contain' ? 'contain' : 'cover',
     placements: Array.isArray(form.placements) ? form.placements : [],
     targeting: {
       pageTypes: Array.isArray(form.pageTypes) ? form.pageTypes : [],
@@ -210,7 +228,11 @@ function normalizeAdForm(value) {
   return {
     ...emptyForm,
     ...normalized,
-    imageMeta: normalizeAdImageMeta(normalized.imageMeta),
+    image: normalized.imageDesktop || normalized.image || '',
+    imageMeta: normalizeAdImageMeta(normalized.imageMetaDesktop || normalized.imageMeta),
+    imageMobile: normalized.imageMobile || '',
+    imageMetaMobile: normalizeAdImageMeta(normalized.imageMetaMobile),
+    fitMode: normalized.fitMode === 'contain' ? 'contain' : 'cover',
     pageTypes: Array.isArray(normalized.targeting?.pageTypes) ? normalized.targeting.pageTypes : [],
     categoryIds: Array.isArray(normalized.targeting?.categoryIds) ? normalized.targeting.categoryIds : [],
     articleIdsInput: formatNumericCsv(normalized.targeting?.articleIds),
@@ -250,10 +272,33 @@ function getAdGuideMode(type) {
   return 'ad-horizontal';
 }
 
-function PreviewBanner({ ad, slotMeta = null, showSafeArea = false }) {
-  if (ad.type === 'side') return <AdBannerSide ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} />;
-  if (ad.type === 'inline') return <AdBannerInline ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} />;
-  return <AdBannerHorizontal ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} />;
+function getSlotAspectRatio(slotMeta, viewport, fallbackRatio) {
+  if (viewport === 'mobile') return String(slotMeta?.mobileAspectRatio || fallbackRatio || '4:1');
+  return String(slotMeta?.desktopAspectRatio || fallbackRatio || '4:1');
+}
+
+function getCreativeImageField(viewport) {
+  return viewport === 'mobile' ? 'imageMobile' : 'image';
+}
+
+function getCreativeMetaField(viewport) {
+  return viewport === 'mobile' ? 'imageMetaMobile' : 'imageMeta';
+}
+
+function buildCreativeRequirements(selectedTypeMeta, slotMeta, viewport) {
+  const ratioLabel = getSlotAspectRatio(slotMeta, viewport, selectedTypeMeta?.aspectRatio || '4:1');
+  return {
+    label: viewport === 'mobile' ? '\u041c\u043e\u0431\u0438\u043b\u0435\u043d creative' : '\u0414\u0435\u0441\u043a\u0442\u043e\u043f creative',
+    recommended: parseSizeLabel(viewport === 'mobile' ? '1200 x 300' : selectedTypeMeta?.recommendedSize),
+    minimum: parseSizeLabel(viewport === 'mobile' ? '960 x 240' : selectedTypeMeta?.minSize),
+    ratioLabel,
+  };
+}
+
+function PreviewBanner({ ad, slotMeta = null, showSafeArea = false, viewport = 'auto' }) {
+  if (ad.type === 'side') return <AdBannerSide ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} viewport={viewport} />;
+  if (ad.type === 'inline') return <AdBannerInline ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} viewport={viewport} />;
+  return <AdBannerHorizontal ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} viewport={viewport} />;
 }
 
 function formatDateTimeShort(value) {
@@ -289,6 +334,7 @@ export default function ManageAds() {
   const [error, setError] = useState('');
   const [analyticsSummary, setAnalyticsSummary] = useState({ items: [], totals: { impressions: 0, clicks: 0, ctr: 0 }, days: 30, loading: true, error: '' });
   const [previewSlotId, setPreviewSlotId] = useState('');
+  const [creativeViewport, setCreativeViewport] = useState('desktop');
   const toast = useToast();
 
   const normalizedAds = useMemo(() => (Array.isArray(ads) ? ads : []).map((ad) => normalizeAdRecord(ad)).sort((a, b) => (b.priority || 0) - (a.priority || 0) || (b.id || 0) - (a.id || 0)), [ads]);
@@ -333,11 +379,16 @@ export default function ManageAds() {
     [previewSlotId, previewSlotOptions],
   );
   const previewGuideMode = useMemo(() => getAdGuideMode(form.type), [form.type]);
-  const imageRequirements = useMemo(() => ({
-    label: previewSlotMeta?.label || selectedTypeMeta.label,
-    recommended: parseSizeLabel(selectedTypeMeta.recommendedSize),
-    minimum: parseSizeLabel(selectedTypeMeta.minSize),
-  }), [previewSlotMeta, selectedTypeMeta]);
+  const activeCreativeImageField = useMemo(() => getCreativeImageField(creativeViewport), [creativeViewport]);
+  const activeCreativeMetaField = useMemo(() => getCreativeMetaField(creativeViewport), [creativeViewport]);
+  const activeCreativeImage = form[activeCreativeImageField] || '';
+  const activeCreativeMeta = useMemo(() => normalizeAdImageMeta(form[activeCreativeMetaField]), [activeCreativeMetaField, form]);
+  const imageRequirements = useMemo(() => buildCreativeRequirements(selectedTypeMeta, previewSlotMeta, creativeViewport), [creativeViewport, previewSlotMeta, selectedTypeMeta]);
+  const mobileCreativeWarning = useMemo(() => (
+    form.image && !form.imageMobile && form.imagePlacement === 'cover'
+      ? '\u0418\u043c\u0430\u0448 \u0441\u0430\u043c\u043e desktop creative. \u041d\u0430 mobile \u0449\u0435 \u0441\u0435 \u043f\u043e\u043b\u0437\u0432\u0430 fallback \u043a\u044a\u043c \u0441\u044a\u0449\u0438\u044f banner, \u043d\u043e \u043f\u0440\u0435\u043f\u043e\u0440\u044a\u0447\u0432\u0430\u043c\u0435 \u043e\u0442\u0434\u0435\u043b\u0435\u043d mobile creative.'
+      : ''
+  ), [form.image, form.imageMobile, form.imagePlacement]);
 
   useEffect(() => {
     if (!previewSlotOptions.length) {
@@ -350,7 +401,7 @@ export default function ManageAds() {
   }, [previewSlotId, previewSlotOptions]);
   const previewAd = useMemo(() => normalizeAdRecord({ ...draftPayload, id: editing || 'preview' }), [draftPayload, editing]);
   const selectedArticleIds = useMemo(() => parseNumericCsv(form.articleIdsInput), [form.articleIdsInput]);
-  const coverImageMeta = useMemo(() => normalizeAdImageMeta(form.imageMeta), [form.imageMeta]);
+  const coverImageMeta = useMemo(() => activeCreativeMeta, [activeCreativeMeta]);
   const coverImageFocus = useMemo(() => parseAdObjectPosition(coverImageMeta.objectPosition), [coverImageMeta.objectPosition]);
   const editorAspectPresets = useMemo(() => (
     form.imagePlacement === 'cover'
@@ -359,9 +410,9 @@ export default function ManageAds() {
   ), [form.imagePlacement, form.type]);
   const imageHelperText = useMemo(() => (
     form.imagePlacement === 'cover'
-      ? `\u041f\u043e \u0436\u0435\u043b\u0430\u043d\u0438\u0435. Cover \u0440\u0435\u0436\u0438\u043c\u044a\u0442 \u0438\u0437\u043f\u043e\u043b\u0437\u0432\u0430 \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435\u0442\u043e \u043a\u0430\u0442\u043e \u0444\u043e\u043d. \u0417\u0430 \u043d\u0430\u0439-\u0434\u043e\u0431\u044a\u0440 \u0440\u0435\u0437\u0443\u043b\u0442\u0430\u0442 \u043a\u0430\u0447\u0438 ${selectedTypeMeta.recommendedSize}.`
-      : `\u041f\u043e \u0436\u0435\u043b\u0430\u043d\u0438\u0435. \u0412 \u0440\u0435\u0436\u0438\u043c "\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433" \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435\u0442\u043e \u0441\u0435 \u0438\u0437\u0440\u044f\u0437\u0432\u0430 \u0432 \u043a\u0440\u044a\u0433. \u041a\u0430\u0447\u0438 \u043a\u0432\u0430\u0434\u0440\u0430\u0442 \u043f\u043e\u043d\u0435 ${AD_CIRCLE_IMAGE_SIZE}.`
-  ), [form.imagePlacement, selectedTypeMeta]);
+      ? `\u041f\u043e \u0436\u0435\u043b\u0430\u043d\u0438\u0435. ${creativeViewport === 'mobile' ? '\u041c\u043e\u0431\u0438\u043b\u043d\u0438\u044f\u0442' : '\u0414\u0435\u0441\u043a\u0442\u043e\u043f'} cover creative \u0449\u0435 \u0441\u0435 \u043f\u043e\u043a\u0430\u0437\u0432\u0430 \u0441 ratio ${imageRequirements.ratioLabel}.`
+      : `\u041f\u043e \u0436\u0435\u043b\u0430\u043d\u0438\u0435. \u0412 \u0440\u0435\u0436\u0438\u043c "\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433" \u043d\u0430\u0439-\u0434\u043e\u0431\u0440\u0435 \u0440\u0430\u0431\u043e\u0442\u0438 \u043a\u0432\u0430\u0434\u0440\u0430\u0442 \u043f\u043e\u043d\u0435 ${AD_CIRCLE_IMAGE_SIZE}.`
+  ), [creativeViewport, form.imagePlacement, imageRequirements.ratioLabel]);
   const adsForPreview = useMemo(() => {
     if (!editing) return normalizedAds;
     if (editing === 'new') return [...normalizedAds, previewAd];
@@ -448,7 +499,7 @@ export default function ManageAds() {
             <span className="border border-gray-200 bg-gray-100 px-2 py-1">CTR: {analyticsSummary.loading ? '...' : `${analyticsSummary.totals.ctr}%`}</span>
           </div>
         </div>
-        <button onClick={() => { setError(''); setEditing('new'); setForm(normalizeAdForm(emptyForm)); }} className="flex items-center gap-2 bg-zn-purple px-4 py-2 text-sm font-semibold text-white hover:bg-zn-purple-dark">
+        <button onClick={() => { setError(''); setEditing('new'); setCreativeViewport('desktop'); setForm(normalizeAdForm(emptyForm)); }} className="flex items-center gap-2 bg-zn-purple px-4 py-2 text-sm font-semibold text-white hover:bg-zn-purple-dark">
           <Plus className="h-4 w-4" />
           {'\u041d\u043e\u0432\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0430'}
         </button>
@@ -630,47 +681,93 @@ export default function ManageAds() {
               )}
               <div><label className={labelCls}>{'\u0426\u0432\u044f\u0442'}</label><div className="flex items-center gap-2"><input type="color" className="h-10 w-10 border border-gray-200" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /><input className={`${inputCls} flex-1`} value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div></div>
               <div><label className={labelCls}>{'\u0418\u043a\u043e\u043d\u0430'}</label><div className="flex flex-wrap gap-1.5">{AD_ICONS.map((icon) => <button key={icon} type="button" onClick={() => setForm({ ...form, icon })} className={`flex h-10 w-10 items-center justify-center border text-xl ${form.icon === icon ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200'}`}>{icon}</button>)}</div></div>
-                            <div className="md:col-span-2">
-                <AdminImageField
-                  label={'\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435'}
-                  value={form.image}
-                  onChange={(nextValue) => setForm((prev) => ({
-                    ...prev,
-                    image: nextValue,
-                    imageMeta: nextValue && nextValue !== prev.image ? { ...AD_DEFAULT_IMAGE_META } : prev.imageMeta,
-                  }))}
-                  imageMeta={form.imageMeta}
-                  onChangeMeta={(nextMeta) => setForm((prev) => ({
-                    ...prev,
-                    imageMeta: normalizeAdImageMeta(nextMeta),
-                  }))}
-                  helperText={imageHelperText}
-                  previewClassName="h-36"
-                  editorAspectPresets={editorAspectPresets}
-                  defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
-                  guideMode={previewGuideMode}
-                  imageRequirements={imageRequirements}
-                />
+              <div className="md:col-span-2 rounded-2xl border border-gray-200 bg-[#fbfaf7] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Creative sets</p>
+                    <p className="mt-1 text-sm text-gray-600">\u0414\u0435\u0441\u043a\u0442\u043e\u043f \u0438 mobile \u0432\u0438\u0437\u0438\u0438 \u0437\u0430 \u0435\u0434\u043d\u0430 \u0438 \u0441\u044a\u0449\u0430 ad \u043a\u0430\u043c\u043f\u0430\u043d\u0438\u044f.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[['desktop', '\u0414\u0435\u0441\u043a\u0442\u043e\u043f'], ['mobile', 'Mobile']].map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setCreativeViewport(value)}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${creativeViewport === value ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  <AdminImageField
+                    label={'\u0414\u0435\u0441\u043a\u0442\u043e\u043f creative'}
+                    value={form.image}
+                    onChange={(nextValue) => setForm((prev) => ({
+                      ...prev,
+                      image: nextValue,
+                      imageMeta: nextValue && nextValue !== prev.image ? { ...AD_DEFAULT_IMAGE_META } : prev.imageMeta,
+                    }))}
+                    imageMeta={form.imageMeta}
+                    onChangeMeta={(nextMeta) => setForm((prev) => ({
+                      ...prev,
+                      imageMeta: normalizeAdImageMeta(nextMeta),
+                    }))}
+                    helperText={form.imagePlacement === 'cover' ? '\u0428\u0438\u0440\u043e\u043a\u0430\u0442\u0430 \u0432\u0435\u0440\u0441\u0438\u044f \u0437\u0430 \u0434\u0435\u0441\u043a\u0442\u043e\u043f slot-\u043e\u0432\u0435\u0442\u0435.' : imageHelperText}
+                    previewClassName="h-36"
+                    editorAspectPresets={editorAspectPresets}
+                    defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
+                    guideMode={previewGuideMode}
+                    imageRequirements={buildCreativeRequirements(selectedTypeMeta, previewSlotMeta, 'desktop')}
+                  />
+                  <AdminImageField
+                    label={'Mobile creative'}
+                    value={form.imageMobile}
+                    onChange={(nextValue) => setForm((prev) => ({
+                      ...prev,
+                      imageMobile: nextValue,
+                      imageMetaMobile: nextValue && nextValue !== prev.imageMobile ? { ...AD_DEFAULT_IMAGE_META } : prev.imageMetaMobile,
+                    }))}
+                    imageMeta={form.imageMetaMobile}
+                    onChangeMeta={(nextMeta) => setForm((prev) => ({
+                      ...prev,
+                      imageMetaMobile: normalizeAdImageMeta(nextMeta),
+                    }))}
+                    helperText={form.imagePlacement === 'cover' ? '\u041e\u043f\u0446\u0438\u043e\u043d\u0430\u043b\u043d\u043e, \u043d\u043e \u0441\u0438\u043b\u043d\u043e \u043f\u0440\u0435\u043f\u043e\u0440\u044a\u0447\u0438\u0442\u0435\u043b\u043d\u043e \u0437\u0430 mobile ratio fallback-\u0438.' : imageHelperText}
+                    previewClassName="h-36"
+                    editorAspectPresets={editorAspectPresets}
+                    defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
+                    guideMode={previewGuideMode}
+                    imageRequirements={buildCreativeRequirements(selectedTypeMeta, previewSlotMeta, 'mobile')}
+                  />
+                </div>
+                {mobileCreativeWarning && (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    {mobileCreativeWarning}
+                  </div>
+                )}
               </div>
-              <div className="md:col-span-2"><label className={labelCls}>{'\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 \u0432 \u0431\u0430\u043d\u0435\u0440\u0430'}</label><select className={inputCls} value={form.imagePlacement} onChange={(e) => setForm({ ...form, imagePlacement: e.target.value })}>{AD_IMAGE_PLACEMENTS.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></div>
+              <div><label className={labelCls}>{'\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 \u0432 \u0431\u0430\u043d\u0435\u0440\u0430'}</label><select className={inputCls} value={form.imagePlacement} onChange={(e) => setForm({ ...form, imagePlacement: e.target.value })}>{AD_IMAGE_PLACEMENTS.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></div>
+              <div><label className={labelCls}>Fit mode</label><select className={inputCls} value={form.fitMode} onChange={(e) => setForm({ ...form, fitMode: e.target.value })}>{AD_FIT_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select><p className="mt-1 text-[11px] text-gray-500">{AD_FIT_MODES.find((mode) => mode.value === form.fitMode)?.description}</p></div>
               <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">{'\u041f\u0440\u0435\u043f\u043e\u0440\u044a\u0447\u0438\u0442\u0435\u043b\u0435\u043d \u0440\u0430\u0437\u043c\u0435\u0440'}</p>
-                    <p className="mt-1 text-sm font-semibold text-gray-900">{selectedTypeMeta.label}</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{`${creativeViewport === 'mobile' ? 'Mobile' : '\u0414\u0435\u0441\u043a\u0442\u043e\u043f'} • ${selectedTypeMeta.label}`}</p>
                   </div>
                   <span className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                    {`Ratio ${selectedTypeMeta.aspectRatio}`}
+                    {`Ratio ${imageRequirements.ratioLabel}`}
                   </span>
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-gray-700 sm:grid-cols-3">
                   <div className="rounded-lg border border-white bg-white/85 px-3 py-2">
                     <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'\u0411\u0430\u043d\u0435\u0440'}</div>
-                    <div className="mt-1 font-semibold text-gray-900">{selectedTypeMeta.recommendedSize}</div>
+                    <div className="mt-1 font-semibold text-gray-900">{imageRequirements.recommended ? `${imageRequirements.recommended.width} x ${imageRequirements.recommended.height} px` : selectedTypeMeta.recommendedSize}</div>
                   </div>
                   <div className="rounded-lg border border-white bg-white/85 px-3 py-2">
                     <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'\u041c\u0438\u043d\u0438\u043c\u0443\u043c'}</div>
-                    <div className="mt-1 font-semibold text-gray-900">{selectedTypeMeta.minSize}</div>
+                    <div className="mt-1 font-semibold text-gray-900">{imageRequirements.minimum ? `${imageRequirements.minimum.width} x ${imageRequirements.minimum.height} px` : selectedTypeMeta.minSize}</div>
                   </div>
                   <div className="rounded-lg border border-white bg-white/85 px-3 py-2">
                     <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433'}</div>
@@ -684,7 +781,7 @@ export default function ManageAds() {
                 </p>
               </div>
             </div>
-            {form.image && form.imagePlacement === 'cover' && (
+            {activeCreativeImage && form.imagePlacement === 'cover' && (
               <div className="md:col-span-2 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -700,12 +797,12 @@ export default function ManageAds() {
                   <div className="overflow-hidden rounded-2xl border border-white/70 bg-[#0f172a] p-3">
                     <div
                       className="relative overflow-hidden rounded-[20px] border border-white/10 bg-black"
-                      style={{ aspectRatio: selectedTypeMeta.aspectRatio.replace(':', ' / ') }}
+                      style={{ aspectRatio: getSlotAspectRatio(previewSlotMeta, creativeViewport, selectedTypeMeta.aspectRatio).replace(':', ' / ') }}
                     >
                       <img
-                        src={form.image}
+                        src={activeCreativeImage}
                         alt=""
-                        className="absolute inset-0 h-full w-full object-cover"
+                        className={`absolute inset-0 h-full w-full ${form.fitMode === 'contain' ? 'object-contain p-4' : 'object-cover'}`}
                         style={{
                           objectPosition: coverImageMeta.objectPosition,
                           transform: coverImageMeta.objectScale !== 1 ? `scale(${coverImageMeta.objectScale})` : undefined,
@@ -842,7 +939,33 @@ export default function ManageAds() {
                   ))}
                 </div>
               )}
-              <div className="newspaper-page bg-[#EDE6DA] p-3 overflow-visible"><PreviewBanner ad={previewAd} slotMeta={previewSlotMeta} showSafeArea /></div>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
+                <div className="space-y-3">
+                  <div className="rounded-2xl border border-gray-200 bg-[#faf6ee] p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                      <span>Desktop preview</span>
+                      <span>{previewSlotMeta?.desktopAspectRatio || selectedTypeMeta.aspectRatio}</span>
+                    </div>
+                    <div className="newspaper-page bg-[#EDE6DA] p-3 overflow-visible"><PreviewBanner ad={previewAd} slotMeta={previewSlotMeta} showSafeArea viewport="desktop" /></div>
+                  </div>
+                  <div className="rounded-2xl border border-gray-200 bg-[#faf6ee] p-3">
+                    <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                      <span>Mobile preview</span>
+                      <span>{previewSlotMeta?.mobileAspectRatio || '4:1'}</span>
+                    </div>
+                    <div className="mx-auto max-w-[22rem] newspaper-page bg-[#EDE6DA] p-3 overflow-visible"><PreviewBanner ad={previewAd} slotMeta={previewSlotMeta} showSafeArea viewport="mobile" /></div>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-dashed border-gray-200 bg-[#fbfaf7] p-4 text-xs text-gray-600">
+                  <p className="font-semibold uppercase tracking-wider text-gray-500">Creative delivery</p>
+                  <div className="mt-3 space-y-2">
+                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Desktop: {previewAd.imageDesktop || previewAd.image ? '\u0418\u043c\u0430 creative' : '\u041d\u044f\u043c\u0430 creative'}</div>
+                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Mobile: {previewAd.imageMobile ? '\u041e\u0442\u0434\u0435\u043b\u0435\u043d mobile creative' : '\u0429\u0435 \u043f\u0430\u0434\u043d\u0435 \u043a\u044a\u043c desktop fallback'}</div>
+                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Fit mode: {form.fitMode}</div>
+                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Active editor: {creativeViewport === 'mobile' ? 'Mobile' : '\u0414\u0435\u0441\u043a\u0442\u043e\u043f'}</div>
+                  </div>
+                </div>
+              </div>
               <div className="mt-4 space-y-3 text-xs text-gray-600">
                 <div>
                   <p className="font-semibold text-gray-900">{'Позиции'}</p>
@@ -875,7 +998,7 @@ export default function ManageAds() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {normalizedAds.map((ad) => {
           const metrics = analyticsByAdId.get(Number(ad.id)) || { impressions: 0, clicks: 0, ctr: 0, lastImpressionAt: null, lastClickAt: null };
-          return <div key={ad.id} className="border border-gray-200 bg-white"><div className="relative overflow-hidden p-4 text-white" style={{ backgroundColor: ad.color || '#990F3D' }}>{ad.image && <img src={ad.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${ad.imagePlacement === 'cover' ? 'opacity-100' : 'opacity-30'}`} style={getAdAdminCardImageStyle(ad)} />}<div className="relative z-10 flex items-center gap-2"><span className="text-xl">{ad.icon}</span><div><p className="text-sm font-bold">{ad.campaignName || ad.title}</p><p className="text-xs opacity-90">{ad.subtitle}</p></div></div>{ad.showButton !== false && ad.clickable !== false ? <span className="relative z-10 mt-3 inline-block bg-white/20 px-3 py-1 text-xs font-semibold">{ad.cta}</span> : <span className="relative z-10 mt-3 inline-block bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">{'\u0411\u0435\u0437 \u0431\u0443\u0442\u043e\u043d'}</span>}</div><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider"><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_TYPE_LABELS[ad.type] || ad.type}</span><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_STATUS_LABELS[ad.status] || ad.status}</span><span className="bg-blue-100 px-1.5 py-0.5 text-blue-700">P {ad.priority}</span><span className="bg-violet-100 px-1.5 py-0.5 text-violet-700">W {ad.weight}</span>{ad.clickable !== false && ad.link && ad.link !== '#' && <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-zn-hot"><ExternalLink className="h-3.5 w-3.5" /></a>}{ad.image && <span className="bg-purple-100 px-1.5 py-0.5 text-purple-700"><ImageIcon className="mr-0.5 inline h-3 w-3" />media</span>}</div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</p><div className="flex flex-wrap gap-1.5">{ad.placements.map((placement) => <span key={placement} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">{AD_SLOT_DEFINITIONS.find((slot) => slot.id === placement)?.label || placement}</span>)}</div></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Targeting</p><p className="text-sm text-gray-600">{summarizeTargeting(ad, categoriesById, articlesById)}</p></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Analytics</p><div className="grid grid-cols-3 gap-2 text-xs text-gray-600"><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Impr.</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.impressions}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Clicks</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.clicks}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">CTR</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : `${metrics.ctr}%`}</div></div></div></div><div className="flex items-center gap-1 border-t border-gray-100 pt-2"><button onClick={() => { setError(''); setEditing(ad.id); setForm(normalizeAdForm(ad)); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="h-4 w-4" /></button><button onClick={() => handleDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div></div>;
+          return <div key={ad.id} className="border border-gray-200 bg-white"><div className="relative overflow-hidden p-4 text-white" style={{ backgroundColor: ad.color || '#990F3D' }}>{ad.image && <img src={ad.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${ad.imagePlacement === 'cover' ? 'opacity-100' : 'opacity-30'}`} style={getAdAdminCardImageStyle(ad)} />}<div className="relative z-10 flex items-center gap-2"><span className="text-xl">{ad.icon}</span><div><p className="text-sm font-bold">{ad.campaignName || ad.title}</p><p className="text-xs opacity-90">{ad.subtitle}</p></div></div>{ad.showButton !== false && ad.clickable !== false ? <span className="relative z-10 mt-3 inline-block bg-white/20 px-3 py-1 text-xs font-semibold">{ad.cta}</span> : <span className="relative z-10 mt-3 inline-block bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">{'\u0411\u0435\u0437 \u0431\u0443\u0442\u043e\u043d'}</span>}</div><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider"><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_TYPE_LABELS[ad.type] || ad.type}</span><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_STATUS_LABELS[ad.status] || ad.status}</span><span className="bg-blue-100 px-1.5 py-0.5 text-blue-700">P {ad.priority}</span><span className="bg-violet-100 px-1.5 py-0.5 text-violet-700">W {ad.weight}</span>{ad.clickable !== false && ad.link && ad.link !== '#' && <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-zn-hot"><ExternalLink className="h-3.5 w-3.5" /></a>}{ad.image && <span className="bg-purple-100 px-1.5 py-0.5 text-purple-700"><ImageIcon className="mr-0.5 inline h-3 w-3" />media</span>}</div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</p><div className="flex flex-wrap gap-1.5">{ad.placements.map((placement) => <span key={placement} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">{AD_SLOT_DEFINITIONS.find((slot) => slot.id === placement)?.label || placement}</span>)}</div></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Targeting</p><p className="text-sm text-gray-600">{summarizeTargeting(ad, categoriesById, articlesById)}</p></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Analytics</p><div className="grid grid-cols-3 gap-2 text-xs text-gray-600"><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Impr.</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.impressions}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Clicks</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.clicks}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">CTR</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : `${metrics.ctr}%`}</div></div></div></div><div className="flex items-center gap-1 border-t border-gray-100 pt-2"><button onClick={() => { setError(''); setEditing(ad.id); setCreativeViewport('desktop'); setForm(normalizeAdForm(ad)); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="h-4 w-4" /></button><button onClick={() => handleDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div></div>;
         })}
         {normalizedAds.length === 0 && <div className="col-span-full py-12 text-center text-sm text-gray-400">{'\u041d\u044f\u043c\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0438'}</div>}
       </div>

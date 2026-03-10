@@ -62,6 +62,11 @@ function normalizeStatus(status) {
   return 'active';
 }
 
+export function normalizeAdFitMode(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'contain' ? 'contain' : 'cover';
+}
+
 function normalizeType(type) {
   const normalized = String(type || '').trim().toLowerCase();
   if (AD_TYPES.includes(normalized)) return normalized;
@@ -259,6 +264,34 @@ export function normalizeAdImageMeta(value) {
   };
 }
 
+export function resolveAdCreative(ad, options = {}) {
+  const source = ad && typeof ad === 'object' ? ad : {};
+  const viewport = options?.viewport === 'mobile' || options?.isMobile === true ? 'mobile' : 'desktop';
+  const imagePlacement = source?.imagePlacement === 'cover' ? 'cover' : 'circle';
+  const desktopImage = normalizeText(source?.imageDesktop ?? source?.image, 600);
+  const mobileImage = normalizeText(source?.imageMobile, 600);
+  const imageMetaDesktop = normalizeAdImageMeta(source?.imageMetaDesktop ?? source?.imageMeta);
+  const imageMetaMobile = normalizeAdImageMeta(source?.imageMetaMobile ?? source?.imageMetaDesktop ?? source?.imageMeta);
+  const fitMode = normalizeAdFitMode(source?.fitMode);
+  const useMobileCreative = viewport === 'mobile' && Boolean(mobileImage);
+  const image = useMobileCreative ? mobileImage : (desktopImage || mobileImage);
+  const imageMeta = useMobileCreative ? imageMetaMobile : (desktopImage ? imageMetaDesktop : imageMetaMobile);
+
+  return {
+    viewport,
+    image,
+    imageMeta,
+    imagePlacement,
+    fitMode,
+    imageDesktop: desktopImage,
+    imageMobile: mobileImage,
+    imageMetaDesktop,
+    imageMetaMobile,
+    hasDedicatedMobile: Boolean(mobileImage),
+    source: useMobileCreative ? 'mobile' : (desktopImage ? 'desktop' : (mobileImage ? 'mobile' : 'none')),
+  };
+}
+
 export function normalizeAdRecord(ad) {
   const normalizedType = normalizeType(ad?.type);
   const normalizedTargeting = normalizeTargeting(ad?.targeting);
@@ -267,6 +300,11 @@ export function normalizeAdRecord(ad) {
   const showButton = ad?.showButton !== false;
   const clickable = ad?.clickable !== false;
   const showTitle = ad?.showTitle !== false;
+  const desktopImage = normalizeText(ad?.imageDesktop ?? ad?.image, 600);
+  const mobileImage = normalizeText(ad?.imageMobile, 600);
+  const imageMetaDesktop = normalizeAdImageMeta(ad?.imageMetaDesktop ?? ad?.imageMeta);
+  const imageMetaMobile = normalizeAdImageMeta(ad?.imageMetaMobile ?? ad?.imageMetaDesktop ?? ad?.imageMeta);
+  const fitMode = normalizeAdFitMode(ad?.fitMode);
 
   return {
     ...(ad || {}),
@@ -275,7 +313,13 @@ export function normalizeAdRecord(ad) {
     status: normalizeStatus(ad?.status),
     campaignName: String(ad?.campaignName || '').trim(),
     notes: String(ad?.notes || '').trim(),
-    imageMeta: normalizeAdImageMeta(ad?.imageMeta),
+    image: desktopImage || mobileImage,
+    imageDesktop: desktopImage,
+    imageMobile: mobileImage,
+    imageMeta: imageMetaDesktop,
+    imageMetaDesktop,
+    imageMetaMobile,
+    fitMode,
     placements: normalizedPlacements,
     targeting: normalizedTargeting,
     showTitle,

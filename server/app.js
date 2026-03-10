@@ -52,7 +52,7 @@ import { ensureGameDefinitions, seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
 import { buildHomepageSections, buildHomepageSectionIdPayload } from '../shared/homepageSelectors.js';
 import { AD_PAGE_TYPES, AD_STATUS_OPTIONS, AD_TYPES, getAdSlot, getDefaultPlacementsForType, isKnownAdSlot } from '../shared/adSlots.js';
-import { filterPublicAds, getAdRotationPool, normalizeAdImageMeta, normalizeAdRecord } from '../shared/adResolver.js';
+import { filterPublicAds, getAdRotationPool, normalizeAdFitMode, normalizeAdImageMeta, normalizeAdRecord } from '../shared/adResolver.js';
 import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES, AD_IMPRESSION_WINDOW_MS, DEFAULT_AD_ANALYTICS_DAYS } from '../shared/adAnalytics.js';
 import { analyzeCrosswordConstruction, getCrosswordEntries, MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH } from '../shared/crossword.js';
 import { analyzeSpellingBeeWords, getSpellingBeeWordScore, getSpellingBeeWordValidation, hasCompleteSpellingBeeHive, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, normalizeSpellingBeeWord, normalizeSpellingBeeWords, SPELLING_BEE_MIN_WORD_LENGTH } from '../shared/spellingBee.js';
@@ -4958,6 +4958,10 @@ function sanitizeAdPayload(payload, { partial = false } = {}) {
   const nextShowButton = hasOwn(source, 'showButton') ? source.showButton !== false : true;
   const nextClickable = hasOwn(source, 'clickable') ? source.clickable !== false : true;
   const nextShowTitle = hasOwn(source, 'showTitle') ? source.showTitle !== false : true;
+  const hasDesktopImage = hasOwn(source, 'imageDesktop') || hasOwn(source, 'image');
+  const nextDesktopImage = normalizeText(hasOwn(source, 'imageDesktop') ? source.imageDesktop : source.image, 600);
+  const hasDesktopImageMeta = hasOwn(source, 'imageMetaDesktop') || hasOwn(source, 'imageMeta');
+  const rawDesktopImageMeta = hasOwn(source, 'imageMetaDesktop') ? source.imageMetaDesktop : source.imageMeta;
 
   if (!partial || hasOwn(source, 'type')) next.type = nextType;
   if (!partial || hasOwn(source, 'title')) next.title = normalizeText(source.title, 140);
@@ -4965,18 +4969,29 @@ function sanitizeAdPayload(payload, { partial = false } = {}) {
   if (!partial || hasOwn(source, 'showTitle')) next.showTitle = nextShowTitle;
   if (!partial || hasOwn(source, 'showButton')) next.showButton = nextShowButton;
   if (!partial || hasOwn(source, 'clickable')) next.clickable = nextClickable;
-  if (!partial || hasOwn(source, 'cta')) next.cta = normalizeText(source.cta, 80) || 'Научи повече';
+  if (!partial || hasOwn(source, 'cta')) next.cta = normalizeText(source.cta, 80) || '\u041d\u0430\u0443\u0447\u0438 \u043f\u043e\u0432\u0435\u0447\u0435';
   if (!partial || hasOwn(source, 'gradient')) next.gradient = normalizeText(source.gradient, 120);
   if (!partial || hasOwn(source, 'icon')) next.icon = normalizeText(source.icon, 16);
   if (!partial || hasOwn(source, 'link')) next.link = normalizeText(source.link, 400) || '#';
   if (!partial || hasOwn(source, 'color')) next.color = normalizeText(source.color, 40);
-  if (!partial || hasOwn(source, 'image')) next.image = normalizeText(source.image, 600);
-  if (!partial || hasOwn(source, 'imageMeta')) {
-    next.imageMeta = source.imageMeta && typeof source.imageMeta === 'object'
-      ? normalizeAdImageMeta(source.imageMeta)
+  if (!partial || hasDesktopImage) {
+    next.imageDesktop = nextDesktopImage;
+    next.image = nextDesktopImage;
+  }
+  if (!partial || hasOwn(source, 'imageMobile')) next.imageMobile = normalizeText(source.imageMobile, 600);
+  if (!partial || hasDesktopImageMeta) {
+    next.imageMetaDesktop = rawDesktopImageMeta && typeof rawDesktopImageMeta === 'object'
+      ? normalizeAdImageMeta(rawDesktopImageMeta)
+      : null;
+    next.imageMeta = next.imageMetaDesktop;
+  }
+  if (!partial || hasOwn(source, 'imageMetaMobile')) {
+    next.imageMetaMobile = source.imageMetaMobile && typeof source.imageMetaMobile === 'object'
+      ? normalizeAdImageMeta(source.imageMetaMobile)
       : null;
   }
   if (!partial || hasOwn(source, 'imagePlacement')) next.imagePlacement = normalizeAdImagePlacementInput(source.imagePlacement);
+  if (!partial || hasOwn(source, 'fitMode')) next.fitMode = normalizeAdFitMode(source.fitMode);
   if (!partial || hasOwn(source, 'status')) next.status = normalizeAdStatusInput(source.status);
   if (!partial || hasOwn(source, 'campaignName')) next.campaignName = normalizeText(source.campaignName, 120);
   if (!partial || hasOwn(source, 'notes')) next.notes = normalizeText(source.notes, 2000);
@@ -5016,6 +5031,7 @@ function validateAdCandidate(ad) {
     .filter(Boolean);
 
   if (!ad?.title) errors.push('Ad title is required');
+  if (ad?.fitMode && !['cover', 'contain'].includes(ad.fitMode)) errors.push('Invalid ad fit mode');
   if (ad?.showButton !== false && !ad?.cta) errors.push('Ad CTA is required');
   if (ad?.clickable !== false && (!ad?.link || ad?.link === '#')) errors.push('Ad link is required for clickable ads');
   if (!AD_TYPES.includes(ad?.type)) errors.push('Invalid ad type');

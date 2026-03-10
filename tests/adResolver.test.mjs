@@ -5,6 +5,7 @@ import {
   filterPublicAds,
   getAdRotationPool,
   normalizeAdRecord,
+  resolveAdCreative,
   resolveAdForSlot,
 } from '../shared/adResolver.js';
 
@@ -228,4 +229,35 @@ export function runAdResolverTests() {
     rotationKey: 'static-check',
   });
   assert.equal(resolvedStaticAd?.id, 53, 'non-clickable ads should still resolve for the slot');
+
+  const responsiveAd = normalizeAdRecord({
+    id: 61,
+    type: 'horizontal',
+    status: 'active',
+    title: 'Responsive',
+    placements: ['home.top'],
+    imageDesktop: 'https://example.com/desktop.jpg',
+    imageMobile: 'https://example.com/mobile.jpg',
+    imageMetaDesktop: { objectPosition: '20% 40%', objectScale: 1.2 },
+    imageMetaMobile: { objectPosition: '60% 45%', objectScale: 1 },
+    fitMode: 'contain',
+  });
+  assert.equal(responsiveAd.image, 'https://example.com/desktop.jpg', 'desktop creative should remain the legacy image alias');
+  assert.equal(responsiveAd.fitMode, 'contain', 'fit mode should normalize and persist');
+
+  const mobileCreative = resolveAdCreative(responsiveAd, { viewport: 'mobile' });
+  assert.equal(mobileCreative.image, 'https://example.com/mobile.jpg', 'mobile viewport should prefer the dedicated mobile creative');
+  assert.equal(mobileCreative.imageMeta.objectPosition, '60% 45%', 'mobile creative should use mobile focal metadata');
+
+  const desktopFallbackCreative = resolveAdCreative(normalizeAdRecord({
+    id: 62,
+    type: 'horizontal',
+    status: 'active',
+    title: 'Desktop fallback',
+    placements: ['home.top'],
+    image: 'https://example.com/legacy.jpg',
+    imageMeta: { objectPosition: '33% 66%', objectScale: 1.15 },
+  }), { viewport: 'mobile' });
+  assert.equal(desktopFallbackCreative.image, 'https://example.com/legacy.jpg', 'mobile viewport should fall back to desktop creative when mobile is missing');
+  assert.equal(desktopFallbackCreative.imageMeta.objectPosition, '33% 66%', 'fallback creative should preserve desktop image metadata');
 }
