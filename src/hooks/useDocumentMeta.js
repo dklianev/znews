@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 const DEFAULTS = {
   title: 'zNews — Горещи Новини и Скандали',
   description: 'Най-горещите новини, скандали и ексклузивни разкрития. Клюки, криминални истории и повече!',
-  image: 'https://znews.live/og.png',
+  image: 'https://znews.live/og-home-20260310.png',
   url: 'https://znews.live/',
 };
 
