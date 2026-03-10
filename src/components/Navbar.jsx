@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -44,6 +44,8 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
+  const navRef = useRef(null);
+  const [mobileMenuViewport, setMobileMenuViewport] = useState({ top: 0, maxHeight: 320 });
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleDark } = useTheme();
@@ -181,15 +183,52 @@ export default function Navbar() {
     });
   }, [searchOpen]);
 
+  const syncMobileMenuViewport = useCallback(() => {
+    if (typeof window === 'undefined' || !navRef.current) return;
+    const rect = navRef.current.getBoundingClientRect();
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const top = Math.max(0, Math.round(rect.bottom + 6));
+    const maxHeight = Math.max(220, Math.floor(viewportHeight - top - 8));
+    setMobileMenuViewport((current) => (
+      current.top === top && current.maxHeight === maxHeight
+        ? current
+        : { top, maxHeight }
+    ));
+  }, []);
+
   // Lock body scroll when mobile nav is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     }
-    return () => { document.body.style.overflow = ''; };
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return undefined;
+
+    syncMobileMenuViewport();
+
+    const visualViewport = window.visualViewport;
+    window.addEventListener('resize', syncMobileMenuViewport);
+    window.addEventListener('scroll', syncMobileMenuViewport, { passive: true });
+    visualViewport?.addEventListener('resize', syncMobileMenuViewport);
+    visualViewport?.addEventListener('scroll', syncMobileMenuViewport);
+
+    return () => {
+      window.removeEventListener('resize', syncMobileMenuViewport);
+      window.removeEventListener('scroll', syncMobileMenuViewport);
+      visualViewport?.removeEventListener('resize', syncMobileMenuViewport);
+      visualViewport?.removeEventListener('scroll', syncMobileMenuViewport);
+    };
+  }, [isOpen, searchOpen, syncMobileMenuViewport]);
 
   const today = new Date().toLocaleDateString('bg-BG', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -228,6 +267,17 @@ export default function Navbar() {
       </div>
     </form>
   );
+
+  const mobileNavStyle = {
+    top: `${mobileMenuViewport.top}px`,
+    willChange: 'transform, opacity',
+  };
+
+  const mobileNavInnerStyle = {
+    maxHeight: `${mobileMenuViewport.maxHeight}px`,
+    paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+    WebkitOverflowScrolling: 'touch',
+  };
 
   const mobileNav = (
     <div className="pb-3 space-y-0.5">
@@ -373,7 +423,7 @@ export default function Navbar() {
       </div>
 
       {/* ── MAIN NAV BAR ── */}
-      <nav className="comic-strip-nav border-b-4 border-zn-black sticky top-0 z-50" style={{ boxShadow: '0 4px 0 rgba(204,10,26,0.3)' }}>
+      <nav ref={navRef} className="comic-strip-nav border-b-4 border-zn-black sticky top-0 z-50" style={{ boxShadow: '0 4px 0 rgba(204,10,26,0.3)' }}>
         <div className="relative max-w-[1400px] mx-auto px-2 sm:px-3 lg:px-4">
           <div className="flex items-center justify-between">
             <div className="hidden md:flex w-full min-w-0 items-center justify-start lg:justify-center gap-0 overflow-x-auto lg:overflow-visible scrollbar-hide comic-main-nav-row">
@@ -421,10 +471,13 @@ export default function Navbar() {
             {isOpen && (
               <motion.div
                 {...mobileNavMotionProps}
-                className="md:hidden absolute top-full left-0 right-0 z-[70] mt-1.5 origin-top"
-                style={{ willChange: 'transform, opacity' }}
+                className="md:hidden fixed inset-x-0 z-[70] origin-top px-2 sm:px-3 lg:px-4"
+                style={mobileNavStyle}
               >
-                <div className="border-2 border-[#1C1428]/75 bg-[#F5EEDF] shadow-[0_12px_24px_rgba(28,20,40,0.3)] max-h-[75dvh] overflow-y-auto overscroll-contain pb-16">
+                <div
+                  className="mx-auto max-w-[1400px] border-2 border-[#1C1428]/75 bg-[#F5EEDF] shadow-[0_12px_24px_rgba(28,20,40,0.3)] overflow-y-auto overscroll-contain"
+                  style={mobileNavInnerStyle}
+                >
                   {mobileNav}
                 </div>
               </motion.div>
