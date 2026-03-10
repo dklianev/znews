@@ -12,24 +12,24 @@ import { api } from '../../utils/api';
 const AD_TYPES = [
   {
     value: 'horizontal',
-    label: '\u0425\u043e\u0440\u0438\u0437\u043e\u043d\u0442\u0430\u043b\u0435\u043d \u0431\u0430\u043d\u0435\u0440',
-    description: '\u0428\u0438\u0440\u043e\u043a \u0444\u043e\u0440\u043c\u0430\u0442 \u0437\u0430 \u0433\u043e\u0440\u043d\u0438, \u0434\u043e\u043b\u043d\u0438 \u0438 \u043c\u0435\u0436\u0434\u0438\u043d\u043d\u0438 \u043f\u043e\u0437\u0438\u0446\u0438\u0438.',
+    label: 'Хоризонтален банер',
+    description: 'Широк формат за горни, долни и междинни позиции.',
     recommendedSize: '1600 x 400 px',
     minSize: '1200 x 300 px',
     aspectRatio: '4:1',
   },
   {
     value: 'side',
-    label: 'Sidebar \u0431\u0430\u043d\u0435\u0440',
-    description: '\u0422\u0435\u0441\u0435\u043d \u0444\u043e\u0440\u043c\u0430\u0442 \u0437\u0430 \u0441\u0442\u0440\u0430\u043d\u0438\u0447\u043d\u0438 \u043f\u043e\u0437\u0438\u0446\u0438\u0438.',
+    label: 'Sidebar банер',
+    description: 'Тесен формат за странични позиции.',
     recommendedSize: '900 x 1200 px',
     minSize: '700 x 933 px',
     aspectRatio: '3:4',
   },
   {
     value: 'inline',
-    label: 'Inline \u0431\u0430\u043d\u0435\u0440',
-    description: '\u0412\u043b\u0438\u0437\u0430 \u0432\u044a\u0442\u0440\u0435 \u0432 \u0442\u0435\u043a\u0441\u0442\u0430 \u043d\u0430 \u0441\u0442\u0430\u0442\u0438\u044f.',
+    label: 'Inline банер',
+    description: 'Влиза вътре в текста на статия.',
     recommendedSize: '1200 x 300 px',
     minSize: '960 x 240 px',
     aspectRatio: '4:1',
@@ -60,38 +60,38 @@ const AD_EDITOR_ASPECT_PRESETS = Object.freeze({
 
 const AD_TYPE_LABELS = Object.freeze(AD_TYPES.reduce((acc, item) => ({ ...acc, [item.value]: item.label }), {}));
 const AD_STATUS_LABELS = Object.freeze({
-  draft: '\u0427\u0435\u0440\u043d\u043e\u0432\u0430',
-  active: '\u0410\u043a\u0442\u0438\u0432\u043d\u0430',
-  paused: '\u041f\u0430\u0443\u0437\u0430',
-  archived: '\u0410\u0440\u0445\u0438\u0432',
+  draft: 'Чернова',
+  active: 'Активна',
+  paused: 'Пауза',
+  archived: 'Архив',
 });
 const PAGE_TYPE_LABELS = Object.freeze({
-  home: '\u041d\u0430\u0447\u0430\u043b\u043d\u0430',
-  article: '\u0421\u0442\u0430\u0442\u0438\u044f',
-  category: '\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f',
+  home: 'Начална',
+  article: 'Статия',
+  category: 'Категория',
 });
 const AD_IMAGE_PLACEMENTS = [
-  { value: 'circle', label: '\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433' },
-  { value: 'cover', label: '\u041f\u044a\u043b\u0435\u043d \u0444\u043e\u043d' },
+  { value: 'circle', label: 'Икона / кръг' },
+  { value: 'cover', label: 'Пълен фон' },
 ];
 const AD_FIT_MODES = [
   {
     value: 'cover',
     label: 'Cover',
-    description: '\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435\u0442\u043e \u0437\u0430\u043f\u044a\u043b\u0432\u0430 \u0446\u0435\u043b\u0438\u044f banner \u0438 \u043c\u043e\u0436\u0435 \u0434\u0430 \u0440\u0435\u0436\u0435 \u043a\u0440\u0430\u0438\u0449\u0430\u0442\u0430.',
+    description: 'Изображението запълва целия banner и може да реже краищата.',
   },
   {
     value: 'contain',
     label: 'Contain',
-    description: '\u041f\u0430\u0437\u0438 \u0446\u0435\u043b\u0438\u044f creative \u0432 \u0440\u0430\u043c\u043a\u0430 \u0438 \u0435 \u043f\u043e-\u043f\u043e\u0434\u0445\u043e\u0434\u044f\u0449\u043e \u0437\u0430 \u0431\u0430\u043d\u0435\u0440\u0438 \u0441 \u043c\u043d\u043e\u0433\u043e \u0442\u0435\u043a\u0441\u0442.',
+    description: 'Пази целия creative в рамка и е по-подходящо за банери с много текст.',
   },
 ];
-const AD_ICONS = ['\u{1F4F0}', '\u{1F697}', '\u{1F4B8}', '\u{1F3E6}', '\u{1F3AF}', '\u{1F354}', '\u{1F6D2}', '\u{1F525}', '\u{1F3B2}', '\u{1F3B5}', '\u{1F3C6}', '\u{1F4F1}'];
+const AD_ICONS = ['📰', '🚗', '💸', '🏦', '🎯', '🍔', '🛒', '🔥', '🎲', '🎵', '🏆', '📱'];
 const DELIVERY_RULES = [
-  '\u041f\u043e\u0437\u0438\u0446\u0438\u044f\u0442\u0430 \u043e\u043f\u0440\u0435\u0434\u0435\u043b\u044f \u043a\u044a\u0434\u0435 \u043d\u0430 \u0441\u0430\u0439\u0442\u0430 \u043c\u043e\u0436\u0435 \u0434\u0430 \u0441\u0435 \u043f\u043e\u043a\u0430\u0436\u0435 \u0440\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430.',
-  '\u041f\u043e-\u0441\u043f\u0435\u0446\u0438\u0444\u0438\u0447\u043d\u0438\u044f\u0442 targeting \u043f\u0435\u0447\u0435\u043b\u0438 \u043d\u0430\u0434 \u043f\u043e-\u0448\u0438\u0440\u043e\u043a\u0438\u044f.',
-  '\u041f\u043e-\u0432\u0438\u0441\u043e\u043a\u0438\u044f\u0442 priority \u043f\u0435\u0447\u0435\u043b\u0438 \u043d\u0430\u0434 \u043f\u043e-\u043d\u0438\u0441\u043a\u0438\u044f \u043d\u0430 \u0441\u044a\u0449\u0438\u044f slot.',
-  'Weight \u0443\u0447\u0430\u0441\u0442\u0432\u0430 \u0441\u0430\u043c\u043e \u0432 \u0440\u043e\u0442\u0430\u0446\u0438\u044f \u043c\u0435\u0436\u0434\u0443 \u0440\u0430\u0432\u043d\u043e\u0441\u0442\u043e\u0439\u043d\u0438 \u0440\u0435\u043a\u043b\u0430\u043c\u0438.',
+  'Позицията определя къде на сайта може да се покаже рекламата.',
+  'По-специфичният targeting печели над по-широкия.',
+  'По-високият priority печели над по-ниския на същия slot.',
+  'Weight участва само в ротация между равностойни реклами.',
 ];
 
 const emptyForm = {
@@ -101,10 +101,10 @@ const emptyForm = {
   showTitle: true,
   clickable: true,
   showButton: true,
-  cta: '\u0412\u0438\u0436 \u043f\u043e\u0432\u0435\u0447\u0435',
+  cta: 'Виж повече',
   type: 'horizontal',
   status: 'active',
-  icon: '\u{1F4F0}',
+  icon: '📰',
   link: '#',
   color: '#990F3D',
   image: '',
@@ -245,12 +245,12 @@ function normalizeAdForm(value) {
 
 function summarizeTargeting(ad, categoriesById, articlesById) {
   const parts = [];
-  if (ad.targeting?.pageTypes?.length) parts.push(`\u0422\u0438\u043f \u0441\u0442\u0440\u0430\u043d\u0438\u0446\u0430: ${ad.targeting.pageTypes.map((item) => PAGE_TYPE_LABELS[item] || item).join(', ')}`);
-  if (ad.targeting?.categoryIds?.length) parts.push(`\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0438: ${ad.targeting.categoryIds.map((id) => categoriesById.get(id)?.name || id).join(', ')}`);
-  if (ad.targeting?.articleIds?.length) parts.push(`\u0421\u0442\u0430\u0442\u0438\u0438: ${ad.targeting.articleIds.map((id) => articlesById.get(id)?.title || `#${id}`).join(', ')}`);
-  if (ad.targeting?.excludeArticleIds?.length) parts.push(`\u0418\u0437\u043a\u043b\u044e\u0447\u0438 \u0441\u0442\u0430\u0442\u0438\u0438: ${ad.targeting.excludeArticleIds.map((id) => articlesById.get(id)?.title || `#${id}`).join(', ')}`);
-  if (ad.targeting?.excludeCategoryIds?.length) parts.push(`\u0418\u0437\u043a\u043b\u044e\u0447\u0438 \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0438: ${ad.targeting.excludeCategoryIds.map((id) => categoriesById.get(id)?.name || id).join(', ')}`);
-  return parts.join(' | ') || '\u0411\u0435\u0437 \u0434\u043e\u043f\u044a\u043b\u043d\u0438\u0442\u0435\u043b\u043d\u0438 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0438\u044f.';
+  if (ad.targeting?.pageTypes?.length) parts.push(`Тип страница: ${ad.targeting.pageTypes.map((item) => PAGE_TYPE_LABELS[item] || item).join(', ')}`);
+  if (ad.targeting?.categoryIds?.length) parts.push(`Категории: ${ad.targeting.categoryIds.map((id) => categoriesById.get(id)?.name || id).join(', ')}`);
+  if (ad.targeting?.articleIds?.length) parts.push(`Статии: ${ad.targeting.articleIds.map((id) => articlesById.get(id)?.title || `#${id}`).join(', ')}`);
+  if (ad.targeting?.excludeArticleIds?.length) parts.push(`Изключи статии: ${ad.targeting.excludeArticleIds.map((id) => articlesById.get(id)?.title || `#${id}`).join(', ')}`);
+  if (ad.targeting?.excludeCategoryIds?.length) parts.push(`Изключи категории: ${ad.targeting.excludeCategoryIds.map((id) => categoriesById.get(id)?.name || id).join(', ')}`);
+  return parts.join(' | ') || 'Без допълнителни ограничения.';
 }
 
 function buildPreviewContext(slot, previewAd, articlesById) {
@@ -324,7 +324,7 @@ function buildCreativeRequirements(selectedTypeMeta, slotMeta, viewport) {
   const variant = selectedTypeMeta?.value || 'horizontal';
   const computed = computeSizesFromRatio(ratioLabel, variant);
   return {
-    label: viewport === 'mobile' ? '\u041c\u043e\u0431\u0438\u043b\u0435\u043d creative' : '\u0414\u0435\u0441\u043a\u0442\u043e\u043f creative',
+    label: viewport === 'mobile' ? 'Мобилен creative' : 'Десктоп creative',
     recommended: computed?.recommended || parseSizeLabel(selectedTypeMeta?.recommendedSize),
     minimum: computed?.minimum || parseSizeLabel(selectedTypeMeta?.minSize),
     ratioLabel,
@@ -422,7 +422,7 @@ export default function ManageAds() {
   const imageRequirements = useMemo(() => buildCreativeRequirements(selectedTypeMeta, previewSlotMeta, creativeViewport), [creativeViewport, previewSlotMeta, selectedTypeMeta]);
   const mobileCreativeWarning = useMemo(() => (
     form.image && !form.imageMobile && form.imagePlacement === 'cover'
-      ? '\u0418\u043c\u0430\u0448 \u0441\u0430\u043c\u043e desktop creative. \u041d\u0430 mobile \u0449\u0435 \u0441\u0435 \u043f\u043e\u043b\u0437\u0432\u0430 fallback \u043a\u044a\u043c \u0441\u044a\u0449\u0438\u044f banner, \u043d\u043e \u043f\u0440\u0435\u043f\u043e\u0440\u044a\u0447\u0432\u0430\u043c\u0435 \u043e\u0442\u0434\u0435\u043b\u0435\u043d mobile creative.'
+      ? 'Имаш само desktop creative. На mobile ще се ползва fallback към същия banner, но препоръчваме отделен mobile creative.'
       : ''
   ), [form.image, form.imageMobile, form.imagePlacement]);
 
@@ -446,8 +446,8 @@ export default function ManageAds() {
   ), [form.imagePlacement, form.type]);
   const imageHelperText = useMemo(() => (
     form.imagePlacement === 'cover'
-      ? `\u041f\u043e \u0436\u0435\u043b\u0430\u043d\u0438\u0435. ${creativeViewport === 'mobile' ? '\u041c\u043e\u0431\u0438\u043b\u043d\u0438\u044f\u0442' : '\u0414\u0435\u0441\u043a\u0442\u043e\u043f'} cover creative \u0449\u0435 \u0441\u0435 \u043f\u043e\u043a\u0430\u0437\u0432\u0430 \u0441 ratio ${imageRequirements.ratioLabel}.`
-      : `\u041f\u043e \u0436\u0435\u043b\u0430\u043d\u0438\u0435. \u0412 \u0440\u0435\u0436\u0438\u043c "\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433" \u043d\u0430\u0439-\u0434\u043e\u0431\u0440\u0435 \u0440\u0430\u0431\u043e\u0442\u0438 \u043a\u0432\u0430\u0434\u0440\u0430\u0442 \u043f\u043e\u043d\u0435 ${AD_CIRCLE_IMAGE_SIZE}.`
+      ? `По желание. ${creativeViewport === 'mobile' ? 'Мобилният' : 'Десктоп'} cover creative ще се показва с ratio ${imageRequirements.ratioLabel}.`
+      : `По желание. В режим "Икона / кръг" най-добре работи квадрат поне ${AD_CIRCLE_IMAGE_SIZE}.`
   ), [creativeViewport, form.imagePlacement, imageRequirements.ratioLabel]);
   const adsForPreview = useMemo(() => {
     if (!editing) return normalizedAds;
@@ -459,18 +459,18 @@ export default function ManageAds() {
     const resolution = explainAdResolution(adsForPreview, context);
     return { slot, message: resolution.resolvedAd && String(resolution.resolvedAd.id) === String(previewAd.id)
       ? ((resolution.rotationPool || []).length > 1
-        ? `\u0420\u043e\u0442\u0430\u0446\u0438\u044f \u0441 ${resolution.rotationPool.length - 1} \u0434\u0440\u0443\u0433\u0438 \u0440\u0435\u043a\u043b\u0430\u043c\u0438. Weight ${previewAd.weight}/${resolution.totalWeight}.`
-        : '\u0429\u0435 \u0441\u0435 \u043f\u043e\u043a\u0430\u0437\u0432\u0430 \u0441\u0430\u043c\u043e\u0441\u0442\u043e\u044f\u0442\u0435\u043b\u043d\u043e \u043d\u0430 \u0442\u043e\u0437\u0438 slot.')
-      : (resolution.resolvedAd ? '\u0412 \u0442\u043e\u0437\u0438 \u043f\u0440\u0438\u043c\u0435\u0440 \u043f\u0435\u0447\u0435\u043b\u0438 \u0434\u0440\u0443\u0433\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0430 \u0441 \u043f\u043e-\u0432\u0438\u0441\u043e\u043a priority \u0438\u043b\u0438 \u043f\u043e-\u0441\u043f\u0435\u0446\u0438\u0444\u0438\u0447\u0435\u043d targeting.' : '\u041d\u044f\u043c\u0430 \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d delivery \u0437\u0430 \u0442\u043e\u0437\u0438 context.') };
+        ? `Ротация с ${resolution.rotationPool.length - 1} други реклами. Weight ${previewAd.weight}/${resolution.totalWeight}.`
+        : 'Ще се показва самостоятелно на този slot.')
+      : (resolution.resolvedAd ? 'В този пример печели друга реклама с по-висок priority или по-специфичен targeting.' : 'Няма разрешен delivery за този context.') };
   }), [adsForPreview, articlesById, previewAd, selectedSlots]);
 
   const validationErrors = useMemo(() => {
     const errors = [];
-    if (!draftPayload.title) errors.push('\u0417\u0430\u0433\u043b\u0430\u0432\u0438\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.');
-    if (draftPayload.showButton !== false && !draftPayload.cta) errors.push('CTA \u0442\u0435\u043a\u0441\u0442\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.');
-    if (draftPayload.clickable !== false && (!draftPayload.link || draftPayload.link === '#')) errors.push('\u041b\u0438\u043d\u043a\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d \u0437\u0430 clickable \u0440\u0435\u043a\u043b\u0430\u043c\u0430.');
-    if (!draftPayload.placements.length) errors.push('\u0418\u0437\u0431\u0435\u0440\u0438 \u043f\u043e\u043d\u0435 \u0435\u0434\u043d\u0430 \u043f\u043e\u0437\u0438\u0446\u0438\u044f.');
-    if (draftPayload.startAt && draftPayload.endAt && new Date(draftPayload.startAt).getTime() > new Date(draftPayload.endAt).getTime()) errors.push('\u041d\u0430\u0447\u0430\u043b\u043d\u0430\u0442\u0430 \u0434\u0430\u0442\u0430 \u0442\u0440\u044f\u0431\u0432\u0430 \u0434\u0430 \u0435 \u043f\u0440\u0435\u0434\u0438 \u043a\u0440\u0430\u0439\u043d\u0430\u0442\u0430.');
+    if (!draftPayload.title) errors.push('Заглавието е задължително.');
+    if (draftPayload.showButton !== false && !draftPayload.cta) errors.push('CTA текстът е задължителен.');
+    if (draftPayload.clickable !== false && (!draftPayload.link || draftPayload.link === '#')) errors.push('Линкът е задължителен за clickable реклама.');
+    if (!draftPayload.placements.length) errors.push('Избери поне една позиция.');
+    if (draftPayload.startAt && draftPayload.endAt && new Date(draftPayload.startAt).getTime() > new Date(draftPayload.endAt).getTime()) errors.push('Началната дата трябва да е преди крайната.');
     return errors;
   }, [draftPayload]);
 
@@ -503,22 +503,22 @@ export default function ManageAds() {
     try {
       if (editing === 'new') {
         await addAd(draftPayload);
-        toast.success('\u0420\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u0435 \u0441\u044a\u0437\u0434\u0430\u0434\u0435\u043d\u0430.');
+        toast.success('Рекламата е създадена.');
       } else {
         await updateAd(editing, draftPayload);
-        toast.success('\u0420\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u0435 \u043e\u0431\u043d\u043e\u0432\u0435\u043d\u0430.');
+        toast.success('Рекламата е обновена.');
       }
       setEditing(null);
       setForm(normalizeAdForm(emptyForm));
     } catch (e) {
-      const message = e?.message || '\u0420\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u043d\u0435 \u043c\u043e\u0436\u0430 \u0434\u0430 \u0431\u044a\u0434\u0435 \u0437\u0430\u043f\u0430\u0437\u0435\u043d\u0430.';
+      const message = e?.message || 'Рекламата не можа да бъде запазена.';
       setError(message);
       toast.error(message);
     } finally { setSaving(false); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('\u0421\u0438\u0433\u0443\u0440\u0435\u043d \u043b\u0438 \u0441\u0438, \u0447\u0435 \u0438\u0441\u043a\u0430\u0448 \u0434\u0430 \u0438\u0437\u0442\u0440\u0438\u0435\u0448 \u0442\u0430\u0437\u0438 \u0440\u0435\u043a\u043b\u0430\u043c\u0430?')) return;
+    if (!confirm('Сигурен ли си, че искаш да изтриеш тази реклама?')) return;
     await deleteAd(id);
   };
 
@@ -526,8 +526,8 @@ export default function ManageAds() {
     <div className="p-8 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">{'\u0420\u0435\u043a\u043b\u0430\u043c\u0438'}</h1>
-          <p className="mt-1 text-sm text-gray-500">{'Slot-based \u0440\u0435\u043a\u043b\u0430\u043c\u0438 \u0441 targeting \u043f\u043e \u043f\u043e\u0437\u0438\u0446\u0438\u0438, \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0438 \u0438 \u0441\u0442\u0430\u0442\u0438\u0438.'}</p>
+          <h1 className="text-2xl font-display font-bold text-gray-900">{'Реклами'}</h1>
+          <p className="mt-1 text-sm text-gray-500">{'Slot-based реклами с targeting по позиции, категории и статии.'}</p>
           <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-gray-600">
             <span className="border border-gray-200 bg-gray-100 px-2 py-1">Analytics {analyticsSummary.days}d</span>
             <span className="border border-gray-200 bg-gray-100 px-2 py-1">Impressions: {analyticsSummary.loading ? '...' : analyticsSummary.totals.impressions}</span>
@@ -537,7 +537,7 @@ export default function ManageAds() {
         </div>
         <button onClick={() => { setError(''); setEditing('new'); setCreativeViewport('desktop'); setForm(normalizeAdForm(emptyForm)); }} className="flex items-center gap-2 bg-zn-purple px-4 py-2 text-sm font-semibold text-white hover:bg-zn-purple-dark">
           <Plus className="h-4 w-4" />
-          {'\u041d\u043e\u0432\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0430'}
+          {'Нова реклама'}
         </button>
       </div>
 
@@ -651,14 +651,14 @@ export default function ManageAds() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_0.9fr]">
           <div className="space-y-6 border border-gray-200 bg-white p-6">
             <div>
-              <h2 className="font-semibold text-gray-900">{editing === 'new' ? '\u041d\u043e\u0432\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0430' : '\u0420\u0435\u0434\u0430\u043a\u0446\u0438\u044f \u043d\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0430'}</h2>
+              <h2 className="font-semibold text-gray-900">{editing === 'new' ? 'Нова реклама' : 'Редакция на реклама'}</h2>
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div><label className={labelCls}>{'\u041a\u0430\u043c\u043f\u0430\u043d\u0438\u044f'}</label><input className={inputCls} value={form.campaignName} onChange={(e) => setForm({ ...form, campaignName: e.target.value })} placeholder="Spring launch" /></div>
-              <div><label className={labelCls}>{'\u0421\u0442\u0430\u0442\u0443\u0441'}</label><select className={inputCls} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{AD_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{AD_STATUS_LABELS[status] || status}</option>)}</select></div>
-              <div><label className={labelCls}>{'\u0417\u0430\u0433\u043b\u0430\u0432\u0438\u0435'}</label><input className={inputCls} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={'\u041d\u043e\u0432 \u043f\u0440\u043e\u0434\u0443\u043a\u0442'} /></div>
-              <div><label className={labelCls}>{'\u041f\u043e\u0434\u0437\u0430\u0433\u043b\u0430\u0432\u0438\u0435'}</label><input className={inputCls} value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} placeholder={'\u041a\u0440\u0430\u0442\u044a\u043a \u0442\u0435\u043a\u0441\u0442'} /></div>
+              <div><label className={labelCls}>{'Кампания'}</label><input className={inputCls} value={form.campaignName} onChange={(e) => setForm({ ...form, campaignName: e.target.value })} placeholder="Spring launch" /></div>
+              <div><label className={labelCls}>{'Статус'}</label><select className={inputCls} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{AD_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{AD_STATUS_LABELS[status] || status}</option>)}</select></div>
+              <div><label className={labelCls}>{'Заглавие'}</label><input className={inputCls} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={'Нов продукт'} /></div>
+              <div><label className={labelCls}>{'Подзаглавие'}</label><input className={inputCls} value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} placeholder={'Кратък текст'} /></div>
               <div className="md:col-span-2 rounded-xl border border-gray-200 bg-[#fbfaf7] px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -677,54 +677,54 @@ export default function ManageAds() {
               <div className="md:col-span-2 rounded-xl border border-gray-200 bg-[#fbfaf7] px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <label className={labelCls}>{'Clickable \u0440\u0435\u043a\u043b\u0430\u043c\u0430'}</label>
-                    <p className="text-sm text-gray-600">{'\u0410\u043a\u043e \u0435 \u0432\u043a\u043b\u044e\u0447\u0435\u043d\u043e, \u0446\u0435\u043b\u0438\u044f\u0442 \u0431\u0430\u043d\u0435\u0440 \u0432\u043e\u0434\u0438 \u043a\u044a\u043c link. \u0410\u043a\u043e \u0435 \u0438\u0437\u043a\u043b\u044e\u0447\u0435\u043d\u043e, \u0440\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u043e\u0441\u0442\u0430\u0432\u0430 \u0441\u0442\u0430\u0442\u0438\u0447\u043d\u0430.'}</p>
+                    <label className={labelCls}>{'Clickable реклама'}</label>
+                    <p className="text-sm text-gray-600">{'Ако е включено, целият банер води към link. Ако е изключено, рекламата остава статична.'}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setForm((prev) => prev.clickable ? { ...prev, clickable: false, showButton: false } : { ...prev, clickable: true })}
                     className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${form.clickable ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'}`}
                   >
-                    {form.clickable ? 'Clickable \u0435 \u0432\u043a\u043b\u044e\u0447\u0435\u043d\u043e' : 'Static \u0431\u0435\u0437 link'}
+                    {form.clickable ? 'Clickable е включено' : 'Static без link'}
                   </button>
                 </div>
               </div>
               <div className="md:col-span-2 rounded-xl border border-gray-200 bg-[#fbfaf7] px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <label className={labelCls}>{'CTA \u0431\u0443\u0442\u043e\u043d'}</label>
-                    <p className="text-sm text-gray-600">{'\u0411\u0443\u0442\u043e\u043d\u044a\u0442 \u0435 \u0441\u0430\u043c\u043e \u0432\u0438\u0437\u0443\u0430\u043b\u0435\u043d \u0435\u043b\u0435\u043c\u0435\u043d\u0442. \u041c\u043e\u0436\u0435 \u0434\u0430 \u0433\u043e \u0441\u043a\u0440\u0438\u0435\u0448 \u0438 \u043f\u0430\u043a \u0434\u0430 \u043e\u0441\u0442\u0430\u0432\u0438\u0448 clickable banner.'}</p>
+                    <label className={labelCls}>{'CTA бутон'}</label>
+                    <p className="text-sm text-gray-600">{'Бутонът е само визуален елемент. Може да го скриеш и пак да оставиш clickable banner.'}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setForm((prev) => prev.showButton ? { ...prev, showButton: false } : { ...prev, clickable: true, showButton: true })}
                     className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${form.showButton ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'}`}
                   >
-                    {form.showButton ? '\u0411\u0443\u0442\u043e\u043d\u044a\u0442 \u0435 \u0432\u0438\u0434\u0438\u043c' : '\u0411\u0435\u0437 CTA \u0431\u0443\u0442\u043e\u043d'}
+                    {form.showButton ? 'Бутонът е видим' : 'Без CTA бутон'}
                   </button>
                 </div>
               </div>
               {form.showButton ? (
-                <div><label className={labelCls}>CTA</label><input className={inputCls} value={form.cta} onChange={(e) => setForm({ ...form, cta: e.target.value })} placeholder={'\u0412\u0438\u0436 \u043f\u043e\u0432\u0435\u0447\u0435'} /></div>
+                <div><label className={labelCls}>CTA</label><input className={inputCls} value={form.cta} onChange={(e) => setForm({ ...form, cta: e.target.value })} placeholder={'Виж повече'} /></div>
               ) : (
-                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">{'\u0411\u0430\u043d\u0435\u0440\u044a\u0442 \u0449\u0435 \u0441\u0435 \u043f\u043e\u043a\u0430\u0437\u0432\u0430 \u0431\u0435\u0437 CTA \u0431\u0443\u0442\u043e\u043d, \u043d\u043e \u043c\u043e\u0436\u0435 \u0434\u0430 \u043e\u0441\u0442\u0430\u043d\u0435 clickable.'}</div>
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">{'Банерът ще се показва без CTA бутон, но може да остане clickable.'}</div>
               )}
-              <div><label className={labelCls}>{'\u0422\u0438\u043f \u0431\u0430\u043d\u0435\u0440'}</label><select className={inputCls} value={form.type} onChange={(e) => { const nextType = e.target.value; setForm((prev) => ({ ...prev, type: nextType, placements: prev.placements.filter((slotId) => AD_SLOT_DEFINITIONS.find((slot) => slot.id === slotId)?.variant === nextType) })); }}>{AD_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select><p className="mt-1 text-[11px] text-gray-500">{AD_TYPES.find((item) => item.value === form.type)?.description}</p></div>
+              <div><label className={labelCls}>{'Тип банер'}</label><select className={inputCls} value={form.type} onChange={(e) => { const nextType = e.target.value; setForm((prev) => ({ ...prev, type: nextType, placements: prev.placements.filter((slotId) => AD_SLOT_DEFINITIONS.find((slot) => slot.id === slotId)?.variant === nextType) })); }}>{AD_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select><p className="mt-1 text-[11px] text-gray-500">{AD_TYPES.find((item) => item.value === form.type)?.description}</p></div>
               {form.clickable ? (
-                <div className="md:col-span-2"><label className={labelCls}>{'\u041b\u0438\u043d\u043a'}</label><input className={inputCls} value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} placeholder="https://example.com" /></div>
+                <div className="md:col-span-2"><label className={labelCls}>{'Линк'}</label><input className={inputCls} value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} placeholder="https://example.com" /></div>
               ) : (
-                <div className="md:col-span-2 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">{'\u041b\u0438\u043d\u043a\u044a\u0442 \u0441\u0435 \u0438\u0433\u043d\u043e\u0440\u0438\u0440\u0430, \u0434\u043e\u043a\u0430\u0442\u043e \u0440\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u0435 static.'}</div>
+                <div className="md:col-span-2 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">{'Линкът се игнорира, докато рекламата е static.'}</div>
               )}
-              <div><label className={labelCls}>{'\u0426\u0432\u044f\u0442'}</label><div className="flex items-center gap-2"><input type="color" className="h-10 w-10 border border-gray-200" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /><input className={`${inputCls} flex-1`} value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div></div>
-              <div><label className={labelCls}>{'\u0418\u043a\u043e\u043d\u0430'}</label><div className="flex flex-wrap gap-1.5">{AD_ICONS.map((icon) => <button key={icon} type="button" onClick={() => setForm({ ...form, icon })} className={`flex h-10 w-10 items-center justify-center border text-xl ${form.icon === icon ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200'}`}>{icon}</button>)}</div></div>
+              <div><label className={labelCls}>{'Цвят'}</label><div className="flex items-center gap-2"><input type="color" className="h-10 w-10 border border-gray-200" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /><input className={`${inputCls} flex-1`} value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></div></div>
+              <div><label className={labelCls}>{'Икона'}</label><div className="flex flex-wrap gap-1.5">{AD_ICONS.map((icon) => <button key={icon} type="button" onClick={() => setForm({ ...form, icon })} className={`flex h-10 w-10 items-center justify-center border text-xl ${form.icon === icon ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200'}`}>{icon}</button>)}</div></div>
               <div className="md:col-span-2 rounded-2xl border border-gray-200 bg-[#fbfaf7] p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Creative sets</p>
-                    <p className="mt-1 text-sm text-gray-600">\u0414\u0435\u0441\u043a\u0442\u043e\u043f \u0438 mobile \u0432\u0438\u0437\u0438\u0438 \u0437\u0430 \u0435\u0434\u043d\u0430 \u0438 \u0441\u044a\u0449\u0430 ad \u043a\u0430\u043c\u043f\u0430\u043d\u0438\u044f.</p>
+                    <p className="mt-1 text-sm text-gray-600">Десктоп и mobile визии за една и съща ad кампания.</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {[['desktop', '\u0414\u0435\u0441\u043a\u0442\u043e\u043f'], ['mobile', 'Mobile']].map(([value, label]) => (
+                    {[['desktop', 'Десктоп'], ['mobile', 'Mobile']].map(([value, label]) => (
                       <button
                         key={value}
                         type="button"
@@ -738,7 +738,7 @@ export default function ManageAds() {
                 </div>
                 <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
                   <AdminImageField
-                    label={'\u0414\u0435\u0441\u043a\u0442\u043e\u043f creative'}
+                    label={'Десктоп creative'}
                     value={form.image}
                     onChange={(nextValue) => setForm((prev) => ({
                       ...prev,
@@ -750,7 +750,7 @@ export default function ManageAds() {
                       ...prev,
                       imageMeta: normalizeAdImageMeta(nextMeta),
                     }))}
-                    helperText={form.imagePlacement === 'cover' ? '\u0428\u0438\u0440\u043e\u043a\u0430\u0442\u0430 \u0432\u0435\u0440\u0441\u0438\u044f \u0437\u0430 \u0434\u0435\u0441\u043a\u0442\u043e\u043f slot-\u043e\u0432\u0435\u0442\u0435.' : imageHelperText}
+                    helperText={form.imagePlacement === 'cover' ? 'Широката версия за десктоп slot-овете.' : imageHelperText}
                     previewClassName="h-36"
                     editorAspectPresets={editorAspectPresets}
                     defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
@@ -770,7 +770,7 @@ export default function ManageAds() {
                       ...prev,
                       imageMetaMobile: normalizeAdImageMeta(nextMeta),
                     }))}
-                    helperText={form.imagePlacement === 'cover' ? '\u041e\u043f\u0446\u0438\u043e\u043d\u0430\u043b\u043d\u043e, \u043d\u043e \u0441\u0438\u043b\u043d\u043e \u043f\u0440\u0435\u043f\u043e\u0440\u044a\u0447\u0438\u0442\u0435\u043b\u043d\u043e \u0437\u0430 mobile ratio fallback-\u0438.' : imageHelperText}
+                    helperText={form.imagePlacement === 'cover' ? 'Опционално, но силно препоръчително за mobile ratio fallback-и.' : imageHelperText}
                     previewClassName="h-36"
                     editorAspectPresets={editorAspectPresets}
                     defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
@@ -784,13 +784,13 @@ export default function ManageAds() {
                   </div>
                 )}
               </div>
-              <div><label className={labelCls}>{'\u0418\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 \u0432 \u0431\u0430\u043d\u0435\u0440\u0430'}</label><select className={inputCls} value={form.imagePlacement} onChange={(e) => setForm({ ...form, imagePlacement: e.target.value })}>{AD_IMAGE_PLACEMENTS.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></div>
+              <div><label className={labelCls}>{'Изображение в банера'}</label><select className={inputCls} value={form.imagePlacement} onChange={(e) => setForm({ ...form, imagePlacement: e.target.value })}>{AD_IMAGE_PLACEMENTS.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select></div>
               <div><label className={labelCls}>Fit mode</label><select className={inputCls} value={form.fitMode} onChange={(e) => setForm({ ...form, fitMode: e.target.value })}>{AD_FIT_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</select><p className="mt-1 text-[11px] text-gray-500">{AD_FIT_MODES.find((mode) => mode.value === form.fitMode)?.description}</p></div>
               <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">{'\u041f\u0440\u0435\u043f\u043e\u0440\u044a\u0447\u0438\u0442\u0435\u043b\u0435\u043d \u0440\u0430\u0437\u043c\u0435\u0440'}</p>
-                    <p className="mt-1 text-sm font-semibold text-gray-900">{`${creativeViewport === 'mobile' ? 'Mobile' : '\u0414\u0435\u0441\u043a\u0442\u043e\u043f'} • ${selectedTypeMeta.label}`}</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">{'Препоръчителен размер'}</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{`${creativeViewport === 'mobile' ? 'Mobile' : 'Десктоп'} • ${selectedTypeMeta.label}`}</p>
                   </div>
                   <span className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">
                     {`Ratio ${imageRequirements.ratioLabel}`}
@@ -798,22 +798,22 @@ export default function ManageAds() {
                 </div>
                 <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-gray-700 sm:grid-cols-3">
                   <div className="rounded-lg border border-white bg-white/85 px-3 py-2">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'\u0411\u0430\u043d\u0435\u0440'}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'Банер'}</div>
                     <div className="mt-1 font-semibold text-gray-900">{imageRequirements.recommended ? `${imageRequirements.recommended.width} x ${imageRequirements.recommended.height} px` : selectedTypeMeta.recommendedSize}</div>
                   </div>
                   <div className="rounded-lg border border-white bg-white/85 px-3 py-2">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'\u041c\u0438\u043d\u0438\u043c\u0443\u043c'}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'Минимум'}</div>
                     <div className="mt-1 font-semibold text-gray-900">{imageRequirements.minimum ? `${imageRequirements.minimum.width} x ${imageRequirements.minimum.height} px` : selectedTypeMeta.minSize}</div>
                   </div>
                   <div className="rounded-lg border border-white bg-white/85 px-3 py-2">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433'}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'Икона / кръг'}</div>
                     <div className="mt-1 font-semibold text-gray-900">{AD_CIRCLE_IMAGE_SIZE}</div>
                   </div>
                 </div>
                 <p className="mt-3 text-[11px] text-amber-900">
                   {form.imagePlacement === 'cover'
-                    ? '\u041f\u0440\u0438 cover \u0444\u043e\u043d \u0434\u0440\u044a\u0436 \u0432\u0430\u0436\u043d\u0438\u044f \u0442\u0435\u043a\u0441\u0442 \u0438 \u043b\u043e\u0433\u043e\u0442\u043e \u0432 \u0446\u0435\u043d\u0442\u0440\u0430\u043b\u043d\u0430\u0442\u0430 \u0437\u043e\u043d\u0430, \u0437\u0430\u0449\u043e\u0442\u043e \u0431\u0430\u043d\u0435\u0440\u044a\u0442 \u0441\u0435 \u0440\u0435\u0436\u0435 \u043d\u0430 \u0440\u0430\u0437\u043b\u0438\u0447\u043d\u0438 \u0435\u043a\u0440\u0430\u043d\u0438.'
-                    : '\u041f\u0440\u0438 \u0440\u0435\u0436\u0438\u043c "\u0418\u043a\u043e\u043d\u0430 / \u043a\u0440\u044a\u0433" \u043d\u0430\u0439-\u0434\u043e\u0431\u0440\u0435 \u0440\u0430\u0431\u043e\u0442\u0438 \u043a\u0432\u0430\u0434\u0440\u0430\u0442\u043d\u043e \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u0435 \u0431\u0435\u0437 \u0434\u0440\u0435\u0431\u043d\u0438 \u0434\u0435\u0442\u0430\u0439\u043b\u0438 \u043f\u043e \u043a\u0440\u0430\u0438\u0449\u0430\u0442\u0430.'}
+                    ? 'При cover фон дръж важния текст и логото в централната зона, защото банерът се реже на различни екрани.'
+                    : 'При режим "Икона / кръг" най-добре работи квадратно изображение без дребни детайли по краищата.'}
                 </p>
               </div>
             </div>
@@ -915,46 +915,46 @@ export default function ManageAds() {
             )}
 
             <div className="border-t border-gray-200 pt-5">
-              <div className="mb-3"><h3 className="font-semibold text-gray-900">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</h3><p className="mt-1 text-xs text-gray-500">{'\u0418\u0437\u0431\u0435\u0440\u0438 slot-\u043e\u0432\u0435\u0442\u0435, \u0432 \u043a\u043e\u0438\u0442\u043e \u0440\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u043c\u043e\u0436\u0435 \u0434\u0430 \u0443\u0447\u0430\u0441\u0442\u0432\u0430.'}</p></div>
-              <div className="space-y-4">{AD_PAGE_TYPES.map((pageType) => <div key={pageType} className="border border-gray-200 p-4"><p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">{PAGE_TYPE_LABELS[pageType]}</p><div className="space-y-2">{AD_SLOT_DEFINITIONS.filter((slot) => slot.pageType === pageType).map((slot) => { const checked = form.placements.includes(slot.id); const disabled = slot.variant !== form.type; return <label key={slot.id} className={`flex items-start gap-3 border p-3 ${checked ? 'border-zn-purple bg-zn-purple/5' : 'border-gray-200'} ${disabled ? 'opacity-40' : ''}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => handleToggle('placements', slot.id)} className="mt-1" /><span><span className="block text-sm font-semibold text-gray-900">{slot.label}</span><span className="block text-xs text-gray-500">{slot.description}</span><span className="mt-1 block text-[11px] text-gray-400">{'\u0424\u043e\u0440\u043c\u0430\u0442: '}{AD_TYPE_LABELS[slot.variant]}</span></span></label>; })}</div></div>)}</div>
+              <div className="mb-3"><h3 className="font-semibold text-gray-900">{'Позиции'}</h3><p className="mt-1 text-xs text-gray-500">{'Избери slot-овете, в които рекламата може да участва.'}</p></div>
+              <div className="space-y-4">{AD_PAGE_TYPES.map((pageType) => <div key={pageType} className="border border-gray-200 p-4"><p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">{PAGE_TYPE_LABELS[pageType]}</p><div className="space-y-2">{AD_SLOT_DEFINITIONS.filter((slot) => slot.pageType === pageType).map((slot) => { const checked = form.placements.includes(slot.id); const disabled = slot.variant !== form.type; return <label key={slot.id} className={`flex items-start gap-3 border p-3 ${checked ? 'border-zn-purple bg-zn-purple/5' : 'border-gray-200'} ${disabled ? 'opacity-40' : ''}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => handleToggle('placements', slot.id)} className="mt-1" /><span><span className="block text-sm font-semibold text-gray-900">{slot.label}</span><span className="block text-xs text-gray-500">{slot.description}</span><span className="mt-1 block text-[11px] text-gray-400">{'Формат: '}{AD_TYPE_LABELS[slot.variant]}</span></span></label>; })}</div></div>)}</div>
             </div>
 
             <div className="border-t border-gray-200 pt-5">
-              <div className="mb-3"><h3 className="font-semibold text-gray-900">Targeting</h3><p className="mt-1 text-xs text-gray-500">{'\u041e\u0441\u0442\u0430\u0432\u0438 \u043f\u0440\u0430\u0437\u043d\u043e \u0437\u0430 \u0448\u0438\u0440\u043e\u043a delivery, \u0438\u043b\u0438 \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0438 \u043f\u043e page type, \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0438 \u0438 \u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u0438 \u0441\u0442\u0430\u0442\u0438\u0438.'}</p></div>
+              <div className="mb-3"><h3 className="font-semibold text-gray-900">Targeting</h3><p className="mt-1 text-xs text-gray-500">{'Остави празно за широк delivery, или ограничи по page type, категории и конкретни статии.'}</p></div>
               <div className="space-y-4">
                 <div><label className={labelCls}>Page types</label><div className="flex flex-wrap gap-2">{AD_PAGE_TYPES.map((pageType) => <button key={pageType} type="button" onClick={() => handleToggle('pageTypes', pageType)} className={`px-3 py-1.5 border text-xs font-semibold uppercase tracking-wider ${form.pageTypes.includes(pageType) ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-200 text-gray-700'}`}>{PAGE_TYPE_LABELS[pageType]}</button>)}</div></div>
-                <div><label className={labelCls}>{'\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u0438'}</label><div className="flex flex-wrap gap-2">{(Array.isArray(categories) ? categories : []).filter((category) => category.id !== 'all').map((category) => <button key={category.id} type="button" onClick={() => handleToggle('categoryIds', category.id)} className={`px-3 py-1.5 border text-xs font-semibold ${form.categoryIds.includes(category.id) ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-200 text-gray-700'}`}>{category.name}</button>)}</div></div>
+                <div><label className={labelCls}>{'Категории'}</label><div className="flex flex-wrap gap-2">{(Array.isArray(categories) ? categories : []).filter((category) => category.id !== 'all').map((category) => <button key={category.id} type="button" onClick={() => handleToggle('categoryIds', category.id)} className={`px-3 py-1.5 border text-xs font-semibold ${form.categoryIds.includes(category.id) ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-200 text-gray-700'}`}>{category.name}</button>)}</div></div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
   <div>
     <label className={labelCls}>Article IDs</label>
     <input className={inputCls} value={form.articleIdsInput} onChange={(e) => setForm({ ...form, articleIdsInput: e.target.value })} placeholder="12, 25, 108" />
-    {selectedArticleIds.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{selectedArticleIds.map((id) => <span key={id} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">#{id} {articlesById.get(id)?.title || '\u041d\u0435\u043f\u043e\u0437\u043d\u0430\u0442\u0430 \u0441\u0442\u0430\u0442\u0438\u044f'}</span>)}</div>}
+    {selectedArticleIds.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{selectedArticleIds.map((id) => <span key={id} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">#{id} {articlesById.get(id)?.title || 'Непозната статия'}</span>)}</div>}
   </div>
   <div>
     <label className={labelCls}>Exclude article IDs</label>
     <input className={inputCls} value={form.excludeArticleIdsInput} onChange={(e) => setForm({ ...form, excludeArticleIdsInput: e.target.value })} placeholder="45, 77" />
-    <p className="mt-1 text-[11px] text-gray-500">{'\u0410\u043a\u043e \u0441\u0442\u0430\u0442\u0438\u044f\u0442\u0430 \u0435 \u0432 \u0442\u043e\u0437\u0438 \u0441\u043f\u0438\u0441\u044a\u043a, \u0440\u0435\u043a\u043b\u0430\u043c\u0430\u0442\u0430 \u043d\u044f\u043c\u0430 \u0434\u0430 \u0441\u0435 \u043f\u043e\u043a\u0430\u0436\u0435.'}</p>
+    <p className="mt-1 text-[11px] text-gray-500">{'Ако статията е в този списък, рекламата няма да се покаже.'}</p>
   </div>
   <div className="md:col-span-2">
     <label className={labelCls}>Exclude category IDs</label>
     <input className={inputCls} value={form.excludeCategoryIdsInput} onChange={(e) => setForm({ ...form, excludeCategoryIdsInput: e.target.value })} placeholder="crime, business" />
-    <p className="mt-1 text-[11px] text-gray-500">{'\u0410\u043a\u043e \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f\u0442\u0430 \u0441\u044a\u0432\u043f\u0430\u0434\u043d\u0435, \u0442\u043e\u0437\u0438 ad \u0441\u0435 \u0438\u0437\u043a\u043b\u044e\u0447\u0432\u0430 \u043e\u0442 delivery-\u0442\u043e.'}</p>
+    <p className="mt-1 text-[11px] text-gray-500">{'Ако категорията съвпадне, този ad се изключва от delivery-то.'}</p>
   </div>
 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 border-t border-gray-200 pt-5 md:grid-cols-2">
-              <div><label className={labelCls}>Priority</label><input type="number" className={inputCls} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} /><p className="mt-1 text-[11px] text-gray-500">{'\u041f\u043e-\u0432\u0438\u0441\u043e\u043a\u0430\u0442\u0430 \u0441\u0442\u043e\u0439\u043d\u043e\u0441\u0442 \u043f\u0435\u0447\u0435\u043b\u0438 \u043d\u0430\u0434 \u043f\u043e-\u043d\u0438\u0441\u043a\u0430\u0442\u0430 \u043d\u0430 \u0441\u044a\u0449\u0438\u044f slot.'}</p></div>
-              <div><label className={labelCls}>Weight</label><input type="number" min="1" className={inputCls} value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} /><p className="mt-1 text-[11px] text-gray-500">{'Weight \u0432\u043b\u0438\u044f\u0435 \u0441\u0430\u043c\u043e \u0430\u043a\u043e \u0438\u043c\u0430 \u0440\u043e\u0442\u0430\u0446\u0438\u044f.'}</p></div>
+              <div><label className={labelCls}>Priority</label><input type="number" className={inputCls} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} /><p className="mt-1 text-[11px] text-gray-500">{'По-високата стойност печели над по-ниската на същия slot.'}</p></div>
+              <div><label className={labelCls}>Weight</label><input type="number" min="1" className={inputCls} value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} /><p className="mt-1 text-[11px] text-gray-500">{'Weight влияе само ако има ротация.'}</p></div>
               <div><label className={labelCls}>Start</label><input type="datetime-local" className={inputCls} value={form.startAt} onChange={(e) => setForm({ ...form, startAt: e.target.value })} /></div>
               <div><label className={labelCls}>End</label><input type="datetime-local" className={inputCls} value={form.endAt} onChange={(e) => setForm({ ...form, endAt: e.target.value })} /></div>
-              <div className="md:col-span-2"><label className={labelCls}>{'\u0411\u0435\u043b\u0435\u0436\u043a\u0438'}</label><textarea className={`${inputCls} min-h-[110px]`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder={'\u0412\u044a\u0442\u0440\u0435\u0448\u043d\u0438 \u0431\u0435\u043b\u0435\u0436\u043a\u0438 \u0437\u0430 \u0435\u043a\u0438\u043f\u0430'} /></div>
+              <div className="md:col-span-2"><label className={labelCls}>{'Бележки'}</label><textarea className={`${inputCls} min-h-[110px]`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder={'Вътрешни бележки за екипа'} /></div>
             </div>
 
             <div className="flex gap-2 pt-2">
-              <button onClick={handleSave} disabled={saving || validationErrors.length > 0} className="flex items-center gap-2 bg-zn-purple px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{saving ? '\u0417\u0430\u043f\u0438\u0441\u0432\u0430\u043d\u0435...' : '\u0417\u0430\u043f\u0430\u0437\u0438'}</button>
-              <button onClick={() => { setEditing(null); setError(''); }} className="flex items-center gap-2 border border-gray-200 px-5 py-2 text-sm text-gray-600"><X className="h-4 w-4" />{'\u041e\u0442\u043a\u0430\u0437'}</button>
+              <button onClick={handleSave} disabled={saving || validationErrors.length > 0} className="flex items-center gap-2 bg-zn-purple px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{saving ? 'Записване...' : 'Запази'}</button>
+              <button onClick={() => { setEditing(null); setError(''); }} className="flex items-center gap-2 border border-gray-200 px-5 py-2 text-sm text-gray-600"><X className="h-4 w-4" />{'Отказ'}</button>
             </div>
           </div>
 
@@ -995,10 +995,10 @@ export default function ManageAds() {
                 <div className="rounded-2xl border border-dashed border-gray-200 bg-[#fbfaf7] p-4 text-xs text-gray-600">
                   <p className="font-semibold uppercase tracking-wider text-gray-500">Creative delivery</p>
                   <div className="mt-3 space-y-2">
-                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Desktop: {previewAd.imageDesktop || previewAd.image ? '\u0418\u043c\u0430 creative' : '\u041d\u044f\u043c\u0430 creative'}</div>
-                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Mobile: {previewAd.imageMobile ? '\u041e\u0442\u0434\u0435\u043b\u0435\u043d mobile creative' : '\u0429\u0435 \u043f\u0430\u0434\u043d\u0435 \u043a\u044a\u043c desktop fallback'}</div>
+                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Desktop: {previewAd.imageDesktop || previewAd.image ? 'Има creative' : 'Няма creative'}</div>
+                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Mobile: {previewAd.imageMobile ? 'Отделен mobile creative' : 'Ще падне към desktop fallback'}</div>
                     <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Fit mode: {form.fitMode}</div>
-                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Active editor: {creativeViewport === 'mobile' ? 'Mobile' : '\u0414\u0435\u0441\u043a\u0442\u043e\u043f'}</div>
+                    <div className="rounded-xl border border-gray-200 bg-white px-3 py-2">Active editor: {creativeViewport === 'mobile' ? 'Mobile' : 'Десктоп'}</div>
                   </div>
                 </div>
               </div>
@@ -1023,7 +1023,7 @@ export default function ManageAds() {
             </div>
 
             <div className="border border-gray-200 bg-white p-4">
-              <div className="mb-3 flex items-center gap-2"><Info className="h-4 w-4 text-gray-500" /><p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'\u041a\u0430\u043a \u0440\u0430\u0431\u043e\u0442\u0438'}</p></div>
+              <div className="mb-3 flex items-center gap-2"><Info className="h-4 w-4 text-gray-500" /><p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{'Как работи'}</p></div>
               <div className="space-y-2 text-sm text-gray-600">{DELIVERY_RULES.map((rule) => <div key={rule} className="border border-gray-200 bg-gray-50 px-3 py-2">{rule}</div>)}</div>
               {slotPreview.length > 0 && <div className="mt-4 space-y-2">{slotPreview.map(({ slot, message }) => <div key={slot.id} className="border border-gray-200 px-3 py-2 text-sm text-gray-600"><div className="font-semibold text-gray-900">{slot.label}</div><div className="mt-1">{message}</div></div>)}</div>}
             </div>
@@ -1034,9 +1034,9 @@ export default function ManageAds() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {normalizedAds.map((ad) => {
           const metrics = analyticsByAdId.get(Number(ad.id)) || { impressions: 0, clicks: 0, ctr: 0, lastImpressionAt: null, lastClickAt: null };
-          return <div key={ad.id} className="border border-gray-200 bg-white"><div className="relative overflow-hidden p-4 text-white" style={{ backgroundColor: ad.color || '#990F3D' }}>{ad.image && <img src={ad.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${ad.imagePlacement === 'cover' ? 'opacity-100' : 'opacity-30'}`} style={getAdAdminCardImageStyle(ad)} />}<div className="relative z-10 flex items-center gap-2"><span className="text-xl">{ad.icon}</span><div><p className="text-sm font-bold">{ad.campaignName || ad.title}</p><p className="text-xs opacity-90">{ad.subtitle}</p></div></div>{ad.showButton !== false && ad.clickable !== false ? <span className="relative z-10 mt-3 inline-block bg-white/20 px-3 py-1 text-xs font-semibold">{ad.cta}</span> : <span className="relative z-10 mt-3 inline-block bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">{'\u0411\u0435\u0437 \u0431\u0443\u0442\u043e\u043d'}</span>}</div><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider"><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_TYPE_LABELS[ad.type] || ad.type}</span><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_STATUS_LABELS[ad.status] || ad.status}</span><span className="bg-blue-100 px-1.5 py-0.5 text-blue-700">P {ad.priority}</span><span className="bg-violet-100 px-1.5 py-0.5 text-violet-700">W {ad.weight}</span>{ad.clickable !== false && ad.link && ad.link !== '#' && <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-zn-hot"><ExternalLink className="h-3.5 w-3.5" /></a>}{ad.image && <span className="bg-purple-100 px-1.5 py-0.5 text-purple-700"><ImageIcon className="mr-0.5 inline h-3 w-3" />media</span>}</div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{'\u041f\u043e\u0437\u0438\u0446\u0438\u0438'}</p><div className="flex flex-wrap gap-1.5">{ad.placements.map((placement) => <span key={placement} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">{AD_SLOT_DEFINITIONS.find((slot) => slot.id === placement)?.label || placement}</span>)}</div></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Targeting</p><p className="text-sm text-gray-600">{summarizeTargeting(ad, categoriesById, articlesById)}</p></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Analytics</p><div className="grid grid-cols-3 gap-2 text-xs text-gray-600"><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Impr.</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.impressions}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Clicks</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.clicks}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">CTR</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : `${metrics.ctr}%`}</div></div></div></div><div className="flex items-center gap-1 border-t border-gray-100 pt-2"><button onClick={() => { setError(''); setEditing(ad.id); setCreativeViewport('desktop'); setForm(normalizeAdForm(ad)); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="h-4 w-4" /></button><button onClick={() => handleDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div></div>;
+          return <div key={ad.id} className="border border-gray-200 bg-white"><div className="relative overflow-hidden p-4 text-white" style={{ backgroundColor: ad.color || '#990F3D' }}>{ad.image && <img src={ad.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${ad.imagePlacement === 'cover' ? 'opacity-100' : 'opacity-30'}`} style={getAdAdminCardImageStyle(ad)} />}<div className="relative z-10 flex items-center gap-2"><span className="text-xl">{ad.icon}</span><div><p className="text-sm font-bold">{ad.campaignName || ad.title}</p><p className="text-xs opacity-90">{ad.subtitle}</p></div></div>{ad.showButton !== false && ad.clickable !== false ? <span className="relative z-10 mt-3 inline-block bg-white/20 px-3 py-1 text-xs font-semibold">{ad.cta}</span> : <span className="relative z-10 mt-3 inline-block bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">{'Без бутон'}</span>}</div><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider"><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_TYPE_LABELS[ad.type] || ad.type}</span><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_STATUS_LABELS[ad.status] || ad.status}</span><span className="bg-blue-100 px-1.5 py-0.5 text-blue-700">P {ad.priority}</span><span className="bg-violet-100 px-1.5 py-0.5 text-violet-700">W {ad.weight}</span>{ad.clickable !== false && ad.link && ad.link !== '#' && <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-zn-hot"><ExternalLink className="h-3.5 w-3.5" /></a>}{ad.image && <span className="bg-purple-100 px-1.5 py-0.5 text-purple-700"><ImageIcon className="mr-0.5 inline h-3 w-3" />media</span>}</div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{'Позиции'}</p><div className="flex flex-wrap gap-1.5">{ad.placements.map((placement) => <span key={placement} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">{AD_SLOT_DEFINITIONS.find((slot) => slot.id === placement)?.label || placement}</span>)}</div></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Targeting</p><p className="text-sm text-gray-600">{summarizeTargeting(ad, categoriesById, articlesById)}</p></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Analytics</p><div className="grid grid-cols-3 gap-2 text-xs text-gray-600"><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Impr.</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.impressions}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Clicks</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.clicks}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">CTR</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : `${metrics.ctr}%`}</div></div></div></div><div className="flex items-center gap-1 border-t border-gray-100 pt-2"><button onClick={() => { setError(''); setEditing(ad.id); setCreativeViewport('desktop'); setForm(normalizeAdForm(ad)); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="h-4 w-4" /></button><button onClick={() => handleDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div></div>;
         })}
-        {normalizedAds.length === 0 && <div className="col-span-full py-12 text-center text-sm text-gray-400">{'\u041d\u044f\u043c\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0438'}</div>}
+        {normalizedAds.length === 0 && <div className="col-span-full py-12 text-center text-sm text-gray-400">{'Няма реклами'}</div>}
       </div>
     </div>
   );
