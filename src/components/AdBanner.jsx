@@ -69,6 +69,12 @@ const DEFAULT_LAYOUT_KEYS = Object.freeze({
   inline: 'compact',
 });
 
+const MOBILE_COVER_FRAME_CLASSES = Object.freeze({
+  horizontal: 'aspect-[4/1] min-h-0',
+  inline: 'aspect-[4/1] min-h-0',
+  side: 'min-h-0 aspect-[4/3] w-full max-w-[30rem] mx-auto',
+});
+
 function getAdTilt(ad, factor = 0.32) {
   const seed = typeof ad?.id === 'number' ? ad.id : (String(ad?.id || '').charCodeAt(0) || 0);
   return ((seed % 5) - 2) * factor;
@@ -90,6 +96,12 @@ function getBannerLayout(variant, slotMeta) {
     ? requestedKey
     : DEFAULT_LAYOUT_KEYS[variant];
   return layouts[layoutKey] || layouts[DEFAULT_LAYOUT_KEYS[variant]] || Object.values(layouts)[0];
+}
+
+function getBannerFrameClass(layoutFrameClass, variant, coverMode) {
+  if (!coverMode) return layoutFrameClass;
+  const mobileClass = MOBILE_COVER_FRAME_CLASSES[variant] || '';
+  return [layoutFrameClass, mobileClass].filter(Boolean).join(' ');
 }
 
 function getBannerInteraction(ad, onClick) {
@@ -192,6 +204,7 @@ export function AdBannerHorizontal({ ad, slotMeta = null, showSafeArea = false, 
   const showButton = ad?.showButton !== false && interactive && Boolean(String(ad?.cta || '').trim());
   const showTitle = ad?.showTitle !== false && Boolean(String(ad?.title || '').trim());
   const showSubtitle = Boolean(String(ad?.subtitle || '').trim());
+  const frameClass = getBannerFrameClass(layout.frameClass, 'horizontal', coverMode);
   const headingClass = coverMode
     ? `${layout.titleClass} font-display font-black tracking-wider uppercase leading-none text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.55)]`
     : `${layout.titleClass} font-display font-black text-zn-text tracking-wider uppercase leading-none`;
@@ -203,7 +216,7 @@ export function AdBannerHorizontal({ ad, slotMeta = null, showSafeArea = false, 
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ad-banner-horizontal">
       <Wrapper {...wrapperProps}>
         <div
-          className={`newspaper-page comic-dots comic-panel-white comic-ad-horizontal relative flex items-center justify-between overflow-visible ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${layout.frameClass}`}
+          className={`newspaper-page comic-dots comic-panel-white comic-ad-horizontal relative flex items-center justify-between overflow-visible ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${frameClass}`}
           style={{ '--ad-tilt': `${adTilt}deg` }}
         >
           {coverMode && (
@@ -254,6 +267,7 @@ export function AdBannerSide({ ad, slotMeta = null, showSafeArea = false, onClic
   const showButton = ad?.showButton !== false && interactive && Boolean(String(ad?.cta || '').trim());
   const showTitle = ad?.showTitle !== false && Boolean(String(ad?.title || '').trim());
   const showSubtitle = Boolean(String(ad?.subtitle || '').trim());
+  const frameClass = getBannerFrameClass(layout.frameClass, 'side', coverMode);
   const headingClass = coverMode
     ? `${layout.titleClass} relative z-[2] font-display font-black uppercase tracking-wider text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.58)]`
     : `${layout.titleClass} relative z-[2] font-display font-black text-zn-text tracking-wider uppercase`;
@@ -265,7 +279,7 @@ export function AdBannerSide({ ad, slotMeta = null, showSafeArea = false, onClic
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ad-banner-side">
       <Wrapper {...wrapperProps}>
         <div
-          className={`newspaper-page comic-dots comic-panel-white comic-ad-side relative flex flex-col items-center justify-center overflow-visible text-center ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${layout.frameClass}`}
+          className={`newspaper-page comic-dots comic-panel-white comic-ad-side relative flex flex-col items-center justify-center overflow-visible text-center ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${frameClass}`}
           style={{ '--ad-tilt': `${adTilt}deg` }}
         >
           {coverMode && (
@@ -311,6 +325,7 @@ export function AdBannerInline({ ad, slotMeta = null, showSafeArea = false, onCl
   const showButton = ad?.showButton !== false && interactive && Boolean(String(ad?.cta || '').trim());
   const showTitle = ad?.showTitle !== false && Boolean(String(ad?.title || '').trim());
   const showSubtitle = Boolean(String(ad?.subtitle || '').trim());
+  const frameClass = getBannerFrameClass(layout.frameClass, 'inline', coverMode);
   const headingClass = coverMode
     ? `${layout.titleClass} font-display font-black uppercase tracking-wider text-white drop-shadow-[0_2px_1px_rgba(0,0,0,0.58)]`
     : `${layout.titleClass} font-display font-black uppercase text-zn-text tracking-wider`;
@@ -322,7 +337,7 @@ export function AdBannerInline({ ad, slotMeta = null, showSafeArea = false, onCl
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="ad-banner ad-banner-inline my-4">
       <Wrapper {...wrapperProps}>
         <div
-          className={`newspaper-page comic-dots comic-panel-white comic-ad-inline relative flex items-center justify-between overflow-visible ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${layout.frameClass}`}
+          className={`newspaper-page comic-dots comic-panel-white comic-ad-inline relative flex items-center justify-between overflow-visible ${interactive ? 'transition-shadow hover:shadow-comic-heavy' : ''} ${frameClass}`}
           style={{ '--ad-tilt': `${adTilt}deg` }}
         >
           {coverMode && (
