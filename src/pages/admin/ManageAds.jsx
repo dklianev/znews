@@ -285,12 +285,22 @@ function getCreativeMetaField(viewport) {
   return viewport === 'mobile' ? 'imageMetaMobile' : 'imageMeta';
 }
 
+const MOBILE_CREATIVE_REQUIREMENTS = Object.freeze({
+  mobileHero: Object.freeze({ recommendedSize: '1200 x 300', minSize: '960 x 240' }),
+  mobileRegular: Object.freeze({ recommendedSize: '1200 x 300', minSize: '960 x 240' }),
+  mobileInline: Object.freeze({ recommendedSize: '1280 x 400', minSize: '1024 x 320' }),
+  mobileCard: Object.freeze({ recommendedSize: '1200 x 900', minSize: '960 x 720' }),
+  mobileSquare: Object.freeze({ recommendedSize: '1200 x 1200', minSize: '960 x 960' }),
+});
+
 function buildCreativeRequirements(selectedTypeMeta, slotMeta, viewport) {
   const ratioLabel = getSlotAspectRatio(slotMeta, viewport, selectedTypeMeta?.aspectRatio || '4:1');
+  const mobileProfile = String(slotMeta?.mobileSizeProfile || '').trim();
+  const mobileRequirements = MOBILE_CREATIVE_REQUIREMENTS[mobileProfile] || MOBILE_CREATIVE_REQUIREMENTS.mobileRegular;
   return {
     label: viewport === 'mobile' ? '\u041c\u043e\u0431\u0438\u043b\u0435\u043d creative' : '\u0414\u0435\u0441\u043a\u0442\u043e\u043f creative',
-    recommended: parseSizeLabel(viewport === 'mobile' ? '1200 x 300' : selectedTypeMeta?.recommendedSize),
-    minimum: parseSizeLabel(viewport === 'mobile' ? '960 x 240' : selectedTypeMeta?.minSize),
+    recommended: parseSizeLabel(viewport === 'mobile' ? mobileRequirements.recommendedSize : selectedTypeMeta?.recommendedSize),
+    minimum: parseSizeLabel(viewport === 'mobile' ? mobileRequirements.minSize : selectedTypeMeta?.minSize),
     ratioLabel,
   };
 }
@@ -446,8 +456,8 @@ export default function ManageAds() {
 
   const updateCoverImageMeta = (patch) => setForm((prev) => ({
     ...prev,
-    imageMeta: normalizeAdImageMeta({
-      ...(prev.imageMeta && typeof prev.imageMeta === 'object' ? prev.imageMeta : AD_DEFAULT_IMAGE_META),
+    [activeCreativeMetaField]: normalizeAdImageMeta({
+      ...(prev[activeCreativeMetaField] && typeof prev[activeCreativeMetaField] === 'object' ? prev[activeCreativeMetaField] : AD_DEFAULT_IMAGE_META),
       ...(patch && typeof patch === 'object' ? patch : {}),
     }),
   }));
