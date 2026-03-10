@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Database, HardDrive, RefreshCw, ShieldAlert } from 'lucide-react';
 import { api } from '../../utils/api';
 
@@ -58,7 +58,7 @@ export default function AdminDiagnostics() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const loadDiagnostics = async ({ silent = false } = {}) => {
+  const loadDiagnostics = useCallback(async ({ silent = false } = {}) => {
     if (silent) setRefreshing(true);
     else setLoading(true);
     setError('');
@@ -71,11 +71,11 @@ export default function AdminDiagnostics() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadDiagnostics();
-  }, []);
+  }, [loadDiagnostics]);
 
   const cacheTagRows = useMemo(() => {
     const entries = Object.entries(payload?.cache?.countsByTag || {});

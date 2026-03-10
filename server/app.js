@@ -175,6 +175,11 @@ function getCacheTagsForUrl(rawUrl) {
   return [...tags];
 }
 
+function deleteTrackedCacheMeta(keyOrKeys) {
+  const keys = Array.isArray(keyOrKeys) ? keyOrKeys : [keyOrKeys];
+  keys.filter(Boolean).forEach((key) => apiCacheMeta.delete(key));
+}
+
 function rememberApiCacheEntry(key, url) {
   apiCacheMeta.set(key, {
     key,
@@ -183,6 +188,14 @@ function rememberApiCacheEntry(key, url) {
     cachedAt: new Date().toISOString(),
   });
 }
+
+apiCache.on('expired', (key) => {
+  deleteTrackedCacheMeta(key);
+});
+
+apiCache.on('del', (key) => {
+  deleteTrackedCacheMeta(key);
+});
 
 function appendCacheInvalidationLog(entry) {
   apiCacheInvalidationLog.unshift(entry);
@@ -195,7 +208,7 @@ function removeApiCacheKeys(keys, { reason = '', tags = [] } = {}) {
   const uniqueKeys = [...new Set((Array.isArray(keys) ? keys : []).filter(Boolean))];
   if (uniqueKeys.length === 0) return 0;
   apiCache.del(uniqueKeys);
-  uniqueKeys.forEach((key) => apiCacheMeta.delete(key));
+  deleteTrackedCacheMeta(uniqueKeys);
   appendCacheInvalidationLog({
     reason: reason || 'manual',
     tags: [...new Set(tags.filter(Boolean))],
@@ -334,6 +347,7 @@ app.get('/api/health', (_req, res) => {
   res.set('Cache-Control', 'no-store');
   res.status(payload.ok ? 200 : 503).json(payload);
 });
+
 app.use((req, res, next) => {
   if (!shuttingDown) return next();
   // Allow load balancers/clients to drop keep-alive connections during deploy/restart.
@@ -778,6 +792,16 @@ const apiMediaWriteLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => shouldSkipRateLimit() || isReadOnlyMethod(req.method) || !isMediaApiPath(req),
+  keyGenerator: rateLimitKeyGenerator,
+});
+
+const clientMonitoringLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Too many client monitoring reports, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => shouldSkipRateLimit(),
   keyGenerator: rateLimitKeyGenerator,
 });
 
@@ -4002,7 +4026,7 @@ function requireAnyPermission(sections) {
 }
 
 // ─── MongoDB Connection ───
-app.post('/api/monitoring/client-error', async (req, res) => {
+app.post('/api/monitoring/client-error', clientMonitoringLimiter, async (req, res) => {
   try {
     const payload = req.body && typeof req.body === 'object' ? req.body : {};
     await recordSystemEvent({
@@ -8405,6 +8429,8 @@ function registerGracefulShutdown(server) {
         server.closeAllConnections();
       }
 
+      stopBackgroundJobs();
+
       try {
         await mongoose.connection.close(false);
       } catch (error) {
@@ -8448,6 +8474,7 @@ export async function startServer() {
   }
 
   const server = app.listen(PORT, () => {
+    startBackgroundJobs();
     console.log(`✓ Los Santos News API running on port ${PORT}`);
     if (!isProd) console.log('⚠ Running in development mode');
 
