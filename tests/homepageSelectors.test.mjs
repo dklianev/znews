@@ -65,4 +65,39 @@ export function runHomepageSelectorTests() {
   const sectionIdPayload = buildHomepageSectionIdPayload(sections);
   assert.equal(Number(sectionIdPayload.heroArticleId), 20);
   assert.ok(Array.isArray(sectionIdPayload.featuredIds));
+
+  const sponsoredSections = buildHomepageSections({
+    articles: [
+      { id: 30, title: 'Hero', hero: true, category: 'society' },
+      { id: 29, title: 'Featured Sponsored', featured: true, sponsored: true, category: 'society' },
+      { id: 28, title: 'Sponsored Only', sponsored: true, category: 'society' },
+      { id: 27, title: 'Wire 1', category: 'society' },
+      { id: 26, title: 'Wire 2', category: 'society' },
+      { id: 25, title: 'Wire 3', category: 'society' },
+    ],
+    heroSettings: {},
+    latestShowcaseLimit: 2,
+    latestWireLimit: 2,
+  });
+
+  assert.deepEqual(
+    sponsoredSections.featuredArticles.map((article) => Number(article.id)),
+    [29],
+    'featured sponsored stories should stay in featured sections'
+  );
+  assert.deepEqual(
+    sponsoredSections.sponsoredArticles.map((article) => Number(article.id)),
+    [28],
+    'sponsored rail should only backfill with unclaimed sponsored stories'
+  );
+  assert.equal(
+    sponsoredSections.latestShowcase.some((article) => Number(article.id) === 28),
+    false,
+    'sponsored rail stories should not duplicate into latest showcase'
+  );
+  assert.equal(
+    sponsoredSections.latestWire.some((article) => Number(article.id) === 28),
+    false,
+    'sponsored rail stories should not duplicate into latest wire'
+  );
 }

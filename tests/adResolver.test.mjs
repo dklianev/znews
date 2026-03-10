@@ -187,4 +187,45 @@ export function runAdResolverTests() {
     rotationKey: 'priority-check',
   });
   assert.equal(priorityStillWins?.id, 43, 'higher priority should beat the rotation pool entirely');
+
+  const staticAd = normalizeAdRecord({
+    id: 51,
+    type: 'horizontal',
+    status: 'active',
+    title: 'Static Brand Ad',
+    showButton: false,
+    clickable: false,
+    link: '#',
+    placements: ['home.top'],
+  });
+  assert.equal(staticAd.clickable, false, 'normalizeAdRecord should preserve explicit clickable=false');
+  assert.equal(staticAd.showButton, false, 'normalizeAdRecord should preserve explicit showButton=false');
+
+  const defaultClickable = normalizeAdRecord({
+    id: 52,
+    type: 'horizontal',
+    status: 'active',
+    title: 'Default Clickable Ad',
+    placements: ['home.top'],
+  });
+  assert.equal(defaultClickable.clickable, true, 'normalizeAdRecord should default ads to clickable');
+
+  const resolvedStaticAd = resolveAdForSlot([
+    {
+      id: 53,
+      type: 'horizontal',
+      status: 'active',
+      title: 'Static Winner',
+      showButton: false,
+      clickable: false,
+      link: '#',
+      placements: ['home.top'],
+      priority: 20,
+    },
+  ], {
+    slot: 'home.top',
+    pageType: 'home',
+    rotationKey: 'static-check',
+  });
+  assert.equal(resolvedStaticAd?.id, 53, 'non-clickable ads should still resolve for the slot');
 }
