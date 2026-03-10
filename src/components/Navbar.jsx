@@ -424,7 +424,7 @@ export default function Navbar() {
                 className="md:hidden absolute top-full left-0 right-0 z-[70] mt-1.5 origin-top"
                 style={{ willChange: 'transform, opacity' }}
               >
-                <div className="overflow-hidden border-2 border-[#1C1428]/75 bg-[#F5EEDF] shadow-[0_12px_24px_rgba(28,20,40,0.3)] max-h-[72vh] overflow-y-auto overscroll-contain">
+                <div className="border-2 border-[#1C1428]/75 bg-[#F5EEDF] shadow-[0_12px_24px_rgba(28,20,40,0.3)] max-h-[75dvh] overflow-y-auto overscroll-contain pb-16">
                   {mobileNav}
                 </div>
               </motion.div>
