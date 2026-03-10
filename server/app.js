@@ -140,7 +140,7 @@ const CACHE_TAG_GROUPS = Object.freeze({
   events: ['events', 'bootstrap'],
   gallery: ['gallery', 'bootstrap'],
   games: ['games', 'bootstrap', 'homepage'],
-  hero: ['hero', 'homepage'],
+  hero: ['hero', 'bootstrap', 'homepage'],
   homepage: ['homepage', 'bootstrap'],
   jobs: ['jobs', 'bootstrap'],
   media: ['media'],
@@ -3558,6 +3558,7 @@ const adAnalyticsRollupDays = Math.max(1, Number.parseInt(process.env.AD_ANALYTI
 const shareCardCleanupCheckTtlMs = 2 * 24 * 60 * 60 * 1000;
 const backgroundJobDefinitions = [];
 const backgroundJobIntervals = [];
+const backgroundJobTimeouts = [];
 let backgroundJobsStarted = false;
 
 function truncateMonitoringText(value, max = 500) {
@@ -3724,6 +3725,7 @@ function toBucketDate(date) {
 
 async function aggregateAdAnalyticsJob() {
   const cutoff = new Date(Date.now() - (adAnalyticsRollupDays * 24 * 60 * 60 * 1000));
+  const cutoffBucketDate = toBucketDate(cutoff);
   const rows = await AdEvent.aggregate([
     {
       $match: {
@@ -3779,7 +3781,14 @@ async function aggregateAdAnalyticsJob() {
   }));
 
   if (aggregateItems.length === 0) {
-    return { message: 'No ad analytics events to aggregate', metrics: { aggregates: 0 } };
+    const cleanupResult = await AdAnalyticsAggregate.deleteMany({ bucketDate: { $lt: cutoffBucketDate } });
+    return {
+      message: 'No ad analytics events to aggregate',
+      metrics: {
+        aggregates: 0,
+        prunedBuckets: Number(cleanupResult?.deletedCount || 0),
+      },
+    };
   }
 
   await Promise.all(aggregateItems.map((item) => AdAnalyticsAggregate.updateOne(
@@ -3795,11 +3804,14 @@ async function aggregateAdAnalyticsJob() {
     { upsert: true }
   )));
 
+  const cleanupResult = await AdAnalyticsAggregate.deleteMany({ bucketDate: { $lt: cutoffBucketDate } });
+
   return {
     message: `Aggregated ${aggregateItems.length} ad analytics buckets`,
     metrics: {
       aggregates: aggregateItems.length,
       latestBucketDate: aggregateItems.map((item) => item.bucketDate).sort().slice(-1)[0] || null,
+      prunedBuckets: Number(cleanupResult?.deletedCount || 0),
     },
   };
 }
@@ -3913,13 +3925,21 @@ function startBackgroundJobs() {
         console.error(`Background job ${definition.name} failed:`, error);
       });
     };
-    setTimeout(runOnce, Math.min(5 * 1000, Math.max(500, Number(definition.initialDelayMs || 1500))));
-    const interval = setInterval(runOnce, Number(definition.intervalMs || 60 * 1000));
+    const configuredInitialDelayMs = Number(definition.initialDelayMs || 1500);
+    const initialDelayMs = Number.isFinite(configuredInitialDelayMs) ? Math.max(500, configuredInitialDelayMs) : 1500;
+    const configuredIntervalMs = Number(definition.intervalMs || 60 * 1000);
+    const intervalMs = Number.isFinite(configuredIntervalMs) ? Math.max(1000, configuredIntervalMs) : 60 * 1000;
+    const timeout = setTimeout(runOnce, initialDelayMs);
+    const interval = setInterval(runOnce, intervalMs);
+    backgroundJobTimeouts.push(timeout);
     backgroundJobIntervals.push(interval);
   });
 }
 
 function stopBackgroundJobs() {
+  while (backgroundJobTimeouts.length > 0) {
+    clearTimeout(backgroundJobTimeouts.pop());
+  }
   while (backgroundJobIntervals.length > 0) {
     clearInterval(backgroundJobIntervals.pop());
   }
@@ -6757,8 +6777,7 @@ app.use('/api/games', gamesRouter);
 const adminGamesRouter = express.Router();
 
 function clearGameDefinitionCache() {
-  clearApiCacheKeys('api_cache_/api/bootstrap');
-  clearApiCacheKeys('api_cache_/api/homepage');
+  invalidateCacheGroup('games', 'games-mutation');
 }
 
 adminGamesRouter.get('/', async (_req, res) => {
@@ -6945,8 +6964,7 @@ catRouter.post('/', requireAuth, requirePermission('categories'), async (req, re
     if (!id || !name) return res.status(400).json({ error: 'Invalid category payload' });
     const item = await Category.create({ id, name, icon });
 
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('categories', 'categories-mutation');
 
     res.json(item.toJSON());
   } catch (e) {
@@ -6968,8 +6986,7 @@ catRouter.put('/:id', requireAuth, requirePermission('categories'), async (req, 
     );
     if (!item) return res.status(404).json({ error: 'Not found' });
 
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('categories', 'categories-mutation');
 
     res.json(item.toJSON());
   } catch (e) {
@@ -6991,8 +7008,7 @@ catRouter.delete('/:id', requireAuth, requirePermission('categories'), async (re
     const result = await Category.deleteOne({ id: categoryId });
     if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
 
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('categories', 'categories-mutation');
 
     res.json({ ok: true });
   } catch (e) {
@@ -7059,8 +7075,7 @@ app.put('/api/hero-settings', requireAuth, requirePermission('articles'), async 
       details: 'save',
     }).catch(() => { });
 
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('hero', 'hero-settings-mutation');
 
     res.json(serialized);
   } catch (e) {
@@ -7106,8 +7121,7 @@ app.post('/api/hero-settings/revisions/restore', requireAuth, requirePermission(
       details: `restore:${revisionId}`,
     }).catch(() => { });
 
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('hero', 'hero-settings-mutation');
 
     res.json(serialized);
   } catch (e) {
@@ -7153,8 +7167,7 @@ app.post('/api/site-settings/revisions/restore', requireAuth, requirePermission(
       details: `restore:${revisionId}`,
     }).catch(() => { });
 
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('settings', 'site-settings-mutation');
 
     res.json(serialized);
   } catch (e) {
@@ -7192,8 +7205,7 @@ app.put('/api/site-settings', requireAuth, requirePermission('permissions'), asy
       details: 'save',
     }).catch(() => { });
 
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('settings', 'site-settings-mutation');
 
     res.json(serialized);
   } catch (e) {
@@ -7203,9 +7215,7 @@ app.put('/api/site-settings', requireAuth, requirePermission('permissions'), asy
 
 app.post('/api/site-settings/cache/homepage/refresh', requireAuth, requirePermission('permissions'), async (req, res) => {
   try {
-    const homepageCleared = clearApiCacheKeys('api_cache_/api/homepage');
-    const bootstrapCleared = clearApiCacheKeys('api_cache_/api/bootstrap');
-    const totalCleared = homepageCleared + bootstrapCleared;
+    const totalCleared = invalidateCacheTags(['homepage', 'bootstrap'], { reason: 'manual-homepage-refresh' });
 
     AuditLog.create({
       user: req.user.name,
