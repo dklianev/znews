@@ -503,6 +503,17 @@ export const api = {
     getPage: (params) => request(`/audit-log${toQuery(params)}`),
   },
 
+  diagnostics: {
+    get: () => request('/admin/diagnostics'),
+  },
+
+  monitoring: {
+    reportClientError: (data) => request('/monitoring/client-error', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }, { skipRefresh: true, skipRetry: true }),
+  },
+
   tips: {
     getAll: () => request('/tips'),
     create: (formData) => request('/tips', {

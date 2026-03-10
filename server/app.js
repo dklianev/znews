@@ -46,7 +46,7 @@ if (mongoDnsServersEnv && mongoDnsServersEnv.trim()) {
 
 import {
   Article, Author, Category, Ad, AdEvent, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle, Counter
+  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle, Counter, SystemEvent, BackgroundJobState, AdAnalyticsAggregate
 } from './models.js';
 import { ensureGameDefinitions, seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
@@ -105,69 +105,235 @@ let shuttingDown = false;
 
 // ─── API Performance Caching ───
 const apiCache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
+const apiCacheMeta = new Map();
+const apiCacheInvalidationLog = [];
+const API_CACHE_INVALIDATION_LOG_LIMIT = 30;
+const API_CACHE_TAG_PATTERNS = Object.freeze({
+  articles: ['/api/articles', '/api/search'],
+  authors: ['/api/authors', '/api/bootstrap', '/api/homepage'],
+  ads: ['/api/ads', '/api/bootstrap', '/api/homepage'],
+  bootstrap: ['/api/bootstrap'],
+  breaking: ['/api/breaking', '/api/bootstrap', '/api/homepage'],
+  categories: ['/api/categories', '/api/bootstrap', '/api/homepage'],
+  contact: ['/api/contact-messages'],
+  court: ['/api/court', '/api/bootstrap'],
+  events: ['/api/events', '/api/bootstrap'],
+  gallery: ['/api/gallery', '/api/bootstrap'],
+  games: ['/api/games', '/api/bootstrap', '/api/homepage'],
+  hero: ['/api/hero-settings', '/api/homepage'],
+  homepage: ['/api/homepage'],
+  jobs: ['/api/jobs', '/api/bootstrap'],
+  media: ['/api/media'],
+  permissions: ['/api/permissions'],
+  polls: ['/api/polls', '/api/bootstrap', '/api/homepage'],
+  search: ['/api/search'],
+  'site-settings': ['/api/site-settings', '/api/bootstrap', '/api/homepage'],
+  tips: ['/api/tips'],
+  users: ['/api/users'],
+  wanted: ['/api/wanted', '/api/bootstrap', '/api/homepage'],
+});
+const CACHE_TAG_GROUPS = Object.freeze({
+  ads: ['ads', 'bootstrap', 'homepage'],
+  articles: ['articles', 'breaking', 'bootstrap', 'homepage', 'search'],
+  breaking: ['breaking', 'bootstrap', 'homepage'],
+  categories: ['categories', 'bootstrap', 'homepage'],
+  events: ['events', 'bootstrap'],
+  gallery: ['gallery', 'bootstrap'],
+  games: ['games', 'bootstrap', 'homepage'],
+  hero: ['hero', 'homepage'],
+  homepage: ['homepage', 'bootstrap'],
+  jobs: ['jobs', 'bootstrap'],
+  media: ['media'],
+  permissions: ['permissions'],
+  polls: ['polls', 'bootstrap', 'homepage'],
+  settings: ['site-settings', 'bootstrap', 'homepage'],
+  wanted: ['wanted', 'bootstrap', 'homepage'],
+});
+
+function normalizeCacheUrl(rawUrl) {
+  return String(rawUrl || '').split('#')[0].trim();
+}
+
+function getCacheTagsForUrl(rawUrl) {
+  const normalized = normalizeCacheUrl(rawUrl);
+  const pathname = normalized.split('?')[0] || normalized;
+  const tags = new Set();
+
+  Object.entries(API_CACHE_TAG_PATTERNS).forEach(([tag, patterns]) => {
+    if (patterns.some((pattern) => pathname.startsWith(pattern))) tags.add(tag);
+  });
+
+  if (pathname === '/api/homepage') {
+    ['articles', 'ads', 'breaking', 'categories', 'games', 'hero', 'polls', 'site-settings', 'wanted'].forEach((tag) => tags.add(tag));
+  }
+  if (pathname === '/api/bootstrap') {
+    ['articles', 'ads', 'breaking', 'categories', 'games', 'hero', 'jobs', 'court', 'events', 'gallery', 'polls', 'site-settings', 'wanted'].forEach((tag) => tags.add(tag));
+  }
+  if (pathname.startsWith('/api/articles')) tags.add('articles');
+  if (pathname.startsWith('/api/search')) tags.add('search');
+
+  return [...tags];
+}
+
+function rememberApiCacheEntry(key, url) {
+  apiCacheMeta.set(key, {
+    key,
+    url,
+    tags: getCacheTagsForUrl(url),
+    cachedAt: new Date().toISOString(),
+  });
+}
+
+function appendCacheInvalidationLog(entry) {
+  apiCacheInvalidationLog.unshift(entry);
+  if (apiCacheInvalidationLog.length > API_CACHE_INVALIDATION_LOG_LIMIT) {
+    apiCacheInvalidationLog.length = API_CACHE_INVALIDATION_LOG_LIMIT;
+  }
+}
+
+function removeApiCacheKeys(keys, { reason = '', tags = [] } = {}) {
+  const uniqueKeys = [...new Set((Array.isArray(keys) ? keys : []).filter(Boolean))];
+  if (uniqueKeys.length === 0) return 0;
+  apiCache.del(uniqueKeys);
+  uniqueKeys.forEach((key) => apiCacheMeta.delete(key));
+  appendCacheInvalidationLog({
+    reason: reason || 'manual',
+    tags: [...new Set(tags.filter(Boolean))],
+    keyCount: uniqueKeys.length,
+    at: new Date().toISOString(),
+  });
+  return uniqueKeys.length;
+}
+
+function getApiCacheStats() {
+  const countsByTag = {};
+  for (const meta of apiCacheMeta.values()) {
+    const tags = Array.isArray(meta?.tags) ? meta.tags : [];
+    tags.forEach((tag) => {
+      countsByTag[tag] = (countsByTag[tag] || 0) + 1;
+    });
+  }
+
+  return {
+    ttlSeconds: apiCache.options.stdTTL,
+    keyCount: apiCache.keys().length,
+    trackedKeyCount: apiCacheMeta.size,
+    countsByTag,
+    recentInvalidations: apiCacheInvalidationLog.slice(0, 12),
+  };
+}
+
 function cacheMiddleware(req, res, next) {
-  // Only cache GET requests
   if (req.method !== 'GET') {
     return next();
   }
 
-  // Skip cache if admin user is logged in
   const authHeader = req.headers['authorization'];
   if (authHeader && authHeader.startsWith('Bearer ')) {
     return next();
   }
 
-  const key = `api_cache_${req.originalUrl || req.url}`;
+  const url = req.originalUrl || req.url;
+  const key = `api_cache_${url}`;
   const cachedBody = apiCache.get(key);
 
   if (cachedBody) {
     res.setHeader('X-Cache', 'HIT');
     return res.json(JSON.parse(cachedBody));
-  } else {
-    res.setHeader('X-Cache', 'MISS');
-    const originalSend = res.json;
-    res.json = function (body) {
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        apiCache.set(key, JSON.stringify(body));
-      }
-      return originalSend.call(this, body);
-    };
-    next();
   }
+
+  res.setHeader('X-Cache', 'MISS');
+  const originalSend = res.json;
+  res.json = function (body) {
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      apiCache.set(key, JSON.stringify(body));
+      rememberApiCacheEntry(key, url);
+    }
+    return originalSend.call(this, body);
+  };
+  next();
 }
 
 function clearApiCacheKeys(pattern) {
   const keys = apiCache.keys();
-  const keysToDelete = keys.filter(k => k.includes(pattern));
-  if (keysToDelete.length > 0) {
-    apiCache.del(keysToDelete);
-    console.log(`Cache cleared for pattern: ${pattern} (${keysToDelete.length} keys)`);
+  const keysToDelete = keys.filter((key) => key.includes(pattern));
+  const cleared = removeApiCacheKeys(keysToDelete, { reason: `pattern:${pattern}` });
+  if (cleared > 0) {
+    console.log(`Cache cleared for pattern: ${pattern} (${cleared} keys)`);
   }
-  return keysToDelete.length;
+  return cleared;
 }
 
-// Simple readiness health endpoint (returns 200 only when Mongo is connected).
-// Keep this before rate-limit middleware so platforms can probe it freely.
-app.get('/api/health', (_req, res) => {
+function invalidateCacheTags(tags, { reason = '' } = {}) {
+  const requestedTags = [...new Set((Array.isArray(tags) ? tags : [tags]).filter(Boolean))];
+  if (requestedTags.length === 0) return 0;
+
+  const keys = apiCache.keys();
+  const keysToDelete = keys.filter((key) => {
+    const meta = apiCacheMeta.get(key);
+    if (meta?.tags?.some((tag) => requestedTags.includes(tag))) return true;
+    return requestedTags.some((tag) => {
+      const patterns = API_CACHE_TAG_PATTERNS[tag] || [];
+      return patterns.some((pattern) => key.includes(pattern));
+    });
+  });
+
+  const cleared = removeApiCacheKeys(keysToDelete, { reason: reason || 'tag-invalidation', tags: requestedTags });
+  if (cleared > 0) {
+    console.log(`Cache cleared for tags: ${requestedTags.join(', ')} (${cleared} keys)`);
+  }
+  return cleared;
+}
+
+function invalidateCacheGroup(group, reason = '') {
+  return invalidateCacheTags(CACHE_TAG_GROUPS[group] || [], { reason: reason || `group:${group}` });
+}
+
+function getMongoHealthState() {
   const state = mongoose.connection?.readyState;
-  const mongo = state === 1
+  return state === 1
     ? 'connected'
     : state === 2
       ? 'connecting'
       : state === 3
         ? 'disconnecting'
         : 'disconnected';
-  const ok = mongo === 'connected' && !shuttingDown;
-  res.set('Cache-Control', 'no-store');
-  res.status(ok ? 200 : 503).json({
-    ok,
+}
+
+function buildHealthPayload(kind = 'ready') {
+  const mongo = getMongoHealthState();
+  const live = !shuttingDown;
+  const ready = live && mongo === 'connected';
+  return {
+    ok: kind === 'live' ? live : ready,
     mongo,
     shuttingDown,
     uptime: Math.round(process.uptime()),
+    cache: {
+      keyCount: apiCache.keys().length,
+      ttlSeconds: apiCache.options.stdTTL,
+    },
     timestamp: new Date().toISOString(),
-  });
+  };
+}
+
+app.get('/api/health/live', (_req, res) => {
+  const payload = buildHealthPayload('live');
+  res.set('Cache-Control', 'no-store');
+  res.status(payload.ok ? 200 : 503).json(payload);
 });
 
+app.get('/api/health/ready', (_req, res) => {
+  const payload = buildHealthPayload('ready');
+  res.set('Cache-Control', 'no-store');
+  res.status(payload.ok ? 200 : 503).json(payload);
+});
+
+app.get('/api/health', (_req, res) => {
+  const payload = buildHealthPayload('ready');
+  res.set('Cache-Control', 'no-store');
+  res.status(payload.ok ? 200 : 503).json(payload);
+});
 app.use((req, res, next) => {
   if (!shuttingDown) return next();
   // Allow load balancers/clients to drop keep-alive connections during deploy/restart.
@@ -3359,6 +3525,446 @@ async function migrateBreakingCategoryLabels() {
 }
 
 // ─── Auth / Authorization Middleware ───
+const systemEventRetentionDays = 90;
+const backgroundJobLockMs = Math.max(30 * 1000, Number.parseInt(process.env.BACKGROUND_JOB_LOCK_MS || '', 10) || (2 * 60 * 1000));
+const scheduledPublishPollMs = Math.max(30 * 1000, Number.parseInt(process.env.SCHEDULED_PUBLISH_POLL_MS || '', 10) || (60 * 1000));
+const shareCardCleanupPollMs = Math.max(60 * 60 * 1000, Number.parseInt(process.env.SHARE_CARD_CLEANUP_POLL_MS || '', 10) || (12 * 60 * 60 * 1000));
+const adAnalyticsRollupPollMs = Math.max(15 * 60 * 1000, Number.parseInt(process.env.AD_ANALYTICS_ROLLUP_POLL_MS || '', 10) || (60 * 60 * 1000));
+const adAnalyticsRollupDays = Math.max(1, Number.parseInt(process.env.AD_ANALYTICS_ROLLUP_DAYS || '', 10) || 14);
+const shareCardCleanupCheckTtlMs = 2 * 24 * 60 * 60 * 1000;
+const backgroundJobDefinitions = [];
+const backgroundJobIntervals = [];
+let backgroundJobsStarted = false;
+
+function truncateMonitoringText(value, max = 500) {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function sanitizeMonitoringMetadata(value, depth = 0) {
+  if (value === null || value === undefined) return null;
+  if (depth > 3) return '[depth-limit]';
+  if (Array.isArray(value)) return value.slice(0, 12).map((item) => sanitizeMonitoringMetadata(item, depth + 1));
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value.slice(0, 2000);
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value !== 'object') return String(value).slice(0, 2000);
+  const out = {};
+  Object.entries(value).slice(0, 24).forEach(([key, entry]) => {
+    out[String(key).slice(0, 80)] = sanitizeMonitoringMetadata(entry, depth + 1);
+  });
+  return out;
+}
+
+function serializeErrorForMonitoring(error) {
+  if (!error) return null;
+  if (typeof error === 'string') return { message: error.slice(0, 2000) };
+  return sanitizeMonitoringMetadata({
+    name: error.name || '',
+    message: error.message || String(error),
+    stack: error.stack || '',
+    code: error.code || '',
+    status: error.status || null,
+  });
+}
+
+async function recordSystemEvent({ level = 'error', source = 'server', component = '', message = '', metadata = null } = {}) {
+  const safeMessage = truncateMonitoringText(message || 'Unknown system event', 600);
+  const fingerprint = createHash('sha1')
+    .update(JSON.stringify({ source: String(source || ''), component: String(component || ''), message: safeMessage }))
+    .digest('hex');
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + (systemEventRetentionDays * 24 * 60 * 60 * 1000));
+  try {
+    await SystemEvent.findOneAndUpdate(
+      { fingerprint },
+      {
+        $set: {
+          level: ['info', 'warn', 'error'].includes(level) ? level : 'error',
+          source: truncateMonitoringText(source, 80),
+          component: truncateMonitoringText(component, 120),
+          message: safeMessage,
+          metadata: sanitizeMonitoringMetadata(metadata),
+          lastSeenAt: now,
+          expiresAt,
+        },
+        $setOnInsert: { firstSeenAt: now },
+        $inc: { count: 1 },
+      },
+      { upsert: true }
+    );
+  } catch (error) {
+    console.error('Failed to record system event:', error?.message || error);
+  }
+}
+
+function reportServerError(component, error, metadata = null) {
+  console.error(`[monitor] ${component}:`, error);
+  return recordSystemEvent({
+    level: 'error',
+    source: 'server',
+    component,
+    message: error?.message || String(error || 'Server error'),
+    metadata: { ...(sanitizeMonitoringMetadata(metadata) || {}), error: serializeErrorForMonitoring(error) },
+  });
+}
+
+async function listShareCardEntries() {
+  if (isRemoteStorage) {
+    const prefixKey = toUploadsStorageKey('_share/');
+    const objects = await listRemoteObjectsByPrefix(prefixKey);
+    return objects
+      .map((item) => {
+        const fullKey = String(item?.Key || '');
+        if (!fullKey) return null;
+        const relative = fullKey.startsWith(`${storageUploadsPrefix}/`) ? fullKey.slice(`${storageUploadsPrefix}/`.length) : fullKey;
+        const name = relative.startsWith('_share/') ? relative.slice('_share/'.length) : relative;
+        if (!name || name.includes('/')) return null;
+        return {
+          name,
+          key: fullKey,
+          modifiedAt: item?.LastModified ? new Date(item.LastModified) : null,
+          size: Number(item?.Size || 0),
+        };
+      })
+      .filter(Boolean);
+  }
+
+  const entries = await fs.promises.readdir(shareCardsDir, { withFileTypes: true });
+  const mapped = await Promise.all(entries.filter((entry) => entry.isFile()).map(async (entry) => {
+    const fullPath = path.join(shareCardsDir, entry.name);
+    const stat = await fs.promises.stat(fullPath).catch(() => null);
+    return {
+      name: entry.name,
+      key: fullPath,
+      modifiedAt: stat?.mtime || null,
+      size: Number(stat?.size || 0),
+    };
+  }));
+  return mapped.filter(Boolean);
+}
+
+async function deleteShareCardEntries(entries) {
+  const items = Array.isArray(entries) ? entries.filter(Boolean) : [];
+  if (items.length === 0) return 0;
+  if (isRemoteStorage) {
+    await deleteRemoteKeys(items.map((item) => item.key).filter(Boolean));
+    return items.length;
+  }
+  await Promise.all(items.map((item) => fs.promises.unlink(item.key).catch(() => {})));
+  return items.length;
+}
+
+async function cleanupOrphanedShareCardsJob() {
+  const entries = await listShareCardEntries();
+  if (entries.length === 0) {
+    return { message: 'No share cards to inspect', metrics: { inspected: 0, deleted: 0 } };
+  }
+
+  const orphanCandidates = [];
+  const articleIds = new Set();
+  const nowMs = Date.now();
+
+  entries.forEach((entry) => {
+    const name = String(entry?.name || '');
+    if (!name) return;
+    if (name.startsWith('_check-')) {
+      const modifiedAtMs = entry.modifiedAt ? new Date(entry.modifiedAt).getTime() : 0;
+      if (!modifiedAtMs || (nowMs - modifiedAtMs) >= shareCardCleanupCheckTtlMs) orphanCandidates.push(entry);
+      return;
+    }
+    const match = /^article-(\d+)-/.exec(name);
+    if (match) articleIds.add(Number.parseInt(match[1], 10));
+  });
+
+  if (articleIds.size > 0) {
+    const existingArticles = await Article.find({ id: { $in: [...articleIds] } }).select({ _id: 0, id: 1 }).lean();
+    const existingIds = new Set(existingArticles.map((item) => Number.parseInt(item.id, 10)).filter(Number.isInteger));
+    entries.forEach((entry) => {
+      const match = /^article-(\d+)-/.exec(String(entry?.name || ''));
+      if (!match) return;
+      const articleId = Number.parseInt(match[1], 10);
+      if (Number.isInteger(articleId) && !existingIds.has(articleId)) orphanCandidates.push(entry);
+    });
+  }
+
+  const deleted = await deleteShareCardEntries(orphanCandidates);
+  return {
+    message: deleted > 0 ? `Deleted ${deleted} orphan share cards` : 'Share card cleanup found no orphaned entries',
+    metrics: { inspected: entries.length, deleted },
+  };
+}
+
+function toBucketDate(date) {
+  return new Date(date).toISOString().slice(0, 10);
+}
+
+async function aggregateAdAnalyticsJob() {
+  const cutoff = new Date(Date.now() - (adAnalyticsRollupDays * 24 * 60 * 60 * 1000));
+  const rows = await AdEvent.aggregate([
+    {
+      $match: {
+        createdAt: { $gte: cutoff },
+        eventType: { $in: AD_EVENT_TYPES },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          bucketDate: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          adId: '$adId',
+          slot: '$slot',
+          pageType: '$pageType',
+          articleId: { $ifNull: ['$articleId', null] },
+          categoryId: { $ifNull: ['$categoryId', ''] },
+          eventType: '$eventType',
+        },
+        count: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const buckets = new Map();
+  rows.forEach((row) => {
+    const bucketKey = JSON.stringify({
+      bucketDate: row?._id?.bucketDate || '',
+      adId: row?._id?.adId || 0,
+      slot: row?._id?.slot || '',
+      pageType: row?._id?.pageType || '',
+      articleId: row?._id?.articleId ?? null,
+      categoryId: row?._id?.categoryId || '',
+    });
+    const current = buckets.get(bucketKey) || {
+      bucketDate: row?._id?.bucketDate || '',
+      adId: Number.parseInt(row?._id?.adId, 10) || 0,
+      slot: String(row?._id?.slot || ''),
+      pageType: String(row?._id?.pageType || ''),
+      articleId: Number.isInteger(Number(row?._id?.articleId)) ? Number(row._id.articleId) : null,
+      categoryId: String(row?._id?.categoryId || ''),
+      impressions: 0,
+      clicks: 0,
+    };
+    if (row?._id?.eventType === 'impression') current.impressions = Number(row.count) || 0;
+    if (row?._id?.eventType === 'click') current.clicks = Number(row.count) || 0;
+    buckets.set(bucketKey, current);
+  });
+
+  const aggregateItems = [...buckets.values()].map((item) => ({
+    ...item,
+    ctr: item.impressions > 0 ? Number(((item.clicks / item.impressions) * 100).toFixed(2)) : 0,
+    aggregatedAt: new Date(),
+  }));
+
+  if (aggregateItems.length === 0) {
+    return { message: 'No ad analytics events to aggregate', metrics: { aggregates: 0 } };
+  }
+
+  await Promise.all(aggregateItems.map((item) => AdAnalyticsAggregate.updateOne(
+    {
+      bucketDate: item.bucketDate,
+      adId: item.adId,
+      slot: item.slot,
+      pageType: item.pageType,
+      articleId: item.articleId,
+      categoryId: item.categoryId,
+    },
+    { $set: item },
+    { upsert: true }
+  )));
+
+  return {
+    message: `Aggregated ${aggregateItems.length} ad analytics buckets`,
+    metrics: {
+      aggregates: aggregateItems.length,
+      latestBucketDate: aggregateItems.map((item) => item.bucketDate).sort().slice(-1)[0] || null,
+    },
+  };
+}
+
+async function refreshScheduledContentCachesJob(state) {
+  const now = new Date();
+  const lastProcessedIso = state?.metrics?.lastProcessedPublishAt || null;
+  const fallbackLookback = new Date(now.getTime() - Math.max(scheduledPublishPollMs * 2, 15 * 60 * 1000));
+  const lowerBound = lastProcessedIso ? new Date(lastProcessedIso) : fallbackLookback;
+  const dueArticles = await Article.find({
+    status: 'published',
+    publishAt: { $gt: lowerBound, $lte: now },
+  }).sort({ publishAt: 1, id: 1 }).select({ _id: 0, id: 1, publishAt: 1 }).limit(100).lean();
+
+  const latestPublishAt = dueArticles.length > 0
+    ? dueArticles[dueArticles.length - 1].publishAt
+    : (lastProcessedIso || now.toISOString());
+
+  if (dueArticles.length === 0) {
+    return {
+      message: 'No newly due scheduled articles',
+      metrics: { lastProcessedPublishAt: latestPublishAt },
+    };
+  }
+
+  const cleared = invalidateCacheGroup('articles', 'scheduled-publish');
+  return {
+    message: `Activated ${dueArticles.length} scheduled articles`,
+    metrics: {
+      lastProcessedPublishAt: new Date(latestPublishAt).toISOString(),
+      lastArticleIds: dueArticles.map((item) => item.id).slice(-10),
+      clearedKeys: cleared,
+    },
+  };
+}
+
+function registerBackgroundJob(definition) {
+  backgroundJobDefinitions.push(definition);
+}
+
+async function runBackgroundJob(definition) {
+  if (!definition?.name || typeof definition?.run !== 'function') return false;
+  await BackgroundJobState.updateOne({ name: definition.name }, { $setOnInsert: { name: definition.name } }, { upsert: true });
+  const now = new Date();
+  const lockUntil = new Date(now.getTime() + backgroundJobLockMs);
+  const state = await BackgroundJobState.findOneAndUpdate(
+    { name: definition.name, enabled: { $ne: false }, $or: [{ lockUntil: null }, { lockUntil: { $lte: now } }] },
+    { $set: { running: true, lockUntil, lastStartedAt: now, updatedAt: now } },
+    { new: true }
+  ).lean();
+  if (!state) return false;
+
+  const startedAt = Date.now();
+  try {
+    const result = await definition.run(state);
+    const finishedAt = new Date();
+    const durationMs = Date.now() - startedAt;
+    await BackgroundJobState.updateOne(
+      { name: definition.name },
+      {
+        $set: {
+          running: false,
+          lockUntil: null,
+          lastFinishedAt: finishedAt,
+          lastSuccessAt: finishedAt,
+          lastFailureAt: state.lastFailureAt || null,
+          lastDurationMs: durationMs,
+          lastMessage: truncateMonitoringText(result?.message || 'Completed', 300),
+          metrics: sanitizeMonitoringMetadata(result?.metrics || state.metrics || null),
+          updatedAt: finishedAt,
+        },
+        $inc: { runCount: 1, successCount: 1 },
+      }
+    );
+    return true;
+  } catch (error) {
+    const finishedAt = new Date();
+    const durationMs = Date.now() - startedAt;
+    await BackgroundJobState.updateOne(
+      { name: definition.name },
+      {
+        $set: {
+          running: false,
+          lockUntil: null,
+          lastFinishedAt: finishedAt,
+          lastFailureAt: finishedAt,
+          lastDurationMs: durationMs,
+          lastMessage: truncateMonitoringText(error?.message || 'Failed', 300),
+          updatedAt: finishedAt,
+        },
+        $inc: { runCount: 1, failureCount: 1 },
+      }
+    );
+    await recordSystemEvent({
+      level: 'error',
+      source: 'job',
+      component: definition.name,
+      message: error?.message || 'Background job failed',
+      metadata: { error: serializeErrorForMonitoring(error) },
+    });
+    return false;
+  }
+}
+
+function startBackgroundJobs() {
+  if (backgroundJobsStarted || process.env.DISABLE_BACKGROUND_JOBS === 'true') return;
+  backgroundJobsStarted = true;
+  backgroundJobDefinitions.forEach((definition) => {
+    const runOnce = () => {
+      runBackgroundJob(definition).catch((error) => {
+        console.error(`Background job ${definition.name} failed:`, error);
+      });
+    };
+    setTimeout(runOnce, Math.min(5 * 1000, Math.max(500, Number(definition.initialDelayMs || 1500))));
+    const interval = setInterval(runOnce, Number(definition.intervalMs || 60 * 1000));
+    backgroundJobIntervals.push(interval);
+  });
+}
+
+function stopBackgroundJobs() {
+  while (backgroundJobIntervals.length > 0) {
+    clearInterval(backgroundJobIntervals.pop());
+  }
+  backgroundJobsStarted = false;
+}
+
+async function getAdAnalyticsAggregateDiagnostics() {
+  const cutoff = toBucketDate(new Date(Date.now() - (7 * 24 * 60 * 60 * 1000)));
+  const [totals, latest] = await Promise.all([
+    AdAnalyticsAggregate.aggregate([
+      { $match: { bucketDate: { $gte: cutoff } } },
+      { $group: { _id: null, impressions: { $sum: '$impressions' }, clicks: { $sum: '$clicks' }, rows: { $sum: 1 } } },
+    ]),
+    AdAnalyticsAggregate.findOne().sort({ aggregatedAt: -1 }).lean(),
+  ]);
+  const summary = totals[0] || { impressions: 0, clicks: 0, rows: 0 };
+  return {
+    last7Days: {
+      impressions: Number(summary.impressions || 0),
+      clicks: Number(summary.clicks || 0),
+      rows: Number(summary.rows || 0),
+    },
+    latestBucket: latest ? {
+      bucketDate: latest.bucketDate,
+      aggregatedAt: latest.aggregatedAt,
+    } : null,
+  };
+}
+
+async function buildDiagnosticsPayload() {
+  const [mediaPipeline, recentErrors, jobStates, adAnalytics] = await Promise.all([
+    getImagePipelineStatus().catch(() => null),
+    SystemEvent.find().sort({ lastSeenAt: -1 }).limit(12).lean().catch(() => []),
+    BackgroundJobState.find().sort({ name: 1 }).lean().catch(() => []),
+    getAdAnalyticsAggregateDiagnostics().catch(() => ({ last7Days: { impressions: 0, clicks: 0, rows: 0 }, latestBucket: null })),
+  ]);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    app: {
+      env: process.env.NODE_ENV || 'development',
+      uptimeSeconds: Math.round(process.uptime()),
+      memory: sanitizeMonitoringMetadata(process.memoryUsage()),
+    },
+    mongo: {
+      state: getMongoHealthState(),
+      name: mongoose.connection?.name || '',
+      host: mongoose.connection?.host || '',
+    },
+    cache: getApiCacheStats(),
+    storage: {
+      driver: storageDriver,
+      remote: isRemoteStorage,
+      publicBaseUrl: storagePublicBaseUrl || '',
+      uploadDedupCacheSize: recentUploadResults.size,
+      uploadInFlight: uploadRequestInFlight.size,
+    },
+    mediaPipeline,
+    jobs: jobStates,
+    monitoring: {
+      recentErrors,
+    },
+    adAnalytics,
+  };
+}
+
+registerBackgroundJob({ name: 'scheduled-publish-cache-refresh', intervalMs: scheduledPublishPollMs, initialDelayMs: 2500, run: refreshScheduledContentCachesJob });
+registerBackgroundJob({ name: 'share-card-cleanup', intervalMs: shareCardCleanupPollMs, initialDelayMs: 4500, run: cleanupOrphanedShareCardsJob });
+registerBackgroundJob({ name: 'ad-analytics-rollup', intervalMs: adAnalyticsRollupPollMs, initialDelayMs: 6500, run: aggregateAdAnalyticsJob });
 function requireAuth(req, res, next) {
   const decoded = decodeTokenFromRequest(req);
   if (!decoded) return res.status(401).json({ error: 'Authentication required' });
@@ -3396,6 +4002,37 @@ function requireAnyPermission(sections) {
 }
 
 // ─── MongoDB Connection ───
+app.post('/api/monitoring/client-error', async (req, res) => {
+  try {
+    const payload = req.body && typeof req.body === 'object' ? req.body : {};
+    await recordSystemEvent({
+      level: 'error',
+      source: 'client',
+      component: truncateMonitoringText(payload.component || payload.source || 'client', 120),
+      message: truncateMonitoringText(payload.message || 'Client error', 600),
+      metadata: {
+        pathname: truncateMonitoringText(payload.pathname || '', 200),
+        userAgent: truncateMonitoringText(req.headers['user-agent'] || '', 300),
+        stack: truncateMonitoringText(payload.stack || '', 4000),
+        extra: sanitizeMonitoringMetadata(payload.extra || payload.metadata || null),
+      },
+    });
+    res.status(201).json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: publicError(error) });
+  }
+});
+
+app.get('/api/admin/diagnostics', requireAuth, requirePermission('permissions'), async (_req, res) => {
+  try {
+    const payload = await buildDiagnosticsPayload();
+    res.set('Cache-Control', 'no-store');
+    res.json(payload);
+  } catch (error) {
+    await reportServerError('admin-diagnostics', error);
+    res.status(500).json({ error: publicError(error) });
+  }
+});
 async function connectDB() {
   const uri = process.env.MONGODB_URI;
   const isPlaceholder = !uri || /YOUR_PASSWORD|xxxxx|user:password/i.test(uri);
@@ -3538,9 +4175,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
         details: obj.title || obj.name || obj.question || '',
       }).catch(() => { });
 
-      clearApiCacheKeys(`api_cache_/api/${resourceName}`);
-      clearApiCacheKeys('api_cache_/api/bootstrap');
-      clearApiCacheKeys('api_cache_/api/homepage');
+      invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 
       res.status(201).json(obj);
     } catch (e) {
@@ -3567,9 +4202,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
         details: data.title || data.name || '',
       }).catch(() => { });
 
-      clearApiCacheKeys(`api_cache_/api/${resourceName}`);
-      clearApiCacheKeys('api_cache_/api/bootstrap');
-      clearApiCacheKeys('api_cache_/api/homepage');
+      invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 
       res.json(item.toJSON());
     } catch (e) {
@@ -3592,9 +4225,7 @@ function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, 
         details: '',
       }).catch(() => { });
 
-      clearApiCacheKeys(`api_cache_/api/${resourceName}`);
-      clearApiCacheKeys('api_cache_/api/bootstrap');
-      clearApiCacheKeys('api_cache_/api/homepage');
+      invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 
       res.json({ ok: true });
     } catch (e) {
@@ -3802,10 +4433,7 @@ articlesRouter.post('/', requireAuth, requirePermission('articles'), async (req,
     }
 
     // Invalidate articles cache
-    clearApiCacheKeys('api_cache_/api/articles');
-    clearApiCacheKeys('api_cache_/api/breaking');
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('articles', 'article-mutation');
 
     res.json(obj);
   } catch (e) {
@@ -3852,10 +4480,7 @@ articlesRouter.put('/:id', requireAuth, requirePermission('articles'), async (re
     }
 
     // Invalidate articles cache
-    clearApiCacheKeys('api_cache_/api/articles');
-    clearApiCacheKeys('api_cache_/api/breaking');
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('articles', 'article-mutation');
 
     res.json(updated);
   } catch (e) {
@@ -3979,10 +4604,7 @@ articlesRouter.post('/:id/revisions/restore', requireAuth, requirePermission('ar
       details: `restore:${revisionId}`,
     }).catch(() => { });
 
-    clearApiCacheKeys('api_cache_/api/articles');
-    clearApiCacheKeys('api_cache_/api/breaking');
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('articles', 'article-mutation');
 
     res.json(restoredObj);
   } catch (e) {
@@ -4008,10 +4630,7 @@ articlesRouter.delete('/:id', requireAuth, requirePermission('articles'), async 
       details: '',
     }).catch(() => { });
 
-    clearApiCacheKeys('api_cache_/api/articles');
-    clearApiCacheKeys('api_cache_/api/breaking');
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('articles', 'article-mutation');
 
     res.json({ ok: true });
   } catch (e) {
@@ -4606,9 +5225,7 @@ adsRouter.post('/', requireAuth, requirePermission('ads'), async (req, res) => {
       details: obj.campaignName || obj.title || '',
     }).catch(() => { });
 
-    clearApiCacheKeys('api_cache_/api/ads');
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('ads', 'ads-mutation');
 
     res.status(201).json(obj);
   } catch (e) {
@@ -4645,9 +5262,7 @@ adsRouter.put('/:id', requireAuth, requirePermission('ads'), async (req, res) =>
       details: obj.campaignName || obj.title || '',
     }).catch(() => { });
 
-    clearApiCacheKeys('api_cache_/api/ads');
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('ads', 'ads-mutation');
 
     res.json(obj);
   } catch (e) {
@@ -4672,9 +5287,7 @@ adsRouter.delete('/:id', requireAuth, requirePermission('ads'), async (req, res)
       details: '',
     }).catch(() => { });
 
-    clearApiCacheKeys('api_cache_/api/ads');
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('ads', 'ads-mutation');
 
     res.json({ ok: true });
   } catch (e) {
@@ -6384,9 +6997,7 @@ app.put('/api/breaking', requireAuth, requirePermission('breaking'), async (req,
     const doc = await Breaking.create({ items });
 
     // Invalidate breaking cache & bootstrap
-    clearApiCacheKeys('api_cache_/api/breaking');
-    clearApiCacheKeys('api_cache_/api/bootstrap');
-    clearApiCacheKeys('api_cache_/api/homepage');
+    invalidateCacheGroup('breaking', 'breaking-mutation');
 
     res.json(doc.items);
   } catch (e) {
@@ -7828,6 +8439,9 @@ export async function startServer() {
     await ensureDefaultPermissionDocs();
     await migrateBreakingCategoryLabels();
     await ensureGameDefinitions();
+    mongoose.connection.on('error', (error) => {
+      reportServerError('mongoose-connection', error).catch(() => {});
+    });
   } catch (err) {
     console.error('✗ MongoDB error:', err.message);
     process.exit(1);
@@ -7865,8 +8479,3 @@ export async function startServer() {
     process.exit(1);
   });
 }
-
-
-
-
-

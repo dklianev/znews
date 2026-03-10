@@ -127,7 +127,7 @@ function AdCircleMedia({ ad, className, iconClass = 'text-2xl' }) {
   return (
     <div className={className}>
       {ad.image ? (
-        <img src={ad.image} alt={ad.title} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+        <img src={ad.image} alt={ad.title} className="h-full w-full object-cover" loading="lazy" decoding="async" fetchPriority="low" />
       ) : (
         <span className={iconClass}>{ad.icon}</span>
       )}
@@ -147,6 +147,7 @@ function AdCoverBackground({ ad, overlayClassName = '', glowClassName = '' }) {
         style={getAdCoverImageStyle(ad)}
         loading="lazy"
         decoding="async"
+        fetchPriority="low"
       />
       {overlayClassName ? <div className={`absolute inset-0 ${overlayClassName}`} /> : null}
       {glowClassName ? <div className={`absolute inset-0 ${glowClassName}`} /> : null}

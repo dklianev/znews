@@ -52,6 +52,7 @@ const ManageGallery = lazy(() => import('./pages/admin/ManageGallery'));
 const ManagePermissions = lazy(() => import('./pages/admin/ManagePermissions'));
 const ManageAuditLog = lazy(() => import('./pages/admin/ManageAuditLog'));
 const ManageSiteSettings = lazy(() => import('./pages/admin/ManageSiteSettings'));
+const AdminDiagnostics = lazy(() => import('./pages/admin/AdminDiagnostics'));
 const ManageContactMessages = lazy(() => import('./pages/admin/ManageContactMessages'));
 const ManageTips = lazy(() => import('./pages/admin/ManageTips'));
 const ManageGames = lazy(() => import('./pages/admin/ManageGames'));
@@ -267,6 +268,7 @@ function AppContent() {
           <Route path="gallery" element={<AdminPermissionRoute permission="gallery"><Suspense fallback={<PageFallback />}><ManageGallery /></Suspense></AdminPermissionRoute>} />
           <Route path="permissions" element={<AdminPermissionRoute permission="permissions"><Suspense fallback={<PageFallback />}><ManagePermissions /></Suspense></AdminPermissionRoute>} />
           <Route path="site-settings" element={<AdminPermissionRoute permission="permissions"><Suspense fallback={<PageFallback />}><ManageSiteSettings /></Suspense></AdminPermissionRoute>} />
+          <Route path="diagnostics" element={<AdminPermissionRoute permission="permissions"><Suspense fallback={<PageFallback />}><AdminDiagnostics /></Suspense></AdminPermissionRoute>} />
           <Route path="audit-log" element={<AdminPermissionRoute permission="permissions"><Suspense fallback={<PageFallback />}><ManageAuditLog /></Suspense></AdminPermissionRoute>} />
           <Route path="games" element={<AdminPermissionRoute permission="games"><Suspense fallback={<PageFallback />}><ManageGames /></Suspense></AdminPermissionRoute>} />
           <Route path="games/puzzles" element={<AdminPermissionRoute permission="games"><Suspense fallback={<PageFallback />}><ManageGamePuzzles /></Suspense></AdminPermissionRoute>} />
@@ -312,4 +314,3 @@ function App() {
 }
 
 export default App;
-

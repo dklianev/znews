@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useData } from '../../context/DataContext';
-import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3, Mail, Gamepad2, Puzzle } from 'lucide-react';
+import { api } from '../../utils/api';
+import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3, Mail, Gamepad2, Puzzle, Activity } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { makeTitle, useDocumentTitle } from '../../hooks/useDocumentTitle';
@@ -32,6 +33,7 @@ const navItems = [
   { to: '/admin/games/puzzles', label: 'Игрови Пъзели', icon: Puzzle, permission: 'games' },
   { type: 'divider', label: 'Администрация' },
   { to: '/admin/site-settings', label: 'Site настройки', icon: SlidersHorizontal, permission: 'permissions' },
+  { to: '/admin/diagnostics', label: 'Диагностика', icon: Activity, permission: 'permissions' },
   { to: '/admin/permissions', label: 'Права', icon: Shield, permission: 'permissions' },
   { to: '/admin/audit-log', label: 'Журнал', icon: ClipboardList, permission: 'permissions' },
 ];
@@ -70,6 +72,15 @@ export default function AdminLayout() {
   }, [location.pathname]);
 
   useEffect(() => {
+    const reportClientIssue = (component, message, extra = null) => {
+      api.monitoring.reportClientError({
+        component,
+        message,
+        pathname: typeof window !== 'undefined' ? window.location.pathname : '',
+        extra,
+      }).catch(() => {});
+    };
+
     const formatReason = (reason) => {
       if (!reason) return 'Неочаквана грешка';
       if (typeof reason === 'string') return reason.slice(0, 500);
@@ -84,11 +95,13 @@ export default function AdminLayout() {
     const onUnhandledRejection = (event) => {
       const message = formatReason(event?.reason);
       setGlobalError(message);
+      reportClientIssue('AdminLayout.unhandledrejection', message, { reason: formatReason(event?.reason) });
     };
 
     const onWindowError = (event) => {
       const message = formatReason(event?.error || event?.message);
       setGlobalError(message);
+      reportClientIssue('AdminLayout.window-error', message, { stack: event?.error?.stack || '' });
     };
 
     window.addEventListener('unhandledrejection', onUnhandledRejection);

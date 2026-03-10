@@ -74,6 +74,7 @@ export default memo(function ResponsiveImage({
   }, [normalizedPipeline, quality, safeSrc]);
 
   const effectivePlaceholder = placeholder || normalizedPipeline?.placeholder || '';
+  const effectiveFetchPriority = fetchPriority === 'auto' && loading === 'lazy' ? 'low' : fetchPriority;
 
   const computedStyle = useMemo(() => {
     let base = {};
@@ -105,7 +106,7 @@ export default memo(function ResponsiveImage({
         className={normalizedImgClassName}
         loading={loading}
         decoding={decoding}
-        fetchpriority={fetchPriority}
+        fetchpriority={effectiveFetchPriority}
         style={computedStyle}
         onLoad={() => setLoaded(true)}
         onError={(event) => {

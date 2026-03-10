@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { api } from '../utils/api';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -13,6 +14,13 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo);
+    api.monitoring.reportClientError({
+      component: 'ErrorBoundary',
+      message: error?.message || 'React render error',
+      stack: error?.stack || '',
+      pathname: typeof window !== 'undefined' ? window.location.pathname : '',
+      extra: { componentStack: errorInfo?.componentStack || '' },
+    }).catch(() => {});
   }
 
   render() {

@@ -521,6 +521,58 @@ const gamePuzzleSchema = new mongoose.Schema({
 }, opts);
 gamePuzzleSchema.index({ gameSlug: 1, puzzleDate: 1 }, { unique: true, name: 'game_puzzle_slug_date' });
 
+const systemEventSchema = new mongoose.Schema({
+  fingerprint: { type: String, required: true, unique: true, index: true },
+  level: { type: String, default: 'error', enum: ['info', 'warn', 'error'], index: true },
+  source: { type: String, default: 'server', index: true },
+  component: { type: String, default: '', index: true },
+  message: { type: String, required: true },
+  metadata: { type: mongoose.Schema.Types.Mixed, default: null },
+  count: { type: Number, default: 1, min: 1 },
+  firstSeenAt: { type: Date, default: Date.now, index: true },
+  lastSeenAt: { type: Date, default: Date.now, index: true },
+  expiresAt: { type: Date, default: () => new Date(Date.now() + (90 * 24 * 60 * 60 * 1000)) },
+}, opts);
+systemEventSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'system_event_expiry' });
+systemEventSchema.index({ level: 1, lastSeenAt: -1 }, { name: 'system_event_level_last_seen' });
+
+const backgroundJobStateSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true, index: true },
+  running: { type: Boolean, default: false, index: true },
+  enabled: { type: Boolean, default: true },
+  lockUntil: { type: Date, default: null, index: true },
+  lastStartedAt: { type: Date, default: null },
+  lastFinishedAt: { type: Date, default: null },
+  lastSuccessAt: { type: Date, default: null },
+  lastFailureAt: { type: Date, default: null },
+  lastDurationMs: { type: Number, default: 0 },
+  runCount: { type: Number, default: 0 },
+  successCount: { type: Number, default: 0 },
+  failureCount: { type: Number, default: 0 },
+  lastMessage: { type: String, default: '' },
+  metrics: { type: mongoose.Schema.Types.Mixed, default: null },
+  updatedAt: { type: Date, default: Date.now, index: true },
+}, opts);
+backgroundJobStateSchema.index({ updatedAt: -1 }, { name: 'background_job_updatedAt' });
+
+const adAnalyticsAggregateSchema = new mongoose.Schema({
+  bucketDate: { type: String, required: true, index: true },
+  adId: { type: Number, required: true, index: true },
+  slot: { type: String, required: true, index: true },
+  pageType: { type: String, required: true, index: true },
+  articleId: { type: Number, default: null, index: true },
+  categoryId: { type: String, default: '', index: true },
+  impressions: { type: Number, default: 0, min: 0 },
+  clicks: { type: Number, default: 0, min: 0 },
+  ctr: { type: Number, default: 0, min: 0 },
+  aggregatedAt: { type: Date, default: Date.now, index: true },
+}, opts);
+adAnalyticsAggregateSchema.index(
+  { bucketDate: 1, adId: 1, slot: 1, pageType: 1, articleId: 1, categoryId: 1 },
+  { unique: true, name: 'ad_analytics_aggregate_bucket' }
+);
+adAnalyticsAggregateSchema.index({ aggregatedAt: -1 }, { name: 'ad_analytics_aggregate_updated' });
+
 export const Article = mongoose.model('Article', articleSchema);
 export const Author = mongoose.model('Author', authorSchema);
 export const Category = mongoose.model('Category', categorySchema);
@@ -551,4 +603,7 @@ export const PushSubscription = mongoose.model('PushSubscription', pushSubscript
 export const GameDefinition = mongoose.model('GameDefinition', gameDefinitionSchema);
 export const GamePuzzle = mongoose.model('GamePuzzle', gamePuzzleSchema);
 export const Counter = mongoose.model('Counter', counterSchema);
+export const SystemEvent = mongoose.model('SystemEvent', systemEventSchema);
+export const BackgroundJobState = mongoose.model('BackgroundJobState', backgroundJobStateSchema);
+export const AdAnalyticsAggregate = mongoose.model('AdAnalyticsAggregate', adAnalyticsAggregateSchema);
 
