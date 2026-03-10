@@ -285,22 +285,48 @@ function getCreativeMetaField(viewport) {
   return viewport === 'mobile' ? 'imageMetaMobile' : 'imageMeta';
 }
 
-const MOBILE_CREATIVE_REQUIREMENTS = Object.freeze({
-  mobileHero: Object.freeze({ recommendedSize: '1200 x 300', minSize: '960 x 240' }),
-  mobileRegular: Object.freeze({ recommendedSize: '1200 x 300', minSize: '960 x 240' }),
-  mobileInline: Object.freeze({ recommendedSize: '1280 x 400', minSize: '1024 x 320' }),
-  mobileCard: Object.freeze({ recommendedSize: '1200 x 900', minSize: '960 x 720' }),
-  mobileSquare: Object.freeze({ recommendedSize: '1200 x 1200', minSize: '960 x 960' }),
+const SIZE_TARGETS = Object.freeze({
+  horizontal: Object.freeze({ recLong: 1600, minLong: 1200 }),
+  side: Object.freeze({ recLong: 1200, minLong: 960 }),
+  inline: Object.freeze({ recLong: 1200, minLong: 960 }),
 });
+
+function computeSizesFromRatio(ratioLabel, variant) {
+  const match = String(ratioLabel || '').match(/(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const rw = Number(match[1]);
+  const rh = Number(match[2]);
+  if (!rw || !rh) return null;
+
+  const target = SIZE_TARGETS[variant] || SIZE_TARGETS.horizontal;
+  let recW, recH, minW, minH;
+
+  if (rw >= rh) {
+    recW = target.recLong;
+    recH = Math.round(recW * rh / rw);
+    minW = target.minLong;
+    minH = Math.round(minW * rh / rw);
+  } else {
+    recH = target.recLong;
+    recW = Math.round(recH * rw / rh);
+    minH = target.minLong;
+    minW = Math.round(minH * rw / rh);
+  }
+
+  return {
+    recommended: { width: recW, height: recH },
+    minimum: { width: minW, height: minH },
+  };
+}
 
 function buildCreativeRequirements(selectedTypeMeta, slotMeta, viewport) {
   const ratioLabel = getSlotAspectRatio(slotMeta, viewport, selectedTypeMeta?.aspectRatio || '4:1');
-  const mobileProfile = String(slotMeta?.mobileSizeProfile || '').trim();
-  const mobileRequirements = MOBILE_CREATIVE_REQUIREMENTS[mobileProfile] || MOBILE_CREATIVE_REQUIREMENTS.mobileRegular;
+  const variant = selectedTypeMeta?.value || 'horizontal';
+  const computed = computeSizesFromRatio(ratioLabel, variant);
   return {
     label: viewport === 'mobile' ? '\u041c\u043e\u0431\u0438\u043b\u0435\u043d creative' : '\u0414\u0435\u0441\u043a\u0442\u043e\u043f creative',
-    recommended: parseSizeLabel(viewport === 'mobile' ? mobileRequirements.recommendedSize : selectedTypeMeta?.recommendedSize),
-    minimum: parseSizeLabel(viewport === 'mobile' ? mobileRequirements.minSize : selectedTypeMeta?.minSize),
+    recommended: computed?.recommended || parseSizeLabel(selectedTypeMeta?.recommendedSize),
+    minimum: computed?.minimum || parseSizeLabel(selectedTypeMeta?.minSize),
     ratioLabel,
   };
 }
