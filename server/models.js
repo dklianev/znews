@@ -88,6 +88,7 @@ const adSchema = new mongoose.Schema({
   showTitle: { type: Boolean, default: true },
   cta: String,
   showButton: { type: Boolean, default: true },
+  clickable: { type: Boolean, default: true },
   gradient: String,
   icon: String,
   link: String,

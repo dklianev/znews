@@ -4293,6 +4293,7 @@ function sanitizeAdPayload(payload, { partial = false } = {}) {
   const next = {};
   const nextType = hasOwn(source, 'type') ? normalizeAdTypeInput(source.type) : 'horizontal';
   const nextShowButton = hasOwn(source, 'showButton') ? source.showButton !== false : true;
+  const nextClickable = hasOwn(source, 'clickable') ? source.clickable !== false : true;
   const nextShowTitle = hasOwn(source, 'showTitle') ? source.showTitle !== false : true;
 
   if (!partial || hasOwn(source, 'type')) next.type = nextType;
@@ -4300,6 +4301,7 @@ function sanitizeAdPayload(payload, { partial = false } = {}) {
   if (!partial || hasOwn(source, 'subtitle')) next.subtitle = normalizeText(source.subtitle, 240);
   if (!partial || hasOwn(source, 'showTitle')) next.showTitle = nextShowTitle;
   if (!partial || hasOwn(source, 'showButton')) next.showButton = nextShowButton;
+  if (!partial || hasOwn(source, 'clickable')) next.clickable = nextClickable;
   if (!partial || hasOwn(source, 'cta')) next.cta = normalizeText(source.cta, 80) || 'Научи повече';
   if (!partial || hasOwn(source, 'gradient')) next.gradient = normalizeText(source.gradient, 120);
   if (!partial || hasOwn(source, 'icon')) next.icon = normalizeText(source.icon, 16);
@@ -4352,7 +4354,7 @@ function validateAdCandidate(ad) {
 
   if (!ad?.title) errors.push('Ad title is required');
   if (ad?.showButton !== false && !ad?.cta) errors.push('Ad CTA is required');
-  if (ad?.showButton !== false && !ad?.link) errors.push('Ad link is required');
+  if (ad?.clickable !== false && (!ad?.link || ad?.link === '#')) errors.push('Ad link is required for clickable ads');
   if (!AD_TYPES.includes(ad?.type)) errors.push('Invalid ad type');
   if (!AD_STATUS_OPTIONS.includes(ad?.status)) errors.push('Invalid ad status');
   if (slots.length === 0) errors.push('Select at least one valid placement');

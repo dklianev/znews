@@ -93,7 +93,7 @@ function getBannerLayout(variant, slotMeta) {
 }
 
 function getBannerInteraction(ad, onClick) {
-  const interactive = ad?.showButton !== false;
+  const interactive = ad?.clickable !== false && Boolean(String(ad?.link || '').trim()) && ad?.link !== '#';
   return {
     interactive,
     wrapperProps: interactive
@@ -188,6 +188,7 @@ export function AdBannerHorizontal({ ad, slotMeta = null, showSafeArea = false, 
   const layout = getBannerLayout('horizontal', slotMeta);
   const { interactive, wrapperProps } = getBannerInteraction(ad, onClick);
   const Wrapper = interactive ? 'a' : 'div';
+  const showButton = ad?.showButton !== false && interactive && Boolean(String(ad?.cta || '').trim());
   const showTitle = ad?.showTitle !== false && Boolean(String(ad?.title || '').trim());
   const showSubtitle = Boolean(String(ad?.subtitle || '').trim());
   const headingClass = coverMode
@@ -227,7 +228,7 @@ export function AdBannerHorizontal({ ad, slotMeta = null, showSafeArea = false, 
               {showSubtitle && <p className={subtitleClass}>{ad.subtitle}</p>}
             </div>
           </div>
-          {interactive && (
+          {showButton && (
             <span
               className={`relative z-[2] flex shrink-0 items-center gap-1.5 border-2 bg-gradient-to-r from-zn-hot to-zn-orange font-display font-black uppercase tracking-wider text-white transition-all group-hover:shadow-lg ${layout.ctaClass} ${coverMode ? 'border-white/50' : 'border-white/30'}`}
               style={{ boxShadow: '2px 2px 0 rgba(0,0,0,0.3)' }}
@@ -249,6 +250,7 @@ export function AdBannerSide({ ad, slotMeta = null, showSafeArea = false, onClic
   const layout = getBannerLayout('side', slotMeta);
   const { interactive, wrapperProps } = getBannerInteraction(ad, onClick);
   const Wrapper = interactive ? 'a' : 'div';
+  const showButton = ad?.showButton !== false && interactive && Boolean(String(ad?.cta || '').trim());
   const showTitle = ad?.showTitle !== false && Boolean(String(ad?.title || '').trim());
   const showSubtitle = Boolean(String(ad?.subtitle || '').trim());
   const headingClass = coverMode
@@ -284,7 +286,7 @@ export function AdBannerSide({ ad, slotMeta = null, showSafeArea = false, onClic
           )}
               {showTitle && <h4 className={headingClass}>{ad.title}</h4>}
               {showSubtitle && <p className={subtitleClass}>{ad.subtitle}</p>}
-          {interactive && (
+          {showButton && (
             <span
               className={`relative z-[2] mt-1 inline-block border-2 bg-gradient-to-r from-zn-hot to-zn-orange font-display font-black uppercase tracking-wider text-white transition-all group-hover:shadow-lg ${layout.ctaClass} ${coverMode ? 'border-white/50' : 'border-white/30'}`}
               style={{ boxShadow: '2px 2px 0 rgba(0,0,0,0.3)' }}
@@ -305,6 +307,7 @@ export function AdBannerInline({ ad, slotMeta = null, showSafeArea = false, onCl
   const layout = getBannerLayout('inline', slotMeta);
   const { interactive, wrapperProps } = getBannerInteraction(ad, onClick);
   const Wrapper = interactive ? 'a' : 'div';
+  const showButton = ad?.showButton !== false && interactive && Boolean(String(ad?.cta || '').trim());
   const showTitle = ad?.showTitle !== false && Boolean(String(ad?.title || '').trim());
   const showSubtitle = Boolean(String(ad?.subtitle || '').trim());
   const headingClass = coverMode
@@ -342,7 +345,7 @@ export function AdBannerInline({ ad, slotMeta = null, showSafeArea = false, onCl
               {showSubtitle && <p className={subtitleClass}>{ad.subtitle}</p>}
             </div>
           </div>
-          {interactive && (
+          {showButton && (
             <span
               className={`relative z-[2] border bg-gradient-to-r from-zn-hot to-zn-orange font-display font-black uppercase tracking-wider text-white ${layout.ctaClass} ${coverMode ? 'border-white/55' : 'border-white/35'}`}
               style={{ boxShadow: '2px 2px 0 rgba(0,0,0,0.28)' }}
