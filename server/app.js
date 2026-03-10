@@ -7215,7 +7215,9 @@ app.put('/api/site-settings', requireAuth, requirePermission('permissions'), asy
 
 app.post('/api/site-settings/cache/homepage/refresh', requireAuth, requirePermission('permissions'), async (req, res) => {
   try {
-    const totalCleared = invalidateCacheTags(['homepage', 'bootstrap'], { reason: 'manual-homepage-refresh' });
+    const homepageCleared = invalidateCacheTags(['homepage'], { reason: 'manual-homepage-refresh:homepage' });
+    const bootstrapCleared = invalidateCacheTags(['bootstrap'], { reason: 'manual-homepage-refresh:bootstrap' });
+    const totalCleared = homepageCleared + bootstrapCleared;
 
     AuditLog.create({
       user: req.user.name,
