@@ -64,6 +64,7 @@ import { registerMonitoringRoutes } from './routes/monitoringRoutes.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createBackgroundJobsService } from './services/backgroundJobsService.js';
 import { createMonitoringService } from './services/monitoringService.js';
+import { createAuthzService } from './services/authzService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -3806,41 +3807,16 @@ const { buildDiagnosticsPayload } = createDiagnosticsService({
 registerBackgroundJob({ name: 'scheduled-publish-cache-refresh', intervalMs: scheduledPublishPollMs, initialDelayMs: 2500, run: refreshScheduledContentCachesJob });
 registerBackgroundJob({ name: 'share-card-cleanup', intervalMs: shareCardCleanupPollMs, initialDelayMs: 4500, run: cleanupOrphanedShareCardsJob });
 registerBackgroundJob({ name: 'ad-analytics-rollup', intervalMs: adAnalyticsRollupPollMs, initialDelayMs: 6500, run: aggregateAdAnalyticsJob });
-function requireAuth(req, res, next) {
-  const decoded = decodeTokenFromRequest(req);
-  if (!decoded) return res.status(401).json({ error: 'Authentication required' });
-  req.user = decoded;
-  return next();
-}
-
-function requireAdmin(req, res, next) {
-  if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
-  return next();
-}
-
-function requirePermission(section) {
-  return async (req, res, next) => {
-    try {
-      if (await hasPermissionForSection(req.user, section)) return next();
-      return res.status(403).json({ error: `Missing permission: ${section}` });
-    } catch (e) {
-      return res.status(500).json({ error: publicError(e) });
-    }
-  };
-}
-
-function requireAnyPermission(sections) {
-  return async (req, res, next) => {
-    try {
-      for (const section of sections) {
-        if (await hasPermissionForSection(req.user, section)) return next();
-      }
-      return res.status(403).json({ error: 'Missing permissions' });
-    } catch (e) {
-      return res.status(500).json({ error: publicError(e) });
-    }
-  };
-}
+const {
+  requireAuth,
+  requireAdmin,
+  requirePermission,
+  requireAnyPermission,
+} = createAuthzService({
+  decodeTokenFromRequest,
+  hasPermissionForSection,
+  publicError,
+});
 
 // ─── Monitoring / Diagnostics routes ───
 registerMonitoringRoutes(app, {
