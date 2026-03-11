@@ -54,6 +54,8 @@ articleSchema.index(
 articleSchema.index({ status: 1, publishAt: -1, id: -1 }, { name: 'article_publish_sort' });
 articleSchema.index({ hero: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_hero_publish_sort' });
 articleSchema.index({ featured: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_featured_publish_sort' });
+articleSchema.index({ breaking: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_breaking_publish_sort' });
+articleSchema.index({ sponsored: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_sponsored_publish_sort' });
 articleSchema.index({ category: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_category_publish_sort' });
 
 // ÄÄÄ Author ÄÄÄ
@@ -509,6 +511,7 @@ const gameDefinitionSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now, index: true },
   updatedAt: { type: Date, default: Date.now },
 }, opts);
+gameDefinitionSchema.index({ active: 1, sortOrder: 1, id: -1 }, { name: 'game_definition_active_sort' });
 
 const gamePuzzleSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
