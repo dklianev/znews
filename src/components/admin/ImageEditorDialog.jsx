@@ -489,12 +489,12 @@ export default function ImageEditorDialog({
                 restrictPosition
               />
             ) : (
-              <div className="flex h-full items-center justify-center p-6">
-                <div className="w-full max-w-3xl rounded-[28px] border border-white/10 bg-[#15111A] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
+              <div className="flex h-full items-center justify-center overflow-auto p-6">
+                <div className="flex w-full max-w-3xl items-center justify-center rounded-[28px] border border-white/10 bg-[#15111A] p-4 shadow-[0_18px_45px_rgba(0,0,0,0.35)]" style={{ maxHeight: '100%' }}>
                   <div
                     ref={frameRef}
-                    className={`relative overflow-hidden rounded-[22px] border border-white/10 bg-black ${mode === 'focal' ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                    style={{ aspectRatio: activeAspectPreset.css || '16 / 9' }}
+                    className={`relative w-full overflow-hidden rounded-[22px] border border-white/10 bg-black ${mode === 'focal' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                    style={{ aspectRatio: activeAspectPreset.css || '16 / 9', maxHeight: '100%' }}
                     onPointerDown={mode === 'focal' ? handleFocalPointerDown : undefined}
                     onPointerMove={mode === 'focal' ? handleFocalPointerMove : undefined}
                     onPointerUp={mode === 'focal' ? handleFocalPointerUp : undefined}
