@@ -110,6 +110,7 @@ import { createAuthTokenHelpers } from './services/authTokenHelpersService.js';
 import { createAuthSessionHelpers } from './services/authSessionHelpersService.js';
 import { createCommentsHelpers } from './services/commentsHelpersService.js';
 import { createRateLimitHelpers } from './services/rateLimitHelpersService.js';
+import { createDbBootstrapService } from './services/dbBootstrapService.js';
 import { createArticleCollectionHelpers } from './services/articleCollectionHelpersService.js';
 import { createArticleRecencyHelpers } from './services/articleRecencyHelpersService.js';
 import { createSearchCollectionHelpers } from './services/searchCollectionHelpersService.js';
@@ -1330,92 +1331,6 @@ const {
   normalizeText,
 });
 
-function sanitizePermissionMap(value) {
-  const src = value && typeof value === 'object' ? value : {};
-  return PERMISSION_KEYS.reduce((acc, key) => {
-    acc[key] = Boolean(src[key]);
-    return acc;
-  }, {});
-}
-
-async function ensureDefaultPermissionDocs() {
-  try {
-    await Promise.all(
-      Object.entries(DEFAULT_PERMISSION_DOCS).map(async ([role, permissionMap]) => {
-        const permissions = sanitizePermissionMap(permissionMap);
-        const existing = await Permission.findOne({ role }).lean();
-
-        if (!existing) {
-          await Permission.create({ role, permissions });
-          return;
-        }
-
-        const missingPermissionPatch = {};
-        PERMISSION_KEYS.forEach((key) => {
-          if (typeof existing.permissions?.[key] === 'boolean') return;
-          missingPermissionPatch[`permissions.${key}`] = Boolean(permissions[key]);
-        });
-
-        if (Object.keys(missingPermissionPatch).length > 0) {
-          await Permission.updateOne({ role }, { $set: missingPermissionPatch });
-        }
-      })
-    );
-  } catch (error) {
-    console.warn('⚠ Failed to ensure default permissions:', error?.message || error);
-  }
-}
-
-async function migrateBreakingCategoryLabels() {
-  try {
-    await Category.updateOne(
-      {
-        id: 'breaking',
-        $or: [
-          { name: { $exists: false } },
-          { name: null },
-          { name: '' },
-          { name: /^\s*спешни\s*$/i },
-        ],
-      },
-      { $set: { name: BREAKING_CATEGORY_LABEL } }
-    );
-  } catch (error) {
-    console.warn('⚠ Failed to migrate breaking category label:', error?.message || error);
-  }
-
-  try {
-    const doc = await SiteSettings.findOne({ key: 'main' }).lean();
-    if (!doc) return;
-
-    const normalizeBreakingLinks = (links) => {
-      if (!Array.isArray(links)) return { next: null, changed: false };
-      let changed = false;
-      const next = links.map((item) => {
-        if (!item || item.to !== '/category/breaking') return item;
-        const normalizedLabel = normalizeText(item.label, 50);
-        if (normalizedLabel && normalizedLabel.toLowerCase() !== 'спешни') return item;
-        changed = true;
-        return { ...item, label: BREAKING_CATEGORY_LABEL };
-      });
-      return { next, changed };
-    };
-
-    const navbarLinks = normalizeBreakingLinks(doc.navbarLinks);
-    const footerQuickLinks = normalizeBreakingLinks(doc.footerQuickLinks);
-
-    const updates = {};
-    if (navbarLinks.changed) updates.navbarLinks = navbarLinks.next;
-    if (footerQuickLinks.changed) updates.footerQuickLinks = footerQuickLinks.next;
-    if (Object.keys(updates).length === 0) return;
-
-    await SiteSettings.updateOne({ key: 'main' }, { $set: updates });
-  } catch (error) {
-    console.warn('⚠ Failed to migrate breaking labels in site settings:', error?.message || error);
-  }
-}
-
-// ─── Auth / Authorization Middleware ───
 const systemEventRetentionDays = 90;
 const backgroundJobLockMs = Math.max(30 * 1000, Number.parseInt(process.env.BACKGROUND_JOB_LOCK_MS || '', 10) || (2 * 60 * 1000));
 const scheduledPublishPollMs = Math.max(30 * 1000, Number.parseInt(process.env.SCHEDULED_PUBLISH_POLL_MS || '', 10) || (60 * 1000));
@@ -1520,91 +1435,6 @@ registerMonitoringRoutes(app, {
 });
 
 // ─── MongoDB Connection ───
-async function connectDB() {
-  const uri = process.env.MONGODB_URI;
-  const isPlaceholder = !uri || /YOUR_PASSWORD|xxxxx|user:password/i.test(uri);
-
-  if (isPlaceholder) {
-    if (isProd) {
-      throw new Error('MONGODB_URI must be configured for production.');
-    }
-
-    try {
-      const { MongoMemoryServer } = await import('mongodb-memory-server');
-      const mongod = await MongoMemoryServer.create();
-      const memUri = mongod.getUri();
-      await mongoose.connect(memUri);
-      console.log('✓ MongoDB in-memory (dev mode)');
-
-      const { seedAll } = await import('./seed.js');
-      await seedAll({ allowDestructive: true, reason: 'dev-inmemory-bootstrap' });
-      console.log('✓ Database seeded with defaults');
-      return;
-    } catch (memoryErr) {
-      const fallbackUri = process.env.DEV_MONGODB_FALLBACK_URI || 'mongodb://127.0.0.1:27017/zemun-news';
-      console.warn(`⚠ In-memory MongoDB failed: ${memoryErr.message}`);
-      console.warn(`⚠ Trying local MongoDB fallback: ${fallbackUri}`);
-      try {
-        await mongoose.connect(fallbackUri, { serverSelectionTimeoutMS: 3000 });
-        console.log('✓ MongoDB local fallback connected');
-        return;
-      } catch (fallbackErr) {
-        throw new Error(
-          `Mongo init failed. In-memory: ${memoryErr.message}. Local fallback: ${fallbackErr.message}. ` +
-          'Set a valid MONGODB_URI in .env.'
-        );
-      }
-    }
-  } else {
-    await mongoose.connect(uri);
-    console.log('✓ MongoDB connected');
-  }
-}
-
-async function ensureDbIndexes() {
-  try {
-    // In production Mongoose defaults to autoIndex=false, so ensure the critical indexes exist.
-    const modelsWithIndexes = [
-      Article,
-      Author,
-      Category,
-      Ad,
-      AdEvent,
-      Breaking,
-      User,
-      Wanted,
-      Job,
-      Court,
-      Event,
-      Poll,
-      Comment,
-      CommentReaction,
-      ContactMessage,
-      Gallery,
-      Permission,
-      HeroSettings,
-      SiteSettings,
-      ArticleRevision,
-      SettingsRevision,
-      ArticleView,
-      PollVote,
-      AuthSession,
-      AuditLog,
-      Tip,
-      PushSubscription,
-      GameDefinition,
-      GamePuzzle,
-      Counter,
-      SearchQueryStat,
-    ];
-
-    await Promise.all(modelsWithIndexes.map((Model) => Model.init()));
-    console.log('✓ MongoDB indexes ensured');
-  } catch (err) {
-    console.warn('⚠ MongoDB index init failed:', err?.message || err);
-  }
-}
-
 function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, sensitiveFields = [], writePermission = null) {
   const router = express.Router();
   const writeGuards = writePermission
@@ -1754,6 +1584,59 @@ const {
 } = createArticlePushHelpers({
   PushSubscription,
   webpush,
+});
+
+const {
+  connectDB,
+  ensureDbIndexes,
+  ensureDefaultPermissionDocs,
+  migrateBreakingCategoryLabels,
+  sanitizePermissionMap,
+} = createDbBootstrapService({
+  BREAKING_CATEGORY_LABEL,
+  Category,
+  DEFAULT_PERMISSION_DOCS,
+  Permission,
+  PERMISSION_KEYS,
+  SiteSettings,
+  devMongoFallbackUri: process.env.DEV_MONGODB_FALLBACK_URI || 'mongodb://127.0.0.1:27017/zemun-news',
+  isProd,
+  modelsWithIndexes: [
+    Article,
+    Author,
+    Category,
+    Ad,
+    AdEvent,
+    Breaking,
+    User,
+    Wanted,
+    Job,
+    Court,
+    Event,
+    Poll,
+    Comment,
+    CommentReaction,
+    ContactMessage,
+    Gallery,
+    Permission,
+    HeroSettings,
+    SiteSettings,
+    ArticleRevision,
+    SettingsRevision,
+    ArticleView,
+    PollVote,
+    AuthSession,
+    AuditLog,
+    Tip,
+    PushSubscription,
+    GameDefinition,
+    GamePuzzle,
+    Counter,
+    SearchQueryStat,
+  ],
+  mongoUri: process.env.MONGODB_URI,
+  mongoose,
+  normalizeText,
 });
 
 registerArticlesAdminRoutes(articlesRouter, {
