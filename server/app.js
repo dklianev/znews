@@ -71,6 +71,7 @@ import { createContentMaintenanceService } from './services/contentMaintenanceSe
 import { createAdAnalyticsRollupService } from './services/adAnalyticsRollupService.js';
 import { createUploadDedupService } from './services/uploadDedupService.js';
 import { createBackupExportService } from './services/backupExportService.js';
+import { createStoragePathService } from './services/storagePathService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -710,47 +711,19 @@ const shareCardHeight = 630;
 const shareCardFontStackDisplay = "Noto Sans, sans-serif";
 const shareCardFontStackBody = "Noto Sans, sans-serif";
 
-function toPosixRelativePath(value) {
-  return String(value || '')
-    .replace(/\\/g, '/')
-    .replace(/^\/+/, '')
-    .replace(/\/+/g, '/')
-    .trim();
-}
-
-function encodePathForUrl(value) {
-  return toPosixRelativePath(value)
-    .split('/')
-    .filter(Boolean)
-    .map(segment => encodeURIComponent(segment))
-    .join('/');
-}
-
-function toUploadsStorageKey(relativePath) {
-  const normalized = toPosixRelativePath(relativePath);
-  if (!normalized) return `${storageUploadsPrefix}/`;
-  return path.posix.join(storageUploadsPrefix, normalized);
-}
-
-function getDiskAbsolutePath(relativePath) {
-  const normalized = toPosixRelativePath(relativePath);
-  if (!normalized) return uploadsDir;
-  return path.join(uploadsDir, ...normalized.split('/'));
-}
-
-function toUploadsUrlFromRelative(relativePath) {
-  const normalized = toPosixRelativePath(relativePath);
-  if (!normalized) return isRemoteStorage ? storagePublicBaseUrl : '/uploads';
-  if (isRemoteStorage) {
-    return `${storagePublicBaseUrl}/${encodePathForUrl(toUploadsStorageKey(normalized))}`;
-  }
-  return `/uploads/${encodePathForUrl(normalized)}`;
-}
-
-function getOriginalUploadUrl(fileName) {
-  return toUploadsUrlFromRelative(fileName);
-}
-
+const {
+  encodePathForUrl,
+  getDiskAbsolutePath,
+  getOriginalUploadUrl,
+  toPosixRelativePath,
+  toUploadsStorageKey,
+  toUploadsUrlFromRelative,
+} = createStoragePathService({
+  isRemoteStorage,
+  storagePublicBaseUrl,
+  storageUploadsPrefix,
+  uploadsDir,
+});
 
 // Multer always uses memoryStorage so we can process with sharp via buffer before writing
 const upload = multer({
