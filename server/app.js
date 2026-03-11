@@ -106,6 +106,7 @@ import { createDocumentHelpers } from './services/documentHelpersService.js';
 import { createGamesCatalogService } from './services/gamesCatalogService.js';
 import { createAccessHelpers } from './services/accessHelpersService.js';
 import { createAuthTokenHelpers } from './services/authTokenHelpersService.js';
+import { createAuthSessionHelpers } from './services/authSessionHelpersService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -2200,36 +2201,19 @@ const {
   refreshTokenMaxAgeMs,
 });
 
-async function createRefreshSession(req, userId) {
-  const jti = randomUUID();
-  const expiresAt = new Date(Date.now() + refreshTokenMaxAgeMs);
-  const userAgent = getClientUserAgent(req);
-  const ipHash = createHash('sha256').update(getClientIp(req)).digest('hex');
-  await AuthSession.create({
-    jti,
-    userId,
-    userAgent,
-    ipHash,
-    expiresAt,
-  });
-  return {
-    jti,
-    expiresAt,
-  };
-}
-
-async function rotateTokensForUser(req, user, previousJti = null) {
-  if (previousJti) {
-    await AuthSession.deleteOne({ jti: previousJti, userId: user.id });
-  }
-  const refreshSession = await createRefreshSession(req, user.id);
-  const refreshToken = signRefreshToken({ userId: user.id, jti: refreshSession.jti });
-  const accessToken = signAccessToken(user);
-  return {
-    accessToken,
-    refreshToken,
-  };
-}
+const {
+  createRefreshSession,
+  rotateTokensForUser,
+} = createAuthSessionHelpers({
+  AuthSession,
+  createHash,
+  getClientIp,
+  getClientUserAgent,
+  randomUUID,
+  refreshTokenMaxAgeMs,
+  signAccessToken,
+  signRefreshToken,
+});
 
 function getClientIp(req) {
   return getTrustedClientIp(req);
