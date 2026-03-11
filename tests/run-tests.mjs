@@ -39,6 +39,9 @@ import { runWebArticleMetaHelpersTests } from './webArticleMetaHelpersService.te
 import { runServerLifecycleServiceTests } from './serverLifecycleService.test.mjs';
 import { runRequestHelpersTests } from './requestHelpersService.test.mjs';
 import { runRuntimeBootstrapHelpersTests } from './runtimeBootstrapHelpersService.test.mjs';
+import { runAuthRoutesTests } from './authRoutes.test.mjs';
+import { runSearchRoutesTests } from './searchRoutes.test.mjs';
+import { runHealthRoutesTests } from './healthRoutes.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -91,5 +94,8 @@ await runTest('webArticleMetaHelpers', runWebArticleMetaHelpersTests);
 await runTest('serverLifecycleService', runServerLifecycleServiceTests);
 await runTest('requestHelpers', runRequestHelpersTests);
 await runTest('runtimeBootstrapHelpers', runRuntimeBootstrapHelpersTests);
+await runTest('authRoutes', runAuthRoutesTests);
+await runTest('searchRoutes', runSearchRoutesTests);
+await runTest('healthRoutes', runHealthRoutesTests);
 
 console.log('All tests passed.');
