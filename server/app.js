@@ -64,6 +64,7 @@ import { registerMonitoringRoutes } from './routes/monitoringRoutes.js';
 import { registerMediaRoutes } from './routes/mediaRoutes.js';
 import { registerUploadRoutes } from './routes/uploadRoutes.js';
 import { registerTipRoutes } from './routes/tipRoutes.js';
+import { registerPushRoutes } from './routes/pushRoutes.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createBackgroundJobsService } from './services/backgroundJobsService.js';
 import { createMonitoringService } from './services/monitoringService.js';
@@ -6608,38 +6609,10 @@ registerTipRoutes(app, {
   upload,
 });
 
-app.get('/api/push/vapid-public-key', (_req, res) => {
-  res.send(process.env.VAPID_PUBLIC_KEY || '');
-});
-
-app.post('/api/push/subscribe', async (req, res) => {
-  try {
-    const subscription = req.body;
-    if (!subscription || !subscription.endpoint) {
-      return res.status(400).json({ error: 'Invalid subscription' });
-    }
-
-    await PushSubscription.findOneAndUpdate(
-      { endpoint: subscription.endpoint },
-      subscription,
-      { upsert: true, new: true }
-    );
-
-    res.status(201).json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-app.post('/api/push/unsubscribe', async (req, res) => {
-  try {
-    const { endpoint } = req.body;
-    if (!endpoint) return res.status(400).json({ error: 'Invalid operation' });
-    await PushSubscription.findOneAndDelete({ endpoint });
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
+registerPushRoutes(app, {
+  PushSubscription,
+  publicError,
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
 });
 
 registerMediaRoutes(app, {
