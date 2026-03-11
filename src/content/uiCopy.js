@@ -68,7 +68,7 @@ export const searchCopy = {
   title: 'Търсене',
   emptyTitle: 'Няма резултати',
   emptyBody: 'Пробвай с по-кратка или по-конкретна заявка.',
-  inputPlaceholder: 'Търси статии, работа, съд, събития...',
+  inputPlaceholder: 'Търси по ключова дума...',
   clearSearch: 'Изчисти търсенето',
   resultsFor: 'Резултати за',
   loading: 'Търсене...',
