@@ -14,6 +14,7 @@ import { runArticleRecencyPipelineTests } from './articleRecencyPipeline.test.mj
 import { runSearchUtilsTests } from './searchUtils.test.mjs';
 import { runGamePuzzleHelpersTests } from './gamePuzzleHelpersService.test.mjs';
 import { runSettingsHelpersTests } from './settingsHelpersService.test.mjs';
+import { runArticlePushHelpersTests } from './articlePushHelpersService.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -41,5 +42,6 @@ await runTest('articleRecencyPipeline', runArticleRecencyPipelineTests);
 await runTest('searchUtils', runSearchUtilsTests);
 await runTest('gamePuzzleHelpers', runGamePuzzleHelpersTests);
 await runTest('settingsHelpers', runSettingsHelpersTests);
+await runTest('articlePushHelpers', runArticlePushHelpersTests);
 
 console.log('All tests passed.');
