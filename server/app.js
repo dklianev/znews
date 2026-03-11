@@ -97,6 +97,7 @@ import { createBackupExportService } from './services/backupExportService.js';
 import { createStoragePathService } from './services/storagePathService.js';
 import { createRemoteStorageService } from './services/remoteStorageService.js';
 import { createStorageObjectService } from './services/storageObjectService.js';
+import { createMediaStorageHelpers } from './services/mediaStorageHelpersService.js';
 import { createImagePipelineService } from './services/imagePipelineService.js';
 import { createArticleHelpers } from './services/articleHelpersService.js';
 import { createGamePuzzleHelpers } from './services/gamePuzzleHelpersService.js';
@@ -396,8 +397,6 @@ const imageMimeToExt = {
 };
 const allowedImageExtensions = new Set(Object.values(imageMimeToExt));
 const imagePipelineWidths = [320, 640, 960, 1280];
-let sharpLoaderPromise = null;
-let sharpMissingWarned = false;
 const pollVoteWindowMs = Math.max(
   5 * 60 * 1000,
   Number.parseInt(process.env.POLL_VOTE_WINDOW_MS || '', 10) || (24 * 60 * 60 * 1000)
@@ -752,75 +751,24 @@ if (!isRemoteStorage) {
   });
 }
 
-function isSafeUploadFilename(name) {
-  return /^[a-zA-Z0-9._-]+$/.test(name || '');
-}
-
-function isOriginalUploadFileName(name) {
-  if (!isSafeUploadFilename(name)) return false;
-  if (name.startsWith('_')) return false;
-  return !name.includes('-w') && !name.includes('-avif') && !name.includes('-webp');
-}
-
-function getVariantsRelativeDir(fileName) {
-  return path.posix.join('_variants', path.parse(fileName).name);
-}
-
-function getVariantsAbsoluteDir(fileName) {
-  return getDiskAbsolutePath(getVariantsRelativeDir(fileName));
-}
-
-function getManifestAbsolutePath(fileName) {
-  return getDiskAbsolutePath(getManifestRelativePath(fileName));
-}
-
-function getManifestRelativePath(fileName) {
-  return path.posix.join(getVariantsRelativeDir(fileName), 'manifest.json');
-}
-
-function getShareRelativePath(fileName) {
-  return path.posix.join('_share', fileName);
-}
-
-async function loadSharp() {
-  if (sharpLoaderPromise) return sharpLoaderPromise;
-  sharpLoaderPromise = import('sharp')
-    .then(mod => mod.default || mod)
-    .catch(() => {
-      if (!sharpMissingWarned) {
-        sharpMissingWarned = true;
-        console.warn('⚠ Image pipeline is disabled because optional dependency "sharp" is not available.');
-      }
-      return null;
-    });
-  return sharpLoaderPromise;
-}
-
-function createUploadFileName(mimeType) {
-  const ext = imageMimeToExt[mimeType] || '.jpg';
-  return `${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
-}
-
-async function readSdkBodyToBuffer(body) {
-  if (!body) return Buffer.alloc(0);
-  if (Buffer.isBuffer(body)) return body;
-  if (typeof body.transformToByteArray === 'function') {
-    const bytes = await body.transformToByteArray();
-    return Buffer.from(bytes);
-  }
-
-  const chunks = [];
-  for await (const chunk of body) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
-}
-
-function isStorageNotFoundError(error) {
-  const code = error?.$metadata?.httpStatusCode;
-  const name = String(error?.name || error?.Code || error?.code || '').toLowerCase();
-  return code === 404 || name.includes('nosuchkey') || name.includes('notfound');
-}
+const {
+  getManifestAbsolutePath,
+  getManifestRelativePath,
+  getShareRelativePath,
+  getVariantsAbsoluteDir,
+  getVariantsRelativeDir,
+  isOriginalUploadFileName,
+  isStorageNotFoundError,
+  loadSharp,
+  readSdkBodyToBuffer,
+  renderTextImage,
+} = createMediaStorageHelpers({
+  bundledFontFile,
+  fs,
+  getDiskAbsolutePath,
+  imageMimeToExt,
+  path,
+});
 
 const {
   deleteRemoteKeys,
@@ -903,41 +851,8 @@ const transparentPng1x1 = Buffer.from(
   'base64'
 );
 
-// Render a text string as a transparent PNG buffer using Sharp's Pango text API.
-// This bypasses fontconfig/librsvg and loads the font directly via fontfile.
-async function renderTextImage(sharp, text, {
-  fontSize = 40,
-  fontWeight = 'bold',
-  color = 'white',
-  width = 400,
-  height = 80,
-  align = 'left',
-} = {}) {
-  if (!text || !bundledFontFile) return null;
-  const pangoSize = Math.round(fontSize * 1024); // Pango uses 1/1024 pt units
-  const weightAttr = fontWeight === '900' || fontWeight === 'bold' ? ' font_weight="bold"' : '';
-  const escapedText = escapeHtml(text);
-  const markup = `<span foreground="${color}"${weightAttr} font_size="${pangoSize}">${escapedText}</span>`;
-  try {
-    const { data, info } = await sharp({
-      text: {
-        text: markup,
-        fontfile: bundledFontFile,
-        rgba: true,
-        width,
-        height,
-        align,
-      },
-    })
-      .png()
-      .toBuffer({ resolveWithObject: true });
-    return { buffer: data, width: info.width, height: info.height };
-  } catch {
-    return null;
-  }
-}
-
 function hasOwn(obj, key) {
+
   return Object.prototype.hasOwnProperty.call(obj, key);
 }
 
