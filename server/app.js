@@ -69,6 +69,7 @@ import { createCacheService } from './services/cacheService.js';
 import { createHealthService } from './services/healthService.js';
 import { createContentMaintenanceService } from './services/contentMaintenanceService.js';
 import { createAdAnalyticsRollupService } from './services/adAnalyticsRollupService.js';
+import { createUploadDedupService } from './services/uploadDedupService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -7229,56 +7230,13 @@ app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
   }
 });
 
-const uploadRequestInFlight = new Map();
-const recentUploadResults = new Map();
-const recentUploadTtlMs = 2 * 60 * 1000;
-const recentUploadCacheMax = 300;
-
-function makeUploadFingerprint(buffer, mimeType = '', applyWatermark = true) {
-  return createHash('sha256')
-    .update(buffer)
-    .update('|')
-    .update(String(mimeType || ''))
-    .update('|')
-    .update(applyWatermark ? 'wm:1' : 'wm:0')
-    .digest('hex');
-}
-
-function pruneRecentUploadResults() {
-  const now = Date.now();
-  for (const [key, value] of recentUploadResults.entries()) {
-    if (!value || now - value.createdAt > recentUploadTtlMs) {
-      recentUploadResults.delete(key);
-    }
-  }
-  if (recentUploadResults.size <= recentUploadCacheMax) return;
-  const ordered = [...recentUploadResults.entries()]
-    .sort((a, b) => Number(a[1]?.createdAt || 0) - Number(b[1]?.createdAt || 0));
-  const overflow = recentUploadResults.size - recentUploadCacheMax;
-  for (let idx = 0; idx < overflow; idx += 1) {
-    const key = ordered[idx]?.[0];
-    if (key) recentUploadResults.delete(key);
-  }
-}
-
-function getRecentUploadPayload(fingerprint) {
-  pruneRecentUploadResults();
-  const item = recentUploadResults.get(fingerprint);
-  if (!item) return null;
-  if (Date.now() - item.createdAt > recentUploadTtlMs) {
-    recentUploadResults.delete(fingerprint);
-    return null;
-  }
-  return item.payload || null;
-}
-
-function rememberRecentUploadPayload(fingerprint, payload) {
-  recentUploadResults.set(fingerprint, {
-    createdAt: Date.now(),
-    payload,
-  });
-  pruneRecentUploadResults();
-}
+const {
+  getRecentUploadPayload,
+  makeUploadFingerprint,
+  recentUploadResults,
+  rememberRecentUploadPayload,
+  uploadRequestInFlight,
+} = createUploadDedupService();
 
 // ─── Image Upload Endpoint ───
 app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), (req, res) => {
