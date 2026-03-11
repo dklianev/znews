@@ -47,24 +47,34 @@ export function registerSearchRoutes(app, deps) {
 
       const maybeUser = decodeTokenFromRequest(req);
       const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
-      const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
+      const articleBaseFilter = canSeeDrafts ? {} : getPublishedFilter();
       const articleLimit = parsePositiveInt(req.query.articleLimit, 24, { min: 1, max: 80 });
       const sectionLimit = parsePositiveInt(req.query.sectionLimit, 12, { min: 1, max: 40 });
       const articleFieldsProjection = buildArticleProjection(req.query.fields) || HOMEPAGE_DEFAULT_ARTICLE_PROJECTION;
 
-      articleFilter.$text = { $search: trimmedQuery };
-
       const regex = buildSearchRegex(trimmedQuery) || new RegExp(escapeRegexForSearch(trimmedQuery), 'i');
+      const articleRegexFilter = Object.keys(articleBaseFilter).length > 0
+        ? {
+          $and: [
+            articleBaseFilter,
+            {
+              $or: [{ title: regex }, { excerpt: regex }, { tags: regex }, { category: regex }],
+            },
+          ],
+        }
+        : { $or: [{ title: regex }, { excerpt: regex }, { tags: regex }, { category: regex }] };
 
       void recordSearchQuery(trimmedQuery).catch(() => {});
 
       const [articleMatches, jobMatches, courtMatches, eventMatches, wantedMatches] = await Promise.all([
         (async () => {
-          const items = await Article.find(articleFilter)
-            .sort({ score: { $meta: 'textScore' }, id: -1 })
-            .limit(articleLimit)
-            .select(articleFieldsProjection)
-            .lean();
+          const items = await searchCollectionByTextAndRegex(Article, {
+            textSearch: trimmedQuery,
+            regexFilter: articleRegexFilter,
+            limit: articleLimit,
+            projection: articleFieldsProjection,
+            textSortField: 'publishAt',
+          });
           return sortArticlesByRecency(stripDocumentList(items));
         })(),
         searchCollectionByTextAndRegex(Job, {

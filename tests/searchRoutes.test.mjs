@@ -44,38 +44,13 @@ async function runHandlers(handlers, req, res) {
   return next();
 }
 
-function createArticleModel(items, seenFilters) {
-  return {
-    find(filter) {
-      seenFilters.push(filter);
-      return {
-        sort() {
-          return {
-            limit() {
-              return {
-                select() {
-                  return {
-                    async lean() {
-                      return items;
-                    },
-                  };
-                },
-              };
-            },
-          };
-        },
-      };
-    },
-  };
-}
-
 export async function runSearchRoutesTests() {
   {
     const app = createMockApp();
     let recorded = 0;
 
     registerSearchRoutes(app, {
-      Article: createArticleModel([], []),
+      Article: { modelName: 'Article' },
       Court: {},
       Event: {},
       Job: {},
@@ -121,14 +96,14 @@ export async function runSearchRoutesTests() {
 
   {
     const app = createMockApp();
-    const seenArticleFilters = [];
     const articleItems = [{ id: 9, title: 'Article' }];
     const jobItems = [{ id: 2, title: 'Job' }];
     const courtItems = [{ id: 3, title: 'Court' }];
+    const searchCalls = [];
     let recordedQuery = null;
 
     registerSearchRoutes(app, {
-      Article: createArticleModel(articleItems, seenArticleFilters),
+      Article: { modelName: 'Article' },
       Court: { modelName: 'Court' },
       Event: { modelName: 'Event' },
       Job: { modelName: 'Job' },
@@ -140,7 +115,14 @@ export async function runSearchRoutesTests() {
       decodeTokenFromRequest() { return null; },
       escapeRegexForSearch(value) { return value; },
       filterSearchResultsByType,
-      getPublishedFilter() { return { status: 'published' }; },
+      getPublishedFilter() {
+        return {
+          $and: [
+            { status: 'published' },
+            { publishAt: { $lte: new Date('2026-03-11T00:00:00.000Z') } },
+          ],
+        };
+      },
       async getSearchSuggestions() { return []; },
       async getTrendingSearches() { return []; },
       async hasPermissionForSection() { return false; },
@@ -149,7 +131,9 @@ export async function runSearchRoutesTests() {
       parsePositiveInt(value, fallback) { return value == null ? fallback : Number.parseInt(value, 10); },
       publicError(error) { return error.message; },
       async recordSearchQuery(query) { recordedQuery = query; },
-      async searchCollectionByTextAndRegex(Model) {
+      async searchCollectionByTextAndRegex(Model, options) {
+        searchCalls.push({ modelName: Model.modelName, options });
+        if (Model.modelName === 'Article') return articleItems;
         if (Model.modelName === 'Job') return jobItems;
         if (Model.modelName === 'Court') return courtItems;
         return [];
@@ -160,13 +144,29 @@ export async function runSearchRoutesTests() {
 
     const handlers = app.routes.get('GET /api/search');
     const res = createResponse();
-    await runHandlers(handlers, { query: { q: 'мафия', type: 'jobs', sectionLimit: '5' } }, res);
+    await runHandlers(handlers, { query: { q: 'работаа', type: 'jobs', sectionLimit: '5' } }, res);
 
     assert.equal(res.statusCode, 200);
-    assert.equal(recordedQuery, 'мафия');
+    assert.equal(recordedQuery, 'работаа');
     assert.equal(res.headers['Cache-Control'], 'no-store');
-    assert.deepEqual(seenArticleFilters, [{ status: 'published', $text: { $search: 'мафия' } }]);
-    assert.equal(res.body.query, 'мафия');
+
+    const articleCall = searchCalls.find((call) => call.modelName === 'Article');
+    assert.ok(articleCall, 'article search uses shared collection helper');
+    assert.equal(articleCall.options.textSearch, 'работаа');
+    assert.equal(articleCall.options.textSortField, 'publishAt');
+    assert.equal(Array.isArray(articleCall.options.regexFilter.$and), true);
+    assert.equal(articleCall.options.regexFilter.$and.length, 2);
+    assert.deepEqual(articleCall.options.regexFilter.$and[0], {
+      $and: [
+        { status: 'published' },
+        { publishAt: { $lte: new Date('2026-03-11T00:00:00.000Z') } },
+      ],
+    });
+    assert.equal(Array.isArray(articleCall.options.regexFilter.$and[1].$or), true);
+    assert.equal(articleCall.options.regexFilter.$and[1].$or.length, 4);
+    assert.ok(articleCall.options.regexFilter.$and[1].$or.every((entry) => Object.values(entry)[0] instanceof RegExp));
+
+    assert.equal(res.body.query, 'работаа');
     assert.equal(res.body.type, 'jobs');
     assert.deepEqual(res.body.jobs, jobItems);
     assert.deepEqual(res.body.articles, []);
@@ -179,7 +179,7 @@ export async function runSearchRoutesTests() {
     const app = createMockApp();
 
     registerSearchRoutes(app, {
-      Article: createArticleModel([], []),
+      Article: { modelName: 'Article' },
       Court: {},
       Event: {},
       Job: {},

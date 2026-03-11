@@ -8,7 +8,7 @@ import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { searchCopy } from '../content/uiCopy';
-import { filterSearchResultsByType, normalizeSearchType } from '../../shared/search.js';
+import { buildSearchRegex, filterSearchResultsByType, matchesSearchFields, normalizeSearchType } from '../../shared/search.js';
 
 const ARTICLE_SEARCH_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 const RECENT_SEARCHES_KEY = 'zn_recent_searches';
@@ -192,42 +192,55 @@ export default function SearchPage() {
     };
   }, [trimmedQuery, searchType]);
 
-  const q = trimmedQuery.toLowerCase();
+  const localSearchRegex = useMemo(() => buildSearchRegex(trimmedQuery), [trimmedQuery]);
 
   const localArticleResults = useMemo(() => {
-    if (!q) return [];
+    if (!trimmedQuery || !localSearchRegex) return [];
     const includeContentSearch = Boolean(trimmedQuery) && Boolean(remoteError);
-    return articles.filter((article) => (
-      String(article?.title || '').toLowerCase().includes(q)
-      || String(article?.excerpt || '').toLowerCase().includes(q)
-      || (Array.isArray(article?.tags) && article.tags.some((tag) => String(tag).toLowerCase().includes(q)))
-      || (includeContentSearch && String(article?.content || '').toLowerCase().includes(q))
-    ));
-  }, [q, articles, trimmedQuery, remoteError]);
+    return articles.filter((article) => matchesSearchFields([
+      article?.title,
+      article?.excerpt,
+      article?.category,
+      ...(Array.isArray(article?.tags) ? article.tags : []),
+      includeContentSearch ? article?.content : '',
+    ], localSearchRegex));
+  }, [articles, localSearchRegex, remoteError, trimmedQuery]);
 
-  const localJobResults = useMemo(() => !q ? [] : jobs.filter((item) =>
-    String(item?.title || '').toLowerCase().includes(q)
-    || String(item?.org || '').toLowerCase().includes(q)
-    || String(item?.description || '').toLowerCase().includes(q)
-  ), [q, jobs]);
+  const localJobResults = useMemo(() => {
+    if (!trimmedQuery || !localSearchRegex) return [];
+    return jobs.filter((item) => matchesSearchFields([
+      item?.title,
+      item?.org,
+      item?.description,
+    ], localSearchRegex));
+  }, [jobs, localSearchRegex, trimmedQuery]);
 
-  const localCourtResults = useMemo(() => !q ? [] : court.filter((item) =>
-    String(item?.title || '').toLowerCase().includes(q)
-    || String(item?.details || '').toLowerCase().includes(q)
-    || String(item?.defendant || '').toLowerCase().includes(q)
-    || String(item?.charge || '').toLowerCase().includes(q)
-  ), [q, court]);
+  const localCourtResults = useMemo(() => {
+    if (!trimmedQuery || !localSearchRegex) return [];
+    return court.filter((item) => matchesSearchFields([
+      item?.title,
+      item?.details,
+      item?.defendant,
+      item?.charge,
+    ], localSearchRegex));
+  }, [court, localSearchRegex, trimmedQuery]);
 
-  const localEventResults = useMemo(() => !q ? [] : events.filter((item) =>
-    String(item?.title || '').toLowerCase().includes(q)
-    || String(item?.description || '').toLowerCase().includes(q)
-    || String(item?.location || '').toLowerCase().includes(q)
-  ), [q, events]);
+  const localEventResults = useMemo(() => {
+    if (!trimmedQuery || !localSearchRegex) return [];
+    return events.filter((item) => matchesSearchFields([
+      item?.title,
+      item?.description,
+      item?.location,
+    ], localSearchRegex));
+  }, [events, localSearchRegex, trimmedQuery]);
 
-  const localWantedResults = useMemo(() => !q ? [] : wanted.filter((item) =>
-    String(item?.name || '').toLowerCase().includes(q)
-    || String(item?.charge || '').toLowerCase().includes(q)
-  ), [q, wanted]);
+  const localWantedResults = useMemo(() => {
+    if (!trimmedQuery || !localSearchRegex) return [];
+    return wanted.filter((item) => matchesSearchFields([
+      item?.name,
+      item?.charge,
+    ], localSearchRegex));
+  }, [localSearchRegex, trimmedQuery, wanted]);
 
   const useLocalFallback = Boolean(trimmedQuery) && Boolean(remoteError);
   const searchResults = useMemo(() => filterSearchResultsByType(useLocalFallback ? {

@@ -1,21 +1,13 @@
 import { Article, Category, Court, Event, Job, SearchQueryStat, Wanted } from './models.js';
-import { buildSearchSuggestionText, expandSearchTerms, normalizeSearchTerm } from '../shared/search.js';
+import { buildExpandedSearchTerms, buildSearchRegex as buildSharedSearchRegex, buildSearchSuggestionText, normalizeSearchTerm } from '../shared/search.js';
 
-function escapeRegex(value) {
-  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 export function buildSearchTermSet(query) {
-  const expanded = expandSearchTerms(query);
-  const normalizedQuery = normalizeSearchTerm(query);
-  if (normalizedQuery && !expanded.includes(normalizedQuery)) expanded.unshift(normalizedQuery);
-  return expanded.slice(0, 12);
+  return buildExpandedSearchTerms(query, { maxTerms: 12 });
 }
 
 export function buildSearchRegex(query) {
-  const terms = buildSearchTermSet(query);
-  if (terms.length === 0) return null;
-  return new RegExp(terms.map(escapeRegex).join('|'), 'i');
+  return buildSharedSearchRegex(query, { maxTerms: 12, maxFuzzyPatterns: 24 });
 }
 
 export async function recordSearchQuery(query) {

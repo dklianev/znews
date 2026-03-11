@@ -1,4 +1,16 @@
-import { buildSearchSuggestionText, expandSearchTerms, filterSearchResultsByType, normalizeSearchTerm, normalizeSearchType, tokenizeSearchQuery } from '../shared/search.js';
+import {
+  buildExpandedSearchTerms,
+  buildSearchRegex,
+  buildSearchSuggestionText,
+  createFuzzySearchPatterns,
+  expandSearchTerms,
+  filterSearchResultsByType,
+  matchesSearchFields,
+  matchesSearchText,
+  normalizeSearchTerm,
+  normalizeSearchType,
+  tokenizeSearchQuery,
+} from '../shared/search.js';
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -14,6 +26,18 @@ export async function runSearchUtilsTests() {
 
   const expanded = expandSearchTerms('работа');
   assert(expanded.includes('jobs') && expanded.includes('кариера'), 'expandSearchTerms adds synonyms');
+
+  const expandedTerms = buildExpandedSearchTerms('извънредни новини');
+  assert(expandedTerms[0] === 'извънредни новини', 'buildExpandedSearchTerms preserves full normalized query first');
+  assert(expandedTerms.includes('breaking'), 'buildExpandedSearchTerms includes synonym expansion');
+
+  const fuzzyPatterns = createFuzzySearchPatterns('работаа');
+  assert(fuzzyPatterns.length > 0, 'createFuzzySearchPatterns builds variants for longer terms');
+
+  const fuzzyRegex = buildSearchRegex('работаа');
+  assert(fuzzyRegex instanceof RegExp && fuzzyRegex.test('работа в лос сантос'), 'buildSearchRegex tolerates one extra character typo');
+  assert(matchesSearchText('извънредни новини', 'изванредни'), 'matchesSearchText tolerates one wrong character');
+  assert(matchesSearchFields(['полицейски скандали', 'друго'], 'криминални'), 'matchesSearchFields uses synonym expansion');
 
   const suggestionKey = buildSearchSuggestionText(' Съд ', 'court');
   assert(suggestionKey === 'съд::court', 'buildSearchSuggestionText builds stable dedupe key');
