@@ -214,7 +214,17 @@ export default function ImageEditorDialog({
       })
       .catch(() => {
         if (cancelled) return;
-        setImageInfo(null);
+        // Fallback: load without crossOrigin to get dimensions even if CORS blocks
+        const fallback = new Image();
+        fallback.onload = () => {
+          if (cancelled) return;
+          setImageInfo({ width: fallback.naturalWidth || fallback.width, height: fallback.naturalHeight || fallback.height });
+        };
+        fallback.onerror = () => {
+          if (cancelled) return;
+          setImageInfo(null);
+        };
+        fallback.src = imageUrl;
       });
     return () => {
       cancelled = true;
@@ -223,16 +233,15 @@ export default function ImageEditorDialog({
 
   const normalizedAspectPresets = useMemo(() => {
     const normalized = normalizeAspectPresets(aspectPresets);
-    if (!imageInfo?.width || !imageInfo?.height) return normalized;
+    if (normalized.some((preset) => preset.key === 'original')) return normalized;
+    const hasImage = imageInfo?.width && imageInfo?.height;
     const originalPreset = {
       key: 'original',
       label: 'Оригинал',
-      ratio: imageInfo.width / imageInfo.height,
-      css: `${imageInfo.width} / ${imageInfo.height}`,
+      ratio: hasImage ? imageInfo.width / imageInfo.height : 16 / 9,
+      css: hasImage ? `${imageInfo.width} / ${imageInfo.height}` : '16 / 9',
     };
-    return normalized.some((preset) => preset.key === 'original')
-      ? normalized
-      : [originalPreset, ...normalized];
+    return [originalPreset, ...normalized];
   }, [aspectPresets, imageInfo]);
 
   const [mode, setMode] = useState(
