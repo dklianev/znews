@@ -522,19 +522,24 @@ app.use(cors({
   credentials: true,
 }));
 
+const rateLimitEnabledInDev = process.env.ENABLE_RATE_LIMIT_IN_DEV === 'true';
 const {
   getClientIpForRateLimit,
+  isAdminApiPath,
+  isAuthApiPath,
+  isMediaApiPath,
+  isReadOnlyMethod,
   parseRateLimitPositiveInt,
   rateLimitKeyGenerator,
+  shouldSkipRateLimit,
 } = createRateLimitHelpers({
   createHash,
   getTrustedClientIp,
   ipKeyGenerator,
   isIP,
+  isProd,
+  rateLimitEnabledInDev,
 });
-
-const rateLimitEnabledInDev = process.env.ENABLE_RATE_LIMIT_IN_DEV === 'true';
-const shouldSkipRateLimit = () => !isProd && !rateLimitEnabledInDev;
 const apiRateLimitWindowMs = parseDurationToMs(process.env.RATE_LIMIT_WINDOW, 15 * 60 * 1000);
 const apiReadRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_READ_MAX, 1200, 100);
 const apiWriteRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_WRITE_MAX, 300, 30);
@@ -543,27 +548,6 @@ const apiAdminReadRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMI
 const apiAdminWriteRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_ADMIN_WRITE_MAX, 300, 30);
 const apiMediaReadRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_MEDIA_READ_MAX, 1800, 100);
 const apiMediaWriteRateLimitMax = parseRateLimitPositiveInt(process.env.RATE_LIMIT_MEDIA_WRITE_MAX, 120, 10);
-const isReadOnlyMethod = (method) => {
-  const normalized = String(method || '').toUpperCase();
-  return normalized === 'GET' || normalized === 'HEAD' || normalized === 'OPTIONS';
-};
-const getApiPath = (req) => String(req.path || '').toLowerCase();
-const isAuthApiPath = (req) => getApiPath(req).startsWith('/auth');
-const isMediaApiPath = (req) => {
-  const pathValue = getApiPath(req);
-  return pathValue.startsWith('/upload') || pathValue.startsWith('/media');
-};
-const isAdminApiPath = (req) => {
-  const pathValue = getApiPath(req);
-  return pathValue.startsWith('/users')
-    || pathValue.startsWith('/permissions')
-    || pathValue.startsWith('/audit-log')
-    || pathValue.startsWith('/tips')
-    || pathValue.startsWith('/hero-settings/revisions')
-    || pathValue.startsWith('/site-settings/revisions')
-    || pathValue.startsWith('/site-settings/cache/homepage/refresh');
-};
-
 const apiReadLimiter = rateLimit({
   windowMs: apiRateLimitWindowMs,
   max: apiReadRateLimitMax,

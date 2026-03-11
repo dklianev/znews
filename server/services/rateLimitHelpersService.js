@@ -3,6 +3,8 @@ export function createRateLimitHelpers({
   getTrustedClientIp,
   ipKeyGenerator,
   isIP,
+  isProd = false,
+  rateLimitEnabledInDev = false,
 }) {
   function getClientIpForRateLimit(req) {
     return getTrustedClientIp(req);
@@ -33,9 +35,48 @@ export function createRateLimitHelpers({
     return parsed;
   }
 
+  function shouldSkipRateLimit() {
+    return !isProd && !rateLimitEnabledInDev;
+  }
+
+  function isReadOnlyMethod(method) {
+    const normalized = String(method || '').toUpperCase();
+    return normalized === 'GET' || normalized === 'HEAD' || normalized === 'OPTIONS';
+  }
+
+  function getApiPath(req) {
+    return String(req.path || '').toLowerCase();
+  }
+
+  function isAuthApiPath(req) {
+    return getApiPath(req).startsWith('/auth');
+  }
+
+  function isMediaApiPath(req) {
+    const pathValue = getApiPath(req);
+    return pathValue.startsWith('/upload') || pathValue.startsWith('/media');
+  }
+
+  function isAdminApiPath(req) {
+    const pathValue = getApiPath(req);
+    return pathValue.startsWith('/users')
+      || pathValue.startsWith('/permissions')
+      || pathValue.startsWith('/audit-log')
+      || pathValue.startsWith('/tips')
+      || pathValue.startsWith('/hero-settings/revisions')
+      || pathValue.startsWith('/site-settings/revisions')
+      || pathValue.startsWith('/site-settings/cache/homepage/refresh');
+  }
+
   return {
+    getApiPath,
     getClientIpForRateLimit,
+    isAdminApiPath,
+    isAuthApiPath,
+    isMediaApiPath,
+    isReadOnlyMethod,
     parseRateLimitPositiveInt,
     rateLimitKeyGenerator,
+    shouldSkipRateLimit,
   };
 }
