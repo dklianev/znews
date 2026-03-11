@@ -219,7 +219,7 @@ function AdCircleMedia({ ad, creative, className, iconClass = 'text-2xl' }) {
   return (
     <div className={className}>
       {creative.image ? (
-        <img src={creative.image} alt={ad.title} className="h-full w-full object-cover" loading="lazy" decoding="async" fetchPriority="low" />
+        <img src={creative.image} alt={ad.title} className="h-full w-full object-cover" loading="lazy" decoding="async" fetchpriority="low" />
       ) : (
         <span className={iconClass}>{ad.icon}</span>
       )}
@@ -250,7 +250,7 @@ function AdCreativeBackground({ ad, creative, overlayClassName = '', glowClassNa
         style={getAdCoverImageStyle(creative)}
         loading="lazy"
         decoding="async"
-        fetchPriority="low"
+        fetchpriority="low"
       />
       {overlayClassName ? <div className={`absolute inset-0 ${overlayClassName}`} /> : null}
       {containMode ? <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1),transparent_60%)]" /> : null}
