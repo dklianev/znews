@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { MessageCircle, Check, Trash2, XCircle, Eye, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
 export default function ManageComments() {
-  const { comments, articles, updateComment, deleteComment } = useData();
+  const { comments, articles, updateComment, deleteComment } = usePublicData();
   const [filter, setFilter] = useState('all'); // all | pending | approved
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');

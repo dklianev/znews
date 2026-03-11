@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { Image, Plus, Trash2, Edit3, Star, StarOff, X, AlertTriangle } from 'lucide-react';
 import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
@@ -26,7 +26,7 @@ function parseGalleryDate(value) {
 }
 
 export default function ManageGallery() {
-  const { gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem } = useData();
+  const { gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem } = usePublicData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyItem);
   const [saving, setSaving] = useState(false);

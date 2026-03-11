@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { Clock3, FilePenLine, Search, Send, CalendarClock, CirclePause, Loader2 } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
@@ -19,7 +19,7 @@ function toLocalDateLabel(value) {
 }
 
 export default function EditorialQueue() {
-  const { articles, categories, authors, updateArticle } = useData();
+  const { articles, categories, authors, updateArticle } = usePublicData();
   const [tab, setTab] = useState('drafts');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');

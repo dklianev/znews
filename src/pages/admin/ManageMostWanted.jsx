@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
@@ -12,7 +12,7 @@ const DANGERS = [
 const emptyForm = { name: '', bounty: '', charge: '', danger: 'high' };
 
 export default function ManageMostWanted() {
-  const { wanted, addWanted, updateWanted, deleteWanted } = useData();
+  const { wanted, addWanted, updateWanted, deleteWanted } = usePublicData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);

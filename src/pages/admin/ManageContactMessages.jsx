@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Mail, AlertTriangle, Trash2, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
 import { api } from '../../utils/api';
-import { useData } from '../../context/DataContext';
+import { useAdminData, useSessionData } from '../../context/DataContext';
 import { useToast } from '../../components/admin/Toast';
 
 const STATUS_LABELS = Object.freeze({
@@ -17,7 +17,8 @@ const STATUS_STYLES = Object.freeze({
 });
 
 export default function ManageContactMessages() {
-  const { session, hasPermission } = useData();
+  const { session } = useSessionData();
+  const { hasPermission } = useAdminData();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

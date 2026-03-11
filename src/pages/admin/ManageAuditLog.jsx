@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ClipboardList, Plus, Pencil, Trash2, Filter, Clock, AlertTriangle, ShieldAlert } from 'lucide-react';
-import { useData } from '../../context/DataContext';
+import { useAdminData, useSessionData } from '../../context/DataContext';
 import { api } from '../../utils/api';
 
 const ACTION_ICONS = { create: Plus, update: Pencil, delete: Trash2 };
@@ -15,7 +15,8 @@ const RESOURCE_LABELS = {
 };
 
 export default function ManageAuditLog() {
-    const { session, hasPermission } = useData();
+    const { session } = useSessionData();
+    const { hasPermission } = useAdminData();
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);

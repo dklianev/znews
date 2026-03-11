@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
 const ICONS = ['📰', '🔫', '🏛️', '💰', '🏆', '👥', '🌑', '🚓', '🎥', '🚨', '⚖️', '💼', '📅', '🗳️', '🎮', '🏎️', '🎵', '🍔'];
 
 export default function ManageCategories() {
-  const { categories, addCategory, updateCategory, deleteCategory } = useData();
+  const { categories, addCategory, updateCategory, deleteCategory } = usePublicData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ id: '', name: '', icon: '📰' });
   const [saving, setSaving] = useState(false);

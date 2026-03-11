@@ -33,7 +33,7 @@ import {
   estimateReadTimeFromHtml,
 } from '../../utils/richText';
 import UploadWatermarkToggle from './UploadWatermarkToggle';
-import { useData } from '../../context/DataContext';
+import { useAdminData } from '../../context/DataContext';
 import useUploadWatermarkPreference from '../../hooks/useUploadWatermarkPreference';
 
 const IMAGE_WIDTH_VALUES = new Set(['25', '50', '75', '100']);
@@ -92,7 +92,7 @@ export default function RichTextEditor({
   placeholder = 'Напиши съдържанието на статията...',
   className = '',
 }) {
-  const { media, refreshMedia, uploadMedia } = useData();
+  const { media, refreshMedia, uploadMedia } = useAdminData();
   const editorRef = useRef(null);
   const savedRangeRef = useRef(null);
   const [selectionTick, setSelectionTick] = useState(0);

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image as ImageIcon, Search, Upload, X, RefreshCw, Crop } from 'lucide-react';
 import ImageEditorDialog from './ImageEditorDialog';
 import UploadWatermarkToggle from './UploadWatermarkToggle';
-import { useData } from '../../context/DataContext';
+import { useAdminData } from '../../context/DataContext';
 import useUploadWatermarkPreference from '../../hooks/useUploadWatermarkPreference';
 import { api } from '../../utils/api';
 import { getUploadFilenameFromMediaUrl } from '../../utils/editableMediaUrl';
@@ -93,7 +93,7 @@ export default function AdminImageField({
   guideMode = '',
   imageRequirements = null,
 }) {
-  const { media, uploadMedia, refreshMedia } = useData();
+  const { media, uploadMedia, refreshMedia } = useAdminData();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);

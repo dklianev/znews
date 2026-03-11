@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { Plus, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
 export default function ManageBreaking() {
-  const { breaking, saveBreaking } = useData();
+  const { breaking, saveBreaking } = usePublicData();
   const [items, setItems] = useState(breaking);
   const [newItem, setNewItem] = useState('');
   const [hasChanges, setHasChanges] = useState(false);

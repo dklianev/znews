@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
@@ -16,7 +16,7 @@ const JOB_TYPES = [
 const emptyForm = { title: '', org: '', type: 'other', description: '', requirements: '', salary: '', contact: '', date: new Date().toISOString().slice(0, 10), active: true };
 
 export default function ManageJobs() {
-  const { jobs, addJob, updateJob, deleteJob } = useData();
+  const { jobs, addJob, updateJob, deleteJob } = usePublicData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);

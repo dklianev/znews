@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
@@ -17,7 +17,7 @@ const EVENT_ICONS = ['🏎️', '🎭', '🥊', '🏛️', '🎵', '📅', '🎮
 const emptyForm = { title: '', description: '', date: new Date().toISOString().slice(0, 10), time: '', location: '', organizer: '', type: 'other', image: '📅' };
 
 export default function ManageEvents() {
-  const { events, addEvent, updateEvent, deleteEvent } = useData();
+  const { events, addEvent, updateEvent, deleteEvent } = usePublicData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);

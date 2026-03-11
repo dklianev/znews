@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, CalendarClock, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
@@ -18,7 +18,7 @@ const STATUSES = [
 const emptyForm = { title: '', defendant: '', charge: '', verdict: '', judge: '', date: new Date().toISOString().slice(0, 10), details: '', severity: 'medium', status: 'scheduled', nextHearing: '' };
 
 export default function ManageCourt() {
-  const { court, addCourtCase, updateCourtCase, deleteCourtCase } = useData();
+  const { court, addCourtCase, updateCourtCase, deleteCourtCase } = usePublicData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);

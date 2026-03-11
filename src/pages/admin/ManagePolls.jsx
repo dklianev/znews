@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { Plus, Trash2, X, Save, ToggleLeft, ToggleRight, Pencil, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
@@ -12,7 +12,7 @@ function createOption(text = '', votes = 0) {
 }
 
 export default function ManagePolls() {
-  const { polls, addPoll, updatePoll, deletePoll } = useData();
+  const { polls, addPoll, updatePoll, deletePoll } = usePublicData();
   const [creating, setCreating] = useState(false);
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { useAdminData } from '../../context/DataContext';
 import { Upload, Trash2, Copy, RefreshCw, Search, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
 import UploadWatermarkToggle from '../../components/admin/UploadWatermarkToggle';
 import { useToast } from '../../components/admin/Toast';
@@ -7,7 +7,7 @@ import ImageEditorDialog from '../../components/admin/ImageEditorDialog';
 import useUploadWatermarkPreference from '../../hooks/useUploadWatermarkPreference';
 
 export default function ManageMedia() {
-  const { media, mediaPipelineStatus, uploadMedia, deleteMedia, refreshMedia, backfillMediaPipeline } = useData();
+  const { media, mediaPipelineStatus, uploadMedia, deleteMedia, refreshMedia, backfillMediaPipeline } = useAdminData();
   const toast = useToast();
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
