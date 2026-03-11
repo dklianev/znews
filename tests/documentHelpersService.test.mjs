@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { createDocumentHelpers } from '../server/services/documentHelpersService.js';
+
+export async function runDocumentHelpersTests() {
+  const helpers = createDocumentHelpers();
+
+  const source = { _id: 'abc', __v: 7, id: 5, title: 'Hello', nested: { ok: true }, password: 'secret' };
+  const stripped = helpers.stripDocumentMetadata(source);
+  assert.deepEqual(stripped, { id: 5, title: 'Hello', nested: { ok: true }, password: 'secret' });
+  assert.deepEqual(source, { _id: 'abc', __v: 7, id: 5, title: 'Hello', nested: { ok: true }, password: 'secret' });
+
+  const cleaned = helpers.cleanExportItem(source);
+  assert.deepEqual(cleaned, { id: 5, title: 'Hello', nested: { ok: true } });
+
+  assert.equal(helpers.stripDocumentMetadata(null), null);
+  assert.equal(helpers.cleanExportItem('nope'), 'nope');
+}

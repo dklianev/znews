@@ -102,6 +102,7 @@ import { createArticleHelpers } from './services/articleHelpersService.js';
 import { createGamePuzzleHelpers } from './services/gamePuzzleHelpersService.js';
 import { createSettingsHelpers } from './services/settingsHelpersService.js';
 import { createArticlePushHelpers } from './services/articlePushHelpersService.js';
+import { createDocumentHelpers } from './services/documentHelpersService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -2959,13 +2960,10 @@ const usersRouter = createUsersRouter({
 
 app.use('/api/users', usersRouter);
 
-function stripDocumentMetadata(item) {
-  if (!item || typeof item !== 'object') return item;
-  const next = { ...item };
-  delete next._id;
-  delete next.__v;
-  return next;
-}
+const {
+  cleanExportItem,
+  stripDocumentMetadata,
+} = createDocumentHelpers();
 
 const {
   buildAdAnalyticsSummary,
@@ -3335,14 +3333,6 @@ registerPollVoteRoutes(app, {
 });
 
 // ─── Audit / Backup / Reset ───
-function cleanExportItem(item) {
-  const next = stripDocumentMetadata(item);
-  if (next && typeof next === 'object') {
-    delete next.password;
-  }
-  return next;
-}
-
 const { streamBackupExport } = createBackupExportService({
   Ad,
   Article,

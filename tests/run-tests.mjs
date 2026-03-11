@@ -15,6 +15,7 @@ import { runSearchUtilsTests } from './searchUtils.test.mjs';
 import { runGamePuzzleHelpersTests } from './gamePuzzleHelpersService.test.mjs';
 import { runSettingsHelpersTests } from './settingsHelpersService.test.mjs';
 import { runArticlePushHelpersTests } from './articlePushHelpersService.test.mjs';
+import { runDocumentHelpersTests } from './documentHelpersService.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -43,5 +44,6 @@ await runTest('searchUtils', runSearchUtilsTests);
 await runTest('gamePuzzleHelpers', runGamePuzzleHelpersTests);
 await runTest('settingsHelpers', runSettingsHelpersTests);
 await runTest('articlePushHelpers', runArticlePushHelpersTests);
+await runTest('documentHelpers', runDocumentHelpersTests);
 
 console.log('All tests passed.');
