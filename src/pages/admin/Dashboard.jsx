@@ -16,13 +16,14 @@ import {
   Download,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { dashboardCopy } from '../../content/uiCopy';
 
 const DashboardAnalytics = lazy(() => import('../../components/admin/DashboardAnalytics'));
 
 function AnalyticsFallback() {
   return (
     <div className="mb-6 border border-gray-200 bg-white p-5 text-sm text-gray-500">
-      Зареждане на аналитичния панел...
+      {dashboardCopy.loadingAnalytics}
     </div>
   );
 }
@@ -53,18 +54,18 @@ export default function Dashboard() {
   );
 
   const stats = [
-    { label: 'Статии', value: articles.length, icon: FileText, color: 'bg-zn-purple', to: '/admin/articles', permission: 'articles' },
-    { label: 'Преглеждания', value: totalViews.toLocaleString('bg-BG'), icon: Eye, color: 'bg-amber-600', to: null, permission: 'articles' },
-    { label: 'Коментари', value: comments.length, icon: MessageCircle, color: 'bg-zn-hot', badge: pendingComments > 0 ? `${pendingComments} чакат` : null, to: '/admin/comments', permission: 'comments' },
-    { label: 'Галерия', value: gallery.length, icon: Image, color: 'bg-blue-500', to: '/admin/gallery', permission: 'gallery' },
+    { label: dashboardCopy.stats.articles, value: articles.length, icon: FileText, color: 'bg-zn-purple', to: '/admin/articles', permission: 'articles' },
+    { label: dashboardCopy.stats.views, value: totalViews.toLocaleString('bg-BG'), icon: Eye, color: 'bg-amber-600', to: null, permission: 'articles' },
+    { label: dashboardCopy.stats.comments, value: comments.length, icon: MessageCircle, color: 'bg-zn-hot', badge: pendingComments > 0 ? `${pendingComments} ${dashboardCopy.stats.pendingComments}` : null, to: '/admin/comments', permission: 'comments' },
+    { label: dashboardCopy.stats.gallery, value: gallery.length, icon: Image, color: 'bg-blue-500', to: '/admin/gallery', permission: 'gallery' },
   ];
 
   const rpStats = [
-    { label: 'Издирвани', value: wanted.length, icon: Crosshair, color: 'bg-red-600', to: '/admin/wanted', permission: 'wanted' },
-    { label: 'Обяви', value: jobs.length, icon: Briefcase, color: 'bg-emerald-600', to: '/admin/jobs', permission: 'jobs' },
-    { label: 'Дела', value: court.length, icon: Scale, color: 'bg-violet-600', to: '/admin/court', permission: 'court' },
-    { label: 'Събития', value: events.length, icon: CalendarDays, color: 'bg-blue-600', to: '/admin/events', permission: 'events' },
-    { label: 'Анкети', value: polls.length, icon: BarChart3, color: 'bg-pink-600', to: '/admin/polls', permission: 'polls' },
+    { label: dashboardCopy.rpStats.wanted, value: wanted.length, icon: Crosshair, color: 'bg-red-600', to: '/admin/wanted', permission: 'wanted' },
+    { label: dashboardCopy.rpStats.jobs, value: jobs.length, icon: Briefcase, color: 'bg-emerald-600', to: '/admin/jobs', permission: 'jobs' },
+    { label: dashboardCopy.rpStats.court, value: court.length, icon: Scale, color: 'bg-violet-600', to: '/admin/court', permission: 'court' },
+    { label: dashboardCopy.rpStats.events, value: events.length, icon: CalendarDays, color: 'bg-blue-600', to: '/admin/events', permission: 'events' },
+    { label: dashboardCopy.rpStats.polls, value: polls.length, icon: BarChart3, color: 'bg-pink-600', to: '/admin/polls', permission: 'polls' },
   ];
 
   const visibleStats = stats.filter((stat) => !stat.permission || hasPermission(stat.permission));
@@ -83,8 +84,8 @@ export default function Dashboard() {
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      setAdminActionError(error?.message || 'Export failed');
-      console.error('Export failed:', error);
+      setAdminActionError(error?.message || dashboardCopy.exportError);
+      console.error(dashboardCopy.exportError, error);
     } finally {
       setExporting(false);
     }
@@ -93,13 +94,13 @@ export default function Dashboard() {
   const handleReset = async () => {
     if (!isAdmin) return;
     setAdminActionError('');
-    if (!confirm('Това ще презапише демонстрационните данни и ще върне системата в начално състояние. Продължаваме ли?')) return;
+    if (!confirm(dashboardCopy.resetConfirm)) return;
     setResetting(true);
     try {
       await resetAll();
     } catch (error) {
-      setAdminActionError(error?.message || 'Reset failed');
-      console.error('Reset failed:', error);
+      setAdminActionError(error?.message || dashboardCopy.resetError);
+      console.error(dashboardCopy.resetError, error);
     } finally {
       setResetting(false);
     }
@@ -109,8 +110,8 @@ export default function Dashboard() {
     <div className="p-6 lg:p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Табло</h1>
-          <p className="mt-1 text-sm text-gray-500">Оперативен преглед на Los Santos News CMS.</p>
+          <h1 className="text-2xl font-display font-bold text-gray-900">{dashboardCopy.title}</h1>
+          <p className="mt-1 text-sm text-gray-500">{dashboardCopy.subtitle}</p>
         </div>
         {isAdmin && (
           <div className="flex gap-2">
@@ -119,14 +120,14 @@ export default function Dashboard() {
               disabled={exporting}
               className="flex items-center gap-2 border border-emerald-200 px-4 py-2 text-sm font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-50"
             >
-              <Download className={`h-4 w-4 ${exporting ? 'animate-bounce' : ''}`} /> Архив
+              <Download className={`h-4 w-4 ${exporting ? 'animate-bounce' : ''}`} /> {dashboardCopy.exportLabel}
             </button>
             <button
               onClick={handleReset}
               disabled={resetting}
               className="flex items-center gap-2 border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
             >
-              <RotateCcw className={`h-4 w-4 ${resetting ? 'animate-spin' : ''}`} /> Reset demo
+              <RotateCcw className={`h-4 w-4 ${resetting ? 'animate-spin' : ''}`} /> {dashboardCopy.resetLabel}
             </button>
           </div>
         )}
@@ -158,14 +159,14 @@ export default function Dashboard() {
         </div>
       ) : (
         <div className="mb-6 border border-gray-200 bg-white p-5 text-sm text-gray-600">
-          Няма видими статистики за текущия профил.
+          {dashboardCopy.noStats}
         </div>
       )}
 
       {visibleRpStats.length > 0 && (
         <>
           <div className="mb-3">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Оперативни секции</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{dashboardCopy.rpSection}</p>
           </div>
           <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {visibleRpStats.map((stat) => (
@@ -205,8 +206,8 @@ export default function Dashboard() {
           {canSeeAnalytics && (
             <div className={`border border-gray-200 bg-white p-5 ${!canSeeTeam ? 'lg:col-span-2' : ''}`}>
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-sans font-semibold text-gray-900">Последни статии</h2>
-                <Link to="/admin/articles" className="text-xs text-zn-hot hover:underline">Към статиите</Link>
+                <h2 className="font-sans font-semibold text-gray-900">{dashboardCopy.recentArticles}</h2>
+                <Link to="/admin/articles" className="text-xs text-zn-hot hover:underline">{dashboardCopy.manageArticles}</Link>
               </div>
               <div className="space-y-3">
                 {recentArticles.map((article) => (
@@ -215,11 +216,11 @@ export default function Dashboard() {
                       <p className="truncate text-sm font-medium text-gray-900">{article.title}</p>
                       <p className="text-xs text-gray-400">{article.date} • {article.category}</p>
                     </div>
-                    <span className="shrink-0 text-xs text-gray-400">{(article.views || 0).toLocaleString('bg-BG')} прегл.</span>
+                    <span className="shrink-0 text-xs text-gray-400">{(article.views || 0).toLocaleString('bg-BG')} {dashboardCopy.viewsShort}</span>
                   </div>
                 ))}
                 {recentArticles.length === 0 && (
-                  <p className="py-4 text-center text-sm text-gray-400">Няма публикации.</p>
+                  <p className="py-4 text-center text-sm text-gray-400">{dashboardCopy.noArticles}</p>
                 )}
               </div>
             </div>
@@ -228,8 +229,8 @@ export default function Dashboard() {
           {canSeeTeam && (
             <div className={`border border-gray-200 bg-white p-5 ${!canSeeAnalytics ? 'lg:col-span-2' : ''}`}>
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-sans font-semibold text-gray-900">Екип</h2>
-                <Link to="/admin/profiles" className="text-xs text-zn-hot hover:underline">Управление</Link>
+                <h2 className="font-sans font-semibold text-gray-900">{dashboardCopy.teamTitle}</h2>
+                <Link to="/admin/profiles" className="text-xs text-zn-hot hover:underline">{dashboardCopy.teamManage}</Link>
               </div>
               <div className="space-y-3">
                 {users.map((user) => (
@@ -247,7 +248,7 @@ export default function Dashboard() {
                   </div>
                 ))}
                 {users.length === 0 && (
-                  <p className="py-4 text-center text-sm text-gray-400">Няма потребители.</p>
+                  <p className="py-4 text-center text-sm text-gray-400">{dashboardCopy.noUsers}</p>
                 )}
               </div>
             </div>

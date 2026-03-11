@@ -12,6 +12,7 @@ import ComicNewsCard from '../components/ComicNewsCard';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { homeCopy } from '../content/uiCopy';
 import { buildHomepageSections } from '../../shared/homepageSelectors.js';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GamesDailyStatus from '../components/games/GamesDailyStatus';
@@ -28,13 +29,16 @@ const SPOTLIGHT_ICON_MAP = {
   ShieldAlert,
 };
 
-const DEFAULT_HOME_SPOTLIGHT_LINKS = [
-  { to: '/category/crime', label: 'Горещи Новини', icon: 'Flame', hot: true, tilt: '-1.3deg' },
-  { to: '/category/underground', label: 'Скандали', icon: 'Megaphone', hot: true, tilt: '1deg' },
-  { to: '/category/society', label: 'Слухове', icon: 'Bell', hot: false, tilt: '-0.8deg' },
-];
+const DEFAULT_HOME_SPOTLIGHT_LINKS = homeCopy.defaultBottomPills;
 
 const NAV_PILL_VARIANTS = ['nav-pill-hot', 'nav-pill-purple', 'nav-pill-navy'];
+const LATEST_STICKER_FALLBACKS = [
+  homeCopy.latestLeadSticker,
+  homeCopy.latestSecondSticker,
+  homeCopy.latestThirdSticker,
+  homeCopy.latestFourthSticker,
+  homeCopy.latestFifthSticker,
+];
 
 function formatArticleDateLabel(article) {
   if (article?.publishAt) {
@@ -285,14 +289,14 @@ export default function HomePage() {
       .slice(0, 3)
       .map((item, index) => ({
         to: typeof item?.to === 'string' && item.to ? item.to : DEFAULT_HOME_SPOTLIGHT_LINKS[index]?.to || '/',
-        label: item?.label || DEFAULT_HOME_SPOTLIGHT_LINKS[index]?.label || 'Виж повече',
+        label: item?.label || DEFAULT_HOME_SPOTLIGHT_LINKS[index]?.label || homeCopy.defaultPillLabel,
         hot: Boolean(item?.hot),
         tilt: item?.tilt || DEFAULT_HOME_SPOTLIGHT_LINKS[index]?.tilt || '0deg',
         className: NAV_PILL_VARIANTS[index] || NAV_PILL_VARIANTS[NAV_PILL_VARIANTS.length - 1],
         Icon: SPOTLIGHT_ICON_MAP[item?.icon] || SPOTLIGHT_ICON_MAP[DEFAULT_HOME_SPOTLIGHT_LINKS[index]?.icon] || Flame,
       }));
 
-    const headlineBoardWords = (heroSettings?.headlineBoardText || 'ШОК И СЕНЗАЦИЯ!')
+    const headlineBoardWords = (heroSettings?.headlineBoardText || homeCopy.defaultHeadlineWords.join(' '))
       .trim()
       .split(/\s+/)
       .filter(Boolean);
@@ -324,9 +328,9 @@ export default function HomePage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
         <div className="comic-headline-board mb-6 inline-flex">
-          <span className="comic-headline-board-word comic-headline-board-word-hot">ГРЕШКА</span>
+          <span className="comic-headline-board-word comic-headline-board-word-hot">{homeCopy.loadErrorBadge}</span>
         </div>
-        <h1 className="font-display text-4xl font-black text-zn-black mb-4 uppercase">Проблем при зареждане</h1>
+        <h1 className="font-display text-4xl font-black text-zn-black mb-4 uppercase">{homeCopy.loadErrorTitle}</h1>
         <p className="font-display text-zn-text-muted uppercase tracking-wider mb-6 inline-flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-zn-hot" />
           {loadError}
@@ -337,7 +341,7 @@ export default function HomePage() {
           className="inline-flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors"
         >
           <RefreshCw className="w-4 h-4" />
-          Опитай отново
+          {homeCopy.loadErrorRetry}
         </button>
       </div>
     );
@@ -347,36 +351,36 @@ export default function HomePage() {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
         <div className="comic-headline-board mb-6 inline-flex">
-          <span className="comic-headline-board-word comic-headline-board-word-hot">ПРАЗНО</span>
+          <span className="comic-headline-board-word comic-headline-board-word-hot">{homeCopy.emptyBadge}</span>
         </div>
-        <h1 className="font-display text-4xl font-black text-zn-black mb-4 uppercase">Няма публикации</h1>
-        <p className="font-display text-zn-text-muted uppercase tracking-wider">Добавете статии от администраторския панел.</p>
+        <h1 className="font-display text-4xl font-black text-zn-black mb-4 uppercase">{homeCopy.emptyTitle}</h1>
+        <p className="font-display text-zn-text-muted uppercase tracking-wider">{homeCopy.emptyBody}</p>
       </div>
     );
   }
   const getDynamicSlots = (count) => {
-    if (count === 1) return [{ span: 'col-span-1 md:col-span-12', mdCols: 12, tilt: '-1.2deg', sticker: 'Фронт' }];
+    if (count === 1) return [{ span: 'col-span-1 md:col-span-12', mdCols: 12, tilt: '-1.2deg', sticker: LATEST_STICKER_FALLBACKS[0] }];
     if (count === 2) return [
-      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '-1.2deg', sticker: 'Фронт' },
-      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '1deg', sticker: 'Досие' }
+      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '-1.2deg', sticker: LATEST_STICKER_FALLBACKS[0] },
+      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '1deg', sticker: LATEST_STICKER_FALLBACKS[1] }
     ];
     if (count === 3) return [
-      { span: 'col-span-1 md:col-span-12', mdCols: 12, tilt: '-1.2deg', sticker: 'Фронт' },
-      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '1deg', sticker: 'Досие' },
-      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '-0.9deg', sticker: 'Радар' }
+      { span: 'col-span-1 md:col-span-12', mdCols: 12, tilt: '-1.2deg', sticker: LATEST_STICKER_FALLBACKS[0] },
+      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '1deg', sticker: LATEST_STICKER_FALLBACKS[1] },
+      { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '-0.9deg', sticker: LATEST_STICKER_FALLBACKS[2] }
     ];
     if (count === 4) return [
-      { span: 'col-span-1 md:col-span-12', mdCols: 12, tilt: '-1.2deg', sticker: 'Фронт' },
-      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '1deg', sticker: 'Досие' },
-      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '-0.9deg', sticker: 'Радар' },
-      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '0.8deg', sticker: 'Сигнал' }
+      { span: 'col-span-1 md:col-span-12', mdCols: 12, tilt: '-1.2deg', sticker: LATEST_STICKER_FALLBACKS[0] },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '1deg', sticker: LATEST_STICKER_FALLBACKS[1] },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '-0.9deg', sticker: LATEST_STICKER_FALLBACKS[2] },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '0.8deg', sticker: LATEST_STICKER_FALLBACKS[3] }
     ];
     return [
-      { span: 'col-span-1 md:col-span-8 md:row-span-2', mdCols: 8, tilt: '-1.2deg', sticker: 'Фронт' },
-      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '1deg', sticker: 'Досие' },
-      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '-0.9deg', sticker: 'Радар' },
-      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '0.8deg', sticker: 'Сигнал' },
-      { span: 'col-span-1 md:col-span-8', mdCols: 8, tilt: '-0.8deg', sticker: 'Ключово' },
+      { span: 'col-span-1 md:col-span-8 md:row-span-2', mdCols: 8, tilt: '-1.2deg', sticker: LATEST_STICKER_FALLBACKS[0] },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '1deg', sticker: LATEST_STICKER_FALLBACKS[1] },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '-0.9deg', sticker: LATEST_STICKER_FALLBACKS[2] },
+      { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '0.8deg', sticker: LATEST_STICKER_FALLBACKS[3] },
+      { span: 'col-span-1 md:col-span-8', mdCols: 8, tilt: '-0.8deg', sticker: LATEST_STICKER_FALLBACKS[4] },
     ];
   };
   const latestSlots = getDynamicSlots(latestShowcase.length);
@@ -393,7 +397,7 @@ export default function HomePage() {
           className="inline-block relative z-[2]"
         >
           <div className="comic-headline-board inline-flex">
-            {(headlineBoardWords.length > 0 ? headlineBoardWords : ['ШОК', 'И', 'СЕНЗАЦИЯ!']).map((word, index, words) => {
+            {(headlineBoardWords.length > 0 ? headlineBoardWords : homeCopy.defaultHeadlineWords).map((word, index, words) => {
               const edgeWord = index === 0 || index === words.length - 1;
               return (
                 <span
@@ -425,7 +429,7 @@ export default function HomePage() {
       <section>
         <div className="flex items-center gap-3 mb-4">
           <div className="comic-ribbon-hot" style={{ transform: 'rotate(-0.7deg)' }}>
-            <Flame className="w-5 h-5" /> Горещо от Редакцията
+            <Flame className="w-5 h-5" /> {homeCopy.featuredLabel}
           </div>
           <div className="flex-1 h-1 bg-gradient-to-r from-zn-hot/40 to-transparent" />
         </div>
@@ -451,7 +455,7 @@ export default function HomePage() {
         <section className="relative">
           <div className="flex items-center gap-3 mb-4">
             <div className="bg-emerald-600 text-white px-4 py-1.5 font-display font-black text-sm uppercase tracking-wider border-2 border-emerald-800 shadow-md flex items-center gap-2" style={{ transform: 'rotate(-0.5deg)' }}>
-              💰 Платени публикации
+              💰 {homeCopy.sponsoredLabel}
             </div>
             <div className="flex-1 h-1 bg-gradient-to-r from-emerald-500/40 to-transparent" />
           </div>
@@ -481,7 +485,7 @@ export default function HomePage() {
 
         <div className="flex items-center gap-3 mb-4">
           <div className="comic-ribbon-navy" style={{ transform: 'rotate(0.7deg)' }}>
-            <Siren className="w-5 h-5" /> Криминални / Подземен свят
+            <Siren className="w-5 h-5" /> {homeCopy.crimeLabel}
           </div>
           <div className="flex-1 h-1 bg-gradient-to-r from-zn-navy/40 to-transparent" />
         </div>
@@ -524,7 +528,7 @@ export default function HomePage() {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center gap-3">
             <div className="comic-ribbon-purple" style={{ transform: 'rotate(-0.5deg)' }}>
-              <TrendingUp className="w-5 h-5" /> Последни Новини
+              <TrendingUp className="w-5 h-5" /> {homeCopy.latestLabel}
             </div>
             <div className="flex-1 h-1 bg-gradient-to-r from-zn-purple/40 to-transparent" />
           </div>
@@ -532,13 +536,13 @@ export default function HomePage() {
           {latestShowcase.length > 0 ? (
             <div className="comic-latest-wall grid grid-cols-1 md:grid-cols-12 gap-4 auto-rows-[minmax(140px,auto)] md:items-start">
               {latestShowcase.map((article, index) => {
-                const slot = latestSlots[index] || { span: 'md:col-span-6', mdCols: 6, tilt: '0deg', sticker: 'Новина' };
+                const slot = latestSlots[index] || { span: 'md:col-span-6', mdCols: 6, tilt: '0deg', sticker: homeCopy.latestThirdSticker };
                 const latestCardLayout = getLatestCardLayout({
                   count: latestShowcase.length,
                   index,
                   mdCols: slot.mdCols,
                 });
-                const categoryName = categoryById.get(article.category) || 'Новини';
+                const categoryName = categoryById.get(article.category) || homeCopy.defaultCategoryLabel;
 
                 const customSticker = typeof article.cardSticker === 'string' ? article.cardSticker.trim() : '';
                 const stickerLabel = customSticker || slot.sticker;
@@ -600,10 +604,10 @@ export default function HomePage() {
           ) : (
             <div className="comic-panel comic-dots bg-white border-2 border-zn-border/60 p-6 text-center">
               <p className="font-display font-black uppercase tracking-[0.08em] text-zn-text mb-2">
-                Няма още публикации за тази секция
+                {homeCopy.latestEmptyTitle}
               </p>
               <p className="text-sm text-zn-text-muted mb-4">
-                Добавете нова статия или обновете данните.
+                {homeCopy.latestEmptyBody}
               </p>
               <button
                 type="button"
@@ -611,7 +615,7 @@ export default function HomePage() {
                 className="inline-flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-xs font-sans font-semibold uppercase tracking-[0.06em] hover:bg-zn-purple-dark transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
-                Обнови
+                {homeCopy.latestEmptyButton}
               </button>
             </div>
           )}
@@ -623,7 +627,7 @@ export default function HomePage() {
               {latestWire.map((article, index) => {
                 const rank = index + 1;
                 const rankClass = rank === 1 ? 'trending-number-1' : rank === 2 ? 'trending-number-2' : rank === 3 ? 'trending-number-3' : 'trending-number-default';
-                const categoryName = categoryById.get(article.category) || 'Новини';
+                const categoryName = categoryById.get(article.category) || homeCopy.defaultCategoryLabel;
                 const tilt = `${index % 2 === 0 ? -0.6 : 0.6}deg`;
 
                 return (
@@ -656,7 +660,7 @@ export default function HomePage() {
             <section className="pt-1">
               <div className="flex items-center gap-3 mb-4">
                 <div className="comic-ribbon-gold" style={{ transform: 'rotate(0.5deg)' }}>
-                  Репортажи
+                  {homeCopy.reportageLabel}
                 </div>
                 <div className="flex-1 h-1 bg-gradient-to-r from-zn-orange/40 to-transparent" />
               </div>
@@ -683,7 +687,7 @@ export default function HomePage() {
             <section className="pt-1">
               <div className="flex items-center gap-3 mb-4">
                 <div className="comic-ribbon-hot" style={{ transform: 'rotate(-0.4deg)' }}>
-                  Извънредни
+                  {homeCopy.breakingLabel}
                 </div>
                 <div className="flex-1 h-1 bg-gradient-to-r from-zn-hot/40 to-transparent" />
               </div>
@@ -710,7 +714,7 @@ export default function HomePage() {
             <section className="pt-1">
               <div className="flex items-center gap-3 mb-4">
                 <div className="comic-ribbon-hot" style={{ transform: 'rotate(-0.4deg)' }}>
-                  Полиция
+                  {homeCopy.emergencyLabel}
                 </div>
                 <div className="flex-1 h-1 bg-gradient-to-r from-zn-hot/40 to-transparent" />
               </div>

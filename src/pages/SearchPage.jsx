@@ -178,7 +178,7 @@ export default function SearchPage() {
         })
         .catch((error) => {
           if (cancelled) return;
-          setRemoteError(error?.message || 'Търсенето временно не е достъпно.');
+          setRemoteError(error?.message || searchCopy.serviceError);
           setRemoteResults({ articles: [], jobs: [], court: [], events: [], wanted: [] });
         })
         .finally(() => {
