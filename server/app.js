@@ -58,6 +58,8 @@ import { analyzeCrosswordConstruction, getCrosswordEntries, MIN_CROSSWORD_PUBLIS
 import { analyzeSpellingBeeWords, getSpellingBeeWordScore, getSpellingBeeWordValidation, hasCompleteSpellingBeeHive, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, normalizeSpellingBeeWord, normalizeSpellingBeeWords, SPELLING_BEE_MIN_WORD_LENGTH } from '../shared/spellingBee.js';
 import { filterSearchResultsByType, normalizeSearchType } from '../shared/search.js';
 import { buildSearchRegex, getSearchSuggestions, getTrendingSearches, recordSearchQuery } from './searchService.js';
+import { registerHealthRoutes } from './routes/healthRoutes.js';
+import { registerSearchRoutes } from './routes/searchRoutes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -329,23 +331,7 @@ function buildHealthPayload(kind = 'ready') {
   };
 }
 
-app.get('/api/health/live', (_req, res) => {
-  const payload = buildHealthPayload('live');
-  res.set('Cache-Control', 'no-store');
-  res.status(payload.ok ? 200 : 503).json(payload);
-});
-
-app.get('/api/health/ready', (_req, res) => {
-  const payload = buildHealthPayload('ready');
-  res.set('Cache-Control', 'no-store');
-  res.status(payload.ok ? 200 : 503).json(payload);
-});
-
-app.get('/api/health', (_req, res) => {
-  const payload = buildHealthPayload('ready');
-  res.set('Cache-Control', 'no-store');
-  res.status(payload.ok ? 200 : 503).json(payload);
-});
+registerHealthRoutes(app, { buildHealthPayload });
 
 app.use((req, res, next) => {
   if (!shuttingDown) return next();
@@ -7399,118 +7385,31 @@ app.get('/api/homepage', cacheMiddleware, async (req, res) => {
   }
 });
 // ─── Search payload (public query data across homepage-related entities) ───
-app.get('/api/search', cacheMiddleware, async (req, res) => {
-  try {
-    const startedAt = Date.now();
-    const q = normalizeText(req.query.q, 160);
-    const trimmedQuery = q.trim();
-    const searchType = normalizeSearchType(req.query.type);
-    if (!trimmedQuery) {
-      return res.json({
-        query: '',
-        type: searchType,
-        tookMs: 0,
-        articles: [],
-        jobs: [],
-        court: [],
-        events: [],
-        wanted: [],
-      });
-    }
-
-    const maybeUser = decodeTokenFromRequest(req);
-    const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
-    const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
-    const articleLimit = parsePositiveInt(req.query.articleLimit, 24, { min: 1, max: 80 });
-    const sectionLimit = parsePositiveInt(req.query.sectionLimit, 12, { min: 1, max: 40 });
-    const articleFieldsProjection = buildArticleProjection(req.query.fields) || HOMEPAGE_DEFAULT_ARTICLE_PROJECTION;
-
-    articleFilter.$text = { $search: trimmedQuery };
-
-    const regex = buildSearchRegex(trimmedQuery) || new RegExp(escapeRegexForSearch(trimmedQuery), 'i');
-
-    void recordSearchQuery(trimmedQuery).catch(() => {});
-
-    const [articleMatches, jobMatches, courtMatches, eventMatches, wantedMatches] = await Promise.all([
-      (async () => {
-        const items = await Article.find(articleFilter)
-          .sort({ score: { $meta: 'textScore' }, id: -1 })
-          .limit(articleLimit)
-          .select(articleFieldsProjection)
-          .lean();
-        return sortArticlesByRecency(stripDocumentList(items));
-      })(),
-      searchCollectionByTextAndRegex(Job, {
-        textSearch: trimmedQuery,
-        regexFilter: { $or: [{ title: regex }, { org: regex }, { description: regex }] },
-        limit: sectionLimit,
-        projection: { _id: 0, __v: 0 },
-      }),
-      searchCollectionByTextAndRegex(Court, {
-        textSearch: trimmedQuery,
-        regexFilter: { $or: [{ title: regex }, { details: regex }, { defendant: regex }, { charge: regex }] },
-        limit: sectionLimit,
-        projection: { _id: 0, __v: 0 },
-      }),
-      searchCollectionByTextAndRegex(Event, {
-        textSearch: trimmedQuery,
-        regexFilter: { $or: [{ title: regex }, { description: regex }, { location: regex }] },
-        limit: sectionLimit,
-        projection: { _id: 0, __v: 0 },
-      }),
-      searchCollectionByTextAndRegex(Wanted, {
-        textSearch: trimmedQuery,
-        regexFilter: { $or: [{ name: regex }, { charge: regex }] },
-        limit: sectionLimit,
-        projection: { _id: 0, __v: 0 },
-      }),
-    ]);
-
-    const payload = filterSearchResultsByType({
-      articles: Array.isArray(articleMatches) ? articleMatches : [],
-      jobs: Array.isArray(jobMatches) ? jobMatches : [],
-      court: Array.isArray(courtMatches) ? courtMatches : [],
-      events: Array.isArray(eventMatches) ? eventMatches : [],
-      wanted: Array.isArray(wantedMatches) ? wantedMatches : [],
-    }, searchType);
-
-    res.setHeader('Cache-Control', 'no-store');
-    return res.json({
-      query: trimmedQuery,
-      type: searchType,
-      tookMs: Math.max(0, Date.now() - startedAt),
-      ...payload,
-    });
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-app.get('/api/search/suggest', cacheMiddleware, async (req, res) => {
-  try {
-    const q = normalizeText(req.query.q, 120).trim();
-    const limit = parsePositiveInt(req.query.limit, 8, { min: 1, max: 20 });
-    if (!q) {
-      return res.json({ query: '', suggestions: [] });
-    }
-
-    const suggestions = await getSearchSuggestions(q, { limit });
-    res.setHeader('Cache-Control', 'no-store');
-    return res.json({ query: q, suggestions });
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-app.get('/api/search/trending', cacheMiddleware, async (req, res) => {
-  try {
-    const limit = parsePositiveInt(req.query.limit, 8, { min: 1, max: 20 });
-    const items = await getTrendingSearches(limit);
-    res.setHeader('Cache-Control', 'no-store');
-    return res.json({ items });
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
+registerSearchRoutes(app, {
+  Article,
+  Court,
+  Event,
+  Job,
+  Wanted,
+  HOMEPAGE_DEFAULT_ARTICLE_PROJECTION,
+  buildArticleProjection,
+  buildSearchRegex,
+  cacheMiddleware,
+  decodeTokenFromRequest,
+  escapeRegexForSearch,
+  filterSearchResultsByType,
+  getPublishedFilter,
+  getSearchSuggestions,
+  getTrendingSearches,
+  hasPermissionForSection,
+  normalizeSearchType,
+  normalizeText,
+  parsePositiveInt,
+  publicError,
+  recordSearchQuery,
+  searchCollectionByTextAndRegex,
+  sortArticlesByRecency,
+  stripDocumentList,
 });
 
 // ─── Bootstrap (public initial payload) ───
