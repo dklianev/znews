@@ -104,6 +104,7 @@ import { createSettingsHelpers } from './services/settingsHelpersService.js';
 import { createArticlePushHelpers } from './services/articlePushHelpersService.js';
 import { createDocumentHelpers } from './services/documentHelpersService.js';
 import { createGamesCatalogService } from './services/gamesCatalogService.js';
+import { createAccessHelpers } from './services/accessHelpersService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -2383,26 +2384,6 @@ async function collectCommentThreadIds(rootId) {
   return ids;
 }
 
-async function nextNumericId(Model, counterKey = '') {
-  return allocateNumericId(Model, Counter, counterKey);
-}
-
-async function hasPermissionForSection(user, section) {
-  if (!user?.role) return false;
-  if (user.role === 'admin') return true;
-  const rolePerm = await Permission.findOne({ role: user.role }).lean();
-  return Boolean(rolePerm?.permissions?.[section]);
-}
-
-async function isKnownRole(role) {
-  const normalized = normalizeText(role, 32);
-  if (!normalized) return false;
-  if (normalized === 'admin') return true;
-  // Allow built-in roles even if the permissions collection hasn't been seeded yet.
-  if (Object.prototype.hasOwnProperty.call(DEFAULT_PERMISSION_DOCS, normalized)) return true;
-  return Boolean(await Permission.exists({ role: normalized }));
-}
-
 const PERMISSION_KEYS = Object.freeze([
   'articles',
   'categories',
@@ -2494,6 +2475,18 @@ const DEFAULT_PERMISSION_DOCS = Object.freeze({
     permissions: false,
     games: false,
   },
+});
+
+const {
+  hasPermissionForSection,
+  isKnownRole,
+  nextNumericId,
+} = createAccessHelpers({
+  Counter,
+  Permission,
+  allocateNumericId,
+  hasBuiltInRole: (role) => Object.prototype.hasOwnProperty.call(DEFAULT_PERMISSION_DOCS, role),
+  normalizeText,
 });
 
 function sanitizePermissionMap(value) {
