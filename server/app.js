@@ -103,6 +103,7 @@ import { createGamePuzzleHelpers } from './services/gamePuzzleHelpersService.js'
 import { createSettingsHelpers } from './services/settingsHelpersService.js';
 import { createArticlePushHelpers } from './services/articlePushHelpersService.js';
 import { createDocumentHelpers } from './services/documentHelpersService.js';
+import { createGamesCatalogService } from './services/gamesCatalogService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -3003,10 +3004,12 @@ const {
   stripDocumentMetadata,
 });
 
-async function listPublicGames() {
-  const items = await GameDefinition.find({ active: true }).sort('sortOrder').lean();
-  return items.map((item) => stripDocumentMetadata(item));
-}
+const {
+  listPublicGames,
+} = createGamesCatalogService({
+  GameDefinition,
+  stripDocumentMetadata,
+});
 
 const adsRouter = createAdsRouter({
   Ad,
