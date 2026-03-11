@@ -10,8 +10,8 @@ export const appCopy = {
 export const navbarCopy = {
   defaultNavLinks: [
     { to: '/', label: 'Начало' },
-    { to: '/category/crime', label: 'Подземен свят', hot: true },
-    { to: '/category/underground', label: 'Скандали', hot: true },
+    { to: '/category/crime', label: 'Криминални', hot: true },
+    { to: '/category/underground', label: 'Подземен свят', hot: true },
     { to: '/category/emergency', label: 'Извънредни' },
     { to: '/category/breaking', label: 'Горещо', hot: true },
     { to: '/category/reportage', label: 'Репортажи' },

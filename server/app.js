@@ -46,7 +46,7 @@ if (mongoDnsServersEnv && mongoDnsServersEnv.trim()) {
 
 import {
   Article, Author, Category, Ad, AdEvent, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle, Counter, SystemEvent, BackgroundJobState, AdAnalyticsAggregate
+  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle, Counter, SystemEvent, BackgroundJobState, AdAnalyticsAggregate, SearchQueryStat
 } from './models.js';
 import { ensureGameDefinitions, seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
@@ -4151,6 +4151,7 @@ async function ensureDbIndexes() {
       GameDefinition,
       GamePuzzle,
       Counter,
+      SearchQueryStat,
     ];
 
     await Promise.all(modelsWithIndexes.map((Model) => Model.init()));
