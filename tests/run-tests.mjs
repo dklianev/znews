@@ -21,6 +21,7 @@ import { runAccessHelpersTests } from './accessHelpersService.test.mjs';
 import { runAuthTokenHelpersTests } from './authTokenHelpersService.test.mjs';
 import { runAuthSessionHelpersTests } from './authSessionHelpersService.test.mjs';
 import { runCommentsHelpersTests } from './commentsHelpersService.test.mjs';
+import { runRateLimitHelpersTests } from './rateLimitHelpersService.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -55,5 +56,6 @@ await runTest('accessHelpers', runAccessHelpersTests);
 await runTest('authTokenHelpers', runAuthTokenHelpersTests);
 await runTest('authSessionHelpers', runAuthSessionHelpersTests);
 await runTest('commentsHelpers', runCommentsHelpersTests);
+await runTest('rateLimitHelpers', runRateLimitHelpersTests);
 
 console.log('All tests passed.');

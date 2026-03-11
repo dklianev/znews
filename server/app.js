@@ -108,6 +108,7 @@ import { createAccessHelpers } from './services/accessHelpersService.js';
 import { createAuthTokenHelpers } from './services/authTokenHelpersService.js';
 import { createAuthSessionHelpers } from './services/authSessionHelpersService.js';
 import { createCommentsHelpers } from './services/commentsHelpersService.js';
+import { createRateLimitHelpers } from './services/rateLimitHelpersService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -534,35 +535,16 @@ app.use(cors({
   credentials: true,
 }));
 
-function getClientIpForRateLimit(req) {
-  return getTrustedClientIp(req);
-}
-
-function rateLimitKeyGenerator(req) {
-  const ip = getClientIpForRateLimit(req);
-  // Use helper so IPv6 users can't bypass limits by rotating addresses within a subnet.
-  if (isIP(ip)) return ipKeyGenerator(ip, 56);
-
-  const normalized = String(ip || '').trim();
-  if (normalized && normalized !== 'unknown') return normalized;
-
-  const fallbackFingerprint = [
-    String(req.headers?.['x-forwarded-for'] || ''),
-    String(req.headers?.['x-arr-clientip'] || ''),
-    String(req.headers?.['cf-connecting-ip'] || ''),
-    String(req.ip || ''),
-    String(req.socket?.remoteAddress || ''),
-    String(req.headers?.['user-agent'] || ''),
-  ].join('|');
-
-  return `fp:${createHash('sha1').update(fallbackFingerprint || 'unknown').digest('hex').slice(0, 32)}`;
-}
-
-function parseRateLimitPositiveInt(value, fallback, min = 1) {
-  const parsed = Number.parseInt(String(value ?? ''), 10);
-  if (!Number.isFinite(parsed) || parsed < min) return fallback;
-  return parsed;
-}
+const {
+  getClientIpForRateLimit,
+  parseRateLimitPositiveInt,
+  rateLimitKeyGenerator,
+} = createRateLimitHelpers({
+  createHash,
+  getTrustedClientIp,
+  ipKeyGenerator,
+  isIP,
+});
 
 const rateLimitEnabledInDev = process.env.ENABLE_RATE_LIMIT_IN_DEV === 'true';
 const shouldSkipRateLimit = () => !isProd && !rateLimitEnabledInDev;
