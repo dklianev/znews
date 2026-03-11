@@ -67,6 +67,7 @@ import { registerTipRoutes } from './routes/tipRoutes.js';
 import { registerPushRoutes } from './routes/pushRoutes.js';
 import { registerOpsRoutes } from './routes/opsRoutes.js';
 import { registerAuthRoutes } from './routes/authRoutes.js';
+import { registerPermissionRoutes } from './routes/permissionRoutes.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createBackgroundJobsService } from './services/backgroundJobsService.js';
 import { createMonitoringService } from './services/monitoringService.js';
@@ -4494,86 +4495,17 @@ contactMessagesRouter.delete('/:id', requireAuth, requirePermission('contact'), 
 
 app.use('/api/contact-messages', contactMessagesRouter);
 
-// ─── Roles (custom role keys backed by permissions docs) ───
-function normalizeRoleKey(value) {
-  return normalizeText(String(value || ''), 32).toLowerCase();
-}
-
-function isValidRoleKey(role) {
-  // Keep role keys URL-safe + token-friendly.
-  // Examples: "moderator", "sales", "gallery_manager"
-  return /^[a-z][a-z0-9_-]{1,31}$/.test(role);
-}
-
-// Idempotent "ensure role exists" endpoint.
-// Creates a Permission doc only if missing, never overwrites existing permissions.
-app.post('/api/roles', requireAuth, requirePermission('permissions'), async (req, res) => {
-  try {
-    const role = normalizeRoleKey(req.body?.role);
-    if (!role) return res.status(400).json({ error: 'Invalid role' });
-    if (!isValidRoleKey(role)) {
-      return res.status(400).json({ error: 'Role must match /^[a-z][a-z0-9_-]{1,31}$/' });
-    }
-
-    // Prevent creating/overriding built-in roles via this endpoint.
-    if (role === 'admin' || Object.prototype.hasOwnProperty.call(DEFAULT_PERMISSION_DOCS, role)) {
-      return res.status(400).json({ error: 'Reserved role' });
-    }
-
-    const permissions = sanitizePermissionMap({});
-    await Permission.updateOne(
-      { role },
-      { $setOnInsert: { role, permissions } },
-      { upsert: true }
-    );
-
-    const doc = await Permission.findOne({ role }).lean();
-    if (!doc) return res.status(500).json({ error: 'Failed to ensure role' });
-    delete doc._id;
-    delete doc.__v;
-    return res.json(doc);
-  } catch (e) {
-    return res.status(500).json({ error: publicError(e) });
-  }
-});
-
-// ─── Permissions API ───
-app.get('/api/permissions', requireAuth, async (req, res) => {
-  try {
-    const canManage = req.user.role === 'admin' || await hasPermissionForSection(req.user, 'permissions');
-
-    if (canManage) {
-      await ensureDefaultPermissionDocs();
-      const perms = await Permission.find().lean();
-      perms.forEach(p => { delete p._id; delete p.__v; });
-      return res.json(perms);
-    }
-
-    const own = await Permission.findOne({ role: req.user.role }).lean();
-    if (!own) return res.json([]);
-    delete own._id;
-    delete own.__v;
-    return res.json([own]);
-  } catch (e) {
-    return res.status(500).json({ error: publicError(e) });
-  }
-});
-
-app.put('/api/permissions/:role', requireAuth, requirePermission('permissions'), async (req, res) => {
-  try {
-    const role = normalizeText(req.params.role, 32);
-    if (!role) return res.status(400).json({ error: 'Invalid role' });
-
-    const permissions = sanitizePermissionMap(req.body?.permissions);
-    const perm = await Permission.findOneAndUpdate(
-      { role },
-      { $set: { permissions } },
-      { new: true, upsert: true }
-    );
-    res.json(perm.toJSON());
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
+// ─── Roles / Permissions ───
+registerPermissionRoutes(app, {
+  DEFAULT_PERMISSION_DOCS,
+  ensureDefaultPermissionDocs,
+  hasPermissionForSection,
+  normalizeText,
+  Permission,
+  publicError,
+  requireAuth,
+  requirePermission,
+  sanitizePermissionMap,
 });
 
 // ─── Games API (Public) ───
