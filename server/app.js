@@ -61,6 +61,7 @@ import { buildSearchRegex, getSearchSuggestions, getTrendingSearches, recordSear
 import { registerHealthRoutes } from './routes/healthRoutes.js';
 import { registerSearchRoutes } from './routes/searchRoutes.js';
 import { registerMonitoringRoutes } from './routes/monitoringRoutes.js';
+import { registerMediaRoutes } from './routes/mediaRoutes.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createBackgroundJobsService } from './services/backgroundJobsService.js';
 import { createMonitoringService } from './services/monitoringService.js';
@@ -6805,96 +6806,26 @@ app.post('/api/push/unsubscribe', async (req, res) => {
   }
 });
 
-// ─── Media Library (uploads folder) ───
-app.get('/api/media', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (_req, res) => {
-  try {
-    const files = await listMediaFiles();
-    res.json(files);
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-app.get('/api/media/source/:fileName', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (req, res) => {
-  try {
-    const decoded = decodeURIComponent(req.params.fileName || '');
-    const fileName = path.basename(decoded);
-    if (!isOriginalUploadFileName(fileName)) return res.status(400).json({ error: 'Invalid filename' });
-
-    const buffer = await readOriginalUploadBuffer(fileName);
-    if (!buffer || !buffer.byteLength) return res.status(404).json({ error: 'File not found' });
-
-    res.set('Cache-Control', isProd ? 'public, max-age=31536000, immutable' : 'no-store');
-    res.type(fileName);
-    res.send(buffer);
-  } catch (e) {
-    if (e?.code === 'ENOENT' || isStorageNotFoundError(e)) return res.status(404).json({ error: 'File not found' });
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-app.get('/api/media/pipeline/status', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (_req, res) => {
-  try {
-    const status = await getImagePipelineStatus();
-    res.json(status);
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-app.post('/api/media/pipeline/backfill', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (req, res) => {
-  try {
-    const force = Boolean(req.body?.force);
-    const parsedLimit = Number.parseInt(req.body?.limit, 10);
-    const limit = Number.isInteger(parsedLimit) && parsedLimit > 0
-      ? Math.min(parsedLimit, 5000)
-      : 0;
-    const summary = await backfillImagePipeline({ force, limit });
-    res.json(summary);
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-app.delete('/api/media/:fileName', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), async (req, res) => {
-  try {
-    const decoded = decodeURIComponent(req.params.fileName || '');
-    const fileName = path.basename(decoded);
-    if (!isOriginalUploadFileName(fileName)) return res.status(400).json({ error: 'Invalid filename' });
-    const candidateMediaUrls = [...new Set([
-      `/uploads/${encodeURIComponent(fileName)}`,
-      getOriginalUploadUrl(fileName),
-    ])];
-
-    const escapedContentUrls = candidateMediaUrls
-      .map((candidateUrl) => String(candidateUrl).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-      .filter(Boolean);
-    const contentUsageRegex = escapedContentUrls.length > 0
-      ? new RegExp(escapedContentUrls.join('|'))
-      : null;
-
-    const [articleUse, articleContentUse, adUse, galleryUse, eventUse] = await Promise.all([
-      Article.exists({ image: { $in: candidateMediaUrls } }),
-      contentUsageRegex ? Article.exists({ content: contentUsageRegex }) : Promise.resolve(false),
-      Ad.exists({ image: { $in: candidateMediaUrls } }),
-      Gallery.exists({ image: { $in: candidateMediaUrls } }),
-      Event.exists({ image: { $in: candidateMediaUrls } }),
-    ]);
-
-    if (articleUse || articleContentUse || adUse || galleryUse || eventUse) {
-      return res.status(409).json({ error: 'File is used in content and cannot be deleted' });
-    }
-
-    const exists = await storageObjectExists(fileName);
-    if (!exists) return res.status(404).json({ error: 'File not found' });
-
-    await deleteStorageObject(fileName);
-    await deleteStoragePrefix(getVariantsRelativeDir(fileName));
-    res.json({ ok: true });
-  } catch (e) {
-    if (e?.code === 'ENOENT' || isStorageNotFoundError(e)) return res.status(404).json({ error: 'File not found' });
-    res.status(500).json({ error: publicError(e) });
-  }
+registerMediaRoutes(app, {
+  Ad,
+  Article,
+  Event,
+  Gallery,
+  backfillImagePipeline,
+  deleteStorageObject,
+  deleteStoragePrefix,
+  getImagePipelineStatus,
+  getOriginalUploadUrl,
+  getVariantsRelativeDir,
+  isOriginalUploadFileName,
+  isProd,
+  isStorageNotFoundError,
+  listMediaFiles,
+  publicError,
+  readOriginalUploadBuffer,
+  requireAnyPermission,
+  requireAuth,
+  storageObjectExists,
 });
 
 function isBotUserAgent(req) {
