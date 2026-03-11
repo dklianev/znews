@@ -26,6 +26,20 @@ function buildUnsplashVariant(src, width, { quality = 72, webp = false } = {}) {
   return parsed.toString();
 }
 
+export function getIntrinsicImageDimensions(pipeline) {
+  if (!pipeline || typeof pipeline !== 'object') {
+    return { width: undefined, height: undefined };
+  }
+
+  const width = Number(pipeline.width);
+  const height = Number(pipeline.height);
+
+  return {
+    width: Number.isFinite(width) && width > 0 ? Math.round(width) : undefined,
+    height: Number.isFinite(height) && height > 0 ? Math.round(height) : undefined,
+  };
+}
+
 export function getOptimizedImageSources(
   src,
   {

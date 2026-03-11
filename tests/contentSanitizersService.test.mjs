@@ -41,6 +41,6 @@ export async function runContentSanitizersTests() {
   );
   assert.equal(
     helpers.sanitizeSafeHtml('<img src="/uploads/pic.jpg" alt="Promo card" data-width="75" data-align="RIGHT" onload="x()">'),
-    '<img src="/uploads/pic.jpg" alt="Promo card" loading="lazy" decoding="async" data-width="75" data-align="right">'
+    '<img src="/uploads/pic.jpg" alt="Promo card" loading="lazy" decoding="async" fetchpriority="low" data-width="75" data-align="right">'
   );
 }

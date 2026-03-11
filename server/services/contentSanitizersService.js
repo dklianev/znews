@@ -118,7 +118,7 @@ export function createContentSanitizers() {
         const safeAlt = normalizeText(alt, 180);
         const safeWidth = sanitizeImageWidth(width);
         const safeAlign = sanitizeImageAlign(align);
-        return `<img src="${escapeHtml(safeSrc)}" alt="${escapeHtml(safeAlt)}" loading="lazy" decoding="async" data-width="${escapeHtml(safeWidth)}" data-align="${escapeHtml(safeAlign)}">`;
+        return `<img src="${escapeHtml(safeSrc)}" alt="${escapeHtml(safeAlt)}" loading="lazy" decoding="async" fetchpriority="low" data-width="${escapeHtml(safeWidth)}" data-align="${escapeHtml(safeAlign)}">`;
       }
       if (tagName !== 'a') return `<${tagName}>`;
 

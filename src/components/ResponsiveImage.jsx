@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { getOptimizedImageSources } from '../utils/imageOptimization';
+import { getIntrinsicImageDimensions, getOptimizedImageSources } from '../utils/imageOptimization';
 
 function normalizeClassName(...values) {
   return values
@@ -73,6 +73,8 @@ export default memo(function ResponsiveImage({
     return { ...fallbackOptimized, avifSrcSet: '' };
   }, [normalizedPipeline, quality, safeSrc]);
 
+  const intrinsicDimensions = useMemo(() => getIntrinsicImageDimensions(pipeline), [pipeline]);
+
   const effectivePlaceholder = placeholder || normalizedPipeline?.placeholder || '';
   const effectiveFetchPriority = fetchPriority === 'auto' && loading === 'lazy' ? 'low' : fetchPriority;
 
@@ -103,6 +105,8 @@ export default memo(function ResponsiveImage({
         srcSet={optimized.srcSet || undefined}
         sizes={optimized.srcSet ? sizes : undefined}
         alt={alt}
+        width={intrinsicDimensions.width}
+        height={intrinsicDimensions.height}
         className={normalizedImgClassName}
         loading={loading}
         decoding={decoding}
