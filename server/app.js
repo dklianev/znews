@@ -123,6 +123,7 @@ import { createShareCardHelpers } from './services/shareCardHelpersService.js';
 import { createShareCardObjectHelpers } from './services/shareCardObjectService.js';
 import { createShareCardRuntimeHelpers } from './services/shareCardRuntimeService.js';
 import { createServerLifecycleService } from './services/serverLifecycleService.js';
+import { createRequestHelpers } from './services/requestHelpersService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -854,10 +855,16 @@ const transparentPng1x1 = Buffer.from(
   'base64'
 );
 
-function hasOwn(obj, key) {
-
-  return Object.prototype.hasOwnProperty.call(obj, key);
-}
+const {
+  getClientIp,
+  getWindowKey,
+  hasOwn,
+  hashClientFingerprint,
+  isMongoDuplicateKeyError,
+} = createRequestHelpers({
+  getTrustedClientIp,
+  hashTrustedClientFingerprint,
+});
 
 const {
   normalizeText,
@@ -1200,21 +1207,7 @@ const {
   signRefreshToken,
 });
 
-function getClientIp(req) {
-  return getTrustedClientIp(req);
-}
 
-function hashClientFingerprint(req, scope = '') {
-  return hashTrustedClientFingerprint(req, scope);
-}
-
-function getWindowKey(windowMs) {
-  return Math.floor(Date.now() / windowMs);
-}
-
-function isMongoDuplicateKeyError(error) {
-  return Number(error?.code) === 11000;
-}
 
 const {
   collectCommentThreadIds,
