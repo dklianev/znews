@@ -61,6 +61,8 @@ import { buildSearchRegex, getSearchSuggestions, getTrendingSearches, recordSear
 import { registerHealthRoutes } from './routes/healthRoutes.js';
 import { registerSearchRoutes } from './routes/searchRoutes.js';
 import { registerMonitoringRoutes } from './routes/monitoringRoutes.js';
+import { createDiagnosticsService } from './services/diagnosticsService.js';
+import { createBackgroundJobsService } from './services/backgroundJobsService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -3542,11 +3544,6 @@ const shareCardCleanupPollMs = Math.max(60 * 60 * 1000, Number.parseInt(process.
 const adAnalyticsRollupPollMs = Math.max(15 * 60 * 1000, Number.parseInt(process.env.AD_ANALYTICS_ROLLUP_POLL_MS || '', 10) || (60 * 60 * 1000));
 const adAnalyticsRollupDays = Math.max(1, Number.parseInt(process.env.AD_ANALYTICS_ROLLUP_DAYS || '', 10) || 14);
 const shareCardCleanupCheckTtlMs = 2 * 24 * 60 * 60 * 1000;
-const backgroundJobDefinitions = [];
-const backgroundJobIntervals = [];
-const backgroundJobTimeouts = [];
-let backgroundJobsStarted = false;
-
 function truncateMonitoringText(value, max = 500) {
   return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
@@ -3834,163 +3831,37 @@ async function refreshScheduledContentCachesJob(state) {
   };
 }
 
-function registerBackgroundJob(definition) {
-  backgroundJobDefinitions.push(definition);
-}
 
-async function runBackgroundJob(definition) {
-  if (!definition?.name || typeof definition?.run !== 'function') return false;
-  await BackgroundJobState.updateOne({ name: definition.name }, { $setOnInsert: { name: definition.name } }, { upsert: true });
-  const now = new Date();
-  const lockUntil = new Date(now.getTime() + backgroundJobLockMs);
-  const state = await BackgroundJobState.findOneAndUpdate(
-    { name: definition.name, enabled: { $ne: false }, $or: [{ lockUntil: null }, { lockUntil: { $lte: now } }] },
-    { $set: { running: true, lockUntil, lastStartedAt: now, updatedAt: now } },
-    { new: true }
-  ).lean();
-  if (!state) return false;
+const {
+  registerBackgroundJob,
+  startBackgroundJobs,
+  stopBackgroundJobs,
+} = createBackgroundJobsService({
+  BackgroundJobState,
+  backgroundJobLockMs,
+  recordSystemEvent,
+  sanitizeMonitoringMetadata,
+  serializeErrorForMonitoring,
+  shouldDisableBackgroundJobs: () => process.env.DISABLE_BACKGROUND_JOBS === 'true',
+  truncateMonitoringText,
+});
 
-  const startedAt = Date.now();
-  try {
-    const result = await definition.run(state);
-    const finishedAt = new Date();
-    const durationMs = Date.now() - startedAt;
-    await BackgroundJobState.updateOne(
-      { name: definition.name },
-      {
-        $set: {
-          running: false,
-          lockUntil: null,
-          lastFinishedAt: finishedAt,
-          lastSuccessAt: finishedAt,
-          lastFailureAt: state.lastFailureAt || null,
-          lastDurationMs: durationMs,
-          lastMessage: truncateMonitoringText(result?.message || 'Completed', 300),
-          metrics: sanitizeMonitoringMetadata(result?.metrics || state.metrics || null),
-          updatedAt: finishedAt,
-        },
-        $inc: { runCount: 1, successCount: 1 },
-      }
-    );
-    return true;
-  } catch (error) {
-    const finishedAt = new Date();
-    const durationMs = Date.now() - startedAt;
-    await BackgroundJobState.updateOne(
-      { name: definition.name },
-      {
-        $set: {
-          running: false,
-          lockUntil: null,
-          lastFinishedAt: finishedAt,
-          lastFailureAt: finishedAt,
-          lastDurationMs: durationMs,
-          lastMessage: truncateMonitoringText(error?.message || 'Failed', 300),
-          updatedAt: finishedAt,
-        },
-        $inc: { runCount: 1, failureCount: 1 },
-      }
-    );
-    await recordSystemEvent({
-      level: 'error',
-      source: 'job',
-      component: definition.name,
-      message: error?.message || 'Background job failed',
-      metadata: { error: serializeErrorForMonitoring(error) },
-    });
-    return false;
-  }
-}
-
-function startBackgroundJobs() {
-  if (backgroundJobsStarted || process.env.DISABLE_BACKGROUND_JOBS === 'true') return;
-  backgroundJobsStarted = true;
-  backgroundJobDefinitions.forEach((definition) => {
-    const runOnce = () => {
-      runBackgroundJob(definition).catch((error) => {
-        console.error(`Background job ${definition.name} failed:`, error);
-      });
-    };
-    const configuredInitialDelayMs = Number(definition.initialDelayMs || 1500);
-    const initialDelayMs = Number.isFinite(configuredInitialDelayMs) ? Math.max(500, configuredInitialDelayMs) : 1500;
-    const configuredIntervalMs = Number(definition.intervalMs || 60 * 1000);
-    const intervalMs = Number.isFinite(configuredIntervalMs) ? Math.max(1000, configuredIntervalMs) : 60 * 1000;
-    const timeout = setTimeout(runOnce, initialDelayMs);
-    const interval = setInterval(runOnce, intervalMs);
-    backgroundJobTimeouts.push(timeout);
-    backgroundJobIntervals.push(interval);
-  });
-}
-
-function stopBackgroundJobs() {
-  while (backgroundJobTimeouts.length > 0) {
-    clearTimeout(backgroundJobTimeouts.pop());
-  }
-  while (backgroundJobIntervals.length > 0) {
-    clearInterval(backgroundJobIntervals.pop());
-  }
-  backgroundJobsStarted = false;
-}
-
-async function getAdAnalyticsAggregateDiagnostics() {
-  const cutoff = toBucketDate(new Date(Date.now() - (7 * 24 * 60 * 60 * 1000)));
-  const [totals, latest] = await Promise.all([
-    AdAnalyticsAggregate.aggregate([
-      { $match: { bucketDate: { $gte: cutoff } } },
-      { $group: { _id: null, impressions: { $sum: '$impressions' }, clicks: { $sum: '$clicks' }, rows: { $sum: 1 } } },
-    ]),
-    AdAnalyticsAggregate.findOne().sort({ aggregatedAt: -1 }).lean(),
-  ]);
-  const summary = totals[0] || { impressions: 0, clicks: 0, rows: 0 };
-  return {
-    last7Days: {
-      impressions: Number(summary.impressions || 0),
-      clicks: Number(summary.clicks || 0),
-      rows: Number(summary.rows || 0),
-    },
-    latestBucket: latest ? {
-      bucketDate: latest.bucketDate,
-      aggregatedAt: latest.aggregatedAt,
-    } : null,
-  };
-}
-
-async function buildDiagnosticsPayload() {
-  const [mediaPipeline, recentErrors, jobStates, adAnalytics] = await Promise.all([
-    getImagePipelineStatus().catch(() => null),
-    SystemEvent.find().sort({ lastSeenAt: -1 }).limit(12).lean().catch(() => []),
-    BackgroundJobState.find().sort({ name: 1 }).lean().catch(() => []),
-    getAdAnalyticsAggregateDiagnostics().catch(() => ({ last7Days: { impressions: 0, clicks: 0, rows: 0 }, latestBucket: null })),
-  ]);
-
-  return {
-    generatedAt: new Date().toISOString(),
-    app: {
-      env: process.env.NODE_ENV || 'development',
-      uptimeSeconds: Math.round(process.uptime()),
-      memory: sanitizeMonitoringMetadata(process.memoryUsage()),
-    },
-    mongo: {
-      state: getMongoHealthState(),
-      name: mongoose.connection?.name || '',
-      host: mongoose.connection?.host || '',
-    },
-    cache: getApiCacheStats(),
-    storage: {
-      driver: storageDriver,
-      remote: isRemoteStorage,
-      publicBaseUrl: storagePublicBaseUrl || '',
-      uploadDedupCacheSize: recentUploadResults.size,
-      uploadInFlight: uploadRequestInFlight.size,
-    },
-    mediaPipeline,
-    jobs: jobStates,
-    monitoring: {
-      recentErrors,
-    },
-    adAnalytics,
-  };
-}
+const { buildDiagnosticsPayload } = createDiagnosticsService({
+  AdAnalyticsAggregate,
+  BackgroundJobState,
+  SystemEvent,
+  getApiCacheStats,
+  getImagePipelineStatus,
+  getMongoHealthState,
+  getRecentUploadResults: () => recentUploadResults,
+  getUploadRequestInFlight: () => uploadRequestInFlight,
+  isRemoteStorage,
+  mongoose,
+  sanitizeMonitoringMetadata,
+  storageDriver,
+  storagePublicBaseUrl,
+  toBucketDate,
+});
 
 registerBackgroundJob({ name: 'scheduled-publish-cache-refresh', intervalMs: scheduledPublishPollMs, initialDelayMs: 2500, run: refreshScheduledContentCachesJob });
 registerBackgroundJob({ name: 'share-card-cleanup', intervalMs: shareCardCleanupPollMs, initialDelayMs: 4500, run: cleanupOrphanedShareCardsJob });
