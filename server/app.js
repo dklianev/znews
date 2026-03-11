@@ -56,7 +56,7 @@ import { filterPublicAds, getAdRotationPool, normalizeAdFitMode, normalizeAdImag
 import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES, AD_IMPRESSION_WINDOW_MS, DEFAULT_AD_ANALYTICS_DAYS } from '../shared/adAnalytics.js';
 import { analyzeCrosswordConstruction, getCrosswordEntries, MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH } from '../shared/crossword.js';
 import { analyzeSpellingBeeWords, getSpellingBeeWordScore, getSpellingBeeWordValidation, hasCompleteSpellingBeeHive, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, normalizeSpellingBeeWord, normalizeSpellingBeeWords, SPELLING_BEE_MIN_WORD_LENGTH } from '../shared/spellingBee.js';
-import { normalizeSearchType } from '../shared/search.js';
+import { filterSearchResultsByType, normalizeSearchType } from '../shared/search.js';
 import { buildSearchRegex, getSearchSuggestions, getTrendingSearches, recordSearchQuery } from './searchService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -7428,7 +7428,7 @@ app.get('/api/search', cacheMiddleware, async (req, res) => {
 
     const regex = buildSearchRegex(trimmedQuery) || new RegExp(escapeRegexForSearch(trimmedQuery), 'i');
 
-    await recordSearchQuery(trimmedQuery).catch(() => {});
+    void recordSearchQuery(trimmedQuery).catch(() => {});
 
     const [articleMatches, jobMatches, courtMatches, eventMatches, wantedMatches] = await Promise.all([
       (async () => {
@@ -7465,19 +7465,13 @@ app.get('/api/search', cacheMiddleware, async (req, res) => {
       }),
     ]);
 
-    const payload = {
+    const payload = filterSearchResultsByType({
       articles: Array.isArray(articleMatches) ? articleMatches : [],
       jobs: Array.isArray(jobMatches) ? jobMatches : [],
       court: Array.isArray(courtMatches) ? courtMatches : [],
       events: Array.isArray(eventMatches) ? eventMatches : [],
       wanted: Array.isArray(wantedMatches) ? wantedMatches : [],
-    };
-
-    if (searchType !== 'all' && Object.prototype.hasOwnProperty.call(payload, searchType)) {
-      Object.keys(payload).forEach((key) => {
-        if (key !== searchType) payload[key] = [];
-      });
-    }
+    }, searchType);
 
     res.setHeader('Cache-Control', 'no-store');
     return res.json({

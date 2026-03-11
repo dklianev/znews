@@ -8,7 +8,7 @@ import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { searchCopy } from '../content/uiCopy';
-import { normalizeSearchType } from '../../shared/search.js';
+import { filterSearchResultsByType, normalizeSearchType } from '../../shared/search.js';
 
 const ARTICLE_SEARCH_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 const RECENT_SEARCHES_KEY = 'zn_recent_searches';
@@ -230,11 +230,27 @@ export default function SearchPage() {
   ), [q, wanted]);
 
   const useLocalFallback = Boolean(trimmedQuery) && Boolean(remoteError);
-  const articleResults = useLocalFallback ? localArticleResults : remoteResults.articles;
-  const jobResults = useLocalFallback ? localJobResults : remoteResults.jobs;
-  const courtResults = useLocalFallback ? localCourtResults : remoteResults.court;
-  const eventResults = useLocalFallback ? localEventResults : remoteResults.events;
-  const wantedResults = useLocalFallback ? localWantedResults : remoteResults.wanted;
+  const searchResults = useMemo(() => filterSearchResultsByType(useLocalFallback ? {
+    articles: localArticleResults,
+    jobs: localJobResults,
+    court: localCourtResults,
+    events: localEventResults,
+    wanted: localWantedResults,
+  } : remoteResults, searchType), [
+    localArticleResults,
+    localCourtResults,
+    localEventResults,
+    localJobResults,
+    localWantedResults,
+    remoteResults,
+    searchType,
+    useLocalFallback,
+  ]);
+  const articleResults = searchResults.articles;
+  const jobResults = searchResults.jobs;
+  const courtResults = searchResults.court;
+  const eventResults = searchResults.events;
+  const wantedResults = searchResults.wanted;
   const totalResults = articleResults.length + jobResults.length + courtResults.length + eventResults.length + wantedResults.length;
 
   const sections = useMemo(() => ([

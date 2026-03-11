@@ -1,4 +1,5 @@
 export const SEARCH_TYPES = Object.freeze(['all', 'articles', 'jobs', 'court', 'events', 'wanted']);
+export const SEARCH_RESULT_TYPES = Object.freeze(['articles', 'jobs', 'court', 'events', 'wanted']);
 
 const SEARCH_SYNONYM_GROUPS = [
   ['job', 'jobs', 'работа', 'кариера', 'позиция', 'обява'],
@@ -48,4 +49,17 @@ export function buildSearchSuggestionText(value, type = '') {
 export function normalizeSearchType(value) {
   const normalized = normalizeSearchTerm(value);
   return SEARCH_TYPES.includes(normalized) ? normalized : 'all';
+}
+
+export function filterSearchResultsByType(payload, type) {
+  const normalizedType = normalizeSearchType(type);
+  const basePayload = Object.fromEntries(
+    SEARCH_RESULT_TYPES.map((key) => [key, Array.isArray(payload?.[key]) ? payload[key] : []])
+  );
+
+  if (normalizedType === 'all') return basePayload;
+
+  return Object.fromEntries(
+    SEARCH_RESULT_TYPES.map((key) => [key, key === normalizedType ? basePayload[key] : []])
+  );
 }
