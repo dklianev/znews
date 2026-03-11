@@ -1,13 +1,9 @@
 import assert from 'node:assert/strict';
-import path from 'node:path';
 import { createShareCardRuntimeHelpers } from '../server/services/shareCardRuntimeService.js';
 
 function createBaseDeps(overrides = {}) {
   return {
     brandLogoPng: null,
-    buildArticleSnapshot(article) {
-      return { ...article };
-    },
     buildShareCardModel() {
       return {
         badge: 'EXCLUSIVE',
@@ -28,171 +24,47 @@ function createBaseDeps(overrides = {}) {
     buildShareCardOverlaySvg() {
       return '<svg />';
     },
-    deleteRemoteKeys: async () => {},
-    fs: {
-      constants: { R_OK: 4 },
-      promises: {
-        access: async () => {},
-        readdir: async () => [],
-        unlink: async () => {},
-      },
+    buildShareCardStorageTarget() {
+      return {
+        absolutePath: 'C:/uploads/_share/card.png',
+        fileName: 'article-15-signature.png',
+        normalized: {
+          id: 15,
+          title: 'Existing card',
+          category: 'crime',
+          date: '2026-03-11',
+        },
+        relativePath: '_share/article-15-signature.png',
+        url: '/uploads/_share/article-15-signature.png',
+      };
     },
-    getDiskAbsolutePath(relativePath) {
-      return path.join('C:/uploads', relativePath);
-    },
-    getOriginalUploadUrl(fileName) {
-      return `https://cdn.example.com/${fileName}`;
-    },
-    getShareRelativePath(fileName) {
-      return `_share/${fileName}`;
-    },
-    getShareSourceUrl() {
-      return '';
-    },
-    getUploadFilenameFromUrl() {
-      return '';
-    },
-    isRemoteStorage: false,
-    listRemoteObjectsByPrefix: async () => [],
+    cleanupOldShareCards: async () => {},
+    hasShareCardObject: async () => false,
     loadSharp: async () => ({ metadata: async () => ({ width: 0, height: 0 }) }),
     normalizeText(value, maxLen = 255) {
       return String(value ?? '').trim().slice(0, maxLen);
     },
-    path,
-    putStorageObject: async () => {},
-    readOriginalUploadBuffer: async () => null,
+    persistShareCardObject: async () => {},
     renderTextImage: async () => null,
+    resolveShareBackgroundInput: async () => null,
+    resolveShareFallbackSource: async () => null,
     resolveSharePalette() {
       return { primary: '#ef1f1f' };
     },
-    shareCardsDir: 'C:/uploads/_share',
     shareCardHeight: 630,
     shareCardWidth: 1200,
-    storageObjectExists: async () => false,
-    storageUploadsPrefix: 'uploads',
-    toUploadsStorageKey(relativePath) {
-      return `uploads/${relativePath}`;
-    },
-    toUploadsUrlFromRelative(relativePath) {
-      return `/uploads/${relativePath}`;
-    },
-    uploadsDir: 'C:/uploads',
-    fetchImpl: async () => ({
-      ok: true,
-      headers: { get: () => 'image/png' },
-      arrayBuffer: async () => new Uint8Array(300).buffer,
-    }),
     ...overrides,
   };
 }
 
 export async function runShareCardRuntimeHelpersTests() {
-  const uploadHelpers = createShareCardRuntimeHelpers(createBaseDeps({
-    getShareSourceUrl() {
-      return '/uploads/share.png';
-    },
-    getUploadFilenameFromUrl() {
-      return 'share.png';
-    },
-    readOriginalUploadBuffer: async (fileName) => Buffer.from(fileName),
-  }));
-  const uploadBuffer = await uploadHelpers.resolveShareBackgroundInput({ id: 7 });
-  assert.equal(uploadBuffer.toString(), 'share.png');
-
-  let fetchedUrl = '';
-  const remoteHelpers = createShareCardRuntimeHelpers(createBaseDeps({
-    getShareSourceUrl() {
-      return 'https://example.com/share.png';
-    },
-    fetchImpl: async (url) => {
-      fetchedUrl = url;
-      return {
-        ok: true,
-        headers: { get: () => 'image/png' },
-        arrayBuffer: async () => new Uint8Array(320).buffer,
-      };
-    },
-  }));
-  const remoteBuffer = await remoteHelpers.resolveShareBackgroundInput({ id: 8 });
-  assert.equal(fetchedUrl, 'https://example.com/share.png');
-  assert.equal(remoteBuffer.byteLength, 320);
-
-  const nonImageHelpers = createShareCardRuntimeHelpers(createBaseDeps({
-    getShareSourceUrl() {
-      return 'https://example.com/not-image';
-    },
-    fetchImpl: async () => ({
-      ok: true,
-      headers: { get: () => 'text/html' },
-      arrayBuffer: async () => new Uint8Array(320).buffer,
-    }),
-  }));
-  assert.equal(await nonImageHelpers.resolveShareBackgroundInput({ id: 9 }), null);
-
-  const deletedPaths = [];
-  const cleanupHelpers = createShareCardRuntimeHelpers(createBaseDeps({
-    fs: {
-      constants: { R_OK: 4 },
-      promises: {
-        access: async () => {},
-        readdir: async () => [
-          { isFile: () => true, name: 'article-7-old.png' },
-          { isFile: () => true, name: 'article-7-keep.png' },
-          { isFile: () => true, name: 'article-8-other.png' },
-        ],
-        unlink: async (filePath) => {
-          deletedPaths.push(filePath);
-        },
-      },
-    },
-  }));
-  await cleanupHelpers.cleanupOldShareCards(7, 'article-7-keep.png');
-  assert.deepEqual(deletedPaths, [path.join('C:/uploads/_share', 'article-7-old.png')]);
-
-  const localFallbackHelpers = createShareCardRuntimeHelpers(createBaseDeps({
-    getShareSourceUrl() {
-      return '/uploads/source.png';
-    },
-    getUploadFilenameFromUrl() {
-      return 'source.png';
-    },
-  }));
-  assert.deepEqual(await localFallbackHelpers.resolveShareFallbackSource({ id: 10 }), {
-    type: 'file',
-    path: path.join('C:/uploads', 'source.png'),
-  });
-
-  const remoteFallbackHelpers = createShareCardRuntimeHelpers(createBaseDeps({
-    isRemoteStorage: true,
-    getShareSourceUrl() {
-      return '/uploads/source.png';
-    },
-    getUploadFilenameFromUrl() {
-      return 'source.png';
-    },
-    storageObjectExists: async () => true,
-  }));
-  assert.deepEqual(await remoteFallbackHelpers.resolveShareFallbackSource({ id: 11 }), {
-    type: 'redirect',
-    url: 'https://cdn.example.com/source.png',
-  });
-
-  const directFallbackHelpers = createShareCardRuntimeHelpers(createBaseDeps({
-    getShareSourceUrl() {
-      return 'https://example.com/direct.png';
-    },
-  }));
-  assert.deepEqual(await directFallbackHelpers.resolveShareFallbackSource({ id: 12 }), {
-    type: 'redirect',
-    url: 'https://example.com/direct.png',
-  });
-
   const originalBaseUrl = process.env.PUBLIC_BASE_URL;
   try {
+    const baseHelpers = createShareCardRuntimeHelpers(createBaseDeps());
     process.env.PUBLIC_BASE_URL = 'https://znews.live///';
-    assert.equal(directFallbackHelpers.getPublicBaseUrl({ headers: {}, protocol: 'http', get: () => 'ignored' }), 'https://znews.live');
+    assert.equal(baseHelpers.getPublicBaseUrl({ headers: {}, protocol: 'http', get: () => 'ignored' }), 'https://znews.live');
     delete process.env.PUBLIC_BASE_URL;
-    assert.equal(directFallbackHelpers.getPublicBaseUrl({
+    assert.equal(baseHelpers.getPublicBaseUrl({
       headers: { 'x-forwarded-proto': 'https' },
       protocol: 'http',
       get(header) {
@@ -204,19 +76,69 @@ export async function runShareCardRuntimeHelpersTests() {
     else process.env.PUBLIC_BASE_URL = originalBaseUrl;
   }
 
+  const delegatedBackground = Buffer.from('bg');
+  const delegatedFallback = { type: 'redirect', url: 'https://example.com/direct.png' };
+  const delegateHelpers = createShareCardRuntimeHelpers(createBaseDeps({
+    resolveShareBackgroundInput: async () => delegatedBackground,
+    resolveShareFallbackSource: async () => delegatedFallback,
+  }));
+  assert.equal(await delegateHelpers.resolveShareBackgroundInput({ id: 7 }), delegatedBackground);
+  assert.deepEqual(await delegateHelpers.resolveShareFallbackSource({ id: 8 }), delegatedFallback);
+
+  let persistedTarget = null;
+  let persistedBuffer = null;
+  let cleaned = null;
+  const generationHelpers = createShareCardRuntimeHelpers(createBaseDeps({
+    buildShareCardStorageTarget() {
+      return {
+        absolutePath: 'C:/uploads/_share/generated.png',
+        fileName: 'article-15-generated.png',
+        normalized: {
+          id: 15,
+          title: 'Generated card',
+          category: 'crime',
+          date: '2026-03-11',
+        },
+        relativePath: '_share/article-15-generated.png',
+        url: '/uploads/_share/article-15-generated.png',
+      };
+    },
+    cleanupOldShareCards: async (articleId, fileName) => {
+      cleaned = { articleId, fileName };
+    },
+    loadSharp: async () => {
+      const sharpFn = (input) => ({
+        rotate() { return this; },
+        resize() { return this; },
+        modulate() { return this; },
+        composite() { return this; },
+        png() { return this; },
+        async toBuffer() { return Buffer.from('generated'); },
+        async metadata() { return { width: 0, height: 0 }; },
+      });
+      return sharpFn;
+    },
+    persistShareCardObject: async (target, output) => {
+      persistedTarget = target;
+      persistedBuffer = output;
+    },
+    renderTextImage: async () => null,
+  }));
+  const generatedCard = await generationHelpers.ensureArticleShareCard({ id: 15, title: 'Generated card' }, { categoryLabel: 'Crime' });
+  assert.equal(generatedCard.generated, true);
+  assert.equal(generatedCard.relativePath, '_share/article-15-generated.png');
+  assert.equal(String(persistedBuffer), 'generated');
+  assert.equal(persistedTarget.fileName, 'article-15-generated.png');
+  assert.deepEqual(cleaned, { articleId: 15, fileName: 'article-15-generated.png' });
+
   let stored = false;
   const existingHelpers = createShareCardRuntimeHelpers(createBaseDeps({
-    storageObjectExists: async () => true,
-    putStorageObject: async () => {
+    hasShareCardObject: async () => true,
+    persistShareCardObject: async () => {
       stored = true;
     },
   }));
-  const existingCard = await existingHelpers.ensureArticleShareCard({
-    id: 15,
-    title: 'Existing card',
-    category: 'crime',
-    date: '2026-03-11',
-  }, { categoryLabel: 'Crime' });
+  const existingCard = await existingHelpers.ensureArticleShareCard({ id: 15, title: 'Existing card' }, { categoryLabel: 'Crime' });
   assert.equal(existingCard.generated, true);
   assert.equal(existingCard.relativePath.startsWith('_share/article-15-'), true);
   assert.equal(existingCard.url.startsWith('/uploads/_share/article-15-'), true);

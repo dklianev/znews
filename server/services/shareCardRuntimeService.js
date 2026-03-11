@@ -1,132 +1,36 @@
-import { createHash } from 'node:crypto';
-
 export function createShareCardRuntimeHelpers({
   brandLogoPng,
-  buildArticleSnapshot,
   buildShareCardModel,
   buildShareCardOverlaySvg,
-  deleteRemoteKeys,
-  fs,
-  getDiskAbsolutePath,
-  getOriginalUploadUrl,
-  getShareRelativePath,
-  getShareSourceUrl,
-  getUploadFilenameFromUrl,
-  isRemoteStorage,
-  listRemoteObjectsByPrefix,
+  buildShareCardStorageTarget,
+  cleanupOldShareCards,
+  hasShareCardObject,
   loadSharp,
   normalizeText,
-  path,
-  putStorageObject,
-  readOriginalUploadBuffer,
+  persistShareCardObject,
   renderTextImage,
+  resolveShareBackgroundInput,
+  resolveShareFallbackSource,
   resolveSharePalette,
-  shareCardsDir,
   shareCardHeight,
   shareCardWidth,
-  storageObjectExists,
-  storageUploadsPrefix,
-  toUploadsStorageKey,
-  toUploadsUrlFromRelative,
-  uploadsDir,
-  fetchImpl = globalThis.fetch,
 }) {
-  async function resolveShareBackgroundInput(article) {
-    const sourceUrl = getShareSourceUrl(article);
-    if (!sourceUrl) return null;
-
-    const uploadFileName = getUploadFilenameFromUrl(sourceUrl);
-    if (uploadFileName) {
-      const buffer = await readOriginalUploadBuffer(uploadFileName);
-      if (buffer && buffer.byteLength > 0) return buffer;
-      return null;
-    }
-
-    if (!/^https?:\/\//i.test(sourceUrl)) return null;
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4500);
-      const response = await fetchImpl(sourceUrl, {
-        signal: controller.signal,
-        headers: { Accept: 'image/*' },
-      });
-      clearTimeout(timeout);
-      if (!response.ok) return null;
-      const contentType = normalizeText(response.headers.get('content-type') || '', 80).toLowerCase();
-      if (!contentType.startsWith('image/')) return null;
-      const arrayBuffer = await response.arrayBuffer();
-      if (!arrayBuffer || arrayBuffer.byteLength < 256) return null;
-      return Buffer.from(arrayBuffer);
-    } catch {
-      return null;
-    }
-  }
-
-  async function cleanupOldShareCards(articleId, keepFileName) {
-    try {
-      const prefix = `article-${articleId}-`;
-      if (isRemoteStorage) {
-        const prefixKey = toUploadsStorageKey(path.posix.join('_share', prefix));
-        const objects = await listRemoteObjectsByPrefix(prefixKey);
-        const staleKeys = objects
-          .map(item => String(item?.Key || ''))
-          .filter(Boolean)
-          .filter((key) => {
-            const relative = key.startsWith(`${storageUploadsPrefix}/`) ? key.slice(`${storageUploadsPrefix}/`.length) : key;
-            return !relative.endsWith(`/${keepFileName}`) && !relative.endsWith(keepFileName);
-          });
-        await deleteRemoteKeys(staleKeys);
-        return;
-      }
-
-      const entries = await fs.promises.readdir(shareCardsDir, { withFileTypes: true });
-      await Promise.all(entries
-        .filter((entry) => entry.isFile() && entry.name.startsWith(prefix) && entry.name !== keepFileName)
-        .map((entry) => fs.promises.unlink(path.join(shareCardsDir, entry.name)).catch(() => { })));
-    } catch {
-      // ignore cleanup errors
-    }
-  }
-
   async function ensureArticleShareCard(article, { categoryLabel = '' } = {}) {
     const sharp = await loadSharp();
     if (!sharp || !article || !Number.isInteger(Number.parseInt(article.id, 10))) return null;
 
-    const normalized = {
-      ...buildArticleSnapshot(article),
-      id: Number.parseInt(article.id, 10),
-    };
+    const target = buildShareCardStorageTarget(article, { categoryLabel });
+    const { normalized } = target;
     const model = buildShareCardModel(normalized, categoryLabel);
-    const imageSource = getShareSourceUrl(normalized);
-    const signature = createHash('sha1')
-      .update(JSON.stringify({
-        v: 'share-card-v24-brand-logo',
-        id: normalized.id,
-        title: normalized.title,
-        excerpt: normalized.excerpt,
-        content: normalized.content,
-        category: normalized.category,
-        date: normalized.date,
-        breaking: normalized.breaking,
-        shareTitle: normalized.shareTitle,
-        shareSubtitle: normalized.shareSubtitle,
-        shareBadge: normalized.shareBadge,
-        shareAccent: normalized.shareAccent,
-        shareImage: normalized.shareImage,
-        image: normalized.image,
-        imageSource,
-        categoryLabel,
-      }))
-      .digest('hex')
-      .slice(0, 14);
 
-    const fileName = `article-${normalized.id}-${signature}.png`;
-    const relativePath = getShareRelativePath(fileName);
-    const absolutePath = isRemoteStorage ? null : getDiskAbsolutePath(relativePath);
-    const url = toUploadsUrlFromRelative(relativePath);
-
-    if (await storageObjectExists(relativePath)) {
-      return { generated: true, fileName, absolutePath, relativePath, url };
+    if (await hasShareCardObject(target)) {
+      return {
+        absolutePath: target.absolutePath,
+        fileName: target.fileName,
+        generated: true,
+        relativePath: target.relativePath,
+        url: target.url,
+      };
     }
 
     const backgroundInput = await resolveShareBackgroundInput(normalized);
@@ -186,7 +90,8 @@ export function createShareCardRuntimeHelpers({
     });
 
     if (title) {
-      const zoneTop = 148, zoneH = 246;
+      const zoneTop = 148;
+      const zoneH = 246;
       composites.push({
         input: title.buffer,
         top: Math.max(zoneTop, Math.round(zoneTop + (zoneH - title.height) / 2)),
@@ -208,7 +113,8 @@ export function createShareCardRuntimeHelpers({
 
     {
       const footerRight = shareCardWidth - 56;
-      let brandW = 0, brandH = 0;
+      let brandW = 0;
+      let brandH = 0;
       if (brandLogoPng) {
         const meta = await sharp(brandLogoPng).metadata();
         brandW = meta.width || 0;
@@ -251,32 +157,15 @@ export function createShareCardRuntimeHelpers({
       .png({ compressionLevel: 9, quality: 92 })
       .toBuffer();
 
-    await putStorageObject(relativePath, output, 'image/png');
-    await cleanupOldShareCards(normalized.id, fileName);
-    return { generated: true, fileName, absolutePath, relativePath, url };
-  }
-
-  async function resolveShareFallbackSource(article) {
-    const sourceUrl = getShareSourceUrl(article);
-    if (!sourceUrl) return null;
-    const uploadFileName = getUploadFilenameFromUrl(sourceUrl);
-    if (uploadFileName) {
-      if (isRemoteStorage) {
-        const exists = await storageObjectExists(uploadFileName);
-        if (!exists) return null;
-        return { type: 'redirect', url: getOriginalUploadUrl(uploadFileName) };
-      }
-
-      const fullPath = path.join(uploadsDir, uploadFileName);
-      try {
-        await fs.promises.access(fullPath, fs.constants.R_OK);
-        return { type: 'file', path: fullPath };
-      } catch {
-        return null;
-      }
-    }
-    if (/^https?:\/\//i.test(sourceUrl)) return { type: 'redirect', url: sourceUrl };
-    return null;
+    await persistShareCardObject(target, output);
+    await cleanupOldShareCards(normalized.id, target.fileName);
+    return {
+      absolutePath: target.absolutePath,
+      fileName: target.fileName,
+      generated: true,
+      relativePath: target.relativePath,
+      url: target.url,
+    };
   }
 
   function getPublicBaseUrl(req) {

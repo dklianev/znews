@@ -30,6 +30,7 @@ import { runContentSharedHelpersTests } from './contentSharedHelpersService.test
 import { runSettingsPayloadHelpersTests } from './settingsPayloadHelpersService.test.mjs';
 import { runContentSanitizersTests } from './contentSanitizersService.test.mjs';
 import { runShareCardHelpersTests } from './shareCardHelpersService.test.mjs';
+import { runShareCardObjectHelpersTests } from './shareCardObjectService.test.mjs';
 import { runShareCardRuntimeHelpersTests } from './shareCardRuntimeService.test.mjs';
 import { runWebArticleMetaHelpersTests } from './webArticleMetaHelpersService.test.mjs';
 
@@ -75,6 +76,7 @@ await runTest('contentSharedHelpers', runContentSharedHelpersTests);
 await runTest('settingsPayloadHelpers', runSettingsPayloadHelpersTests);
 await runTest('contentSanitizers', runContentSanitizersTests);
 await runTest('shareCardHelpers', runShareCardHelpersTests);
+await runTest('shareCardObjectHelpers', runShareCardObjectHelpersTests);
 await runTest('shareCardRuntimeHelpers', runShareCardRuntimeHelpersTests);
 await runTest('webArticleMetaHelpers', runWebArticleMetaHelpersTests);
 

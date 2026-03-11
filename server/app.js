@@ -117,6 +117,7 @@ import { createContentSharedHelpers } from './services/contentSharedHelpersServi
 import { createSettingsPayloadHelpers } from './services/settingsPayloadHelpersService.js';
 import { createContentSanitizers } from './services/contentSanitizersService.js';
 import { createShareCardHelpers } from './services/shareCardHelpersService.js';
+import { createShareCardObjectHelpers } from './services/shareCardObjectService.js';
 import { createShareCardRuntimeHelpers } from './services/shareCardRuntimeService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1171,14 +1172,14 @@ const {
 });
 
 const {
-  ensureArticleShareCard,
-  getPublicBaseUrl,
+  buildShareCardStorageTarget,
+  cleanupOldShareCards,
+  hasShareCardObject,
+  persistShareCardObject,
+  resolveShareBackgroundInput,
   resolveShareFallbackSource,
-} = createShareCardRuntimeHelpers({
-  brandLogoPng,
+} = createShareCardObjectHelpers({
   buildArticleSnapshot,
-  buildShareCardModel,
-  buildShareCardOverlaySvg,
   deleteRemoteKeys,
   fs,
   getDiskAbsolutePath,
@@ -1188,21 +1189,36 @@ const {
   getUploadFilenameFromUrl,
   isRemoteStorage,
   listRemoteObjectsByPrefix,
-  loadSharp,
   normalizeText,
   path,
   putStorageObject,
   readOriginalUploadBuffer,
-  renderTextImage,
-  resolveSharePalette,
-  shareCardsDir,
-  shareCardHeight,
-  shareCardWidth,
   storageObjectExists,
   storageUploadsPrefix,
   toUploadsStorageKey,
   toUploadsUrlFromRelative,
   uploadsDir,
+});
+
+const {
+  ensureArticleShareCard,
+  getPublicBaseUrl,
+} = createShareCardRuntimeHelpers({
+  brandLogoPng,
+  buildShareCardModel,
+  buildShareCardOverlaySvg,
+  buildShareCardStorageTarget,
+  cleanupOldShareCards,
+  hasShareCardObject,
+  loadSharp,
+  normalizeText,
+  persistShareCardObject,
+  renderTextImage,
+  resolveShareBackgroundInput,
+  resolveShareFallbackSource,
+  resolveSharePalette,
+  shareCardHeight,
+  shareCardWidth,
 });
 
 const {
