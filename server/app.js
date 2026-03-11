@@ -62,6 +62,7 @@ import { registerHealthRoutes } from './routes/healthRoutes.js';
 import { registerSearchRoutes } from './routes/searchRoutes.js';
 import { registerMonitoringRoutes } from './routes/monitoringRoutes.js';
 import { registerMediaRoutes } from './routes/mediaRoutes.js';
+import { registerUploadRoutes } from './routes/uploadRoutes.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createBackgroundJobsService } from './services/backgroundJobsService.js';
 import { createMonitoringService } from './services/monitoringService.js';
@@ -6567,102 +6568,25 @@ const {
   uploadRequestInFlight,
 } = createUploadDedupService();
 
-// ─── Image Upload Endpoint ───
-app.post('/api/upload', requireAuth, requireAnyPermission(['articles', 'ads', 'gallery', 'events']), (req, res) => {
-  upload.single('image')(req, res, async (err) => {
-    let uploadFingerprint = null;
-    try {
-      if (err) return res.status(400).json({ error: err.message });
-      if (!req.file) return res.status(400).json({ error: 'No file provided' });
-      if (!Buffer.isBuffer(req.file.buffer) || req.file.buffer.byteLength === 0) {
-        return res.status(400).json({ error: 'Upload buffer is empty' });
-      }
-
-      const mimeType = normalizeText(req.file.mimetype || '', 120).toLowerCase();
-      const applyWatermark = parseBooleanFlag(req.body?.applyWatermark, true);
-      uploadFingerprint = makeUploadFingerprint(req.file.buffer, mimeType, applyWatermark);
-
-      const cachedPayload = getRecentUploadPayload(uploadFingerprint);
-      if (cachedPayload) return res.json(cachedPayload);
-
-      const inFlightPayload = uploadRequestInFlight.get(uploadFingerprint);
-      if (inFlightPayload) {
-        const payload = await inFlightPayload;
-        return res.json(payload);
-      }
-
-      const processUpload = (async () => {
-        const sharp = await loadSharp();
-        if (!sharp) {
-          // Fallback if sharp is not installed: save original file
-          const fallbackExt = imageMimeToExt[mimeType] || '.jpg';
-          const fallbackName = `${Date.now()}-${Math.round(Math.random() * 1e6)}${fallbackExt}`;
-
-          await putStorageObject(fallbackName, req.file.buffer, mimeType || 'application/octet-stream');
-
-          const pipelineManifest = await ensureImagePipeline(fallbackName, { sourceBuffer: req.file.buffer });
-          return {
-            url: getOriginalUploadUrl(fallbackName),
-            imageMeta: toImageMetaFromManifest(pipelineManifest),
-            pipelineReady: Boolean(pipelineManifest),
-            pipelineEngine: 'disabled',
-          };
-        }
-
-        // Convert all uploads to optimized WebP and optionally stamp the brand watermark.
-        const imgSharp = sharp(req.file.buffer).rotate();
-        const metadata = await imgSharp.metadata();
-
-        let finalBuffer;
-        if (applyWatermark) {
-          const watermarkPath = path.join(__dirname, 'fonts', 'brand-logo.png');
-          try {
-            const wmWidth = Math.max(100, Math.round((metadata.width || 800) * 0.20));
-            const wmBuffer = await sharp(watermarkPath).resize({ width: wmWidth }).toBuffer();
-            const wmMeta = await sharp(wmBuffer).metadata();
-
-            const margin = Math.round((metadata.width || 800) * 0.03);
-            const left = (metadata.width || 800) - (wmMeta.width || wmWidth) - margin;
-            const top = (metadata.height || 600) - (wmMeta.height || wmWidth / 4) - margin;
-
-            finalBuffer = await imgSharp
-              .composite([{ input: wmBuffer, left: Math.max(0, left), top: Math.max(0, top), blend: 'over' }])
-              .webp({ quality: 82, effort: 4 })
-              .toBuffer();
-          } catch (e) {
-            console.error('Watermark failed, falling back to simple WebP:', e);
-            finalBuffer = await imgSharp.webp({ quality: 82, effort: 4 }).toBuffer();
-          }
-        } else {
-          finalBuffer = await imgSharp.webp({ quality: 82, effort: 4 }).toBuffer();
-        }
-
-        const fileName = `${Date.now()}-${Math.round(Math.random() * 1e6)}.webp`;
-        await putStorageObject(fileName, finalBuffer, 'image/webp');
-
-        const pipelineManifest = await ensureImagePipeline(fileName, { sourceBuffer: finalBuffer });
-        return {
-          url: getOriginalUploadUrl(fileName),
-          imageMeta: toImageMetaFromManifest(pipelineManifest),
-          pipelineReady: Boolean(pipelineManifest),
-          pipelineEngine: 'sharp',
-        };
-      })();
-
-      uploadRequestInFlight.set(uploadFingerprint, processUpload);
-      const payload = await processUpload;
-      rememberRecentUploadPayload(uploadFingerprint, payload);
-      return res.json(payload);
-    } catch (error) {
-      console.error('Upload processing error:', error);
-      return res.status(500).json({ error: error?.message || 'Upload failed' });
-    } finally {
-      if (uploadFingerprint) uploadRequestInFlight.delete(uploadFingerprint);
-    }
-  });
+registerUploadRoutes(app, {
+  brandLogoPath: path.join(__dirname, 'fonts', 'brand-logo.png'),
+  ensureImagePipeline,
+  getOriginalUploadUrl,
+  getRecentUploadPayload,
+  imageMimeToExt,
+  loadSharp,
+  makeUploadFingerprint,
+  normalizeText,
+  parseBooleanFlag,
+  putStorageObject,
+  rememberRecentUploadPayload,
+  requireAnyPermission,
+  requireAuth,
+  toImageMetaFromManifest,
+  upload,
+  uploadRequestInFlight,
 });
 
-// ─── Tip Line ───
 app.get('/api/tips', requireAuth, requireAnyPermission(['articles']), async (_req, res) => {
   try {
     const tips = await Tip.find().sort({ createdAt: -1 }).lean();
