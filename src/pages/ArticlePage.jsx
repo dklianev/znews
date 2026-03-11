@@ -47,7 +47,7 @@ function ArticleBodySkeleton() {
 
 function ArticlePageSkeleton() {
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 animate-pulse" aria-label="????????? ?? ????????">
+    <div className="max-w-7xl mx-auto px-4 py-6 animate-pulse" aria-label="Зареждане на страницата">
       <nav className="flex items-center gap-2 text-sm font-sans text-zn-text-muted mb-6">
         <div className="h-3 w-80 bg-zn-text/10 rounded" />
       </nav>

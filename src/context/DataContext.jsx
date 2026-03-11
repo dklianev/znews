@@ -800,6 +800,7 @@ export function DataProvider({ children }) {
     games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
+    createTip,
     refresh: fetchAll,
   }), [
     loading, loadError, homepage,
@@ -818,6 +819,7 @@ export function DataProvider({ children }) {
     games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
+    createTip,
     fetchAll,
   ]);
 

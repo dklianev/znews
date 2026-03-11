@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 import { useDocumentTitle, makeTitle } from '../hooks/useDocumentTitle';
 import { Upload, MapPin, Send, AlertTriangle, CheckCircle, Image as ImageIcon, X } from 'lucide-react';
 
 export default function TipLine() {
     useDocumentTitle(makeTitle('Гореща линия'));
-    const { createTip } = useData();
+    const { createTip } = usePublicData();
 
     const [text, setText] = useState('');
     const [location, setLocation] = useState('');
