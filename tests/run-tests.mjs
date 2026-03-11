@@ -30,6 +30,7 @@ import { runContentSharedHelpersTests } from './contentSharedHelpersService.test
 import { runSettingsPayloadHelpersTests } from './settingsPayloadHelpersService.test.mjs';
 import { runContentSanitizersTests } from './contentSanitizersService.test.mjs';
 import { runShareCardHelpersTests } from './shareCardHelpersService.test.mjs';
+import { runShareCardRuntimeHelpersTests } from './shareCardRuntimeService.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -73,5 +74,6 @@ await runTest('contentSharedHelpers', runContentSharedHelpersTests);
 await runTest('settingsPayloadHelpers', runSettingsPayloadHelpersTests);
 await runTest('contentSanitizers', runContentSanitizersTests);
 await runTest('shareCardHelpers', runShareCardHelpersTests);
+await runTest('shareCardRuntimeHelpers', runShareCardRuntimeHelpersTests);
 
 console.log('All tests passed.');
