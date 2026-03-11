@@ -13,6 +13,7 @@ import { runNumericIdTests } from './numericId.test.mjs';
 import { runArticleRecencyPipelineTests } from './articleRecencyPipeline.test.mjs';
 import { runSearchUtilsTests } from './searchUtils.test.mjs';
 import { runGamePuzzleHelpersTests } from './gamePuzzleHelpersService.test.mjs';
+import { runSettingsHelpersTests } from './settingsHelpersService.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -39,5 +40,6 @@ await runTest('numericId', runNumericIdTests);
 await runTest('articleRecencyPipeline', runArticleRecencyPipelineTests);
 await runTest('searchUtils', runSearchUtilsTests);
 await runTest('gamePuzzleHelpers', runGamePuzzleHelpersTests);
+await runTest('settingsHelpers', runSettingsHelpersTests);
 
 console.log('All tests passed.');
