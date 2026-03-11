@@ -60,6 +60,7 @@ import { filterSearchResultsByType, normalizeSearchType } from '../shared/search
 import { buildSearchRegex, getSearchSuggestions, getTrendingSearches, recordSearchQuery } from './searchService.js';
 import { registerHealthRoutes } from './routes/healthRoutes.js';
 import { registerSearchRoutes } from './routes/searchRoutes.js';
+import { registerMonitoringRoutes } from './routes/monitoringRoutes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -4030,38 +4031,20 @@ function requireAnyPermission(sections) {
   };
 }
 
-// ─── MongoDB Connection ───
-app.post('/api/monitoring/client-error', clientMonitoringLimiter, async (req, res) => {
-  try {
-    const payload = req.body && typeof req.body === 'object' ? req.body : {};
-    await recordSystemEvent({
-      level: 'error',
-      source: 'client',
-      component: truncateMonitoringText(payload.component || payload.source || 'client', 120),
-      message: truncateMonitoringText(payload.message || 'Client error', 600),
-      metadata: {
-        pathname: truncateMonitoringText(payload.pathname || '', 200),
-        userAgent: truncateMonitoringText(req.headers['user-agent'] || '', 300),
-        stack: truncateMonitoringText(payload.stack || '', 4000),
-        extra: sanitizeMonitoringMetadata(payload.extra || payload.metadata || null),
-      },
-    });
-    res.status(201).json({ ok: true });
-  } catch (error) {
-    res.status(500).json({ error: publicError(error) });
-  }
+// ─── Monitoring / Diagnostics routes ───
+registerMonitoringRoutes(app, {
+  buildDiagnosticsPayload,
+  clientMonitoringLimiter,
+  publicError,
+  recordSystemEvent,
+  reportServerError,
+  requireAuth,
+  requirePermission,
+  sanitizeMonitoringMetadata,
+  truncateMonitoringText,
 });
 
-app.get('/api/admin/diagnostics', requireAuth, requirePermission('permissions'), async (_req, res) => {
-  try {
-    const payload = await buildDiagnosticsPayload();
-    res.set('Cache-Control', 'no-store');
-    res.json(payload);
-  } catch (error) {
-    await reportServerError('admin-diagnostics', error);
-    res.status(500).json({ error: publicError(error) });
-  }
-});
+// ─── MongoDB Connection ───
 async function connectDB() {
   const uri = process.env.MONGODB_URI;
   const isPlaceholder = !uri || /YOUR_PASSWORD|xxxxx|user:password/i.test(uri);
