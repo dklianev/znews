@@ -7,6 +7,10 @@ export function createDocumentHelpers() {
     return next;
   }
 
+  function stripDocumentList(items) {
+    return (Array.isArray(items) ? items : []).map((item) => stripDocumentMetadata(item));
+  }
+
   function cleanExportItem(item) {
     const next = stripDocumentMetadata(item);
     if (next && typeof next === 'object') {
@@ -17,6 +21,7 @@ export function createDocumentHelpers() {
 
   return {
     cleanExportItem,
+    stripDocumentList,
     stripDocumentMetadata,
   };
 }

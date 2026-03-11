@@ -9,6 +9,13 @@ export async function runDocumentHelpersTests() {
   assert.deepEqual(stripped, { id: 5, title: 'Hello', nested: { ok: true }, password: 'secret' });
   assert.deepEqual(source, { _id: 'abc', __v: 7, id: 5, title: 'Hello', nested: { ok: true }, password: 'secret' });
 
+  assert.deepEqual(helpers.stripDocumentList([source, null, 'x']), [
+    { id: 5, title: 'Hello', nested: { ok: true }, password: 'secret' },
+    null,
+    'x',
+  ]);
+  assert.deepEqual(helpers.stripDocumentList(null), []);
+
   const cleaned = helpers.cleanExportItem(source);
   assert.deepEqual(cleaned, { id: 5, title: 'Hello', nested: { ok: true } });
 

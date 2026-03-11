@@ -1612,9 +1612,11 @@ const {
   parsePositiveInt,
 });
 
-function stripDocumentList(items) {
-  return (Array.isArray(items) ? items : []).map((item) => stripDocumentMetadata(item));
-}
+const {
+  cleanExportItem,
+  stripDocumentList,
+  stripDocumentMetadata,
+} = createDocumentHelpers();
 
 const HOMEPAGE_SECTION_BUFFER = 10;
 const HOMEPAGE_LATEST_BUFFER = 24;
@@ -2639,11 +2641,6 @@ const usersRouter = createUsersRouter({
 });
 
 app.use('/api/users', usersRouter);
-
-const {
-  cleanExportItem,
-  stripDocumentMetadata,
-} = createDocumentHelpers();
 
 const {
   buildAdAnalyticsSummary,
