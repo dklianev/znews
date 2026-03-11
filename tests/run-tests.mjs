@@ -23,6 +23,7 @@ import { runAuthSessionHelpersTests } from './authSessionHelpersService.test.mjs
 import { runCommentsHelpersTests } from './commentsHelpersService.test.mjs';
 import { runRateLimitHelpersTests } from './rateLimitHelpersService.test.mjs';
 import { runDbBootstrapServiceTests } from './dbBootstrapService.test.mjs';
+import { runNumericCrudFactoryTests } from './numericCrudFactory.test.mjs';
 import { runArticleCollectionHelpersTests } from './articleCollectionHelpersService.test.mjs';
 import { runArticleRecencyHelpersTests } from './articleRecencyHelpersService.test.mjs';
 import { runSearchCollectionHelpersTests } from './searchCollectionHelpersService.test.mjs';
@@ -71,6 +72,7 @@ await runTest('authSessionHelpers', runAuthSessionHelpersTests);
 await runTest('commentsHelpers', runCommentsHelpersTests);
 await runTest('rateLimitHelpers', runRateLimitHelpersTests);
 await runTest('dbBootstrapService', runDbBootstrapServiceTests);
+await runTest('numericCrudFactory', runNumericCrudFactoryTests);
 await runTest('articleCollectionHelpers', runArticleCollectionHelpersTests);
 await runTest('articleRecencyHelpers', runArticleRecencyHelpersTests);
 await runTest('searchCollectionHelpers', runSearchCollectionHelpersTests);

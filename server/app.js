@@ -79,6 +79,7 @@ import { createUsersRouter } from './routes/usersRoutes.js';
 import { createAdsRouter } from './routes/adsRoutes.js';
 import { registerPublicFeedRoutes } from './routes/publicFeedRoutes.js';
 import { registerPollVoteRoutes } from './routes/pollVoteRoutes.js';
+import { createNumericCrudFactory } from './routes/factories/numericCrudFactory.js';
 import { createPublicGamesRouter } from './routes/publicGamesRoutes.js';
 import { createAdminGamesRouter } from './routes/adminGamesRoutes.js';
 import { createContactMessagesRouter } from './routes/contactMessagesRoutes.js';
@@ -1435,126 +1436,18 @@ registerMonitoringRoutes(app, {
 });
 
 // ─── MongoDB Connection ───
-function numericCrud(Model, resourceName = 'unknown', defaultSort = { id: -1 }, sensitiveFields = [], writePermission = null) {
-  const router = express.Router();
-  const writeGuards = writePermission
-    ? [requireAuth, requirePermission(writePermission)]
-    : [requireAuth, requireAdmin];
+const numericCrud = createNumericCrudFactory({
+  AuditLog,
+  cacheMiddleware,
+  invalidateCacheTags,
+  nextNumericId,
+  parseCollectionPagination,
+  publicError,
+  requireAdmin,
+  requireAuth,
+  requirePermission,
+});
 
-  const sanitizeWritePayload = (payload) => {
-    const next = { ...(payload || {}) };
-    delete next.id;
-    delete next._id;
-    delete next.__v;
-    return next;
-  };
-
-  router.get('/', cacheMiddleware, async (req, res) => {
-    try {
-      const pagination = parseCollectionPagination(req.query, { defaultLimit: 50, maxLimit: 250 });
-      let query = Model.find().sort(defaultSort);
-      if (pagination.shouldPaginate) {
-        query = query.skip(pagination.skip).limit(pagination.limit);
-      }
-      const items = await query.lean();
-      items.forEach(i => {
-        delete i._id;
-        delete i.__v;
-        sensitiveFields.forEach(f => delete i[f]);
-      });
-      if (!pagination.shouldPaginate) {
-        return res.json(items);
-      }
-      const total = await Model.countDocuments({});
-      return res.json({
-        items,
-        page: pagination.page,
-        limit: pagination.limit,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
-      });
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
-    }
-  });
-
-  router.post('/', ...writeGuards, async (req, res) => {
-    try {
-      const id = await nextNumericId(Model);
-      const data = sanitizeWritePayload(req.body);
-      const item = await Model.create({ ...data, id });
-      const obj = item.toJSON();
-      AuditLog.create({
-        user: req.user.name,
-        userId: req.user.userId,
-        action: 'create',
-        resource: resourceName,
-        resourceId: id,
-        details: obj.title || obj.name || obj.question || '',
-      }).catch(() => { });
-
-      invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
-
-      res.status(201).json(obj);
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
-    }
-  });
-
-  router.put('/:id', ...writeGuards, async (req, res) => {
-    try {
-      const id = Number.parseInt(req.params.id, 10);
-      if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
-      const data = sanitizeWritePayload(req.body);
-      if (Object.keys(data).length === 0) {
-        return res.status(400).json({ error: 'No valid fields to update' });
-      }
-      const item = await Model.findOneAndUpdate({ id }, { $set: data }, { new: true, runValidators: true });
-      if (!item) return res.status(404).json({ error: 'Not found' });
-      AuditLog.create({
-        user: req.user.name,
-        userId: req.user.userId,
-        action: 'update',
-        resource: resourceName,
-        resourceId: id,
-        details: data.title || data.name || '',
-      }).catch(() => { });
-
-      invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
-
-      res.json(item.toJSON());
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
-    }
-  });
-
-  router.delete('/:id', ...writeGuards, async (req, res) => {
-    try {
-      const id = Number.parseInt(req.params.id, 10);
-      if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
-      const result = await Model.deleteOne({ id });
-      if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
-      AuditLog.create({
-        user: req.user.name,
-        userId: req.user.userId,
-        action: 'delete',
-        resource: resourceName,
-        resourceId: id,
-        details: '',
-      }).catch(() => { });
-
-      invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
-
-      res.json({ ok: true });
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
-    }
-  });
-
-  return router;
-}
-
-// ─── Articles ───
 const articlesRouter = createArticlesPublicRouter({
   Article,
   ArticleView,
