@@ -42,6 +42,7 @@ import { runRuntimeBootstrapHelpersTests } from './runtimeBootstrapHelpersServic
 import { runAuthRoutesTests } from './authRoutes.test.mjs';
 import { runSearchRoutesTests } from './searchRoutes.test.mjs';
 import { runHealthRoutesTests } from './healthRoutes.test.mjs';
+import { runTipRoutesTests } from './tipRoutes.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -97,5 +98,6 @@ await runTest('runtimeBootstrapHelpers', runRuntimeBootstrapHelpersTests);
 await runTest('authRoutes', runAuthRoutesTests);
 await runTest('searchRoutes', runSearchRoutesTests);
 await runTest('healthRoutes', runHealthRoutesTests);
+await runTest('tipRoutes', runTipRoutesTests);
 
 console.log('All tests passed.');
