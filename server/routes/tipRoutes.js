@@ -79,7 +79,7 @@ export function registerTipRoutes(app, deps) {
 
         const text = normalizeText(req.body.text || '', 2000);
         if (!text && !imageUrl) {
-          return res.status(400).json({ error: '????, ???????? ????? ??? ?????? ??? ???????.' });
+          return res.status(400).json({ error: 'Моля, добавете текст или снимка към сигнала.' });
         }
 
         const ipHash = createHash('sha256').update(getTrustedClientIp(req)).digest('hex');
