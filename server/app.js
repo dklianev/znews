@@ -66,6 +66,7 @@ import { createBackgroundJobsService } from './services/backgroundJobsService.js
 import { createMonitoringService } from './services/monitoringService.js';
 import { createAuthzService } from './services/authzService.js';
 import { createCacheService } from './services/cacheService.js';
+import { createHealthService } from './services/healthService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -176,30 +177,11 @@ const {
   log: (message) => console.log(message),
 });
 
-function getMongoHealthState() {
-  const state = mongoose.connection?.readyState;
-  return state === 1
-    ? 'connected'
-    : state === 2
-      ? 'connecting'
-      : state === 3
-        ? 'disconnecting'
-        : 'disconnected';
-}
-
-function buildHealthPayload(kind = 'ready') {
-  const mongo = getMongoHealthState();
-  const live = !shuttingDown;
-  const ready = live && mongo === 'connected';
-  return {
-    ok: kind === 'live' ? live : ready,
-    mongo,
-    shuttingDown,
-    uptime: Math.round(process.uptime()),
-    cache: (() => { const stats = getApiCacheStats(); return { keyCount: stats.keyCount, ttlSeconds: stats.ttlSeconds }; })(),
-    timestamp: new Date().toISOString(),
-  };
-}
+const { buildHealthPayload, getMongoHealthState } = createHealthService({
+  getApiCacheStats,
+  getShuttingDown: () => shuttingDown,
+  mongoose,
+});
 
 registerHealthRoutes(app, { buildHealthPayload });
 
