@@ -112,6 +112,7 @@ import { createRateLimitHelpers } from './services/rateLimitHelpersService.js';
 import { createArticleCollectionHelpers } from './services/articleCollectionHelpersService.js';
 import { createArticleRecencyHelpers } from './services/articleRecencyHelpersService.js';
 import { createSearchCollectionHelpers } from './services/searchCollectionHelpersService.js';
+import { createCoreHelpers } from './services/coreHelpersService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -158,6 +159,14 @@ const isProd = process.env.NODE_ENV === 'production';
 const rawJwtSecret = process.env.JWT_SECRET;
 const rawRefreshSecret = process.env.REFRESH_TOKEN_SECRET || rawJwtSecret;
 let shuttingDown = false;
+
+const {
+  escapeRegexForSearch,
+  getPublishedFilter,
+  parseDurationToMs,
+  parsePositiveInt,
+  publicError,
+} = createCoreHelpers({ isProd });
 
 // ─── API Performance Caching ───
 const apiCache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
@@ -237,10 +246,6 @@ app.use((req, res, next) => {
   return res.status(503).json({ error: 'Server is restarting. Please try again shortly.' });
 });
 
-function publicError(error, fallback = 'Server error') {
-  return isProd ? fallback : (error?.message || fallback);
-}
-
 if (isProd && (!rawJwtSecret || rawJwtSecret.length < 32 || rawJwtSecret.toLowerCase().includes('change-me'))) {
   console.error('✗ JWT_SECRET is missing or too weak for production.');
   process.exit(1);
@@ -261,37 +266,7 @@ const REFRESH_COOKIE_NAME = process.env.REFRESH_COOKIE_NAME || 'zn_refresh';
 const REFRESH_COOKIE_PATH = '/api/auth';
 const refreshTokenMaxAgeMs = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000;
 
-function parseDurationToMs(value, fallbackMs) {
-  const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
-  if (!raw) return fallbackMs;
-  if (/^\d+$/.test(raw)) {
-    const numeric = Number.parseInt(raw, 10);
-    return Number.isFinite(numeric) && numeric > 0 ? numeric : fallbackMs;
-  }
-  const match = raw.match(/^(\d+)\s*(ms|s|m|h|d)$/);
-  if (!match) return fallbackMs;
-  const amount = Number.parseInt(match[1], 10);
-  if (!Number.isFinite(amount) || amount <= 0) return fallbackMs;
-  const unit = match[2];
-  const map = {
-    ms: 1,
-    s: 1000,
-    m: 60 * 1000,
-    h: 60 * 60 * 1000,
-    d: 24 * 60 * 60 * 1000,
-  };
-  return amount * (map[unit] || 1);
-}
-
 const accessTokenMaxAgeMs = parseDurationToMs(ACCESS_TOKEN_EXPIRES_IN, 15 * 60 * 1000);
-function getPublishedFilter(now = new Date()) {
-  return {
-    $and: [
-      { $or: [{ status: 'published' }, { status: { $exists: false } }] },
-      { $or: [{ publishAt: { $exists: false } }, { publishAt: null }, { publishAt: { $lte: now } }] },
-    ],
-  };
-}
 const DEFAULT_HERO_SETTINGS = Object.freeze({
   headline: 'ТАЙНИ СРЕЩИ НА ПЛАЖА\nИ ПАРКА!',
   shockLabel: 'ШОК!',
@@ -1589,16 +1564,6 @@ const ARTICLE_SECTION_FILTERS = Object.freeze({
   homeReportage: { category: 'reportage' },
   homeEmergency: { category: 'emergency' },
 });
-
-function parsePositiveInt(value, fallback, { min = 1, max = Number.MAX_SAFE_INTEGER } = {}) {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed)) return fallback;
-  return Math.min(max, Math.max(min, parsed));
-}
-
-function escapeRegexForSearch(value) {
-  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 const {
   buildArticleProjection,

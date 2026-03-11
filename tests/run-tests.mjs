@@ -25,6 +25,7 @@ import { runRateLimitHelpersTests } from './rateLimitHelpersService.test.mjs';
 import { runArticleCollectionHelpersTests } from './articleCollectionHelpersService.test.mjs';
 import { runArticleRecencyHelpersTests } from './articleRecencyHelpersService.test.mjs';
 import { runSearchCollectionHelpersTests } from './searchCollectionHelpersService.test.mjs';
+import { runCoreHelpersTests } from './coreHelpersService.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -63,5 +64,6 @@ await runTest('rateLimitHelpers', runRateLimitHelpersTests);
 await runTest('articleCollectionHelpers', runArticleCollectionHelpersTests);
 await runTest('articleRecencyHelpers', runArticleRecencyHelpersTests);
 await runTest('searchCollectionHelpers', runSearchCollectionHelpersTests);
+await runTest('coreHelpers', runCoreHelpersTests);
 
 console.log('All tests passed.');
