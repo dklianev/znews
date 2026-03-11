@@ -28,6 +28,7 @@ import { runSearchCollectionHelpersTests } from './searchCollectionHelpersServic
 import { runCoreHelpersTests } from './coreHelpersService.test.mjs';
 import { runContentSharedHelpersTests } from './contentSharedHelpersService.test.mjs';
 import { runSettingsPayloadHelpersTests } from './settingsPayloadHelpersService.test.mjs';
+import { runContentSanitizersTests } from './contentSanitizersService.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -69,5 +70,6 @@ await runTest('searchCollectionHelpers', runSearchCollectionHelpersTests);
 await runTest('coreHelpers', runCoreHelpersTests);
 await runTest('contentSharedHelpers', runContentSharedHelpersTests);
 await runTest('settingsPayloadHelpers', runSettingsPayloadHelpersTests);
+await runTest('contentSanitizers', runContentSanitizersTests);
 
 console.log('All tests passed.');

@@ -115,6 +115,7 @@ import { createSearchCollectionHelpers } from './services/searchCollectionHelper
 import { createCoreHelpers } from './services/coreHelpersService.js';
 import { createContentSharedHelpers } from './services/contentSharedHelpersService.js';
 import { createSettingsPayloadHelpers } from './services/settingsPayloadHelpersService.js';
+import { createContentSanitizers } from './services/contentSanitizersService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -1447,66 +1448,16 @@ function hasOwn(obj, key) {
   return Object.prototype.hasOwnProperty.call(obj, key);
 }
 
-function normalizeText(value, maxLen = 255) {
-  if (typeof value !== 'string') return '';
-  return value.replace(/\u0000/g, '').trim().slice(0, maxLen);
-}
-
-function sanitizeDate(value) {
-  const date = normalizeText(value, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : new Date().toISOString().slice(0, 10);
-}
-
-function sanitizeDateTime(value) {
-  if (value === null || value === undefined || value === '') return null;
-  const raw = normalizeText(String(value), 40);
-  if (!raw) return null;
-  const parsed = new Date(raw);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed;
-}
-
-function sanitizeMediaUrl(value) {
-  const url = normalizeText(value, 2048);
-  if (!url) return '';
-  if (url.startsWith('/')) return url;
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
-  } catch { }
-  return '';
-}
-
-function sanitizeExternalUrl(value) {
-  const url = normalizeText(value, 2048);
-  if (!url) return '#';
-  if (url === '#') return '#';
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
-  } catch { }
-  return '#';
-}
-
-function sanitizeImageWidth(value) {
-  const normalized = normalizeText(String(value || ''), 8).replace('%', '');
-  return ['25', '50', '75', '100'].includes(normalized) ? normalized : '100';
-}
-
-function sanitizeImageAlign(value) {
-  const normalized = normalizeText(String(value || ''), 16).toLowerCase();
-  return ['left', 'center', 'right'].includes(normalized) ? normalized : 'center';
-}
-
-function sanitizeTags(value) {
-  const rawTags = Array.isArray(value)
-    ? value
-    : String(value || '').split(',');
-  return rawTags
-    .map(tag => normalizeText(String(tag), 32))
-    .filter(Boolean)
-    .slice(0, 12);
-}
+const {
+  normalizeText,
+  sanitizeDate,
+  sanitizeDateTime,
+  sanitizeExternalUrl,
+  sanitizeImageAlign,
+  sanitizeImageWidth,
+  sanitizeMediaUrl,
+  sanitizeTags,
+} = createContentSanitizers();
 
 const ARTICLE_FIELD_ALLOWLIST = new Set([
   'id',
