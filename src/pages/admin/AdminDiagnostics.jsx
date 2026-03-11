@@ -23,6 +23,12 @@ function formatMemory(bytes) {
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatPercent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return '-';
+  return `${(numeric * 100).toFixed(1)}%`;
+}
+
 function StatusPill({ tone = 'neutral', children }) {
   const className = tone === 'good'
     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -86,6 +92,17 @@ export default function AdminDiagnostics() {
     const jobs = Array.isArray(payload?.jobs) ? payload.jobs : [];
     return jobs.filter((job) => Number(job.failureCount || 0) > 0).length;
   }, [payload?.jobs]);
+
+  const requestSummary = payload?.requestMetrics?.totals || {};
+  const requestGroups = useMemo(() => {
+    const groups = Array.isArray(payload?.requestMetrics?.groups) ? payload.requestMetrics.groups : [];
+    return groups.slice(0, 6);
+  }, [payload?.requestMetrics?.groups]);
+  const slowRequests = useMemo(() => {
+    const requests = Array.isArray(payload?.requestMetrics?.slowRequests) ? payload.requestMetrics.slowRequests : [];
+    return requests.slice(0, 6);
+  }, [payload?.requestMetrics?.slowRequests]);
+  const cachePerformance = payload?.cache?.performance || {};
 
   const mediaReady = payload?.mediaPipeline?.ready ?? 0;
   const mediaPending = payload?.mediaPipeline?.pending ?? 0;
@@ -210,9 +227,89 @@ export default function AdminDiagnostics() {
         </section>
       </div>
 
+      <section className="bg-white border border-gray-200 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Request Metrics</h2>
+          <StatusPill tone={slowRequests.length > 0 ? 'warn' : 'good'}>{requestSummary.requests ?? 0} tracked</StatusPill>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="border border-gray-100 bg-gray-50 px-4 py-3">
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Errors</p>
+            <p className="mt-2 text-xl font-display font-black text-gray-900">{requestSummary.errors ?? 0}</p>
+          </div>
+          <div className="border border-gray-100 bg-gray-50 px-4 py-3">
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Cache Hit Rate</p>
+            <p className="mt-2 text-xl font-display font-black text-gray-900">{formatPercent(requestSummary.hitRate)}</p>
+          </div>
+          <div className="border border-gray-100 bg-gray-50 px-4 py-3">
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Slow Threshold</p>
+            <p className="mt-2 text-xl font-display font-black text-gray-900">{payload?.requestMetrics?.slowRequestThresholdMs ?? 0} ms</p>
+          </div>
+        </div>
+        <div className="mt-5 overflow-x-auto">
+          <table className="min-w-full text-sm font-sans">
+            <thead>
+              <tr className="border-b border-gray-200 text-left text-[11px] uppercase tracking-wider text-gray-500">
+                <th className="pb-2 pr-4">Group</th>
+                <th className="pb-2 pr-4">Avg</th>
+                <th className="pb-2 pr-4">Max</th>
+                <th className="pb-2 pr-4">Errors</th>
+                <th className="pb-2">Cache</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requestGroups.map((group) => (
+                <tr key={group.name} className="border-b border-gray-100 align-top">
+                  <td className="py-3 pr-4 font-semibold text-gray-900">{group.name}</td>
+                  <td className="py-3 pr-4 text-gray-600">{group.avgDurationMs} ms</td>
+                  <td className="py-3 pr-4 text-gray-600">{group.maxDurationMs} ms</td>
+                  <td className="py-3 pr-4 text-gray-600">{group.errorCount || 0}</td>
+                  <td className="py-3 text-gray-600">{group.cacheHits || 0} hit / {group.cacheMisses || 0} miss</td>
+                </tr>
+              ))}
+              {requestGroups.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-4 text-center text-sm text-gray-400">No request metrics captured yet.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-5 space-y-2">
+          <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Recent Slow Requests</p>
+          {slowRequests.map((entry, index) => (
+            <div key={`${entry.at}-${index}`} className="border border-gray-100 px-3 py-2 text-xs font-sans text-gray-600">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-semibold text-gray-800">{entry.group}</span>
+                <span>{entry.durationMs} ms</span>
+              </div>
+              <p className="mt-1">{entry.method} {entry.path} · {entry.statusCode} · {entry.cacheStatus}</p>
+            </div>
+          ))}
+          {slowRequests.length === 0 ? <p className="text-sm font-sans text-gray-400">No slow requests captured.</p> : null}
+        </div>
+      </section>
+
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <section className="bg-white border border-gray-200 p-5">
-          <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Cache Tags</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Cache Tags</h2>
+            <StatusPill tone={Number(cachePerformance.hitRate || 0) >= 0.6 ? 'good' : Number(cachePerformance.hitRate || 0) > 0 ? 'warn' : 'neutral'}>{formatPercent(cachePerformance.hitRate)}</StatusPill>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-sans text-gray-700">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Hits</span>
+              <p className="mt-1 font-semibold text-gray-900">{cachePerformance.hits ?? 0}</p>
+            </div>
+            <div className="border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-sans text-gray-700">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Misses</span>
+              <p className="mt-1 font-semibold text-gray-900">{cachePerformance.misses ?? 0}</p>
+            </div>
+            <div className="border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-sans text-gray-700">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Writes</span>
+              <p className="mt-1 font-semibold text-gray-900">{cachePerformance.writes ?? 0}</p>
+            </div>
+          </div>
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
             {cacheTagRows.map(([tag, count]) => (
               <div key={tag} className="flex items-center justify-between border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-sans text-gray-700">

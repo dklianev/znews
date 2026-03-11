@@ -9,6 +9,14 @@ export function createCacheService(deps) {
     log = () => {},
   } = deps;
 
+  const cachePerformance = {
+    hits: 0,
+    misses: 0,
+    writes: 0,
+    hitsByTag: {},
+    missesByTag: {},
+  };
+
   function normalizeCacheUrl(rawUrl) {
     return String(rawUrl || '').split('#')[0].trim();
   }
@@ -32,6 +40,14 @@ export function createCacheService(deps) {
     if (pathname.startsWith('/api/search')) tags.add('search');
 
     return [...tags];
+  }
+
+  function countCacheEvent(tags, bucket) {
+    const safeBucket = bucket === 'hits' ? 'hitsByTag' : 'missesByTag';
+    const uniqueTags = [...new Set((Array.isArray(tags) ? tags : []).filter(Boolean))];
+    uniqueTags.forEach((tag) => {
+      cachePerformance[safeBucket][tag] = (cachePerformance[safeBucket][tag] || 0) + 1;
+    });
   }
 
   function deleteTrackedCacheMeta(keyOrKeys) {
@@ -78,12 +94,22 @@ export function createCacheService(deps) {
       });
     }
 
+    const trackedRequests = cachePerformance.hits + cachePerformance.misses;
+
     return {
       ttlSeconds: apiCache.options.stdTTL,
       keyCount: apiCache.keys().length,
       trackedKeyCount: apiCacheMeta.size,
       countsByTag,
       recentInvalidations: apiCacheInvalidationLog.slice(0, 12),
+      performance: {
+        hits: cachePerformance.hits,
+        misses: cachePerformance.misses,
+        writes: cachePerformance.writes,
+        hitRate: trackedRequests > 0 ? Number((cachePerformance.hits / trackedRequests).toFixed(3)) : null,
+        hitsByTag: { ...cachePerformance.hitsByTag },
+        missesByTag: { ...cachePerformance.missesByTag },
+      },
     };
   }
 
@@ -101,16 +127,23 @@ export function createCacheService(deps) {
     const key = `api_cache_${url}`;
     const cachedBody = apiCache.get(key);
 
+    const tags = getCacheTagsForUrl(url);
+
     if (cachedBody) {
+      cachePerformance.hits += 1;
+      countCacheEvent(tags, 'hits');
       res.setHeader('X-Cache', 'HIT');
       return res.json(JSON.parse(cachedBody));
     }
 
+    cachePerformance.misses += 1;
+    countCacheEvent(tags, 'misses');
     res.setHeader('X-Cache', 'MISS');
     const originalSend = res.json;
     res.json = function cacheResponse(body) {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         apiCache.set(key, JSON.stringify(body));
+        cachePerformance.writes += 1;
         rememberApiCacheEntry(key, url);
       }
       return originalSend.call(this, body);

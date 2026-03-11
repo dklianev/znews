@@ -110,6 +110,7 @@ import { createServerLifecycleService } from './services/serverLifecycleService.
 import { createRequestHelpers } from './services/requestHelpersService.js';
 import { createFramePolicyHelpers } from './services/framePolicyService.js';
 import { createRuntimeBootstrapHelpers } from './services/runtimeBootstrapHelpersService.js';
+import { createRequestMetricsService } from './services/requestMetricsService.js';
 
 const {
   applyMongoDnsServers,
@@ -226,6 +227,11 @@ const {
   log: (message) => console.log(message),
 });
 
+const {
+  getRequestMetricsSnapshot,
+  requestMetricsMiddleware,
+} = createRequestMetricsService();
+
 const { buildHealthPayload, getMongoHealthState } = createHealthService({
   getApiCacheStats,
   getShuttingDown: () => shuttingDown,
@@ -233,6 +239,8 @@ const { buildHealthPayload, getMongoHealthState } = createHealthService({
 });
 
 registerHealthRoutes(app, { buildHealthPayload });
+
+app.use(requestMetricsMiddleware);
 
 app.use((req, res, next) => {
   if (!shuttingDown) return next();
@@ -1305,6 +1313,7 @@ const { buildDiagnosticsPayload } = createDiagnosticsService({
   getImagePipelineStatus,
   getMongoHealthState,
   getRecentUploadResults: () => recentUploadResults,
+  getRequestMetricsSnapshot,
   getUploadRequestInFlight: () => uploadRequestInFlight,
   isRemoteStorage,
   mongoose,

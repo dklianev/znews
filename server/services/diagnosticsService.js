@@ -4,6 +4,7 @@ export function createDiagnosticsService(deps) {
     BackgroundJobState,
     SystemEvent,
     getApiCacheStats,
+    getRequestMetricsSnapshot,
     getImagePipelineStatus,
     getMongoHealthState,
     getRecentUploadResults,
@@ -48,6 +49,7 @@ export function createDiagnosticsService(deps) {
     ]);
     const recentUploadResults = getRecentUploadResults();
     const uploadRequestInFlight = getUploadRequestInFlight();
+    const requestMetrics = getRequestMetricsSnapshot();
 
     return {
       generatedAt: new Date().toISOString(),
@@ -62,6 +64,7 @@ export function createDiagnosticsService(deps) {
         host: mongoose.connection?.host || '',
       },
       cache: getApiCacheStats(),
+      requestMetrics,
       storage: {
         driver: storageDriver,
         remote: isRemoteStorage,
