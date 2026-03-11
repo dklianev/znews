@@ -18,6 +18,7 @@ import { runArticlePushHelpersTests } from './articlePushHelpersService.test.mjs
 import { runDocumentHelpersTests } from './documentHelpersService.test.mjs';
 import { runGamesCatalogServiceTests } from './gamesCatalogService.test.mjs';
 import { runAccessHelpersTests } from './accessHelpersService.test.mjs';
+import { runAuthTokenHelpersTests } from './authTokenHelpersService.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -49,5 +50,6 @@ await runTest('articlePushHelpers', runArticlePushHelpersTests);
 await runTest('documentHelpers', runDocumentHelpersTests);
 await runTest('gamesCatalogService', runGamesCatalogServiceTests);
 await runTest('accessHelpers', runAccessHelpersTests);
+await runTest('authTokenHelpers', runAuthTokenHelpersTests);
 
 console.log('All tests passed.');
