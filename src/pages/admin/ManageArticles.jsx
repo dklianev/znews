@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useData } from '../../context/DataContext';
+import { useAdminData, usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2, Search, Copy, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, CheckSquare, Square, ArrowUp } from 'lucide-react';
 import RichTextEditor from '../../components/admin/RichTextEditor';
 import AdminImageField from '../../components/admin/AdminImageField';
@@ -129,11 +129,13 @@ export default function ManageArticles() {
     addArticle,
     updateArticle,
     deleteArticle,
+  } = usePublicData();
+  const {
     articleRevisions,
     loadArticleRevisions,
     autosaveArticleRevision,
     restoreArticleRevision,
-  } = useData();
+  } = useAdminData();
   const [editing, setEditing] = useState(null);
   const [activeTab, setActiveTab] = useState('content');
   const [showPreviewModal, setShowPreviewModal] = useState(false);

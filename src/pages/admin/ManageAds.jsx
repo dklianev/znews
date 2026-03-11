@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, X, Save, ExternalLink, ImageIcon, AlertTriangle, Loader2, Eye, Info } from 'lucide-react';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
 import { AdBannerHorizontal, AdBannerSide, AdBannerInline } from '../../components/AdBanner';
@@ -363,7 +363,7 @@ function getAdDisplayName(ad) {
   return ad?.campaignName || ad?.title || `Реклама #${ad?.id ?? 'na'}`;
 }
 export default function ManageAds() {
-  const { ads, categories, articles, addAd, updateAd, deleteAd } = useData();
+  const { ads, categories, articles, addAd, updateAd, deleteAd } = usePublicData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(() => normalizeAdForm(emptyForm));
   const [saving, setSaving] = useState(false);
