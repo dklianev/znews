@@ -144,6 +144,19 @@ function AdminPermissionRoute({ permission, children }) {
   if (permission && !hasPermission(permission)) return <Navigate to="/admin" replace />;
   return children;
 }
+function isFramedWindow() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+function AdminFrameGuard({ children }) {
+  if (isFramedWindow()) return <Navigate to="/" replace />;
+  return children;
+}
 function PublicGameRoute({ slug, children }) {
   const { session } = useSessionData();
   const { hasPermission } = useAdminData();
@@ -244,8 +257,22 @@ function AppContent() {
       <ScrollToTop />
       <Routes>
         {/* Admin panel */}
-        <Route path="/admin/login" element={<Suspense fallback={<PageFallback />}><AdminLogin /></Suspense>} />
-        <Route path="/admin" element={<Suspense fallback={<PageFallback />}><AdminLayout /></Suspense>}>
+        <Route
+          path="/admin/login"
+          element={(
+            <AdminFrameGuard>
+              <Suspense fallback={<PageFallback />}><AdminLogin /></Suspense>
+            </AdminFrameGuard>
+          )}
+        />
+        <Route
+          path="/admin"
+          element={(
+            <AdminFrameGuard>
+              <Suspense fallback={<PageFallback />}><AdminLayout /></Suspense>
+            </AdminFrameGuard>
+          )}
+        >
           <Route index element={<Suspense fallback={<PageFallback />}><Dashboard /></Suspense>} />
           <Route path="profiles" element={<AdminPermissionRoute permission="profiles"><Suspense fallback={<PageFallback />}><ManageProfiles /></Suspense></AdminPermissionRoute>} />
           <Route path="tips" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><ManageTips /></Suspense></AdminPermissionRoute>} />

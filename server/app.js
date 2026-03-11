@@ -108,6 +108,7 @@ import { createShareCardObjectHelpers } from './services/shareCardObjectService.
 import { createShareCardRuntimeHelpers } from './services/shareCardRuntimeService.js';
 import { createServerLifecycleService } from './services/serverLifecycleService.js';
 import { createRequestHelpers } from './services/requestHelpersService.js';
+import { createFramePolicyHelpers } from './services/framePolicyService.js';
 import { createRuntimeBootstrapHelpers } from './services/runtimeBootstrapHelpersService.js';
 
 const {
@@ -473,10 +474,23 @@ if (!trustProxyRaw) {
 }
 
 // ─── Security & Performance Middleware ───
+const {
+  getFrameAncestorsDirectiveValue,
+  isProtectedFramePath,
+} = createFramePolicyHelpers();
+
+app.use((req, res, next) => {
+  if (isProtectedFramePath(req.path || req.originalUrl || '/')) {
+    res.setHeader('X-Frame-Options', 'DENY');
+  }
+  next();
+});
+
 app.use(compression());
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  xFrameOptions: false,
   contentSecurityPolicy: {
     useDefaults: true,
     directives: {
@@ -488,7 +502,7 @@ app.use(helmet({
       fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', 'https:'],
       connectSrc: ["'self'"],
       objectSrc: ["'none'"],
-      frameAncestors: ["'none'"],
+      frameAncestors: [(req) => getFrameAncestorsDirectiveValue(req)],
       baseUri: ["'self'"],
       formAction: ["'self'"],
     },
