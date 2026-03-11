@@ -15,6 +15,12 @@ function parseBootstrapInclude(input) {
   );
 }
 
+function isCompactPayloadRequested(input) {
+  if (input === true) return true;
+  const normalized = String(input || '').trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'compact';
+}
+
 export function registerPublicFeedRoutes(app, deps) {
   const {
     Article,
@@ -59,6 +65,7 @@ export function registerPublicFeedRoutes(app, deps) {
       const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
       const latestShowcaseLimit = parsePositiveInt(req.query.latestShowcaseLimit, 5, { min: 1, max: 12 });
       const latestWireLimit = parsePositiveInt(req.query.latestWireLimit, 16, { min: 0, max: 48 });
+      const compactPayload = isCompactPayloadRequested(req.query.compact);
       const fieldsProjection = buildArticleProjection(req.query.fields) || HOMEPAGE_DEFAULT_ARTICLE_PROJECTION;
 
       const homepagePayloadFallbacks = {
@@ -95,7 +102,7 @@ export function registerPublicFeedRoutes(app, deps) {
         totalArticles: Article.countDocuments(articleFilter),
         authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
         categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
-        ads: listPublicAds(),
+        ads: listPublicAds({ compact: compactPayload }),
         breaking: Breaking.findOne().lean().then((doc) => doc?.items || []),
         siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),
         wanted: Wanted.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
@@ -154,13 +161,12 @@ export function registerPublicFeedRoutes(app, deps) {
       const sections = buildHomepageSectionIdPayload(homepageSections);
 
       res.setHeader('Cache-Control', 'no-store');
-      res.json({
+      const responsePayload = {
         schemaVersion: 2,
         generatedAt: new Date().toISOString(),
         totalArticles: payload.totalArticles,
         articlePool,
         sections,
-        articles: articlePool,
         authors: payload.authors,
         categories: payload.categories,
         ads: payload.ads,
@@ -171,7 +177,9 @@ export function registerPublicFeedRoutes(app, deps) {
         polls: payload.polls,
         games: payload.games,
         ...(Object.keys(errors).length ? { errors } : {}),
-      });
+      };
+      if (!compactPayload) responsePayload.articles = articlePool;
+      res.json(responsePayload);
     } catch (e) {
       res.status(500).json({ error: publicError(e) });
     }
@@ -183,6 +191,7 @@ export function registerPublicFeedRoutes(app, deps) {
       const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
       const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
       const fieldsProjection = buildArticleProjection(req.query.fields);
+      const compactPayload = isCompactPayloadRequested(req.query.compact);
       const includeSections = parseBootstrapInclude(req.query.include);
       const articlePagination = parseCollectionPagination(req.query, { defaultLimit: 120, maxLimit: 500 });
 
@@ -195,7 +204,7 @@ export function registerPublicFeedRoutes(app, deps) {
         ),
         authors: Author.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
         categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
-        ads: listPublicAds(),
+        ads: listPublicAds({ compact: compactPayload }),
         breaking: Breaking.findOne().lean().then((doc) => doc?.items || []),
         heroSettings: HeroSettings.findOne({ key: 'main' }).lean().then((doc) => serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS)),
         siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),

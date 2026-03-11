@@ -197,9 +197,41 @@ export function createAdHelpers(deps) {
     return items.map((item) => normalizeAdRecord(stripDocumentMetadata(item)));
   }
 
-  async function listPublicAds() {
+  function serializePublicAdRecord(ad, { compact = false } = {}) {
+    if (!compact) return ad;
+
+    return {
+      id: ad?.id,
+      type: ad?.type,
+      title: ad?.title,
+      subtitle: ad?.subtitle,
+      showTitle: ad?.showTitle,
+      cta: ad?.cta,
+      showButton: ad?.showButton,
+      clickable: ad?.clickable,
+      gradient: ad?.gradient,
+      icon: ad?.icon,
+      link: ad?.link,
+      color: ad?.color,
+      imageDesktop: ad?.imageDesktop,
+      imageMobile: ad?.imageMobile,
+      imagePlacement: ad?.imagePlacement,
+      imageMetaDesktop: ad?.imageMetaDesktop,
+      imageMetaMobile: ad?.imageMetaMobile,
+      fitMode: ad?.fitMode,
+      placements: ad?.placements,
+      targeting: ad?.targeting,
+      priority: ad?.priority,
+      weight: ad?.weight,
+      startAt: ad?.startAt,
+      endAt: ad?.endAt,
+      status: ad?.status,
+    };
+  }
+
+  async function listPublicAds(options = {}) {
     const items = await fetchAllAdsSorted();
-    return filterPublicAds(items);
+    return filterPublicAds(items).map((item) => serializePublicAdRecord(item, options));
   }
 
   async function listAdsForRequest(req) {

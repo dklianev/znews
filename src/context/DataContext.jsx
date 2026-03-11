@@ -327,6 +327,7 @@ export function DataProvider({ children }) {
           fields: HOMEPAGE_ARTICLE_FIELDS,
           latestShowcaseLimit: 5,
           latestWireLimit: 16,
+          compact: 1,
         });
         applyHomepagePayload(homepagePayload);
         loadedFromHomepagePayload = true;
@@ -342,7 +343,7 @@ export function DataProvider({ children }) {
     if (!loadedFromHomepagePayload && !hitRateLimit) {
       try {
         const include = buildPublicBootstrapInclude();
-        const params = { fields: ARTICLE_LIST_FIELDS };
+        const params = { fields: ARTICLE_LIST_FIELDS, compact: 1 };
         if (include) params.include = include;
         const payload = await api.bootstrap.get(params);
         applyBootstrapPayload(payload);
