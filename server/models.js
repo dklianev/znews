@@ -411,6 +411,7 @@ const articleRevisionSchema = new mongoose.Schema({
   snapshot: { type: mongoose.Schema.Types.Mixed, required: true },
   createdAt: { type: Date, default: Date.now, index: true },
 }, opts);
+articleRevisionSchema.index({ articleId: 1, createdAt: -1 }, { name: 'article_revision_article_createdAt' });
 
 // ─── Settings Revisions ───
 const settingsRevisionSchema = new mongoose.Schema({
@@ -528,6 +529,7 @@ const gamePuzzleSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 }, opts);
 gamePuzzleSchema.index({ gameSlug: 1, puzzleDate: 1 }, { unique: true, name: 'game_puzzle_slug_date' });
+gamePuzzleSchema.index({ gameSlug: 1, status: 1, puzzleDate: -1, activeUntilDate: -1 }, { name: 'game_puzzle_public_archive' });
 
 const searchQueryStatSchema = new mongoose.Schema({
   normalizedQuery: { type: String, required: true, unique: true, index: true },
