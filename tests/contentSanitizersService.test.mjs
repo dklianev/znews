@@ -30,4 +30,17 @@ export async function runContentSanitizersTests() {
 
   assert.deepEqual(helpers.sanitizeTags('one, two , ,three'), ['one', 'two', 'three']);
   assert.deepEqual(helpers.sanitizeTags(['alpha', ' beta ', '', 'gamma']), ['alpha', 'beta', 'gamma']);
+
+  assert.equal(
+    helpers.sanitizeSafeHtml('<p onclick="evil()" style="color:red">Hi</p><script>alert(1)</script>'),
+    '<p>Hi</p>'
+  );
+  assert.equal(
+    helpers.sanitizeSafeHtml('<a href="javascript:alert(1)">Bad</a><a href="https://example.com?q=1&x=2">Good</a>'),
+    '<a>Bad</a><a href="https://example.com/?q=1&amp;x=2" target="_blank" rel="noopener noreferrer">Good</a>'
+  );
+  assert.equal(
+    helpers.sanitizeSafeHtml('<img src="/uploads/pic.jpg" alt="Promo card" data-width="75" data-align="RIGHT" onload="x()">'),
+    '<img src="/uploads/pic.jpg" alt="Promo card" loading="lazy" decoding="async" data-width="75" data-align="right">'
+  );
 }
