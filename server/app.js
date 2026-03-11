@@ -113,6 +113,7 @@ import { createArticleCollectionHelpers } from './services/articleCollectionHelp
 import { createArticleRecencyHelpers } from './services/articleRecencyHelpersService.js';
 import { createSearchCollectionHelpers } from './services/searchCollectionHelpersService.js';
 import { createCoreHelpers } from './services/coreHelpersService.js';
+import { createContentSharedHelpers } from './services/contentSharedHelpersService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -1682,20 +1683,12 @@ function sanitizeSafeHtml(value) {
   return html;
 }
 
-const allowedShareAccentValues = new Set(['auto', 'red', 'orange', 'yellow', 'purple', 'blue', 'emerald']);
-
-function sanitizeShareAccent(value) {
-  const accent = normalizeText(value, 20).toLowerCase();
-  return allowedShareAccentValues.has(accent) ? accent : 'auto';
-}
-
-function snapshotsEqual(left, right) {
-  try {
-    return JSON.stringify(left) === JSON.stringify(right);
-  } catch {
-    return false;
-  }
-}
+const {
+  sanitizeShareAccent,
+  snapshotsEqual,
+} = createContentSharedHelpers({
+  normalizeText,
+});
 
 const {
   buildArticleSnapshot,

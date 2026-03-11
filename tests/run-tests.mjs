@@ -26,6 +26,7 @@ import { runArticleCollectionHelpersTests } from './articleCollectionHelpersServ
 import { runArticleRecencyHelpersTests } from './articleRecencyHelpersService.test.mjs';
 import { runSearchCollectionHelpersTests } from './searchCollectionHelpersService.test.mjs';
 import { runCoreHelpersTests } from './coreHelpersService.test.mjs';
+import { runContentSharedHelpersTests } from './contentSharedHelpersService.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -65,5 +66,6 @@ await runTest('articleCollectionHelpers', runArticleCollectionHelpersTests);
 await runTest('articleRecencyHelpers', runArticleRecencyHelpersTests);
 await runTest('searchCollectionHelpers', runSearchCollectionHelpersTests);
 await runTest('coreHelpers', runCoreHelpersTests);
+await runTest('contentSharedHelpers', runContentSharedHelpersTests);
 
 console.log('All tests passed.');
