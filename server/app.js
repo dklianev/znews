@@ -72,6 +72,7 @@ import { registerSettingsRoutes } from './routes/settingsRoutes.js';
 import { createCommentsRouter } from './routes/commentsRoutes.js';
 import { createCategoriesRouter } from './routes/categoriesRoutes.js';
 import { createUsersRouter } from './routes/usersRoutes.js';
+import { createAdsRouter } from './routes/adsRoutes.js';
 import { createPublicGamesRouter } from './routes/publicGamesRoutes.js';
 import { createAdminGamesRouter } from './routes/adminGamesRoutes.js';
 import { createContactMessagesRouter } from './routes/contactMessagesRoutes.js';
@@ -3860,151 +3861,27 @@ async function buildAdAnalyticsSummary({ days = DEFAULT_AD_ANALYTICS_DAYS } = {}
   };
 }
 
-const adsRouter = express.Router();
-
-adsRouter.get('/analytics/summary', requireAuth, requirePermission('ads'), async (req, res) => {
-  try {
-    const summary = await buildAdAnalyticsSummary({ days: req.query.days });
-    res.json(summary);
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
+const adsRouter = createAdsRouter({
+  Ad,
+  AuditLog,
+  buildAdAnalyticsSummary,
+  buildAdCandidate,
+  cacheMiddleware,
+  invalidateCacheGroup,
+  listAdsForRequest,
+  nextNumericId,
+  normalizeAdRecord,
+  publicError,
+  recordAdAnalyticsEvent,
+  requireAuth,
+  requirePermission,
+  resolveTrackedAdCandidate,
+  sanitizeAdAnalyticsContext,
+  sanitizeAdPayload,
+  stripDocumentMetadata,
+  validateAdCandidate,
 });
 
-adsRouter.post('/:id/impression', async (req, res) => {
-  try {
-    const id = Number.parseInt(req.params.id, 10);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
-
-    const context = sanitizeAdAnalyticsContext(req.body);
-    if (context.error) return res.status(400).json({ error: context.error });
-
-    const resolvedAd = await resolveTrackedAdCandidate(id, context);
-    if (!resolvedAd) return res.status(404).json({ error: 'Ad is not active for this slot' });
-
-    const result = await recordAdAnalyticsEvent({ req, adId: id, eventType: 'impression', context });
-    res.status(result.deduped ? 200 : 201).json({ ok: true, deduped: result.deduped });
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-adsRouter.post('/:id/click', async (req, res) => {
-  try {
-    const id = Number.parseInt(req.params.id, 10);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
-
-    const context = sanitizeAdAnalyticsContext(req.body);
-    if (context.error) return res.status(400).json({ error: context.error });
-
-    const resolvedAd = await resolveTrackedAdCandidate(id, context);
-    if (!resolvedAd) return res.status(404).json({ error: 'Ad is not active for this slot' });
-
-    await recordAdAnalyticsEvent({ req, adId: id, eventType: 'click', context });
-    res.status(201).json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-adsRouter.get('/', cacheMiddleware, async (req, res) => {
-  try {
-    const items = await listAdsForRequest(req);
-    res.json(items);
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-adsRouter.post('/', requireAuth, requirePermission('ads'), async (req, res) => {
-  try {
-    const patch = sanitizeAdPayload(req.body, { partial: false });
-    const candidate = buildAdCandidate(null, patch);
-    const errors = validateAdCandidate(candidate);
-    if (errors.length > 0) return res.status(400).json({ error: errors[0], errors });
-
-    const id = await nextNumericId(Ad);
-    const item = await Ad.create({ ...candidate, id });
-    const obj = normalizeAdRecord(stripDocumentMetadata(item.toJSON()));
-
-    AuditLog.create({
-      user: req.user.name,
-      userId: req.user.userId,
-      action: 'create',
-      resource: 'ads',
-      resourceId: id,
-      details: obj.campaignName || obj.title || '',
-    }).catch(() => { });
-
-    invalidateCacheGroup('ads', 'ads-mutation');
-
-    res.status(201).json(obj);
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-adsRouter.put('/:id', requireAuth, requirePermission('ads'), async (req, res) => {
-  try {
-    const id = Number.parseInt(req.params.id, 10);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
-
-    const patch = sanitizeAdPayload(req.body, { partial: true });
-    if (Object.keys(patch).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
-
-    const existing = await Ad.findOne({ id }).lean();
-    if (!existing) return res.status(404).json({ error: 'Not found' });
-
-    const candidate = buildAdCandidate(existing, patch);
-    const errors = validateAdCandidate(candidate);
-    if (errors.length > 0) return res.status(400).json({ error: errors[0], errors });
-
-    const { id: _ignoredId, ...updateDoc } = candidate;
-    const item = await Ad.findOneAndUpdate({ id }, { $set: updateDoc }, { new: true, runValidators: true });
-    if (!item) return res.status(404).json({ error: 'Not found' });
-
-    const obj = normalizeAdRecord(stripDocumentMetadata(item.toJSON()));
-    AuditLog.create({
-      user: req.user.name,
-      userId: req.user.userId,
-      action: 'update',
-      resource: 'ads',
-      resourceId: id,
-      details: obj.campaignName || obj.title || '',
-    }).catch(() => { });
-
-    invalidateCacheGroup('ads', 'ads-mutation');
-
-    res.json(obj);
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-adsRouter.delete('/:id', requireAuth, requirePermission('ads'), async (req, res) => {
-  try {
-    const id = Number.parseInt(req.params.id, 10);
-    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
-
-    const result = await Ad.deleteOne({ id });
-    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
-
-    AuditLog.create({
-      user: req.user.name,
-      userId: req.user.userId,
-      action: 'delete',
-      resource: 'ads',
-      resourceId: id,
-      details: '',
-    }).catch(() => { });
-
-    invalidateCacheGroup('ads', 'ads-mutation');
-
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
 app.use('/api/ads', adsRouter);
 // ─── Standard CRUD Routes ───
 app.use('/api/authors', numericCrud(Author, 'authors', { id: -1 }, [], 'profiles'));
