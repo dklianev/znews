@@ -2,6 +2,9 @@ import { createContext, useContext, useState, useCallback, useEffect, useMemo, u
 import { api, getSession, saveSession, clearSession } from '../utils/api';
 
 const DataContext = createContext();
+const SessionDataContext = createContext();
+const PublicDataContext = createContext();
+const AdminDataContext = createContext();
 const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 const HOMEPAGE_ARTICLE_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,status,publishAt,cardSticker';
 const EMPTY_PUBLIC_SECTION_STATUS = Object.freeze({ jobs: 'idle', court: 'idle', events: 'idle', gallery: 'idle', games: 'idle' });
@@ -776,6 +779,67 @@ export function DataProvider({ children }) {
   const createTip = useCallback(async (formData) => {
     return await api.tips.create(formData);
   }, []);
+  const sessionValue = useMemo(() => ({
+    session, login, logout,
+  }), [session, login, logout]);
+
+  const publicValue = useMemo(() => ({
+    loading, loadError, homepage,
+    articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
+    authors, addAuthor, updateAuthor, deleteAuthor,
+    categories, addCategory, updateCategory, deleteCategory, saveCategories,
+    ads, addAd, updateAd, deleteAd,
+    breaking, saveBreaking,
+    heroSettings, saveHeroSettings,
+    siteSettings, saveSiteSettings, forceRefreshHomepageCache,
+    wanted, addWanted, updateWanted, deleteWanted,
+    jobs, addJob, updateJob, deleteJob,
+    court, addCourtCase, updateCourtCase, deleteCourtCase,
+    events, addEvent, updateEvent, deleteEvent,
+    polls, addPoll, updatePoll, deletePoll, votePoll,
+    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
+    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
+    gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
+    refresh: fetchAll,
+  }), [
+    loading, loadError, homepage,
+    articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
+    authors, addAuthor, updateAuthor, deleteAuthor,
+    categories, addCategory, updateCategory, deleteCategory, saveCategories,
+    ads, addAd, updateAd, deleteAd,
+    breaking, saveBreaking,
+    heroSettings, saveHeroSettings,
+    siteSettings, saveSiteSettings, forceRefreshHomepageCache,
+    wanted, addWanted, updateWanted, deleteWanted,
+    jobs, addJob, updateJob, deleteJob,
+    court, addCourtCase, updateCourtCase, deleteCourtCase,
+    events, addEvent, updateEvent, deleteEvent,
+    polls, addPoll, updatePoll, deletePoll, votePoll,
+    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
+    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
+    gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
+    fetchAll,
+  ]);
+
+  const adminValue = useMemo(() => ({
+    articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
+    heroSettingsRevisions, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
+    siteSettingsRevisions, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
+    media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
+    users, addUser, updateUser, deleteUser,
+    permissions, hasPermission, updatePermission, createRole,
+    tips, refreshTips, deleteTip, updateTip, createTip,
+    resetAll,
+  }), [
+    articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
+    heroSettingsRevisions, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
+    siteSettingsRevisions, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
+    media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
+    users, addUser, updateUser, deleteUser,
+    permissions, hasPermission, updatePermission, createRole,
+    tips, refreshTips, deleteTip, updateTip, createTip,
+    resetAll,
+  ]);
 
   const contextValue = useMemo(() => ({
     loading, loadError,
@@ -830,10 +894,20 @@ export function DataProvider({ children }) {
   ]);
 
   return (
-    <DataContext.Provider value={contextValue}>
-      {children}
-    </DataContext.Provider>
+    <SessionDataContext.Provider value={sessionValue}>
+      <PublicDataContext.Provider value={publicValue}>
+        <AdminDataContext.Provider value={adminValue}>
+          <DataContext.Provider value={contextValue}>
+            {children}
+          </DataContext.Provider>
+        </AdminDataContext.Provider>
+      </PublicDataContext.Provider>
+    </SessionDataContext.Provider>
   );
 }
 
 export const useData = () => useContext(DataContext);
+
+export const useSessionData = () => useContext(SessionDataContext);
+export const usePublicData = () => useContext(PublicDataContext);
+export const useAdminData = () => useContext(AdminDataContext);

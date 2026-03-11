@@ -526,6 +526,14 @@ const gamePuzzleSchema = new mongoose.Schema({
 }, opts);
 gamePuzzleSchema.index({ gameSlug: 1, puzzleDate: 1 }, { unique: true, name: 'game_puzzle_slug_date' });
 
+const searchQueryStatSchema = new mongoose.Schema({
+  normalizedQuery: { type: String, required: true, unique: true, index: true },
+  displayQuery: { type: String, required: true },
+  count: { type: Number, default: 0, min: 0 },
+  lastSearchedAt: { type: Date, default: Date.now, index: true },
+}, opts);
+searchQueryStatSchema.index({ count: -1, lastSearchedAt: -1 }, { name: 'search_query_popularity' });
+
 const systemEventSchema = new mongoose.Schema({
   fingerprint: { type: String, required: true, unique: true, index: true },
   level: { type: String, default: 'error', enum: ['info', 'warn', 'error'], index: true },
@@ -612,3 +620,5 @@ export const SystemEvent = mongoose.model('SystemEvent', systemEventSchema);
 export const BackgroundJobState = mongoose.model('BackgroundJobState', backgroundJobStateSchema);
 export const AdAnalyticsAggregate = mongoose.model('AdAnalyticsAggregate', adAnalyticsAggregateSchema);
 
+
+export const SearchQueryStat = mongoose.models.SearchQueryStat || mongoose.model('SearchQueryStat', searchQueryStatSchema);

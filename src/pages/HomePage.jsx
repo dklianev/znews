@@ -5,7 +5,7 @@ import TrendingSidebar from '../components/TrendingSidebar';
 import MostWanted from '../components/MostWanted';
 import PollWidget from '../components/PollWidget';
 import AdSlot from '../components/ads/AdSlot';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
 import { Flame, Megaphone, Bell, Siren, TrendingUp, Eye, RefreshCw, AlertTriangle, Zap, Newspaper, ShieldAlert } from 'lucide-react';
 import ComicNewsCard from '../components/ComicNewsCard';
@@ -145,7 +145,7 @@ function HomePageSkeleton() {
 }
 
 export default function HomePage() {
-  const { articles, ads, categories, heroSettings, siteSettings, loading, loadError, refresh, homepage } = useData();
+  const { articles, ads, categories, heroSettings, siteSettings, loading, loadError, refresh, homepage } = usePublicData();
   const layoutPresets = siteSettings?.layoutPresets || {};
 
   useDocumentTitle();

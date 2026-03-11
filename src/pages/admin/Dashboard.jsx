@@ -1,5 +1,5 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
 import { api } from '../../utils/api';
 import {
   FileText,
@@ -28,22 +28,9 @@ function AnalyticsFallback() {
 }
 
 export default function Dashboard() {
-  const {
-    articles,
-    authors,
-    wanted,
-    jobs,
-    court,
-    events,
-    polls,
-    comments,
-    gallery,
-    categories,
-    users,
-    resetAll,
-    session,
-    hasPermission,
-  } = useData();
+  const { articles, authors, wanted, jobs, court, events, polls, comments, gallery, categories } = usePublicData();
+  const { users, resetAll, hasPermission } = useAdminData();
+  const { session } = useSessionData();
   const [resetting, setResetting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [adminActionError, setAdminActionError] = useState('');

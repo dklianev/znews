@@ -11,6 +11,7 @@ import { runSpellingBeeTests } from './spellingBee.test.mjs';
 import { runRequestIdentityTests } from './requestIdentity.test.mjs';
 import { runNumericIdTests } from './numericId.test.mjs';
 import { runArticleRecencyPipelineTests } from './articleRecencyPipeline.test.mjs';
+import { runSearchUtilsTests } from './searchUtils.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -35,5 +36,6 @@ await runTest('spellingBee', runSpellingBeeTests);
 await runTest('requestIdentity', runRequestIdentityTests);
 await runTest('numericId', runNumericIdTests);
 await runTest('articleRecencyPipeline', runArticleRecencyPipelineTests);
+await runTest('searchUtils', runSearchUtilsTests);
 
 console.log('All tests passed.');

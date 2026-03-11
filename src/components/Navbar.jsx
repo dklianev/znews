@@ -3,31 +3,12 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../context/ThemeContext';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
+import { navbarCopy } from '../content/uiCopy';
 
-const DEFAULT_NAV_LINKS = [
-  { to: '/', label: 'Начало' },
-  { to: '/category/crime', label: 'Криминални', hot: true },
-  { to: '/category/underground', label: 'Подземен свят', hot: true },
-  { to: '/category/emergency', label: 'Полиция' },
-  { to: '/category/breaking', label: 'Извънредни', hot: true },
-  { to: '/category/reportage', label: 'Репортажи' },
-  { to: '/category/politics', label: 'Политика' },
-  { to: '/category/business', label: 'Бизнес' },
-  { to: '/category/society', label: 'Общество' },
-  { to: '/tipline', label: 'Сигнали', hot: true },
-  { to: '/jobs', label: 'Работа' },
-  { to: '/court', label: 'Съд' },
-  { to: '/events', label: 'Събития' },
-  { to: '/games', label: 'Игри', hot: true },
-  { to: '/gallery', label: 'Галерия' },
-];
+const DEFAULT_NAV_LINKS = navbarCopy.defaultNavLinks;
 
-const DEFAULT_SPOTLIGHT_LINKS = [
-  { to: '/category/crime', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-2deg' },
-  { to: '/category/underground', label: 'Скандали', icon: 'Megaphone', hot: true, tilt: '1.5deg' },
-  { to: '/category/society', label: 'Слухове', icon: 'Bell', hot: false, tilt: '-1deg' },
-];
+const DEFAULT_SPOTLIGHT_LINKS = navbarCopy.defaultSpotlightLinks;
 
 const SPOTLIGHT_ICON_MAP = {
   Flame,
@@ -49,7 +30,7 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleDark } = useTheme();
-  const { siteSettings, categories } = useData();
+  const { siteSettings, categories } = usePublicData();
 
   const [pushStatus, setPushStatus] = useState('idle');
 
@@ -260,7 +241,7 @@ export default function Navbar() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Търси горещи новини, скандали..."
+          placeholder={navbarCopy.searchPlaceholder}
           aria-label="Търсене"
           className="w-full pl-10 pr-4 py-3 bg-zn-bg-warm border-2 border-zn-border text-zn-text placeholder-zn-text-dim font-display text-sm outline-none focus:border-zn-hot uppercase tracking-wide"
         />

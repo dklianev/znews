@@ -7,13 +7,13 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+import NodeCache from 'node-cache';
 import helmet from 'helmet';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import webpush from 'web-push';
-import NodeCache from 'node-cache';
 import { isIP } from 'node:net';
 import { allocateNumericId } from './numericId.js';
 import { streamJsonArray, writeJsonChunk } from './jsonExport.js';
@@ -56,6 +56,8 @@ import { filterPublicAds, getAdRotationPool, normalizeAdFitMode, normalizeAdImag
 import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES, AD_IMPRESSION_WINDOW_MS, DEFAULT_AD_ANALYTICS_DAYS } from '../shared/adAnalytics.js';
 import { analyzeCrosswordConstruction, getCrosswordEntries, MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH } from '../shared/crossword.js';
 import { analyzeSpellingBeeWords, getSpellingBeeWordScore, getSpellingBeeWordValidation, hasCompleteSpellingBeeHive, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, normalizeSpellingBeeWord, normalizeSpellingBeeWords, SPELLING_BEE_MIN_WORD_LENGTH } from '../shared/spellingBee.js';
+import { normalizeSearchType } from '../shared/search.js';
+import { buildSearchRegex, getSearchSuggestions, getTrendingSearches, recordSearchQuery } from './searchService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -322,10 +324,7 @@ function buildHealthPayload(kind = 'ready') {
     mongo,
     shuttingDown,
     uptime: Math.round(process.uptime()),
-    cache: {
-      keyCount: apiCache.keys().length,
-      ttlSeconds: apiCache.options.stdTTL,
-    },
+    cache: (() => { const stats = getApiCacheStats(); return { keyCount: stats.keyCount, ttlSeconds: stats.ttlSeconds }; })(),
     timestamp: new Date().toISOString(),
   };
 }
@@ -7404,9 +7403,11 @@ app.get('/api/search', cacheMiddleware, async (req, res) => {
     const startedAt = Date.now();
     const q = normalizeText(req.query.q, 160);
     const trimmedQuery = q.trim();
+    const searchType = normalizeSearchType(req.query.type);
     if (!trimmedQuery) {
       return res.json({
         query: '',
+        type: searchType,
         tookMs: 0,
         articles: [],
         jobs: [],
@@ -7425,7 +7426,9 @@ app.get('/api/search', cacheMiddleware, async (req, res) => {
 
     articleFilter.$text = { $search: trimmedQuery };
 
-    const regex = new RegExp(escapeRegexForSearch(trimmedQuery), 'i');
+    const regex = buildSearchRegex(trimmedQuery) || new RegExp(escapeRegexForSearch(trimmedQuery), 'i');
+
+    await recordSearchQuery(trimmedQuery).catch(() => {});
 
     const [articleMatches, jobMatches, courtMatches, eventMatches, wantedMatches] = await Promise.all([
       (async () => {
@@ -7438,68 +7441,83 @@ app.get('/api/search', cacheMiddleware, async (req, res) => {
       })(),
       searchCollectionByTextAndRegex(Job, {
         textSearch: trimmedQuery,
-        regexFilter: {
-          $or: [
-            { title: regex },
-            { org: regex },
-            { description: regex },
-          ],
-        },
+        regexFilter: { $or: [{ title: regex }, { org: regex }, { description: regex }] },
         limit: sectionLimit,
         projection: { _id: 0, __v: 0 },
       }),
       searchCollectionByTextAndRegex(Court, {
         textSearch: trimmedQuery,
-        regexFilter: {
-          $or: [
-            { title: regex },
-            { details: regex },
-            { defendant: regex },
-            { charge: regex },
-          ],
-        },
+        regexFilter: { $or: [{ title: regex }, { details: regex }, { defendant: regex }, { charge: regex }] },
         limit: sectionLimit,
         projection: { _id: 0, __v: 0 },
       }),
       searchCollectionByTextAndRegex(Event, {
         textSearch: trimmedQuery,
-        regexFilter: {
-          $or: [
-            { title: regex },
-            { description: regex },
-            { location: regex },
-          ],
-        },
+        regexFilter: { $or: [{ title: regex }, { description: regex }, { location: regex }] },
         limit: sectionLimit,
         projection: { _id: 0, __v: 0 },
       }),
       searchCollectionByTextAndRegex(Wanted, {
         textSearch: trimmedQuery,
-        regexFilter: {
-          $or: [
-            { name: regex },
-            { charge: regex },
-          ],
-        },
+        regexFilter: { $or: [{ name: regex }, { charge: regex }] },
         limit: sectionLimit,
         projection: { _id: 0, __v: 0 },
       }),
     ]);
 
-    res.setHeader('Cache-Control', 'no-store');
-    return res.json({
-      query: trimmedQuery,
-      tookMs: Math.max(0, Date.now() - startedAt),
+    const payload = {
       articles: Array.isArray(articleMatches) ? articleMatches : [],
       jobs: Array.isArray(jobMatches) ? jobMatches : [],
       court: Array.isArray(courtMatches) ? courtMatches : [],
       events: Array.isArray(eventMatches) ? eventMatches : [],
       wanted: Array.isArray(wantedMatches) ? wantedMatches : [],
+    };
+
+    if (searchType !== 'all' && Object.prototype.hasOwnProperty.call(payload, searchType)) {
+      Object.keys(payload).forEach((key) => {
+        if (key !== searchType) payload[key] = [];
+      });
+    }
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({
+      query: trimmedQuery,
+      type: searchType,
+      tookMs: Math.max(0, Date.now() - startedAt),
+      ...payload,
     });
   } catch (e) {
     res.status(500).json({ error: publicError(e) });
   }
 });
+
+app.get('/api/search/suggest', cacheMiddleware, async (req, res) => {
+  try {
+    const q = normalizeText(req.query.q, 120).trim();
+    const limit = parsePositiveInt(req.query.limit, 8, { min: 1, max: 20 });
+    if (!q) {
+      return res.json({ query: '', suggestions: [] });
+    }
+
+    const suggestions = await getSearchSuggestions(q, { limit });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ query: q, suggestions });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
+app.get('/api/search/trending', cacheMiddleware, async (req, res) => {
+  try {
+    const limit = parsePositiveInt(req.query.limit, 8, { min: 1, max: 20 });
+    const items = await getTrendingSearches(limit);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.json({ items });
+  } catch (e) {
+    res.status(500).json({ error: publicError(e) });
+  }
+});
+
 // ─── Bootstrap (public initial payload) ───
 // Consolidates the public "homepage" requests into a single roundtrip.
 // Uses the same visibility rules as /api/articles (drafts are visible only to users with articles permission).

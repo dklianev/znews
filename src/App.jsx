@@ -1,13 +1,14 @@
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
-import { DataProvider, useData } from './context/DataContext';
+import { DataProvider, useAdminData, usePublicData, useSessionData } from './context/DataContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import BreakingTicker from './components/BreakingTicker';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
+import { appCopy } from './content/uiCopy';
 
 // ─── Lazy-loaded pages (code-split) ───
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -69,7 +70,7 @@ function PageFallback() {
 
 function PublicPageFallback() {
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 animate-pulse" aria-label="Зареждане на страница">
+    <div className="max-w-7xl mx-auto px-4 py-6 animate-pulse" aria-label={appCopy.publicFallbackAria}>
       <div className="mx-auto mb-6 h-10 w-72 bg-zn-text/10 rounded" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -121,21 +122,15 @@ function PublicRouteErrorState({ onRetry }) {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
       <div className="newspaper-page comic-panel comic-dots p-6 sm:p-8 text-center relative">
-        <p className="text-xs sm:text-sm font-display uppercase tracking-[0.3em] text-zn-hot mb-3">
-          Временен проблем
-        </p>
-        <h1 className="font-display text-3xl sm:text-4xl uppercase text-zn-text mb-4">
-          Не успяхме да проверим играта
-        </h1>
-        <p className="text-zn-text/80 text-base sm:text-lg max-w-xl mx-auto mb-6">
-          Маршрутът не е изключен, но заявката за наличните игри се провали. Опитай отново.
-        </p>
+        <p className="text-xs sm:text-sm font-display uppercase tracking-[0.3em] text-zn-hot mb-3">{appCopy.routeErrorEyebrow}</p>
+        <h1 className="font-display text-3xl sm:text-4xl uppercase text-zn-text mb-4">{appCopy.routeErrorTitle}</h1>
+        <p className="text-zn-text/80 text-base sm:text-lg max-w-xl mx-auto mb-6">{appCopy.routeErrorBody}</p>
         <button
           type="button"
           onClick={onRetry}
           className="inline-flex items-center justify-center px-6 py-3 border-3 border-[#1C1428] bg-zn-hot text-white font-display uppercase tracking-[0.2em] shadow-comic transition-transform hover:-translate-y-0.5"
         >
-          Опитай пак
+          {appCopy.routeErrorRetry}
         </button>
       </div>
     </div>
@@ -143,13 +138,16 @@ function PublicRouteErrorState({ onRetry }) {
 }
 
 function AdminPermissionRoute({ permission, children }) {
-  const { session, hasPermission } = useData();
+  const { session } = useSessionData();
+  const { hasPermission } = useAdminData();
   if (!session) return <Navigate to="/admin/login" replace />;
   if (permission && !hasPermission(permission)) return <Navigate to="/admin" replace />;
   return children;
 }
 function PublicGameRoute({ slug, children }) {
-  const { session, hasPermission, games, publicSectionStatus, loadGamesCatalog } = useData();
+  const { session } = useSessionData();
+  const { hasPermission } = useAdminData();
+  const { games, publicSectionStatus, loadGamesCatalog } = usePublicData();
   const canManageGames = Boolean(session) && hasPermission('games');
   const [retryNonce, setRetryNonce] = useState(0);
   const [routeState, setRouteState] = useState({
@@ -231,14 +229,14 @@ function LoadingScreen() {
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-zn-purple border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         <h2 className="font-heading text-2xl text-zn-text dark:text-zn-text mb-2">zNews</h2>
-        <p className="text-zn-text/60 dark:text-zn-text/60">Зареждане...</p>
+        <p className="text-zn-text/60 dark:text-zn-text/60">{appCopy.loadingMessage}</p>
       </div>
     </div>
   );
 }
 
 function AppContent() {
-  const { loading } = useData();
+  const { loading } = usePublicData();
   const isHomePath = typeof window !== 'undefined' && window.location.pathname === '/';
   if (loading && !isHomePath) return <LoadingScreen />;
   return (

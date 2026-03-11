@@ -343,6 +343,8 @@ export const api = {
   },
   search: {
     query: (params) => request(`/search${toQuery(params)}`),
+    suggest: (params) => request(`/search/suggest${toQuery(params)}`),
+    trending: (params) => request(`/search/trending${toQuery(params)}`),
   },
   articles: {
     ...crudEndpoints('articles'),
