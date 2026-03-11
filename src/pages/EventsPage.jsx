@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, MapPin, User } from 'lucide-react';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const typeLabels = {
@@ -72,7 +72,7 @@ function EventCard({ event, index = 0, today }) {
 }
 
 export default function EventsPage() {
-  const { events, publicSectionStatus, loadEvents } = useData();
+  const { events, publicSectionStatus, loadEvents } = usePublicData();
   useDocumentTitle(makeTitle('Събития'));
 
   useEffect(() => {

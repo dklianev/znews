@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MessageCircle, Send, User, ThumbsUp, ThumbsDown, CornerDownRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 
 const AVATAR_COLORS = ['bg-zn-purple', 'bg-zn-hot', 'bg-blue-700', 'bg-emerald-700', 'bg-amber-700', 'bg-violet-700', 'bg-rose-700', 'bg-teal-700'];
 const COMMENT_AUTHOR_MAX_LEN = 50;
@@ -307,7 +307,7 @@ function CommentItem({
 }
 
 export default function CommentsSection({ articleId }) {
-  const { comments, addComment, reactToComment, loadCommentsForArticle } = useData();
+  const { comments, addComment, reactToComment, loadCommentsForArticle } = usePublicData();
   const [name, setName] = useState('');
   const [text, setText] = useState('');
   const [submitted, setSubmitted] = useState(false);

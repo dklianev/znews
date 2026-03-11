@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Flame, Megaphone, MapPin, Phone, Mail, AlertTriangle } from 'lucide-react';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 
 const DEFAULT_FOOTER_PILLS = [
   { label: 'Горещо', to: '/category/crime', hot: true, tilt: '-1.5deg' },
@@ -35,7 +35,7 @@ const DEFAULT_CONTACT = {
 };
 
 export default function Footer() {
-  const { siteSettings, categories } = useData();
+  const { siteSettings, categories } = usePublicData();
   const footerPills = Array.isArray(siteSettings?.footerPills) && siteSettings.footerPills.length > 0
     ? siteSettings.footerPills
     : DEFAULT_FOOTER_PILLS;

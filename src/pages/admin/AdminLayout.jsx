@@ -1,5 +1,5 @@
 import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { useData } from '../../context/DataContext';
+import { useAdminData, useSessionData } from '../../context/DataContext';
 import { api } from '../../utils/api';
 import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3, Mail, Gamepad2, Puzzle, Activity } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -39,7 +39,8 @@ const navItems = [
 ];
 
 export default function AdminLayout() {
-  const { session, logout, hasPermission } = useData();
+  const { session, logout } = useSessionData();
+  const { hasPermission } = useAdminData();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);

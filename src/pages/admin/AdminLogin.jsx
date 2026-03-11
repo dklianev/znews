@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useData } from '../../context/DataContext';
+import { useSessionData } from '../../context/DataContext';
 import { Lock, User } from 'lucide-react';
 import { makeTitle, useDocumentTitle } from '../../hooks/useDocumentTitle';
 
@@ -11,7 +11,7 @@ export default function AdminLogin() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { login } = useData();
+  const { login } = useSessionData();
 
   const handleSubmit = async (e) => {
     e.preventDefault();

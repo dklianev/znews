@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getGameStreak, loadGameProfile, loadGameProgress } from '../utils/gameStorage';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 import { getTodayStr } from '../utils/gameDate';
 import GamesHubCard from '../components/games/GamesHubCard';
 import { sortGamesCatalog } from '../utils/gamesCatalog';
 import { Gamepad2, Loader2 } from 'lucide-react';
 
 export default function GamesPage() {
-    const { games, publicSectionStatus, loadGamesCatalog } = useData();
+    const { games, publicSectionStatus, loadGamesCatalog } = usePublicData();
     const [profile, setProfile] = useState(null);
     const todayStr = getTodayStr();
 

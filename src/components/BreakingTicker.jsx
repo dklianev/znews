@@ -1,7 +1,7 @@
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 
 export default function BreakingTicker() {
-  const { breaking } = useData();
+  const { breaking } = usePublicData();
   const items = Array.isArray(breaking) ? breaking.filter(Boolean) : [];
   if (items.length === 0) return null;
   const tickerText = items.join('  ★  ');

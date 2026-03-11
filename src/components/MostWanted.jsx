@@ -1,6 +1,6 @@
 import { Siren } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 
 const dangerColors = {
   high: 'text-zn-hot',
@@ -9,7 +9,7 @@ const dangerColors = {
 };
 
 export default function MostWanted() {
-  const { wanted } = useData();
+  const { wanted } = usePublicData();
   const safeWanted = Array.isArray(wanted) ? wanted : [];
 
   if (safeWanted.length === 0) return null;

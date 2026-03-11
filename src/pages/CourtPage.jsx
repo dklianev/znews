@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Scale, Gavel, CalendarClock, CheckCircle2, Clock } from 'lucide-react';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const severityConfig = {
@@ -17,7 +17,7 @@ const statusConfig = {
 };
 
 export default function CourtPage() {
-  const { court, publicSectionStatus, loadCourt } = useData();
+  const { court, publicSectionStatus, loadCourt } = usePublicData();
   useDocumentTitle(makeTitle('Съд'));
   const [tab, setTab] = useState('all');
 

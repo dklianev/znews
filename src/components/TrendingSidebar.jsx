@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { TrendingUp, Eye, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 
 const numberClasses = [
   'trending-number trending-number-1',
@@ -13,7 +13,7 @@ const numberClasses = [
 ];
 
 export default function TrendingSidebar() {
-  const { articles } = useData();
+  const { articles } = usePublicData();
   const trending = useMemo(() => {
     const safeArticles = Array.isArray(articles) ? articles : [];
     return safeArticles

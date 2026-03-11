@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, ChevronRight, Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 import HeroSection from './HeroSection';
 import ResponsiveImage from './ResponsiveImage';
 
@@ -18,7 +18,7 @@ const DEFAULT_HERO_SETTINGS = {
 };
 
 function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhotoArticle = null }) {
-  const { authors, categories, heroSettings, siteSettings } = useData();
+  const { authors, categories, heroSettings, siteSettings } = usePublicData();
 
   if (!article || typeof article !== 'object') return null;
 

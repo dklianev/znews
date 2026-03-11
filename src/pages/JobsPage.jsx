@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Briefcase, MapPin, DollarSign, Shield, Heart, Wrench, Scale, Car, Building } from 'lucide-react';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const typeConfig = {
@@ -15,7 +15,7 @@ const typeConfig = {
 };
 
 export default function JobsPage() {
-  const { jobs, publicSectionStatus, loadJobs } = useData();
+  const { jobs, publicSectionStatus, loadJobs } = usePublicData();
   useDocumentTitle(makeTitle('Работа'));
 
   useEffect(() => {

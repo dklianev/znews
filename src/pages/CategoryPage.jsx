@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import TrendingSidebar from '../components/TrendingSidebar';
 import AdSlot from '../components/ads/AdSlot';
-import { useData } from '../context/DataContext';
+import { usePublicData } from '../context/DataContext';
 import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { api } from '../utils/api';
@@ -51,7 +51,7 @@ function CategoryCardSkeleton({ compact = true }) {
 
 export default function CategoryPage() {
   const { slug } = useParams();
-  const { categories, ads, siteSettings, loading } = useData();
+  const { categories, ads, siteSettings, loading } = usePublicData();
   const layoutPresets = siteSettings?.layoutPresets || {};
   const category = categories.find(c => c.id === slug);
 

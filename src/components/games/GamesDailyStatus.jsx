@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { loadGameProgress } from '../../utils/gameStorage';
-import { useData } from '../../context/DataContext';
+import { usePublicData } from '../../context/DataContext';
 import { getTodayStr } from '../../utils/gameDate';
 import { Link } from 'react-router-dom';
 import { Gamepad2, ChevronRight, Check } from 'lucide-react';
@@ -8,7 +8,7 @@ import { getGameIconComponent } from '../../utils/gameIcons';
 import { sortGamesCatalog } from '../../utils/gamesCatalog';
 
 export default function GamesDailyStatus() {
-    const { games, publicSectionStatus, loadGamesCatalog } = useData();
+    const { games, publicSectionStatus, loadGamesCatalog } = usePublicData();
     const todayStr = getTodayStr();
 
     useEffect(() => {
