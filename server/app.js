@@ -65,6 +65,7 @@ import { registerMediaRoutes } from './routes/mediaRoutes.js';
 import { registerUploadRoutes } from './routes/uploadRoutes.js';
 import { registerTipRoutes } from './routes/tipRoutes.js';
 import { registerPushRoutes } from './routes/pushRoutes.js';
+import { registerOpsRoutes } from './routes/opsRoutes.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createBackgroundJobsService } from './services/backgroundJobsService.js';
 import { createMonitoringService } from './services/monitoringService.js';
@@ -6456,21 +6457,6 @@ app.post('/api/polls/:id/vote', pollVoteLimiter, async (req, res) => {
 });
 
 // ─── Audit / Backup / Reset ───
-function parseAuditLogCursor(value) {
-  const raw = normalizeText(value, 120);
-  if (!raw) return null;
-  const parts = raw.split(':');
-  if (parts.length !== 2) return null;
-  const ts = Number(parts[0]);
-  const idRaw = parts[1];
-  if (!Number.isFinite(ts) || ts <= 0) return null;
-  if (!mongoose.Types.ObjectId.isValid(idRaw)) return null;
-  return {
-    timestamp: new Date(ts),
-    id: new mongoose.Types.ObjectId(idRaw),
-  };
-}
-
 function cleanExportItem(item) {
   const next = stripDocumentMetadata(item);
   if (next && typeof next === 'object') {
@@ -6508,58 +6494,15 @@ const { streamBackupExport } = createBackupExportService({
   writeJsonChunk,
 });
 
-app.get('/api/audit-log', requireAuth, requirePermission('permissions'), async (req, res) => {
-  try {
-    const limit = parsePositiveInt(req.query.limit, 200, { min: 1, max: 200 });
-    const cursor = parseAuditLogCursor(req.query.cursor);
-    const filter = {};
-
-    if (cursor) {
-      filter.$or = [
-        { timestamp: { $lt: cursor.timestamp } },
-        { timestamp: cursor.timestamp, _id: { $lt: cursor.id } },
-      ];
-    }
-
-    const items = await AuditLog.find(filter)
-      .sort({ timestamp: -1, _id: -1 })
-      .limit(limit)
-      .lean();
-
-    const last = items.length > 0 ? items[items.length - 1] : null;
-    const nextCursor = items.length === limit && last
-      ? `${new Date(last.timestamp).getTime()}:${String(last._id)}`
-      : null;
-
-    items.forEach(l => { delete l._id; delete l.__v; });
-    res.json({ items, nextCursor });
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
-});
-
-app.get('/api/backup', requireAuth, requireAdmin, async (_req, res) => {
-  try {
-    await streamBackupExport(res);
-  } catch (e) {
-    if (!res.headersSent) {
-      res.status(500).json({ error: publicError(e) });
-      return;
-    }
-    res.destroy(e);
-  }
-});
-app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
-  try {
-    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PRODUCTION_RESET !== 'true') {
-      return res.status(403).json({ error: 'Production reset is disabled.' });
-    }
-    const { seedAll } = await import('./seed.js');
-    await seedAll();
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: publicError(e) });
-  }
+registerOpsRoutes(app, {
+  AuditLog,
+  normalizeText,
+  parsePositiveInt,
+  publicError,
+  requireAdmin,
+  requireAuth,
+  requirePermission,
+  streamBackupExport,
 });
 
 const {
