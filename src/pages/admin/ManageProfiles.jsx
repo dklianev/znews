@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
@@ -24,7 +24,9 @@ const emptyForm = {
 };
 
 export default function ManageProfiles() {
-  const { authors, articles, addAuthor, updateAuthor, deleteAuthor, users, addUser, updateUser, deleteUser, permissions, createRole, session } = useData();
+  const { authors, articles, addAuthor, updateAuthor, deleteAuthor } = usePublicData();
+  const { users, addUser, updateUser, deleteUser, permissions, createRole } = useAdminData();
+  const { session } = useSessionData();
   const canManageUsers = session?.role === 'admin';
   const [editing, setEditing] = useState(null); // null | 'new' | userId
   const [form, setForm] = useState(emptyForm);

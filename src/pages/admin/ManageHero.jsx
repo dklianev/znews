@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { useAdminData, usePublicData } from '../../context/DataContext';
 import { Crown, Search, Save, X, ExternalLink, Flame, History, RotateCcw, AlertTriangle, Loader2, Megaphone, Clock, Eye } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { buildScaledClamp, normalizeHeroTitleScale } from '../../utils/heroTitleScale';
@@ -25,11 +25,13 @@ export default function ManageHero() {
     breaking,
     updateArticle,
     heroSettings,
-    heroSettingsRevisions,
     saveHeroSettings,
+  } = usePublicData();
+  const {
+    heroSettingsRevisions,
     loadHeroSettingsRevisions,
     restoreHeroSettingsRevision,
-  } = useData();
+  } = useAdminData();
   const toast = useToast();
   const [query, setQuery] = useState('');
   const [savingId, setSavingId] = useState(null);

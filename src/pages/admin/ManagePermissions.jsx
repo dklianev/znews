@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { useAdminData, useSessionData } from '../../context/DataContext';
 import { Shield, Save, Check, X, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
@@ -41,7 +41,8 @@ function ensureRoleRows(value) {
 }
 
 export default function ManagePermissions() {
-    const { permissions, updatePermission, createRole, session, hasPermission } = useData();
+    const { permissions, updatePermission, createRole, hasPermission } = useAdminData();
+    const { session } = useSessionData();
     const [saving, setSaving] = useState(null);
     const [localPerms, setLocalPerms] = useState(null);
     const [error, setError] = useState('');

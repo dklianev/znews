@@ -476,7 +476,7 @@ export default function SearchPage() {
               <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
                 <div className="comic-panel comic-panel-hover bg-white p-4 border-l-4 border-l-red-700">
                   <h3 className="font-display font-black uppercase text-sm text-zn-text tracking-wider">{item.name}</h3>
-                  <p className="text-xs font-sans text-zn-text-muted mt-1">{item.charge} · Награда: <span className="text-zn-gold font-display font-bold">{item.bounty}</span></p>
+                  <p className="text-xs font-sans text-zn-text-muted mt-1">{item.charge} · {searchCopy.wantedRewardLabel}: <span className="text-zn-gold font-display font-bold">{item.bounty}</span></p>
                 </div>
               </motion.div>
             ))}

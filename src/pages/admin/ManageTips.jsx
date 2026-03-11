@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
-import { useData } from '../../context/DataContext';
+import { useAdminData } from '../../context/DataContext';
 import { RefreshCw, Trash2, Edit3, Image as ImageIcon, MapPin, Check, X, FileText, Search } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { useNavigate } from 'react-router-dom';
 
 export default function ManageTips() {
-    const { tips, refreshTips, authService, updateTip, deleteTip } = useData();
+    const { tips, refreshTips, updateTip, deleteTip } = useAdminData();
     const toast = useToast();
     const navigate = useNavigate();
     const [query, setQuery] = useState('');

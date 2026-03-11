@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useData } from '../../context/DataContext';
+import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
 import { Save, Plus, Trash2, RotateCcw, RefreshCw, ShieldAlert, History, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { COMIC_LAYOUT_PRESET_OPTIONS } from '../../utils/comicCardDesign';
 import { useToast } from '../../components/admin/Toast';
@@ -125,16 +125,14 @@ function resolveSettings(raw) {
 }
 
 export default function ManageSiteSettings() {
+  const { siteSettings, saveSiteSettings, forceRefreshHomepageCache } = usePublicData();
   const {
-    session,
-    siteSettings,
     siteSettingsRevisions,
-    saveSiteSettings,
     loadSiteSettingsRevisions,
     restoreSiteSettingsRevision,
-    forceRefreshHomepageCache,
     hasPermission,
-  } = useData();
+  } = useAdminData();
+  const { session } = useSessionData();
   const [form, setForm] = useState(resolveSettings(siteSettings));
   const [saving, setSaving] = useState(false);
   const [refreshingHomepageCache, setRefreshingHomepageCache] = useState(false);

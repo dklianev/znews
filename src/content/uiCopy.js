@@ -84,6 +84,7 @@ export const searchCopy = {
   recentTitle: 'Последни търсения',
   suggestionsTitle: 'Предложения',
   noRecentSearches: 'Все още няма запазени търсения.',
+  wantedRewardLabel: 'Награда',
   sections: {
     all: 'Всичко',
     articles: 'Статии',
