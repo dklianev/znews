@@ -36,6 +36,7 @@ import { runShareCardHelpersTests } from './shareCardHelpersService.test.mjs';
 import { runShareCardObjectHelpersTests } from './shareCardObjectService.test.mjs';
 import { runShareCardRuntimeHelpersTests } from './shareCardRuntimeService.test.mjs';
 import { runWebArticleMetaHelpersTests } from './webArticleMetaHelpersService.test.mjs';
+import { runServerLifecycleServiceTests } from './serverLifecycleService.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -85,5 +86,6 @@ await runTest('shareCardHelpers', runShareCardHelpersTests);
 await runTest('shareCardObjectHelpers', runShareCardObjectHelpersTests);
 await runTest('shareCardRuntimeHelpers', runShareCardRuntimeHelpersTests);
 await runTest('webArticleMetaHelpers', runWebArticleMetaHelpersTests);
+await runTest('serverLifecycleService', runServerLifecycleServiceTests);
 
 console.log('All tests passed.');

@@ -122,6 +122,7 @@ import { createContentSanitizers } from './services/contentSanitizersService.js'
 import { createShareCardHelpers } from './services/shareCardHelpersService.js';
 import { createShareCardObjectHelpers } from './services/shareCardObjectService.js';
 import { createShareCardRuntimeHelpers } from './services/shareCardRuntimeService.js';
+import { createServerLifecycleService } from './services/serverLifecycleService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -2072,127 +2073,32 @@ registerWebSpaRoutes(app, {
   isProd,
 });
 
-// ─── Start ───
+// Start
 const PORT = Number(process.env.PORT) || 3001;
 
-function registerGracefulShutdown(server) {
-  const sockets = new Set();
-  server.on('connection', (socket) => {
-    sockets.add(socket);
-    socket.on('close', () => sockets.delete(socket));
-  });
+const { startServer } = createServerLifecycleService({
+  app,
+  backfillImagePipeline,
+  connectDB,
+  ensureDbIndexes,
+  ensureDefaultPermissionDocs,
+  ensureGameDefinitions,
+  getShuttingDown: () => shuttingDown,
+  isProd,
+  logError: (...args) => console.error(...args),
+  logInfo: (...args) => console.log(...args),
+  logWarning: (...args) => console.warn(...args),
+  migrateBreakingCategoryLabels,
+  mongoose,
+  port: PORT,
+  processEnv: process.env,
+  processObject: process,
+  reportServerError,
+  setShuttingDown: (value) => {
+    shuttingDown = Boolean(value);
+  },
+  startBackgroundJobs,
+  stopBackgroundJobs,
+});
 
-  const shutdown = async (reason, exitCode = 0) => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-
-    try {
-      console.log(`\n⚠ Graceful shutdown: ${reason}`);
-
-      // Stop accepting new connections.
-      const closePromise = new Promise((resolve) => server.close(resolve));
-
-      // Encourage keep-alive clients to disconnect.
-      sockets.forEach((socket) => {
-        try { socket.end(); } catch { }
-      });
-
-      const FORCE_SHUTDOWN_MS = 12_000;
-      const forceTimer = setTimeout(() => {
-        console.warn(`✗ Forcing shutdown after ${FORCE_SHUTDOWN_MS}ms`);
-        sockets.forEach((socket) => {
-          try { socket.destroy(); } catch { }
-        });
-      }, FORCE_SHUTDOWN_MS);
-      forceTimer.unref();
-
-      // Wait for the server to close (or until we hit the force timer).
-      await Promise.race([
-        closePromise,
-        new Promise((resolve) => setTimeout(resolve, FORCE_SHUTDOWN_MS)),
-      ]);
-
-      if (typeof server.closeIdleConnections === 'function') {
-        server.closeIdleConnections();
-      }
-      if (typeof server.closeAllConnections === 'function') {
-        server.closeAllConnections();
-      }
-
-      stopBackgroundJobs();
-
-      try {
-        await mongoose.connection.close(false);
-      } catch (error) {
-        console.error('✗ Failed to close MongoDB connection:', error?.message || error);
-      }
-
-      clearTimeout(forceTimer);
-    } finally {
-      process.exit(exitCode);
-    }
-  };
-
-  ['SIGINT', 'SIGTERM'].forEach((signal) => {
-    process.once(signal, () => shutdown(signal, 0));
-  });
-
-  process.once('uncaughtException', (error) => {
-    console.error('✗ Uncaught exception:', error);
-    shutdown('uncaughtException', 1);
-  });
-
-  process.once('unhandledRejection', (reason) => {
-    console.error('✗ Unhandled rejection:', reason);
-    shutdown('unhandledRejection', 1);
-  });
-}
-
-export async function startServer() {
-  try {
-    await connectDB();
-    await ensureDbIndexes();
-    await ensureDefaultPermissionDocs();
-    await migrateBreakingCategoryLabels();
-    await ensureGameDefinitions();
-    mongoose.connection.on('error', (error) => {
-      reportServerError('mongoose-connection', error).catch(() => {});
-    });
-  } catch (err) {
-    console.error('✗ MongoDB error:', err.message);
-    process.exit(1);
-  }
-
-  const server = app.listen(PORT, () => {
-    startBackgroundJobs();
-    console.log(`✓ Los Santos News API running on port ${PORT}`);
-    if (!isProd) console.log('⚠ Running in development mode');
-
-    if (process.env.IMAGE_PIPELINE_BACKFILL_ON_BOOT === 'true') {
-      const parsedLimit = Number.parseInt(process.env.IMAGE_PIPELINE_BACKFILL_LIMIT || '', 10);
-      const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 0;
-      backfillImagePipeline({ force: false, limit })
-        .then((summary) => {
-          console.log(`✓ Image pipeline backfill finished (${summary.generated} generated, ${summary.skipped} skipped, ${summary.failed} failed, synced=${summary.syncedArticleMeta}/${summary.syncedTipMeta}, engine=${summary.engine})`);
-        })
-        .catch((error) => {
-          console.error('✗ Image pipeline backfill failed on boot:', error?.message || error);
-        });
-    }
-  });
-
-  registerGracefulShutdown(server);
-
-  server.on('error', (error) => {
-    if (error?.code === 'EADDRINUSE') {
-      console.error(`✗ Port ${PORT} is already in use`);
-      console.error('Stop the running process on that port, then start the server again.');
-      console.error('PowerShell: netstat -ano | findstr :3001');
-      console.error('PowerShell: Stop-Process -Id <PID_FROM_NETSTAT> -Force');
-      process.exit(1);
-    }
-
-    console.error('✗ Server failed to start:', error);
-    process.exit(1);
-  });
-}
+export { startServer };
