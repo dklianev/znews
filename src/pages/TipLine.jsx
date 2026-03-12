@@ -79,12 +79,12 @@ export default function TipLine() {
     if (success) {
         return (
             <div className="max-w-3xl mx-auto px-4 py-12 md:py-20 animate-fade-in">
-                <div className="comic-panel comic-dots bg-white p-8 md:p-12 text-center">
-                    <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-zn-black comic-ink-shadow">
-                        <CheckCircle className="w-10 h-10 text-green-600" />
+                <div className="comic-panel comic-dots bg-white dark:bg-[#2A2438] p-8 md:p-12 text-center">
+                    <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-zn-black dark:border-[#524A62] comic-ink-shadow">
+                        <CheckCircle className="w-10 h-10 text-green-600 dark:text-green-400" />
                     </div>
-                    <h1 className="text-3xl md:text-5xl font-heading text-zn-black uppercase italic mb-4">Сигналът предава!</h1>
-                    <p className="text-lg font-sans text-gray-700 mb-8 max-w-xl mx-auto">
+                    <h1 className="text-3xl md:text-5xl font-heading text-zn-black dark:text-[#EDE4D0] uppercase italic mb-4">Сигналът предава!</h1>
+                    <p className="text-lg font-sans text-gray-700 dark:text-gray-300 mb-8 max-w-xl mx-auto">
                         Благодарим ви за подадената информация. Нашият екип от репортери ще разгледа сигнала ви веднага.
                     </p>
                     <button
@@ -110,17 +110,17 @@ export default function TipLine() {
 
             {/* Header section */}
             <div className="relative">
-                <div className="absolute -inset-1 bg-zn-purple transform rotate-1 rounded border-2 border-zn-black pb-2 hidden md:block" />
-                <div className="comic-panel comic-dots relative bg-white p-6 md:p-10 border-4 border-zn-black z-10">
+                <div className="absolute -inset-1 bg-zn-purple transform rotate-1 rounded border-2 border-zn-black dark:border-[#524A62] pb-2 hidden md:block" />
+                <div className="comic-panel comic-dots relative bg-white dark:bg-[#2A2438] p-6 md:p-10 border-4 border-zn-black dark:border-[#524A62] z-10">
                     <div className="flex flex-col md:flex-row gap-6 md:items-center">
-                        <div className="w-16 h-16 md:w-20 md:h-20 bg-zn-red shrink-0 border-4 border-zn-black flex items-center justify-center -rotate-3 comic-ink-shadow">
+                        <div className="w-16 h-16 md:w-20 md:h-20 bg-zn-red shrink-0 border-4 border-zn-black dark:border-[#524A62] flex items-center justify-center -rotate-3 comic-ink-shadow">
                             <AlertTriangle className="w-8 h-8 md:w-10 md:h-10 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-4xl md:text-5xl font-heading text-zn-black uppercase italic tracking-wide mb-2">
+                            <h1 className="text-4xl md:text-5xl font-heading text-zn-black dark:text-[#EDE4D0] uppercase italic tracking-wide mb-2">
                                 Гореща линия
                             </h1>
-                            <p className="font-sans text-gray-700 text-lg">
+                            <p className="font-sans text-gray-700 dark:text-gray-300 text-lg">
                                 Имате информация за престъпление? Били сте свидетел на корупция или ексклузивно събитие?
                                 <span className="font-bold text-zn-red"> Анонимността ви е гарантирана.</span>
                             </p>
@@ -130,24 +130,24 @@ export default function TipLine() {
             </div>
 
             {/* Form section */}
-            <div className="comic-panel bg-white p-6 md:p-10 border-4 border-zn-black">
+            <div className="comic-panel bg-white dark:bg-[#2A2438] p-6 md:p-10 border-4 border-zn-black dark:border-[#524A62]">
                 <form onSubmit={handleSubmit} className="space-y-6">
 
                     {error && (
-                        <div className="bg-red-50 text-red-700 p-4 border-2 border-red-200 font-sans flex items-start gap-3">
+                        <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 p-4 border-2 border-red-200 dark:border-red-800/50 font-sans flex items-start gap-3">
                             <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
                             <p>{error}</p>
                         </div>
                     )}
 
                     <div className="space-y-2">
-                        <label className="block text-xl font-heading text-zn-black uppercase italic tracking-wide">
+                        <label className="block text-xl font-heading text-zn-black dark:text-[#EDE4D0] uppercase italic tracking-wide">
                             Какво се случи? *
                         </label>
                         <textarea
                             value={text}
                             onChange={(e) => setText(e.target.value)}
-                            className="w-full h-40 px-4 py-3 font-sans text-lg bg-gray-50 border-2 border-zn-black focus:outline-none focus:ring-4 focus:ring-zn-purple/20 focus:border-zn-purple transition-all resize-none shadow-[2px_2px_0_#1C1428]"
+                            className="w-full h-40 px-4 py-3 font-sans text-lg bg-gray-50 dark:bg-[#1C1828] dark:text-gray-200 border-2 border-zn-black dark:border-[#524A62] focus:outline-none focus:ring-4 focus:ring-zn-purple/20 focus:border-zn-purple transition-all resize-none comic-ink-shadow-sm dark:placeholder-gray-500"
                             placeholder="Опишете събитието детайлно. Кой, какво, кога..."
                             aria-required="true"
                             aria-label="Описание на сигнала"
@@ -156,7 +156,7 @@ export default function TipLine() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                            <label className="block text-xl font-heading text-zn-black uppercase italic tracking-wide">
+                            <label className="block text-xl font-heading text-zn-black dark:text-[#EDE4D0] uppercase italic tracking-wide">
                                 Къде се случи?
                             </label>
                             <div className="relative">
@@ -167,14 +167,14 @@ export default function TipLine() {
                                     type="text"
                                     value={location}
                                     onChange={(e) => setLocation(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-3 font-sans text-lg bg-gray-50 border-2 border-zn-black focus:outline-none focus:ring-4 focus:ring-zn-purple/20 focus:border-zn-purple transition-all shadow-[2px_2px_0_#1C1428]"
+                                    className="w-full pl-10 pr-4 py-3 font-sans text-lg bg-gray-50 dark:bg-[#1C1828] dark:text-gray-200 border-2 border-zn-black dark:border-[#524A62] focus:outline-none focus:ring-4 focus:ring-zn-purple/20 focus:border-zn-purple transition-all comic-ink-shadow-sm dark:placeholder-gray-500"
                                     placeholder="Улица, квартал или координати..."
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="block text-xl font-heading text-zn-black uppercase italic tracking-wide">
+                            <label className="block text-xl font-heading text-zn-black dark:text-[#EDE4D0] uppercase italic tracking-wide">
                                 Снимков материал
                             </label>
 
@@ -195,7 +195,7 @@ export default function TipLine() {
                                 <button
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="w-full h-[54px] flex items-center justify-center gap-2 font-sans text-lg font-bold text-gray-600 bg-gray-100 border-2 border-dashed border-gray-400 hover:bg-gray-200 hover:border-zn-black transition-colors"
+                                    className="w-full h-[54px] flex items-center justify-center gap-2 font-sans text-lg font-bold text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-[#1C1828] border-2 border-dashed border-gray-400 dark:border-[#524A62] hover:bg-gray-200 dark:hover:bg-[#2A2438] hover:border-zn-black dark:hover:border-gray-400 transition-colors"
                                 >
                                     <Upload className="w-5 h-5" />
                                     Качи доказателство
@@ -211,8 +211,8 @@ export default function TipLine() {
                         </div>
                     </div>
 
-                    <div className="pt-6 border-t-2 border-black/10 flex flex-col md:flex-row items-center justify-between gap-6">
-                        <p className="text-sm font-sans text-gray-500 md:max-w-xs">
+                    <div className="pt-6 border-t-2 border-black/10 dark:border-white/10 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <p className="text-sm font-sans text-gray-500 dark:text-gray-400 md:max-w-xs">
                             IP адресът ви се обработва криптографски единствено с цел предотвратяване на спам.
                         </p>
                         <button
