@@ -385,20 +385,41 @@ export function DataProvider({ children }) {
     }
 
     if (session?.token) {
-      const [adsResult, permsResult, commentsResult] = await Promise.allSettled([
-        api.ads.getAll(),
-        api.permissions.getAll(),
-        api.comments.getAll(),
-      ]);
-      const resolvedPermissions = permsResult.status === "fulfilled" ? permsResult.value : [];
+      let resolvedPermissions = [];
+      try {
+        const loadedPermissions = await api.permissions.getAll();
+        resolvedPermissions = Array.isArray(loadedPermissions) ? loadedPermissions : [];
+      } catch (error) {
+        const authRejected = Number(error?.status) === 401
+          || Number(error?.status) === 403
+          || !getSession()?.token;
+        if (authRejected) {
+          setPermissions([]);
+          setComments([]);
+          setUsers([]);
+          setTips([]);
+          setMedia([]);
+          setMediaPipelineStatus(null);
+          mediaLoadedRef.current = false;
+          usersLoadedRef.current = false;
+          tipsLoadedRef.current = false;
+        } else {
+          console.error("Failed to load permissions:", error);
+        }
+        setLoading(false);
+        return;
+      }
+
+      setPermissions(resolvedPermissions);
       const shouldLoadMedia = canAccessMediaLibrary(session, resolvedPermissions);
-      const rolePermissions = Array.isArray(resolvedPermissions)
-        ? resolvedPermissions.find((item) => item?.role === session.role)
-        : null;
+      const rolePermissions = resolvedPermissions.find((item) => item?.role === session.role) || null;
       const canLoadUsers = session.role === 'admin' || Boolean(rolePermissions?.permissions?.profiles);
       const canLoadTips = session.role === 'admin' || Boolean(rolePermissions?.permissions?.articles);
+      const [adsResult, commentsResult] = await Promise.allSettled([
+        api.ads.getAll(),
+        api.comments.getAll(),
+      ]);
       setAds((prev) => (adsResult.status === "fulfilled" ? adsResult.value : prev));
-      setPermissions(resolvedPermissions);
       setComments(commentsResult.status === "fulfilled" ? commentsResult.value : []);
 
       if (!shouldLoadMedia) {
@@ -418,7 +439,6 @@ export function DataProvider({ children }) {
       }
 
       if (adsResult.status === "rejected") console.error("Failed to load ads:", adsResult.reason);
-      if (permsResult.status === "rejected") console.error("Failed to load permissions:", permsResult.reason);
       if (commentsResult.status === "rejected") console.error("Failed to load comments:", commentsResult.reason);
     } else {
       setUsers([]);
