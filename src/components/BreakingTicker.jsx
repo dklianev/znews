@@ -4,6 +4,7 @@ export default function BreakingTicker() {
   const { breaking } = usePublicData();
   const items = Array.isArray(breaking) ? breaking.filter(Boolean) : [];
   if (items.length === 0) return null;
+
   const tickerText = items.join('  ★  ');
   const mobileTickerText = items.slice(0, 3).join('  ★  ');
 
@@ -19,10 +20,15 @@ export default function BreakingTicker() {
       </div>
 
       <div className="max-w-6xl mx-auto relative z-[2] px-2 sm:px-3 md:px-0">
-        <div className="ticker-wrap py-2 md:hidden" aria-hidden="true">
-          <div className="ticker-content text-white text-[12px] font-display font-bold uppercase tracking-[0.08em]">
-            <span>{mobileTickerText}&nbsp;&nbsp;★&nbsp;&nbsp;</span>
-            <span>{mobileTickerText}&nbsp;&nbsp;★&nbsp;&nbsp;</span>
+        <div className="flex items-center gap-2 py-2 md:hidden" aria-hidden="true">
+          <span className="shrink-0 rounded-full border-2 border-white/70 bg-black/20 px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-[0.18em] text-white">
+            Извънредно
+          </span>
+          <div className="ticker-wrap min-w-0 flex-1">
+            <div className="ticker-content text-white text-[12px] font-display font-bold uppercase tracking-[0.08em]">
+              <span>{mobileTickerText}&nbsp;&nbsp;★&nbsp;&nbsp;</span>
+              <span>{mobileTickerText}&nbsp;&nbsp;★&nbsp;&nbsp;</span>
+            </div>
           </div>
         </div>
 
