@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Briefcase, MapPin, DollarSign, Shield, Heart, Wrench, Scale, Car, Building } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
+import { formatNewsDate } from '../utils/newsDate';
 
 const typeConfig = {
   police: { label: 'Полиция', icon: Shield, color: 'bg-blue-700 text-white' },
@@ -76,7 +77,7 @@ export default function JobsPage() {
                       <span className={`px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-wider ${cfg.color} border border-black/10`}>
                         {cfg.label}
                       </span>
-                      <span className="text-xs font-sans text-zn-text-muted">{job.date}</span>
+                      <span className="text-xs font-sans text-zn-text-muted">{formatNewsDate(job.date)}</span>
                     </div>
                     <h2 className="font-display text-xl font-black text-zn-text mb-1 tracking-wider uppercase">{job.title}</h2>
                     <p className="text-sm font-display font-bold text-zn-hot mb-2 uppercase tracking-wider">{job.org}</p>

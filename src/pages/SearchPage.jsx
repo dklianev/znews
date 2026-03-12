@@ -9,6 +9,7 @@ import { getComicCardStyle } from '../utils/comicCardDesign';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { searchCopy } from '../content/uiCopy';
 import { buildSearchRegex, filterSearchResultsByType, matchesSearchFields, normalizeSearchType } from '../../shared/search.js';
+import { formatNewsDate } from '../utils/newsDate';
 
 const ARTICLE_SEARCH_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 const RECENT_SEARCHES_KEY = 'zn_recent_searches';
@@ -457,7 +458,7 @@ export default function SearchPage() {
               <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
                 <Link to="/court" className="block comic-panel comic-panel-hover bg-white p-4 border-l-4 border-l-blue-600">
                   <h3 className="font-display font-black uppercase text-sm text-zn-text tracking-wider">{item.title}</h3>
-                  <p className="text-xs font-sans text-zn-text-muted mt-1">{item.defendant} · {item.date}</p>
+                  <p className="text-xs font-sans text-zn-text-muted mt-1">{item.defendant} · {formatNewsDate(item.date)}</p>
                 </Link>
               </motion.div>
             ))}
@@ -473,7 +474,7 @@ export default function SearchPage() {
               <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
                 <Link to="/events" className="block comic-panel comic-panel-hover bg-white p-4">
                   <h3 className="font-display font-black uppercase text-sm text-zn-text tracking-wider">{item.title}</h3>
-                  <p className="text-xs font-sans text-zn-text-muted mt-1">{item.location} · {item.date}</p>
+                  <p className="text-xs font-sans text-zn-text-muted mt-1">{item.location} · {formatNewsDate(item.date)}</p>
                 </Link>
               </motion.div>
             ))}

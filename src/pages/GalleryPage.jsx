@@ -4,6 +4,7 @@ import { X, Camera, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
+import { formatNewsDate } from '../utils/newsDate';
 
 export default function GalleryPage() {
   const { gallery, publicSectionStatus, loadGallery } = usePublicData();
@@ -260,7 +261,7 @@ export default function GalleryPage() {
                 <div className="flex items-center justify-center gap-3 mt-2 text-xs text-white/40 font-display uppercase tracking-wider">
                   <span>{selected.category}</span>
                   <span>★</span>
-                  <span>{selected.date}</span>
+                  <span className="normal-case">{formatNewsDate(selected.date)}</span>
                   {sorted.length > 1 && (
                     <>
                       <span>★</span>

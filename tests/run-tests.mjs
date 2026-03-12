@@ -51,6 +51,7 @@ import { runSearchRoutesTests } from './searchRoutes.test.mjs';
 import { runHealthRoutesTests } from './healthRoutes.test.mjs';
 import { runTipRoutesTests } from './tipRoutes.test.mjs';
 import { runPublicFeedRoutesTests } from './publicFeedRoutes.test.mjs';
+import { runNewsDateTests } from './newsDate.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -115,5 +116,6 @@ await runTest('searchRoutes', runSearchRoutesTests);
 await runTest('healthRoutes', runHealthRoutesTests);
 await runTest('tipRoutes', runTipRoutesTests);
 await runTest('publicFeedRoutes', runPublicFeedRoutesTests);
+await runTest('newsDate', runNewsDateTests);
 
 console.log('All tests passed.');

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { usePublicData } from '../context/DataContext';
 import HeroSection from './HeroSection';
 import ResponsiveImage from './ResponsiveImage';
+import { formatNewsDate } from '../utils/newsDate';
 
 const fallbackImg = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" fill="%23EDE6DA"><rect width="800" height="450"/><text x="400" y="225" text-anchor="middle" font-family="Oswald,sans-serif" font-size="26" font-weight="900" fill="%23C4B49A">ZNEWS</text></svg>');
 const DEFAULT_HERO_SETTINGS = {
@@ -104,7 +105,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
             </h3>
             <p className="text-zn-text-muted text-sm mb-2 line-clamp-2 italic font-sans">{article.excerpt}</p>
             <div className="flex items-center justify-between text-xs font-display text-zn-text-dim border-t-2 border-zn-border/50 pt-2 uppercase tracking-wider">
-              <span>{article.date}</span>
+              <span className="normal-case">{formatNewsDate(article.date)}</span>
               <span className="flex items-center gap-1 text-zn-hot font-black"><Eye className="w-3 h-3" />{(article.views || 0).toLocaleString()}</span>
             </div>
           </div>
@@ -168,7 +169,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
           <div className="flex items-center justify-between mt-3 pt-2.5 border-t-2 border-zn-border/50 text-xs font-display text-zn-text-dim uppercase tracking-wider">
             <div className="flex items-center gap-3">
               {author && <span className="font-black text-zn-hot">{author.name}</span>}
-              <span>{article.date}</span>
+              <span className="normal-case">{formatNewsDate(article.date)}</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1"><Eye className="w-3 h-3" />{(article.views || 0).toLocaleString()}</span>

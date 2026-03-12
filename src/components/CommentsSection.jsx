@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MessageCircle, Send, User, ThumbsUp, ThumbsDown, CornerDownRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePublicData } from '../context/DataContext';
+import { formatNewsDate } from '../utils/newsDate';
 
 const AVATAR_COLORS = ['bg-zn-purple', 'bg-zn-hot', 'bg-blue-700', 'bg-emerald-700', 'bg-amber-700', 'bg-violet-700', 'bg-rose-700', 'bg-teal-700'];
 const COMMENT_AUTHOR_MAX_LEN = 50;
@@ -12,14 +13,6 @@ const MAX_REPLY_INDENT_PX = 54;
 function getAvatarColor(name) {
   const charCode = (name || 'A').charCodeAt(0);
   return AVATAR_COLORS[charCode % AVATAR_COLORS.length];
-}
-
-function formatCommentDate(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  const parsed = new Date(raw);
-  if (!Number.isFinite(parsed.getTime())) return raw;
-  return parsed.toISOString().slice(0, 10);
 }
 
 function normalizeReaction(value) {
@@ -168,7 +161,7 @@ function CommentItem({
               </span>
             )}
             <span className="font-display font-black text-sm text-zn-text uppercase tracking-wider">{comment.author}</span>
-            <span className="text-[10px] font-display text-zn-text-muted uppercase tracking-wider">{formatCommentDate(comment.date)}</span>
+            <span className="text-[10px] font-display text-zn-text-muted tracking-wider normal-case">{formatNewsDate(comment.date)}</span>
           </div>
           <p className="font-sans text-sm text-zn-text leading-relaxed whitespace-pre-wrap">{comment.text}</p>
 

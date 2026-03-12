@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Scale, Gavel, CalendarClock, CheckCircle2, Clock } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
+import { formatNewsDate } from '../utils/newsDate';
 
 const severityConfig = {
   heavy: { label: 'Тежко', color: 'bg-red-700 text-white' },
@@ -101,7 +102,7 @@ export default function CourtPage() {
                     <span className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-wider bg-gray-100 ${st.color}`}>
                       <StatusIcon className="w-3 h-3" /> {st.label}
                     </span>
-                    <span className="text-xs font-sans text-zn-text-muted">{item.date}</span>
+                    <span className="text-xs font-sans text-zn-text-muted">{formatNewsDate(item.date)}</span>
                     {item.judge && (
                       <span className="text-xs font-display text-zn-text-muted uppercase tracking-wider">
                         <Gavel className="w-3 h-3 inline mr-0.5" /> {item.judge}
@@ -127,7 +128,9 @@ export default function CourtPage() {
                       ) : (
                         <>
                           <p className="text-[10px] font-display font-black uppercase tracking-widest text-blue-600">Следващо заседание</p>
-                          <p className="text-sm font-display font-black text-blue-700 uppercase tracking-wider">{item.nextHearing || 'Предстои'}</p>
+                          <p className="text-sm font-display font-black text-blue-700 uppercase tracking-wider">
+                            {item.nextHearing ? <span className="normal-case">{formatNewsDate(item.nextHearing)}</span> : 'Предстои'}
+                          </p>
                         </>
                       )}
                     </div>

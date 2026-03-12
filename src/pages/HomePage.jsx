@@ -16,6 +16,7 @@ import { homeCopy } from '../content/uiCopy';
 import { buildHomepageSections } from '../../shared/homepageSelectors.js';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GamesDailyStatus from '../components/games/GamesDailyStatus';
+import { formatNewsDate } from '../utils/newsDate';
 
 const fallbackLatestImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EDE4D0"/><stop offset="1" stop-color="#DDD3C2"/></linearGradient></defs><rect width="1200" height="700" fill="url(#g)"/><text x="600" y="360" text-anchor="middle" font-family="Oswald,sans-serif" font-size="64" font-weight="900" fill="#C4B49A">LOS SANTOS NEWSWIRE</text></svg>');
 
@@ -42,12 +43,9 @@ const LATEST_STICKER_FALLBACKS = [
 
 function formatArticleDateLabel(article) {
   if (article?.publishAt) {
-    const publishDate = new Date(article.publishAt);
-    if (!Number.isNaN(publishDate.getTime())) {
-      return publishDate.toLocaleDateString('bg-BG');
-    }
+    return formatNewsDate(article.publishAt);
   }
-  return article?.date || '';
+  return formatNewsDate(article?.date);
 }
 
 function getLatestImageSizes(mdCols) {
@@ -576,7 +574,7 @@ export default function HomePage() {
                           pictureClassName="block w-full h-full leading-none"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
-                        <div className="absolute bottom-3 left-3 px-2 py-1 text-[10px] font-display font-black uppercase tracking-[0.16em] text-white border border-white/40 bg-black/35">
+                        <div className="absolute bottom-3 left-3 px-2 py-1 text-[10px] font-display font-black tracking-[0.16em] text-white border border-white/40 bg-black/35 normal-case">
                           {formatArticleDateLabel(article)}
                         </div>
                       </div>
@@ -640,7 +638,7 @@ export default function HomePage() {
                     <span className={`trending-number ${rankClass}`}>{rank}</span>
                     <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-display font-black uppercase tracking-[0.14em] text-zn-text-dim mb-1">
-                        {categoryName} • {formatArticleDateLabel(article)}
+                        {categoryName} • <span className="normal-case">{formatArticleDateLabel(article)}</span>
                       </p>
                       <h4 className="font-display font-black uppercase text-sm leading-snug text-zn-black line-clamp-2 hover:text-zn-hot transition-colors">
                         {article.title}
@@ -768,7 +766,5 @@ export default function HomePage() {
     </div>
   );
 }
-
-
 
 

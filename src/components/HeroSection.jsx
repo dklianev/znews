@@ -4,6 +4,7 @@ import { Clock, Eye, Flame, Megaphone } from 'lucide-react';
 import { motion } from 'framer-motion';
 import ResponsiveImage from './ResponsiveImage';
 import { buildScaledClamp, normalizeHeroTitleScale } from '../utils/heroTitleScale';
+import { formatNewsDate } from '../utils/newsDate';
 
 const defaultFallbackImg = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" fill="%23EDE6DA"><rect width="800" height="450"/><text x="400" y="225" text-anchor="middle" font-family="Oswald,sans-serif" font-size="28" font-weight="900" fill="%23C4B49A">zNews</text></svg>');
 
@@ -61,7 +62,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                     {author && <span className="font-black text-zn-hot">{author.name}</span>}
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {article.readTime} мин</span>
                     <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {(article.views || 0).toLocaleString()}</span>
-                    <span>{article.date}</span>
+                    <span className="normal-case">{formatNewsDate(article.date)}</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5 px-2 sm:px-0">
                     <Link to={`/article/${mainPhoto.id}`} className="block">

@@ -14,6 +14,7 @@ import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import YouTubeEmbed from '../components/YouTubeEmbed';
 import ErrorBoundary from '../components/ErrorBoundary';
+import { formatNewsDate } from '../utils/newsDate';
 
 const categoryColors = {
   crime: 'bg-zn-purple text-white',
@@ -634,7 +635,7 @@ export default function ArticlePage() {
                 </div>
               </div>
             )}
-            <span>{article.date}</span>
+            <span>{formatNewsDate(article.date)}</span>
             <span className="flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" />
               {article.readTime} мин четене
@@ -874,4 +875,3 @@ export default function ArticlePage() {
     </motion.div>
   );
 }
-
