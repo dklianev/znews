@@ -45,6 +45,7 @@ import { runServerLifecycleServiceTests } from './serverLifecycleService.test.mj
 import { runRequestHelpersTests } from './requestHelpersService.test.mjs';
 import { runRuntimeBootstrapHelpersTests } from './runtimeBootstrapHelpersService.test.mjs';
 import { runFramePolicyServiceTests } from './framePolicyService.test.mjs';
+import { runRemoteStorageServiceTests } from './remoteStorageService.test.mjs';
 import { runAuthRoutesTests } from './authRoutes.test.mjs';
 import { runSearchRoutesTests } from './searchRoutes.test.mjs';
 import { runHealthRoutesTests } from './healthRoutes.test.mjs';
@@ -108,6 +109,7 @@ await runTest('serverLifecycleService', runServerLifecycleServiceTests);
 await runTest('requestHelpers', runRequestHelpersTests);
 await runTest('runtimeBootstrapHelpers', runRuntimeBootstrapHelpersTests);
 await runTest('framePolicyService', runFramePolicyServiceTests);
+await runTest('remoteStorageService', runRemoteStorageServiceTests);
 await runTest('authRoutes', runAuthRoutesTests);
 await runTest('searchRoutes', runSearchRoutesTests);
 await runTest('healthRoutes', runHealthRoutesTests);

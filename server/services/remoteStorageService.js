@@ -24,7 +24,7 @@ export function createRemoteStorageService(deps) {
   }
 
   function extractXmlTagValue(xml, tagName) {
-    const match = String(xml || '').match(new RegExp(`<${tagName}>([\s\S]*?)</${tagName}>`, 'i'));
+    const match = String(xml || '').match(new RegExp(`<${tagName}>([\\s\\S]*?)</${tagName}>`, 'i'));
     return match?.[1] ? decodeXmlEntities(match[1].trim()) : '';
   }
 
