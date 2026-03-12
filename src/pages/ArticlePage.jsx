@@ -813,7 +813,7 @@ export default function ArticlePage() {
         </article>
 
         {/* Sidebar */}
-        <aside aria-label="Странична лента" className="space-y-6">
+        <aside aria-label="Странична лента" className="hidden lg:block space-y-6">
           {showBodySkeleton && (
             <div className="newspaper-page comic-panel comic-dots p-5 relative lg:sticky lg:top-24 animate-pulse" aria-label="Зареждане на навигация">
               <div className="absolute -top-2 left-6 w-14 h-4 bg-yellow-200/50 border border-black/5 transform -rotate-3 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.08)' }} />
