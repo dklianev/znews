@@ -109,7 +109,7 @@ export default function AdminDiagnostics() {
     const groups = Array.isArray(payload?.requestMetrics?.groups) ? payload.requestMetrics.groups : [];
     return groups
       .filter((group) => Number(group?.errorCount || 0) > 0)
-      .sort((left, right) => (right.errorCount || 0) - (left.errorCount || 0) || (right.lastStatusCode || 0) - (left.lastStatusCode || 0))
+      .sort((left, right) => (right.errorCount || 0) - (left.errorCount || 0) || (right.lastErrorStatusCode || 0) - (left.lastErrorStatusCode || 0))
       .slice(0, 5);
   }, [payload?.requestMetrics?.groups]);
   const recentErrorRequests = useMemo(() => {
@@ -314,8 +314,8 @@ export default function AdminDiagnostics() {
                 <tr className="border-b border-gray-200 text-left text-[11px] uppercase tracking-wider text-gray-500">
                   <th className="pb-2 pr-4">Group</th>
                   <th className="pb-2 pr-4">Errors</th>
-                  <th className="pb-2 pr-4">Last Status</th>
-                  <th className="pb-2">Last Path</th>
+                  <th className="pb-2 pr-4">Last Error</th>
+                  <th className="pb-2">Last Error Path</th>
                 </tr>
               </thead>
               <tbody>
@@ -323,8 +323,8 @@ export default function AdminDiagnostics() {
                   <tr key={group.name} className="border-b border-gray-100 align-top">
                     <td className="py-3 pr-4 font-semibold text-gray-900">{group.name}</td>
                     <td className="py-3 pr-4 text-gray-600">{group.errorCount || 0}</td>
-                    <td className="py-3 pr-4 text-gray-600">{group.lastStatusCode || '-'}</td>
-                    <td className="py-3 text-gray-600">{group.lastPath || '-'}</td>
+                    <td className="py-3 pr-4 text-gray-600">{group.lastErrorStatusCode || '-'}</td>
+                    <td className="py-3 text-gray-600">{group.lastErrorPath || '-'}</td>
                   </tr>
                 ))}
                 {topErrorGroups.length === 0 ? (

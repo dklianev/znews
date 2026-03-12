@@ -19,6 +19,7 @@ function classifyRequestGroup(pathname) {
   if (pathname.startsWith('/api/ads')) return 'api-ads';
   if (pathname.startsWith('/api/games')) return 'api-games';
   if (pathname.startsWith('/api/auth')) return 'api-auth';
+  if (pathname.startsWith('/api/comments')) return 'api-comments';
   if (pathname.startsWith('/api/media') || pathname.startsWith('/api/upload')) return 'api-media';
   if (pathname.startsWith('/api/admin/')) return 'api-admin';
   if (pathname.startsWith('/api/')) return 'api-other';
@@ -76,6 +77,9 @@ export function createRequestMetricsService({
       lastStatusCode: 0,
       lastPath: pathname,
       lastAt: at,
+      lastErrorStatusCode: null,
+      lastErrorPath: '',
+      lastErrorAt: null,
       cacheHits: 0,
       cacheMisses: 0,
     };
@@ -89,7 +93,12 @@ export function createRequestMetricsService({
     group.lastStatusCode = Number(statusCode) || 0;
     group.lastPath = pathname;
     group.lastAt = at;
-    if (Number(statusCode) >= 400) group.errorCount += 1;
+    if (Number(statusCode) >= 400) {
+      group.errorCount += 1;
+      group.lastErrorStatusCode = Number(statusCode) || 0;
+      group.lastErrorPath = pathname;
+      group.lastErrorAt = at;
+    }
     if (cache === 'HIT') group.cacheHits += 1;
     if (cache === 'MISS') group.cacheMisses += 1;
     groups.set(groupName, group);

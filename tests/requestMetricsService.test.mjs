@@ -20,6 +20,18 @@ export async function runRequestMetricsServiceTests() {
   assert.equal(snapshot.slowRequests.length, 1);
   assert.equal(snapshot.slowRequests[0].path, '/api/search');
 
+  const serviceErrors = createRequestMetricsService();
+  serviceErrors.recordRequestMetric({ method: 'GET', path: '/api/comments?article=42', statusCode: 401, durationMs: 40, cacheStatus: '' });
+  serviceErrors.recordRequestMetric({ method: 'GET', path: '/api/comments?article=42', statusCode: 304, durationMs: 50, cacheStatus: '' });
+  const errorSnapshot = serviceErrors.getRequestMetricsSnapshot();
+  const commentsGroup = errorSnapshot.groups.find((group) => group.name === 'api-comments');
+  assert.ok(commentsGroup);
+  assert.equal(commentsGroup.errorCount, 1);
+  assert.equal(commentsGroup.lastStatusCode, 304);
+  assert.equal(commentsGroup.lastPath, '/api/comments');
+  assert.equal(commentsGroup.lastErrorStatusCode, 401);
+  assert.equal(commentsGroup.lastErrorPath, '/api/comments');
+
   const service2 = createRequestMetricsService();
   const req = { method: 'GET', originalUrl: '/article/42' };
   const res = new EventEmitter();
