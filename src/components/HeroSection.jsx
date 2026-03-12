@@ -13,7 +13,7 @@ function ColorTitle({ text }) {
     return (
         <span>
             {words.map((word, i) => (
-                <span key={i} style={{ color: i % 3 === 0 ? '#CC0A1A' : '#1C1428', WebkitTextStroke: i % 3 === 0 ? '1px rgba(153,8,19,0.3)' : 'none' }}>
+                <span key={i} className={i % 3 !== 0 ? 'hero-title-dark-word' : undefined} style={{ color: i % 3 === 0 ? '#CC0A1A' : '#1C1428', WebkitTextStroke: i % 3 === 0 ? '1px rgba(153,8,19,0.3)' : 'none' }}>
                     {word}{' '}
                 </span>
             ))}

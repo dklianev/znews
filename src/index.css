@@ -1673,6 +1673,11 @@ div.bg-zn-bg.text-white {
   color: white;
 }
 
+/* ── Hero title dark words → cream on dark ── */
+.dark .hero-title-dark-word {
+  color: #EDE4D0 !important;
+}
+
 /* ── Newspaper page → dark paper ── */
 .dark .newspaper-page {
   background: #221D30;
