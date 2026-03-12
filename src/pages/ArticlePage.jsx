@@ -848,8 +848,8 @@ export default function ArticlePage() {
           {/* Author card */}
           {author && (
             <div className="newspaper-page comic-panel comic-dots p-5 text-center relative">
-              <div className="absolute -top-2 right-6 w-12 h-4 bg-yellow-200/70 border border-black/5 transform rotate-3 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
-              <div className="w-16 h-16 bg-zn-hot text-white flex items-center justify-center font-display font-black text-2xl border-3 border-[#1C1428] mx-auto mb-3 relative z-[2]" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
+              <div className="tape-deco absolute -top-2 right-6 w-12 h-4 bg-yellow-200/70 dark:bg-yellow-700/30 border border-black/5 dark:border-yellow-600/20 transform rotate-3 z-10" />
+              <div className="w-16 h-16 bg-zn-hot text-white flex items-center justify-center font-display font-black text-2xl border-3 border-[#1C1428] mx-auto mb-3 relative z-[2] comic-ink-shadow">
                 {author.name?.charAt(0)}
               </div>
               <h3 className="font-display font-bold text-lg text-zn-text tracking-wider relative z-[2]">{author.name}</h3>

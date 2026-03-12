@@ -120,10 +120,9 @@ export default function GalleryPage() {
           onClick={() => setFilterCat('all')}
           className={`px-3 py-1.5 text-xs font-display font-black uppercase tracking-wider border-2 transition-all duration-200 ${
             filterCat === 'all'
-              ? 'bg-zn-hot text-white border-[#1C1428]'
-              : 'bg-white text-gray-500 border-[#1C1428]/20 hover:text-zn-hot hover:border-[#1C1428]/40'
+              ? 'bg-zn-hot text-white border-[#1C1428] comic-ink-shadow'
+              : 'bg-white dark:bg-[#2A2438] text-gray-500 dark:text-gray-400 border-[#1C1428]/20 hover:text-zn-hot hover:border-[#1C1428]/40 shadow-[2px_2px_0_rgba(0,0,0,0.1)]'
           }`}
-          style={{boxShadow: filterCat === 'all' ? '3px 3px 0 #1C1428' : '2px 2px 0 rgba(0,0,0,0.1)'}}
         >
           Всички ({safeGallery.length})
         </button>
@@ -133,10 +132,9 @@ export default function GalleryPage() {
             onClick={() => setFilterCat(cat)}
             className={`px-3 py-1.5 text-xs font-display font-black uppercase tracking-wider border-2 transition-all duration-200 ${
               filterCat === cat
-                ? 'bg-zn-hot text-white border-[#1C1428]'
-                : 'bg-white text-gray-500 border-[#1C1428]/20 hover:text-zn-hot hover:border-[#1C1428]/40'
+                ? 'bg-zn-hot text-white border-[#1C1428] comic-ink-shadow'
+                : 'bg-white dark:bg-[#2A2438] text-gray-500 dark:text-gray-400 border-[#1C1428]/20 hover:text-zn-hot hover:border-[#1C1428]/40 shadow-[2px_2px_0_rgba(0,0,0,0.1)]'
             }`}
-            style={{boxShadow: filterCat === cat ? '3px 3px 0 #1C1428' : '2px 2px 0 rgba(0,0,0,0.1)'}}
           >
             {cat} ({safeGallery.filter(g => g.category === cat).length})
           </button>

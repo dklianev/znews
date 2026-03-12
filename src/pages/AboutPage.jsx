@@ -125,7 +125,7 @@ export default function AboutPage() {
               transition={{ duration: 0.3, delay: index * 0.08 }}
               className="comic-panel comic-panel-hover bg-white p-6 text-center"
             >
-              <div className={`w-16 h-16 ${AVATAR_COLORS[index % AVATAR_COLORS.length]} text-white flex items-center justify-center font-display font-black text-2xl border-3 border-[#1C1428] mx-auto mb-3`} style={{ boxShadow: '3px 3px 0 #1C1428' }}>
+              <div className={`w-16 h-16 ${AVATAR_COLORS[index % AVATAR_COLORS.length]} text-white flex items-center justify-center font-display font-black text-2xl border-3 border-[#1C1428] mx-auto mb-3 comic-ink-shadow`}>
                 {author.name?.charAt(0)}
               </div>
               <h3 className="font-display font-black text-lg text-zn-text tracking-wider uppercase">{author.name}</h3>

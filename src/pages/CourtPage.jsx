@@ -99,7 +99,7 @@ export default function CourtPage() {
                     <span className={`px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-wider ${sev.color} border border-black/10 ${item.severity === 'heavy' ? 'animate-pulse' : ''}`}>
                       {sev.label}
                     </span>
-                    <span className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-wider bg-gray-100 ${st.color}`}>
+                    <span className={`flex items-center gap-1 px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-wider bg-gray-100 dark:bg-gray-800 ${st.color}`}>
                       <StatusIcon className="w-3 h-3" /> {st.label}
                     </span>
                     <span className="text-xs font-sans text-zn-text-muted">{formatNewsDate(item.date)}</span>

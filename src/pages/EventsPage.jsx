@@ -39,7 +39,7 @@ function EventCard({ event, index = 0, today }) {
 
       <div className="flex items-start gap-4 relative z-[2]">
         <div className="text-center shrink-0">
-          <div className="w-16 h-16 bg-zn-purple text-white flex flex-col items-center justify-center border-2 border-[#1C1428]" style={{boxShadow:'2px 2px 0 #1C1428'}}>
+          <div className="w-16 h-16 bg-zn-purple text-white flex flex-col items-center justify-center border-2 border-[#1C1428] comic-ink-shadow-sm">
             <span className="text-2xl font-display font-black leading-none">{dayNum}</span>
             <span className="text-[9px] font-display uppercase tracking-wider font-bold">
               {dateObj.toLocaleDateString('bg-BG', { month: 'short' })}

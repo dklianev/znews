@@ -3100,6 +3100,35 @@ div.bg-zn-bg.text-white {
     background: linear-gradient(135deg, var(--ad-color, #3b1f54) 0%, #0A0812 55%, #06040a 100%);
   }
 
+  /* ── Share button copy → dark override ── */
+  .dark .share-btn-copy {
+    background: #2A2438;
+    color: #EDE4D0;
+    border-color: #524A62;
+    box-shadow: 3px 3px 0 #0A0812;
+  }
+
+  .dark .share-btn-copy:hover {
+    background: #352D48;
+  }
+
+  /* ── Inline box-shadow helper for #1C1428 elements ── */
+  .comic-ink-shadow {
+    box-shadow: 3px 3px 0 #1C1428;
+  }
+
+  .dark .comic-ink-shadow {
+    box-shadow: 3px 3px 0 #0A0812;
+  }
+
+  .comic-ink-shadow-sm {
+    box-shadow: 2px 2px 0 #1C1428;
+  }
+
+  .dark .comic-ink-shadow-sm {
+    box-shadow: 2px 2px 0 #0A0812;
+  }
+
   .dark .comic-ad-side:hover {
     box-shadow: 6px 7px 0 #0A0812;
   }

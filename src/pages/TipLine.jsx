@@ -80,7 +80,7 @@ export default function TipLine() {
         return (
             <div className="max-w-3xl mx-auto px-4 py-12 md:py-20 animate-fade-in">
                 <div className="comic-panel comic-dots bg-white p-8 md:p-12 text-center">
-                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-zn-black" style={{ boxShadow: '4px 4px 0 #1C1428' }}>
+                    <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-zn-black comic-ink-shadow">
                         <CheckCircle className="w-10 h-10 text-green-600" />
                     </div>
                     <h1 className="text-3xl md:text-5xl font-heading text-zn-black uppercase italic mb-4">Сигналът предава!</h1>
@@ -113,7 +113,7 @@ export default function TipLine() {
                 <div className="absolute -inset-1 bg-zn-purple transform rotate-1 rounded border-2 border-zn-black pb-2 hidden md:block" />
                 <div className="comic-panel comic-dots relative bg-white p-6 md:p-10 border-4 border-zn-black z-10">
                     <div className="flex flex-col md:flex-row gap-6 md:items-center">
-                        <div className="w-16 h-16 md:w-20 md:h-20 bg-zn-red shrink-0 border-4 border-zn-black flex items-center justify-center -rotate-3" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
+                        <div className="w-16 h-16 md:w-20 md:h-20 bg-zn-red shrink-0 border-4 border-zn-black flex items-center justify-center -rotate-3 comic-ink-shadow">
                             <AlertTriangle className="w-8 h-8 md:w-10 md:h-10 text-white" />
                         </div>
                         <div>

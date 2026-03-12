@@ -82,7 +82,7 @@ export default function Footer() {
             <div className="shrink-0 mt-4 md:mt-0 relative group/btn">
               <Link
                 to={tipLinePromo.buttonLink}
-                className="inline-flex items-center justify-center bg-white border-4 border-black px-8 py-4 text-2xl font-comic uppercase text-zn-hot transition-transform active:scale-95 shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-2 hover:translate-y-2"
+                className="inline-flex items-center justify-center bg-white dark:bg-[#EDE4D0] border-4 border-black px-8 py-4 text-2xl font-comic uppercase text-zn-hot transition-transform active:scale-95 shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-2 hover:translate-y-2"
               >
                 <Flame className="w-6 h-6 mr-2 animate-bounce" />
                 {tipLinePromo.buttonLabel}

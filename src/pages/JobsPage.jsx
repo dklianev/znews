@@ -69,7 +69,7 @@ export default function JobsPage() {
                   <span className="comic-sticker">Обява</span>
                 </div>
                 <div className="flex items-start gap-4 relative z-[2]">
-                  <div className={`w-12 h-12 ${cfg.color} flex items-center justify-center shrink-0 border-2 border-[#1C1428]`} style={{boxShadow:'2px 2px 0 #1C1428'}}>
+                  <div className={`w-12 h-12 ${cfg.color} flex items-center justify-center shrink-0 border-2 border-[#1C1428] comic-ink-shadow-sm`}>
                     <Icon className="w-6 h-6" />
                   </div>
                   <div className="flex-1 min-w-0">
