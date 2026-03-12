@@ -266,6 +266,7 @@ export default function SearchPage() {
   const eventResults = searchResults.events;
   const wantedResults = searchResults.wanted;
   const totalResults = articleResults.length + jobResults.length + courtResults.length + eventResults.length + wantedResults.length;
+  const showSuggestions = (suggestLoading || suggestions.length > 0) && localQuery.trim().length >= 2;
 
   const sections = useMemo(() => ([
     { key: 'all', label: searchCopy.sections.all },
@@ -336,30 +337,6 @@ export default function SearchPage() {
           )}
         </div>
 
-        {(suggestLoading || suggestions.length > 0) && localQuery.trim().length >= 2 && (
-          <div className="mt-3 comic-panel bg-white p-3 space-y-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] font-display text-zn-text-dim">
-              <Sparkles className="w-4 h-4 text-zn-hot" />
-              {searchCopy.suggestionsTitle}
-            </div>
-            {suggestLoading && suggestions.length === 0 ? (
-              <p className="text-sm text-zn-text-muted">{searchCopy.loading}</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {suggestions.map((suggestion, index) => (
-                  <button
-                    key={`${suggestion.type}-${suggestion.label}-${index}`}
-                    type="button"
-                    onClick={() => handleSuggestionPick(suggestion)}
-                    className="comic-chip hover:translate-y-[-1px] transition-transform"
-                  >
-                    {suggestion.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
       </form>
 
       <div className="mb-6 flex flex-wrap gap-2">
@@ -374,6 +351,31 @@ export default function SearchPage() {
           </button>
         ))}
       </div>
+
+      {showSuggestions && !trimmedQuery && (
+        <div className="mb-6 comic-panel bg-white p-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.12em] font-display text-zn-text-dim">
+            <Sparkles className="w-4 h-4 text-zn-hot" />
+            {searchCopy.suggestionsTitle}
+          </div>
+          {suggestLoading && suggestions.length === 0 ? (
+            <p className="text-sm text-zn-text-muted">{searchCopy.loading}</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((suggestion, index) => (
+                <button
+                  key={`${suggestion.type}-${suggestion.label}-${index}`}
+                  type="button"
+                  onClick={() => handleSuggestionPick(suggestion)}
+                  className="comic-chip hover:translate-y-[-1px] transition-transform"
+                >
+                  {suggestion.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {!trimmedQuery && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -494,6 +496,30 @@ export default function SearchPage() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </section>
+      )}
+
+      {showSuggestions && trimmedQuery && (
+        <section className="mb-8">
+          <SearchSectionHeader icon={Sparkles} title={searchCopy.suggestionsTitle} tone="purple" />
+          <div className="comic-panel bg-white p-3 space-y-2">
+            {suggestLoading && suggestions.length === 0 ? (
+              <p className="text-sm text-zn-text-muted">{searchCopy.loading}</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={`${suggestion.type}-${suggestion.label}-${index}`}
+                    type="button"
+                    onClick={() => handleSuggestionPick(suggestion)}
+                    className="comic-chip hover:translate-y-[-1px] transition-transform"
+                  >
+                    {suggestion.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       )}
