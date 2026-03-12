@@ -3,9 +3,9 @@ import { Flame, Megaphone, MapPin, Phone, Mail, AlertTriangle } from 'lucide-rea
 import { usePublicData } from '../context/DataContext';
 
 const DEFAULT_FOOTER_PILLS = [
-  { label: 'Горещо', to: '/category/crime', hot: true, tilt: '-1.5deg' },
-  { label: 'Скандали', to: '/category/underground', hot: true, tilt: '1deg' },
-  { label: 'Слухове', to: '/category/society', tilt: '-0.8deg' },
+  { label: 'Горещо', to: '/category/breaking', hot: true, tilt: '-1.5deg' },
+  { label: 'Подземен свят', to: '/category/underground', hot: true, tilt: '1deg' },
+  { label: 'Общество', to: '/category/society', tilt: '-0.8deg' },
   { label: 'Криминални', to: '/category/crime', tilt: '0.8deg' },
   { label: 'Бизнес', to: '/category/business', tilt: '-1deg' },
 ];
@@ -13,8 +13,8 @@ const DEFAULT_FOOTER_PILLS = [
 const DEFAULT_FOOTER_QUICK_LINKS = [
   { label: 'Криминални', to: '/category/crime' },
   { label: 'Подземен свят', to: '/category/underground' },
-  { label: 'Полиция', to: '/category/emergency' },
-  { label: 'Извънредни', to: '/category/breaking' },
+  { label: 'Извънредни', to: '/category/emergency' },
+  { label: 'Горещо', to: '/category/breaking' },
   { label: 'Политика', to: '/category/politics' },
   { label: 'Бизнес', to: '/category/business' },
   { label: 'Общество', to: '/category/society' },
@@ -46,7 +46,7 @@ export default function Footer() {
   const hasBreakingCategory = Array.isArray(categories) && categories.some((item) => item?.id === 'breaking');
   const hasBreakingLink = quickLinksBase.some((item) => item?.to === '/category/breaking');
   const quickLinks = hasBreakingCategory && !hasBreakingLink
-    ? [...quickLinksBase, { label: 'Извънредни', to: '/category/breaking' }]
+    ? [...quickLinksBase, { label: 'Горещо', to: '/category/breaking' }]
     : quickLinksBase;
   const infoLinks = Array.isArray(siteSettings?.footerInfoLinks) && siteSettings.footerInfoLinks.length > 0
     ? siteSettings.footerInfoLinks

@@ -26,9 +26,9 @@ export const navbarCopy = {
     { to: '/gallery', label: 'Галерия' },
   ],
   defaultSpotlightLinks: [
-    { to: '/category/crime', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-2deg' },
-    { to: '/category/underground', label: 'Скандали', icon: 'Megaphone', hot: true, tilt: '1.5deg' },
-    { to: '/category/society', label: 'Слухове', icon: 'Bell', hot: false, tilt: '-1deg' },
+    { to: '/category/breaking', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-2deg' },
+    { to: '/category/underground', label: 'Подземен свят', icon: 'Megaphone', hot: true, tilt: '1.5deg' },
+    { to: '/category/society', label: 'Общество', icon: 'Bell', hot: false, tilt: '-1deg' },
   ],
   searchPlaceholder: 'Търси в сайта...',
 };
@@ -36,14 +36,14 @@ export const navbarCopy = {
 export const homeCopy = {
   defaultHeadlineWords: ['Шок', 'и', 'сензация!'],
   defaultSpotlightLinks: [
-    { to: '/category/crime', label: 'Горещо от редакцията', icon: 'Flame', hot: true, tilt: '-1.3deg' },
-    { to: '/category/underground', label: 'Скандали', icon: 'Megaphone', hot: true, tilt: '1deg' },
-    { to: '/category/society', label: 'Слухове', icon: 'Bell', hot: false, tilt: '-0.8deg' },
+    { to: '/category/breaking', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-1.3deg' },
+    { to: '/category/underground', label: 'Подземен свят', icon: 'Megaphone', hot: true, tilt: '1deg' },
+    { to: '/category/society', label: 'Общество', icon: 'Bell', hot: false, tilt: '-0.8deg' },
   ],
   defaultBottomPills: [
-    { to: '/category/crime', label: 'Горещи новини', icon: 'Flame', hot: true, tilt: '-1.3deg' },
-    { to: '/category/underground', label: 'Скандали', icon: 'Megaphone', hot: true, tilt: '1deg' },
-    { to: '/category/society', label: 'Слухове', icon: 'Bell', hot: false, tilt: '-0.8deg' },
+    { to: '/category/breaking', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-1.3deg' },
+    { to: '/category/underground', label: 'Подземен свят', icon: 'Megaphone', hot: true, tilt: '1deg' },
+    { to: '/category/society', label: 'Общество', icon: 'Bell', hot: false, tilt: '-0.8deg' },
   ],
   defaultPillLabel: 'Виж повече',
   loadErrorBadge: 'Грешка',

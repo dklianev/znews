@@ -96,7 +96,7 @@ export default function Navbar() {
     const hasBreakingCategory = Array.isArray(categories) && categories.some((item) => item?.id === 'breaking');
     const hasBreakingLink = navLinksBase.some((item) => item?.to === '/category/breaking');
     if (!hasBreakingCategory || hasBreakingLink) return navLinksBase;
-    const breakingLink = { to: '/category/breaking', label: 'Извънредни', hot: true };
+    const breakingLink = { to: '/category/breaking', label: 'Горещо', hot: true };
     const emergencyIndex = navLinksBase.findIndex((item) => item?.to === '/category/emergency');
     if (emergencyIndex === -1) return [...navLinksBase, breakingLink];
     return [
