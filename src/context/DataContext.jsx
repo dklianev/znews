@@ -826,6 +826,11 @@ export function DataProvider({ children }) {
         usersLoadedRef.current = true;
         return normalized;
       })
+      .catch((error) => {
+        console.error('Failed to load users:', error);
+        setUsersReady(true);
+        return [];
+      })
       .finally(() => {
         if (usersLoaderRef.current === task) {
           usersLoaderRef.current = null;
@@ -918,7 +923,11 @@ export function DataProvider({ children }) {
         tipsLoadedRef.current = true;
         return normalized;
       })
-      .catch(() => [])
+      .catch((error) => {
+        console.error('Failed to load tips:', error);
+        setTipsReady(true);
+        return [];
+      })
       .finally(() => {
         if (tipsLoaderRef.current === task) {
           tipsLoaderRef.current = null;
