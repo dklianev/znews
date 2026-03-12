@@ -36,6 +36,12 @@ function formatPercent(value) {
   return `${(numeric * 100).toFixed(1)}%`;
 }
 
+function formatCacheStatus(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (!normalized || normalized === 'SKIP') return 'not cached';
+  return normalized.toLowerCase();
+}
+
 function StatusPill({ tone = 'neutral', children }) {
   const className = tone === 'good'
     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -103,7 +109,7 @@ export default function AdminDiagnostics() {
   const requestSummary = payload?.requestMetrics?.totals || {};
   const requestGroups = useMemo(() => {
     const groups = Array.isArray(payload?.requestMetrics?.groups) ? payload.requestMetrics.groups : [];
-    return groups.slice(0, 6);
+    return groups.filter((group) => group?.name !== 'api-diagnostics').slice(0, 6);
   }, [payload?.requestMetrics?.groups]);
   const topErrorGroups = useMemo(() => {
     const groups = Array.isArray(payload?.requestMetrics?.groups) ? payload.requestMetrics.groups : [];
@@ -118,7 +124,7 @@ export default function AdminDiagnostics() {
   }, [payload?.requestMetrics?.recentRequests]);
   const slowRequests = useMemo(() => {
     const requests = Array.isArray(payload?.requestMetrics?.slowRequests) ? payload.requestMetrics.slowRequests : [];
-    return requests.slice(0, 6);
+    return requests.filter((entry) => entry?.group !== 'api-diagnostics').slice(0, 6);
   }, [payload?.requestMetrics?.slowRequests]);
   const cachePerformance = payload?.cache?.performance || {};
 
@@ -283,6 +289,7 @@ export default function AdminDiagnostics() {
               <thead>
                 <tr className="border-b border-gray-200 text-left text-[11px] uppercase tracking-wider text-gray-500">
                   <th className="pb-2 pr-4">Group</th>
+                  <th className="pb-2 pr-4">Count</th>
                   <th className="pb-2 pr-4">Avg</th>
                   <th className="pb-2 pr-4">Max</th>
                   <th className="pb-2 pr-4">Errors</th>
@@ -293,6 +300,7 @@ export default function AdminDiagnostics() {
                 {requestGroups.map((group) => (
                   <tr key={group.name} className="border-b border-gray-100 align-top">
                     <td className="py-3 pr-4 font-semibold text-gray-900">{group.name}</td>
+                    <td className="py-3 pr-4 text-gray-600">{formatInteger(group.count || 0)}</td>
                     <td className="py-3 pr-4 text-gray-600">{group.avgDurationMs} ms</td>
                     <td className="py-3 pr-4 text-gray-600">{group.maxDurationMs} ms</td>
                     <td className="py-3 pr-4 text-gray-600">{group.errorCount || 0}</td>
@@ -301,7 +309,7 @@ export default function AdminDiagnostics() {
                 ))}
                 {requestGroups.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-4 text-center text-sm text-gray-400">No request metrics captured yet.</td>
+                    <td colSpan={6} className="py-4 text-center text-sm text-gray-400">No request metrics captured yet.</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -345,7 +353,7 @@ export default function AdminDiagnostics() {
                   <span className="font-semibold text-gray-800">{entry.group}</span>
                   <span>{entry.durationMs} ms</span>
                 </div>
-                <p className="mt-1">{entry.method} {entry.path} | {entry.statusCode} | {entry.cacheStatus}</p>
+                <p className="mt-1">{entry.method} {entry.path} | {entry.statusCode} | {formatCacheStatus(entry.cacheStatus)}</p>
               </div>
             ))}
             {slowRequests.length === 0 ? <p className="text-sm font-sans text-gray-400">No slow requests captured.</p> : null}
@@ -358,7 +366,7 @@ export default function AdminDiagnostics() {
                   <span className="font-semibold text-gray-800">{entry.group}</span>
                   <span>{entry.statusCode}</span>
                 </div>
-                <p className="mt-1">{entry.method} {entry.path} | {entry.durationMs} ms | {entry.cacheStatus}</p>
+                <p className="mt-1">{entry.method} {entry.path} | {entry.durationMs} ms | {formatCacheStatus(entry.cacheStatus)}</p>
               </div>
             ))}
             {recentErrorRequests.length === 0 ? <p className="text-sm font-sans text-gray-400">No recent error requests captured.</p> : null}

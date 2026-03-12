@@ -19,8 +19,14 @@ function classifyRequestGroup(pathname) {
   if (pathname.startsWith('/api/ads')) return 'api-ads';
   if (pathname.startsWith('/api/games')) return 'api-games';
   if (pathname.startsWith('/api/auth')) return 'api-auth';
+  if (pathname.startsWith('/api/permissions')) return 'api-permissions';
+  if (pathname.startsWith('/api/tips')) return 'api-tips';
+  if (pathname.startsWith('/api/users')) return 'api-users';
   if (pathname.startsWith('/api/comments')) return 'api-comments';
+  if (pathname.startsWith('/api/hero-settings')) return 'api-hero-settings';
+  if (pathname.startsWith('/api/site-settings')) return 'api-site-settings';
   if (pathname.startsWith('/api/media') || pathname.startsWith('/api/upload')) return 'api-media';
+  if (pathname.startsWith('/api/admin/diagnostics')) return 'api-diagnostics';
   if (pathname.startsWith('/api/admin/')) return 'api-admin';
   if (pathname.startsWith('/api/')) return 'api-other';
   if (pathname.startsWith('/article/')) return 'web-article';

@@ -32,6 +32,20 @@ export async function runRequestMetricsServiceTests() {
   assert.equal(commentsGroup.lastErrorStatusCode, 401);
   assert.equal(commentsGroup.lastErrorPath, '/api/comments');
 
+  serviceErrors.recordRequestMetric({ method: 'GET', path: '/api/admin/diagnostics', statusCode: 200, durationMs: 950, cacheStatus: '' });
+  serviceErrors.recordRequestMetric({ method: 'GET', path: '/api/permissions', statusCode: 401, durationMs: 20, cacheStatus: '' });
+  serviceErrors.recordRequestMetric({ method: 'GET', path: '/api/tips', statusCode: 200, durationMs: 25, cacheStatus: '' });
+  serviceErrors.recordRequestMetric({ method: 'GET', path: '/api/users', statusCode: 200, durationMs: 25, cacheStatus: '' });
+  serviceErrors.recordRequestMetric({ method: 'GET', path: '/api/hero-settings/revisions', statusCode: 200, durationMs: 25, cacheStatus: '' });
+  serviceErrors.recordRequestMetric({ method: 'GET', path: '/api/site-settings/revisions', statusCode: 200, durationMs: 25, cacheStatus: '' });
+  const groupingSnapshot = serviceErrors.getRequestMetricsSnapshot();
+  assert.ok(groupingSnapshot.groups.find((group) => group.name === 'api-diagnostics'));
+  assert.ok(groupingSnapshot.groups.find((group) => group.name === 'api-permissions'));
+  assert.ok(groupingSnapshot.groups.find((group) => group.name === 'api-tips'));
+  assert.ok(groupingSnapshot.groups.find((group) => group.name === 'api-users'));
+  assert.ok(groupingSnapshot.groups.find((group) => group.name === 'api-hero-settings'));
+  assert.ok(groupingSnapshot.groups.find((group) => group.name === 'api-site-settings'));
+
   const service2 = createRequestMetricsService();
   const req = { method: 'GET', originalUrl: '/article/42' };
   const res = new EventEmitter();
