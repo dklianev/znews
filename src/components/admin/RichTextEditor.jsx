@@ -92,7 +92,7 @@ export default function RichTextEditor({
   placeholder = 'Напиши съдържанието на статията...',
   className = '',
 }) {
-  const { media, refreshMedia, uploadMedia } = useAdminData();
+  const { media, ensureMediaLoaded, refreshMedia, uploadMedia } = useAdminData();
   const editorRef = useRef(null);
   const savedRangeRef = useRef(null);
   const [selectionTick, setSelectionTick] = useState(0);
@@ -110,6 +110,11 @@ export default function RichTextEditor({
     if (!q) return media;
     return media.filter((item) => (item.name || '').toLowerCase().includes(q));
   }, [media, mediaQuery]);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    void ensureMediaLoaded();
+  }, [ensureMediaLoaded, pickerOpen]);
 
   useEffect(() => {
     if (!editorRef.current) return;

@@ -75,6 +75,8 @@ export function DataProvider({ children }) {
   const [publicSectionStatus, setPublicSectionStatus] = useState(EMPTY_PUBLIC_SECTION_STATUS);
   const publicSectionStatusRef = useRef(EMPTY_PUBLIC_SECTION_STATUS);
   const publicLoadersRef = useRef({ jobs: null, court: null, events: null, gallery: null, games: null });
+  const mediaLoaderRef = useRef(null);
+  const mediaLoadedRef = useRef(false);
   const [session, setSession] = useState(getSession);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -398,18 +400,10 @@ export function DataProvider({ children }) {
       setSiteSettingsRevisions(siteRevisionsResult.status === "fulfilled" ? siteRevisionsResult.value : []);
       setTips(tipsResult.status === "fulfilled" ? tipsResult.value : []);
 
-      if (shouldLoadMedia) {
-        const [mediaResult, mediaPipelineResult] = await Promise.allSettled([
-          api.media.getAll(),
-          api.media.getPipelineStatus(),
-        ]);
-        setMedia(mediaResult.status === "fulfilled" ? mediaResult.value : []);
-        setMediaPipelineStatus(mediaPipelineResult.status === "fulfilled" ? mediaPipelineResult.value : null);
-        if (mediaResult.status === "rejected") console.error("Failed to load media:", mediaResult.reason);
-        if (mediaPipelineResult.status === "rejected") console.error("Failed to load media pipeline status:", mediaPipelineResult.reason);
-      } else {
+      if (!shouldLoadMedia) {
         setMedia([]);
         setMediaPipelineStatus(null);
+        mediaLoadedRef.current = false;
       }
 
       if (adsResult.status === "rejected") console.error("Failed to load ads:", adsResult.reason);
@@ -421,6 +415,7 @@ export function DataProvider({ children }) {
       setPermissions([]);
       setMedia([]);
       setMediaPipelineStatus(null);
+      mediaLoadedRef.current = false;
       setArticleRevisions({});
       setHeroSettingsRevisions([]);
       setSiteSettingsRevisions([]);
@@ -469,6 +464,7 @@ export function DataProvider({ children }) {
     setPermissions([]);
     setMedia([]);
     setMediaPipelineStatus(null);
+    mediaLoadedRef.current = false;
     setArticleRevisions({});
     setHeroSettingsRevisions([]);
     setSiteSettingsRevisions([]);
@@ -707,18 +703,54 @@ export function DataProvider({ children }) {
 
   // Media Library
   const refreshMedia = useCallback(async () => {
-    try {
-      const [items, pipelineStatus] = await Promise.all([
-        api.media.getAll(),
-        api.media.getPipelineStatus(),
-      ]);
-      setMedia(items);
-      setMediaPipelineStatus(pipelineStatus);
-    } catch {
-      setMedia([]);
-      setMediaPipelineStatus(null);
-    }
+    if (mediaLoaderRef.current) return mediaLoaderRef.current;
+
+    const task = Promise.all([
+      api.media.getAll(),
+      api.media.getPipelineStatus(),
+    ])
+      .then(([items, pipelineStatus]) => {
+        const normalizedItems = Array.isArray(items) ? items : [];
+        const normalizedPipelineStatus = pipelineStatus || null;
+        setMedia(normalizedItems);
+        setMediaPipelineStatus(normalizedPipelineStatus);
+        mediaLoadedRef.current = true;
+        return {
+          items: normalizedItems,
+          pipelineStatus: normalizedPipelineStatus,
+        };
+      })
+      .catch((error) => {
+        setMedia([]);
+        setMediaPipelineStatus(null);
+        mediaLoadedRef.current = false;
+        throw error;
+      })
+      .finally(() => {
+        if (mediaLoaderRef.current === task) {
+          mediaLoaderRef.current = null;
+        }
+      });
+
+    mediaLoaderRef.current = task;
+    return task;
   }, []);
+  const ensureMediaLoaded = useCallback(async () => {
+    if (mediaLoadedRef.current) {
+      return {
+        items: media,
+        pipelineStatus: mediaPipelineStatus,
+      };
+    }
+    try {
+      return await refreshMedia();
+    } catch {
+      return {
+        items: [],
+        pipelineStatus: null,
+      };
+    }
+  }, [media, mediaPipelineStatus, refreshMedia]);
   const uploadMedia = useCallback(async (file, options = {}) => {
     const uploaded = await api.media.upload(file, {
       applyWatermark: options?.applyWatermark !== false,
@@ -847,7 +879,7 @@ export function DataProvider({ children }) {
     articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
     heroSettingsRevisions, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
     siteSettingsRevisions, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
-    media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
+    media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
     users, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
     tips, refreshTips, deleteTip, updateTip, createTip,
@@ -856,7 +888,7 @@ export function DataProvider({ children }) {
     articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
     heroSettingsRevisions, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
     siteSettingsRevisions, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
-    media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
+    media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
     users, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
     tips, refreshTips, deleteTip, updateTip, createTip,
@@ -882,7 +914,7 @@ export function DataProvider({ children }) {
     games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
-    media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
+    media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
     users, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
     tips, refreshTips, deleteTip, updateTip, createTip,
@@ -907,7 +939,7 @@ export function DataProvider({ children }) {
     games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
-    media, mediaPipelineStatus, refreshMedia, uploadMedia, deleteMedia, backfillMediaPipeline,
+    media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
     users, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
     tips, refreshTips, deleteTip, updateTip, createTip,

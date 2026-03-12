@@ -93,7 +93,7 @@ export default function AdminImageField({
   guideMode = '',
   imageRequirements = null,
 }) {
-  const { media, uploadMedia, refreshMedia } = useAdminData();
+  const { media, ensureMediaLoaded, uploadMedia, refreshMedia } = useAdminData();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -111,6 +111,11 @@ export default function AdminImageField({
     if (!q) return media;
     return media.filter((item) => (item.name || '').toLowerCase().includes(q));
   }, [media, query]);
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    void ensureMediaLoaded();
+  }, [ensureMediaLoaded, pickerOpen]);
 
   const previewImageStyle = useMemo(() => getPreviewImageStyle(imageMeta), [imageMeta]);
   const uploadFileName = useMemo(() => getUploadFilenameFromMediaUrl(value), [value]);

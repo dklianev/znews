@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminData } from '../../context/DataContext';
 import { Upload, Trash2, Copy, RefreshCw, Search, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
 import UploadWatermarkToggle from '../../components/admin/UploadWatermarkToggle';
@@ -7,7 +7,7 @@ import ImageEditorDialog from '../../components/admin/ImageEditorDialog';
 import useUploadWatermarkPreference from '../../hooks/useUploadWatermarkPreference';
 
 export default function ManageMedia() {
-  const { media, mediaPipelineStatus, uploadMedia, deleteMedia, refreshMedia, backfillMediaPipeline } = useAdminData();
+  const { media, mediaPipelineStatus, ensureMediaLoaded, uploadMedia, deleteMedia, refreshMedia, backfillMediaPipeline } = useAdminData();
   const toast = useToast();
   const [query, setQuery] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -22,6 +22,10 @@ export default function ManageMedia() {
   const [applyWatermark, setApplyWatermark] = useUploadWatermarkPreference();
   const fileRef = useRef(null);
   const uploadLockRef = useRef(false);
+
+  useEffect(() => {
+    void ensureMediaLoaded();
+  }, [ensureMediaLoaded]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
