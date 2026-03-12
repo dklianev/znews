@@ -8,6 +8,7 @@ const AdminDataContext = createContext();
 const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 const HOMEPAGE_ARTICLE_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,status,publishAt,cardSticker';
 const EMPTY_PUBLIC_SECTION_STATUS = Object.freeze({ jobs: 'idle', court: 'idle', events: 'idle', gallery: 'idle', games: 'idle' });
+const MEDIA_PERMISSION_KEYS = Object.freeze(['articles', 'ads', 'gallery', 'events']);
 
 function collectCommentThreadIdsLocal(items, rootId) {
   const parsedRootId = Number.parseInt(rootId, 10);
@@ -36,6 +37,14 @@ function collectCommentThreadIdsLocal(items, rootId) {
   }
 
   return ids;
+}
+
+function canAccessMediaLibrary(session, permissions) {
+  if (!session?.token) return false;
+  if (session.role === 'admin') return true;
+  const rolePermissions = (Array.isArray(permissions) ? permissions : []).find((item) => item?.role === session.role);
+  if (!rolePermissions?.permissions || typeof rolePermissions.permissions !== 'object') return false;
+  return MEDIA_PERMISSION_KEYS.some((key) => Boolean(rolePermissions.permissions[key]));
 }
 
 export function DataProvider({ children }) {
@@ -370,33 +379,43 @@ export function DataProvider({ children }) {
     }
 
     if (session?.token) {
-      const [adsResult, usersResult, permsResult, commentsResult, mediaResult, mediaPipelineResult, heroRevisionsResult, siteRevisionsResult, tipsResult] = await Promise.allSettled([
+      const [adsResult, usersResult, permsResult, commentsResult, heroRevisionsResult, siteRevisionsResult, tipsResult] = await Promise.allSettled([
         api.ads.getAll(),
         api.users.getAll(),
         api.permissions.getAll(),
         api.comments.getAll(),
-        api.media.getAll(),
-        api.media.getPipelineStatus(),
         api.heroSettings.getRevisions(),
         api.siteSettings.getRevisions(),
         api.tips.getAll(),
       ]);
+      const resolvedPermissions = permsResult.status === "fulfilled" ? permsResult.value : [];
+      const shouldLoadMedia = canAccessMediaLibrary(session, resolvedPermissions);
       setAds((prev) => (adsResult.status === "fulfilled" ? adsResult.value : prev));
       setUsers(usersResult.status === "fulfilled" ? usersResult.value : []);
-      setPermissions(permsResult.status === "fulfilled" ? permsResult.value : []);
+      setPermissions(resolvedPermissions);
       setComments(commentsResult.status === "fulfilled" ? commentsResult.value : []);
-      setMedia(mediaResult.status === "fulfilled" ? mediaResult.value : []);
-      setMediaPipelineStatus(mediaPipelineResult.status === "fulfilled" ? mediaPipelineResult.value : null);
       setHeroSettingsRevisions(heroRevisionsResult.status === "fulfilled" ? heroRevisionsResult.value : []);
       setSiteSettingsRevisions(siteRevisionsResult.status === "fulfilled" ? siteRevisionsResult.value : []);
       setTips(tipsResult.status === "fulfilled" ? tipsResult.value : []);
+
+      if (shouldLoadMedia) {
+        const [mediaResult, mediaPipelineResult] = await Promise.allSettled([
+          api.media.getAll(),
+          api.media.getPipelineStatus(),
+        ]);
+        setMedia(mediaResult.status === "fulfilled" ? mediaResult.value : []);
+        setMediaPipelineStatus(mediaPipelineResult.status === "fulfilled" ? mediaPipelineResult.value : null);
+        if (mediaResult.status === "rejected") console.error("Failed to load media:", mediaResult.reason);
+        if (mediaPipelineResult.status === "rejected") console.error("Failed to load media pipeline status:", mediaPipelineResult.reason);
+      } else {
+        setMedia([]);
+        setMediaPipelineStatus(null);
+      }
 
       if (adsResult.status === "rejected") console.error("Failed to load ads:", adsResult.reason);
       if (usersResult.status === "rejected") console.error("Failed to load users:", usersResult.reason);
       if (permsResult.status === "rejected") console.error("Failed to load permissions:", permsResult.reason);
       if (commentsResult.status === "rejected") console.error("Failed to load comments:", commentsResult.reason);
-      if (mediaResult.status === "rejected") console.error("Failed to load media:", mediaResult.reason);
-      if (mediaPipelineResult.status === "rejected") console.error("Failed to load media pipeline status:", mediaPipelineResult.reason);
     } else {
       setUsers([]);
       setPermissions([]);

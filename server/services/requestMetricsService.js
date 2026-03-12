@@ -46,6 +46,7 @@ export function createRequestMetricsService({
   maxRecentEntries = 60,
   maxSlowEntries = 30,
 } = {}) {
+  const startedAt = new Date().toISOString();
   const groups = new Map();
   const recentRequests = [];
   const slowRequests = [];
@@ -151,6 +152,7 @@ export function createRequestMetricsService({
 
     const cacheTrackedRequests = totals.cacheHits + totals.cacheMisses;
     return {
+      startedAt,
       totals: {
         ...totals,
         hitRate: cacheTrackedRequests > 0 ? Number((totals.cacheHits / cacheTrackedRequests).toFixed(3)) : null,

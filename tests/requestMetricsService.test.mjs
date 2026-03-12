@@ -10,6 +10,7 @@ export async function runRequestMetricsServiceTests() {
   service.recordRequestMetric({ method: 'GET', path: '/uploads/test.jpg', statusCode: 200, durationMs: 50, cacheStatus: '' });
 
   const snapshot = service.getRequestMetricsSnapshot();
+  assert.ok(snapshot.startedAt);
   assert.equal(snapshot.totals.requests, 2);
   assert.equal(snapshot.totals.cacheHits, 1);
   assert.equal(snapshot.totals.cacheMisses, 1);
