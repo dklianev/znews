@@ -203,8 +203,7 @@ function getBannerInteraction(ad, onClick) {
 function AdLabel({ className = '' }) {
   return (
     <span
-      className={`absolute z-20 rotate-3 border-2 border-white/40 bg-gradient-to-r from-zn-hot to-zn-orange px-2 py-1 text-[9px] font-display font-black uppercase tracking-widest text-white ${className}`}
-      style={{ boxShadow: '2px 2px 0 #1C1428' }}
+      className={`ad-label absolute z-20 rotate-3 border-2 border-white/40 bg-gradient-to-r from-zn-hot to-zn-orange px-2 py-1 text-[9px] font-display font-black uppercase tracking-widest text-white ${className}`}
     >
       РЕКЛАМА
     </span>
@@ -235,9 +234,9 @@ function AdCreativeBackground({ ad, creative, overlayClassName = '', glowClassNa
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
       {containMode && (
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 ad-contain-bg"
           style={{
-            background: `linear-gradient(135deg, ${ad?.color || '#3b1f54'} 0%, #1C1428 55%, #120d1f 100%)`,
+            '--ad-color': ad?.color || '#3b1f54',
           }}
         />
       )}

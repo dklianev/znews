@@ -23,7 +23,7 @@ export default function MostWanted() {
       style={{ '--widget-tilt': '0.35deg' }}
     >
       {/* Tape decoration */}
-      <div className="absolute -top-2 left-8 w-16 h-5 bg-yellow-200/70 border border-black/5 transform -rotate-8 z-10" style={{boxShadow:'1px 1px 2px rgba(0,0,0,0.1)'}} />
+      <div className="tape-deco absolute -top-2 left-8 w-16 h-5 bg-yellow-200/70 dark:bg-yellow-700/30 border border-black/5 dark:border-yellow-600/20 transform -rotate-8 z-10" />
       {/* Comic stamp */}
       <div className="absolute -top-4 -right-4 comic-stamp-circle animate-wiggle z-20">
         ИЗДИРВАН!
@@ -47,8 +47,8 @@ export default function MostWanted() {
             }`}
           >
             <span className={`text-2xl font-display font-black shrink-0 w-7 transition-transform duration-200 group-hover:scale-110 ${
-              index === 0 ? 'text-zn-hot text-comic-stroke' : 'text-zn-border'
-            }`} style={index === 0 ? {textShadow:'2px 2px 0 rgba(204,10,26,0.2)'} : {}}>
+              index === 0 ? 'text-zn-hot text-comic-stroke wanted-number-hot' : 'text-zn-border'
+            }`}>
               {index + 1}
             </span>
             <div className="min-w-0 flex-1">

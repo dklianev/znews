@@ -352,10 +352,9 @@ export default function Navbar() {
                 </div>
 
                 <span className="relative z-20 font-comic text-5xl sm:text-7xl md:text-8xl lg:text-[9.5rem] tracking-tight uppercase leading-none block" style={{ letterSpacing: '-0.01em' }} role="img" aria-label="zNews">
-                  <span className="text-white" style={{ WebkitTextStroke: '2px rgba(0,0,0,0.3)', textShadow: '4px 4px 0 rgba(0,0,0,0.4)' }}>z</span>
+                  <span className="text-white logo-z-letter">z</span>
                   <span
-                    className="inline-block pr-[0.14em] text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-400 to-orange-500"
-                    style={{ WebkitTextStroke: '2px rgba(0,0,0,0.15)', filter: 'drop-shadow(4px 4px 0 rgba(0,0,0,0.35))' }}
+                    className="inline-block pr-[0.14em] text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 via-yellow-400 to-orange-500 logo-news-letters"
                   >
                     News
                   </span>
@@ -363,13 +362,13 @@ export default function Navbar() {
 
                 {/* Megaphone badge */}
                 <div className="absolute -top-1 right-0 sm:-right-2 md:-right-3 transform rotate-12 z-10">
-                  <div className="bg-yellow-400 p-1.5 md:p-2 border-2 border-black/20" style={{ boxShadow: '3px 3px 0 rgba(0,0,0,0.3)', borderRadius: '50%' }}>
+                  <div className="logo-megaphone-badge bg-yellow-400 p-1.5 md:p-2 border-2 border-black/20 rounded-full">
                     <Megaphone className="w-5 h-5 md:w-7 md:h-7 text-zn-purple-deep" />
                   </div>
                 </div>
               </div>
 
-              <p className="font-display text-[9px] sm:text-[10px] md:text-xs text-white/60 tracking-[0.28em] sm:tracking-[0.5em] uppercase mt-2" style={{ textShadow: '2px 2px 4px rgba(0,0,0,0.6)' }}>
+              <p className="font-display text-[9px] sm:text-[10px] md:text-xs text-white/60 tracking-[0.28em] sm:tracking-[0.5em] uppercase mt-2 logo-subtitle-text">
                 Горещи новини &bull; Скандали &bull; Слухове
               </p>
               <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
@@ -431,7 +430,7 @@ export default function Navbar() {
               {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
             {/* Mobile logo */}
-            <Link to="/" className="md:hidden font-comic text-3xl uppercase" style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.1)' }}>
+            <Link to="/" className="md:hidden font-comic text-3xl uppercase logo-mobile-text">
               <span className="text-zn-black">z</span>
               <span className="text-zn-hot">News</span>
             </Link>
@@ -456,7 +455,7 @@ export default function Navbar() {
                 style={mobileNavStyle}
               >
                 <div
-                  className="mx-auto max-w-[1400px] border-2 border-[#1C1428]/75 bg-[#F5EEDF] shadow-[0_12px_24px_rgba(28,20,40,0.3)] overflow-y-auto overscroll-contain"
+                  className="mx-auto max-w-[1400px] border-2 border-[#1C1428]/75 bg-[#F5EEDF] dark:bg-[#2A2438] dark:border-[#524A62]/75 shadow-[0_12px_24px_rgba(28,20,40,0.3)] dark:shadow-[0_12px_24px_rgba(0,0,0,0.5)] overflow-y-auto overscroll-contain"
                   style={mobileNavInnerStyle}
                 >
                   {mobileNav}

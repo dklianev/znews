@@ -53,6 +53,7 @@
       linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 45%),
       url("data:image/svg+xml,%3Csvg width='6' height='6' viewBox='0 0 6 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a0927a' fill-opacity='0.15'%3E%3Cpath d='M5 0h1L0 6V5zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
     overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   h1,
@@ -377,6 +378,7 @@
     box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25), 0 0 0 2px rgba(0, 0, 0, 0.08), inset 0 0 80px rgba(0, 0, 0, 0.03);
     border: 1px solid rgba(0, 0, 0, 0.1);
     overflow: visible;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
   }
 
   /* ── Cards ── */
@@ -1789,13 +1791,23 @@ div.bg-zn-bg.text-white {
   border-color: #524a62;
   box-shadow: 4px 4px 0 #0a0812, 0 10px 16px rgba(0, 0, 0, 0.34);
   background:
-    linear-gradient(180deg, #f2e8d7 0%, #e8dbc8 100%),
-    radial-gradient(circle at 1px 1px, rgba(28, 20, 40, 0.1) 1px, transparent 1px);
+    linear-gradient(180deg, #2A2438 0%, #221D30 100%),
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   background-size: auto, 14px 14px;
 }
 
+.dark .comic-headline-board::after {
+  border-color: rgba(82, 74, 98, 0.3);
+}
+
 .dark .comic-headline-board-word-hot {
-  color: #c70a18;
+  color: #E81228;
+  text-shadow: 1px 1px 0 rgba(204, 10, 26, 0.4), 0 0 10px rgba(204, 10, 26, 0.15);
+}
+
+.dark .comic-headline-board-word-ink {
+  color: #EDE4D0;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
 }
 
 .dark .comic-wire-card:hover {
@@ -2046,6 +2058,65 @@ div.bg-zn-bg.text-white {
 
 .dark .text-comic-stroke {
   -webkit-text-stroke: 2px #0A0812;
+}
+
+/* ── Logo letter styles ── */
+.logo-z-letter {
+  -webkit-text-stroke: 2px rgba(0, 0, 0, 0.3);
+  text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.4);
+}
+
+.logo-news-letters {
+  -webkit-text-stroke: 2px rgba(0, 0, 0, 0.15);
+  filter: drop-shadow(4px 4px 0 rgba(0, 0, 0, 0.35));
+}
+
+.dark .logo-z-letter {
+  -webkit-text-stroke: 2px rgba(255, 255, 255, 0.15);
+  text-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.dark .logo-news-letters {
+  -webkit-text-stroke: 2px rgba(0, 0, 0, 0.3);
+  filter: drop-shadow(4px 4px 0 rgba(0, 0, 0, 0.5)) drop-shadow(0 0 12px rgba(255, 212, 71, 0.15));
+}
+
+.logo-megaphone-badge {
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.dark .logo-megaphone-badge {
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.5), 0 0 8px rgba(255, 212, 71, 0.15);
+}
+
+.logo-subtitle-text {
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.logo-mobile-text {
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+.dark .logo-mobile-text {
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* ── Tape decorations ── */
+.tape-deco {
+  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.dark .tape-deco {
+  box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Wanted number hot ── */
+.wanted-number-hot {
+  text-shadow: 2px 2px 0 rgba(204, 10, 26, 0.2);
+}
+
+.dark .wanted-number-hot {
+  text-shadow: 2px 2px 0 rgba(204, 10, 26, 0.5), 0 0 8px rgba(204, 10, 26, 0.15);
 }
 
 /* ── Emerald success messages ── */
@@ -2973,6 +3044,34 @@ div.bg-zn-bg.text-white {
     background: rgba(62, 54, 84, 0.55);
   }
 
+  .dark .comic-heat-fill {
+    background: linear-gradient(90deg, #CC0A1A 0%, #E87420 55%, #FFD447 100%);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+  }
+
+  /* ── Trending numbers → dark override ── */
+  .dark .trending-number-1 {
+    border-color: #660510;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  }
+
+  .dark .trending-number-2 {
+    border-color: #9A4A0A;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  }
+
+  .dark .trending-number-3 {
+    border-color: #4E1A6E;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  }
+
+  .dark .trending-number-default {
+    background: #3E3654;
+    color: #B0A28A;
+    border-color: #524A62;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  }
+
   .dark .comic-poll-option {
     border-color: #524A62;
     background: linear-gradient(180deg, rgba(42, 36, 56, 0.82) 0%, rgba(34, 29, 48, 0.8) 100%);
@@ -2981,6 +3080,24 @@ div.bg-zn-bg.text-white {
   .dark .comic-poll-option:hover {
     border-color: rgba(123, 53, 181, 0.72);
     box-shadow: 3px 3px 0 #0A0812;
+  }
+
+  /* ── Ad label shadow ── */
+  .ad-label {
+    box-shadow: 2px 2px 0 #1C1428;
+  }
+
+  .dark .ad-label {
+    box-shadow: 2px 2px 0 #0A0812;
+  }
+
+  /* ── Ad contain-mode background gradient ── */
+  .ad-contain-bg {
+    background: linear-gradient(135deg, var(--ad-color, #3b1f54) 0%, #1C1428 55%, #120d1f 100%);
+  }
+
+  .dark .ad-contain-bg {
+    background: linear-gradient(135deg, var(--ad-color, #3b1f54) 0%, #0A0812 55%, #06040a 100%);
   }
 
   .dark .comic-ad-side:hover {

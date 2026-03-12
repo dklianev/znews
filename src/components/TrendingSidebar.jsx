@@ -41,8 +41,8 @@ export default function TrendingSidebar() {
       style={{ '--widget-tilt': '-0.35deg' }}
     >
       {/* Tape decorations */}
-      <div className="absolute -top-2 right-6 w-14 h-5 bg-yellow-200/70 border border-black/5 transform rotate-6 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
-      <div className="absolute -top-2 left-8 w-12 h-5 bg-yellow-200/60 border border-black/5 transform -rotate-4 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
+      <div className="tape-deco absolute -top-2 right-6 w-14 h-5 bg-yellow-200/70 dark:bg-yellow-700/30 border border-black/5 dark:border-yellow-600/20 transform rotate-6 z-10" />
+      <div className="tape-deco absolute -top-2 left-8 w-12 h-5 bg-yellow-200/60 dark:bg-yellow-700/25 border border-black/5 dark:border-yellow-600/20 transform -rotate-4 z-10" />
       <div className="absolute -top-2 -right-2 z-20">
         <span className="comic-sticker">TOP 5</span>
       </div>
