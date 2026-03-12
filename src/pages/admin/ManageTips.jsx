@@ -5,7 +5,7 @@ import { useToast } from '../../components/admin/Toast';
 import { useNavigate } from 'react-router-dom';
 
 export default function ManageTips() {
-    const { tips, refreshTips, ensureTipsLoaded, updateTip, deleteTip } = useAdminData();
+    const { tips, tipsReady, refreshTips, ensureTipsLoaded, updateTip, deleteTip } = useAdminData();
     const toast = useToast();
     const navigate = useNavigate();
     const [query, setQuery] = useState('');
@@ -92,7 +92,7 @@ export default function ManageTips() {
             </div>
 
             <div className="space-y-4">
-                {filtered.length === 0 ? (
+                {tipsReady && filtered.length === 0 ? (
                     <div className="p-8 text-center text-gray-500 font-sans border border-gray-200 border-dashed bg-gray-50">
                         Няма намерени сигнали.
                     </div>

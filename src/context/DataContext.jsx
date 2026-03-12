@@ -70,8 +70,10 @@ export function DataProvider({ children }) {
   const [mediaPipelineStatus, setMediaPipelineStatus] = useState(null);
   const [articleRevisions, setArticleRevisions] = useState({});
   const [users, setUsers] = useState([]);
+  const [usersReady, setUsersReady] = useState(false);
   const [permissions, setPermissions] = useState([]);
   const [tips, setTips] = useState([]);
+  const [tipsReady, setTipsReady] = useState(false);
   const [publicSectionStatus, setPublicSectionStatus] = useState(EMPTY_PUBLIC_SECTION_STATUS);
   const publicSectionStatusRef = useRef(EMPTY_PUBLIC_SECTION_STATUS);
   const publicLoadersRef = useRef({ jobs: null, court: null, events: null, gallery: null, games: null });
@@ -397,7 +399,9 @@ export function DataProvider({ children }) {
           setPermissions([]);
           setComments([]);
           setUsers([]);
+          setUsersReady(false);
           setTips([]);
+          setTipsReady(false);
           setMedia([]);
           setMediaPipelineStatus(null);
           mediaLoadedRef.current = false;
@@ -430,11 +434,13 @@ export function DataProvider({ children }) {
 
       if (!canLoadUsers) {
         setUsers([]);
+        setUsersReady(false);
         usersLoadedRef.current = false;
       }
 
       if (!canLoadTips) {
         setTips([]);
+        setTipsReady(false);
         tipsLoadedRef.current = false;
       }
 
@@ -442,6 +448,7 @@ export function DataProvider({ children }) {
       if (commentsResult.status === "rejected") console.error("Failed to load comments:", commentsResult.reason);
     } else {
       setUsers([]);
+      setUsersReady(false);
       setPermissions([]);
       setMedia([]);
       setMediaPipelineStatus(null);
@@ -453,6 +460,7 @@ export function DataProvider({ children }) {
       setSiteSettingsRevisions([]);
       setComments([]);
       setTips([]);
+      setTipsReady(false);
     }
 
     setLoading(false);
@@ -493,6 +501,7 @@ export function DataProvider({ children }) {
     setSession(null);
     setHomepage(null);
     setUsers([]);
+    setUsersReady(false);
     setPermissions([]);
     setMedia([]);
     setMediaPipelineStatus(null);
@@ -504,6 +513,7 @@ export function DataProvider({ children }) {
     setSiteSettingsRevisions([]);
     setComments([]);
     setTips([]);
+    setTipsReady(false);
     syncPublicSectionStatus(EMPTY_PUBLIC_SECTION_STATUS);
   }, []);
 
@@ -812,6 +822,7 @@ export function DataProvider({ children }) {
       .then((loadedUsers) => {
         const normalized = Array.isArray(loadedUsers) ? loadedUsers : [];
         setUsers(normalized);
+        setUsersReady(true);
         usersLoadedRef.current = true;
         return normalized;
       })
@@ -837,17 +848,20 @@ export function DataProvider({ children }) {
   const addUser = useCallback(async (u) => {
     const n = await api.users.create(u);
     usersLoadedRef.current = true;
+    setUsersReady(true);
     setUsers(prev => [...prev, n]);
   }, []);
   const updateUser = useCallback(async (id, u) => {
     const updated = await api.users.update(id, u);
     usersLoadedRef.current = true;
+    setUsersReady(true);
     setUsers(prev => prev.map(x => x.id === id ? updated : x));
   }, []);
   const deleteUser = useCallback(async (id) => {
     if (id === 1) return;
     await api.users.delete(id);
     usersLoadedRef.current = true;
+    setUsersReady(true);
     setUsers(prev => prev.filter(x => x.id !== id));
   }, []);
 
@@ -900,6 +914,7 @@ export function DataProvider({ children }) {
       .then((loadedTips) => {
         const normalized = Array.isArray(loadedTips) ? loadedTips : [];
         setTips(normalized);
+        setTipsReady(true);
         tipsLoadedRef.current = true;
         return normalized;
       })
@@ -922,11 +937,13 @@ export function DataProvider({ children }) {
   const deleteTip = useCallback(async (id) => {
     await api.tips.delete(id);
     tipsLoadedRef.current = true;
+    setTipsReady(true);
     setTips(prev => prev.filter(t => t.id !== id));
   }, []);
   const updateTip = useCallback(async (id, status) => {
     const updated = await api.tips.update(id, status);
     tipsLoadedRef.current = true;
+    setTipsReady(true);
     setTips(prev => prev.map(t => t.id === id ? updated : t));
   }, []);
   const createTip = useCallback(async (formData) => {
@@ -981,18 +998,18 @@ export function DataProvider({ children }) {
     heroSettingsRevisions, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
     siteSettingsRevisions, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
     media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
-    users, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
+    users, usersReady, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
-    tips, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
+    tips, tipsReady, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
     resetAll,
   }), [
     articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
     heroSettingsRevisions, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
     siteSettingsRevisions, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
     media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
-    users, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
+    users, usersReady, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
-    tips, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
+    tips, tipsReady, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
     resetAll,
   ]);
 
@@ -1016,9 +1033,9 @@ export function DataProvider({ children }) {
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
-    users, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
+    users, usersReady, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
-    tips, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
+    tips, tipsReady, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
     session, login, logout,
     refresh: fetchAll, resetAll,
   }), [
@@ -1041,9 +1058,9 @@ export function DataProvider({ children }) {
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
-    users, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
+    users, usersReady, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
-    tips, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
+    tips, tipsReady, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
     session, login, logout,
     fetchAll, resetAll,
   ]);

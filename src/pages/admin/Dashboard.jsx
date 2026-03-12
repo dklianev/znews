@@ -30,7 +30,7 @@ function AnalyticsFallback() {
 
 export default function Dashboard() {
   const { articles, authors, wanted, jobs, court, events, polls, comments, gallery, categories } = usePublicData();
-  const { users, ensureUsersLoaded, resetAll, hasPermission } = useAdminData();
+  const { users, usersReady, ensureUsersLoaded, resetAll, hasPermission } = useAdminData();
   const { session } = useSessionData();
   const [resetting, setResetting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -252,7 +252,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                 ))}
-                {users.length === 0 && (
+                {usersReady && users.length === 0 && (
                   <p className="py-4 text-center text-sm text-gray-400">{dashboardCopy.noUsers}</p>
                 )}
               </div>
