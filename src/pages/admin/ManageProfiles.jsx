@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
@@ -25,7 +25,7 @@ const emptyForm = {
 
 export default function ManageProfiles() {
   const { authors, articles, addAuthor, updateAuthor, deleteAuthor } = usePublicData();
-  const { users, addUser, updateUser, deleteUser, permissions, createRole } = useAdminData();
+  const { users, ensureUsersLoaded, addUser, updateUser, deleteUser, permissions, createRole } = useAdminData();
   const { session } = useSessionData();
   const canManageUsers = session?.role === 'admin';
   const [editing, setEditing] = useState(null); // null | 'new' | userId
@@ -35,6 +35,11 @@ export default function ManageProfiles() {
   const [newRoleError, setNewRoleError] = useState('');
   const [creatingRole, setCreatingRole] = useState(false);
   const toast = useToast();
+
+  useEffect(() => {
+    if (tab !== 'users') return;
+    void ensureUsersLoaded();
+  }, [tab, ensureUsersLoaded]);
 
   const isValidRoleKey = (role) => /^[a-z][a-z0-9_-]{1,31}$/.test(role);
 

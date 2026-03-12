@@ -1,4 +1,4 @@
-import { Suspense, lazy, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
 import { api } from '../../utils/api';
 import {
@@ -30,7 +30,7 @@ function AnalyticsFallback() {
 
 export default function Dashboard() {
   const { articles, authors, wanted, jobs, court, events, polls, comments, gallery, categories } = usePublicData();
-  const { users, resetAll, hasPermission } = useAdminData();
+  const { users, ensureUsersLoaded, resetAll, hasPermission } = useAdminData();
   const { session } = useSessionData();
   const [resetting, setResetting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -39,6 +39,11 @@ export default function Dashboard() {
   const isAdmin = session?.role === 'admin';
   const canSeeAnalytics = hasPermission('articles');
   const canSeeTeam = hasPermission('profiles');
+
+  useEffect(() => {
+    if (!canSeeTeam) return;
+    void ensureUsersLoaded();
+  }, [canSeeTeam, ensureUsersLoaded]);
 
   const totalViews = useMemo(
     () => articles.reduce((sum, article) => sum + (article.views || 0), 0),

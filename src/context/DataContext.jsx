@@ -77,6 +77,10 @@ export function DataProvider({ children }) {
   const publicLoadersRef = useRef({ jobs: null, court: null, events: null, gallery: null, games: null });
   const mediaLoaderRef = useRef(null);
   const mediaLoadedRef = useRef(false);
+  const usersLoaderRef = useRef(null);
+  const usersLoadedRef = useRef(false);
+  const tipsLoaderRef = useRef(null);
+  const tipsLoadedRef = useRef(false);
   const [session, setSession] = useState(getSession);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -381,24 +385,21 @@ export function DataProvider({ children }) {
     }
 
     if (session?.token) {
-      const [adsResult, usersResult, permsResult, commentsResult, heroRevisionsResult, siteRevisionsResult, tipsResult] = await Promise.allSettled([
+      const [adsResult, permsResult, commentsResult] = await Promise.allSettled([
         api.ads.getAll(),
-        api.users.getAll(),
         api.permissions.getAll(),
         api.comments.getAll(),
-        api.heroSettings.getRevisions(),
-        api.siteSettings.getRevisions(),
-        api.tips.getAll(),
       ]);
       const resolvedPermissions = permsResult.status === "fulfilled" ? permsResult.value : [];
       const shouldLoadMedia = canAccessMediaLibrary(session, resolvedPermissions);
+      const rolePermissions = Array.isArray(resolvedPermissions)
+        ? resolvedPermissions.find((item) => item?.role === session.role)
+        : null;
+      const canLoadUsers = session.role === 'admin' || Boolean(rolePermissions?.permissions?.profiles);
+      const canLoadTips = session.role === 'admin' || Boolean(rolePermissions?.permissions?.articles);
       setAds((prev) => (adsResult.status === "fulfilled" ? adsResult.value : prev));
-      setUsers(usersResult.status === "fulfilled" ? usersResult.value : []);
       setPermissions(resolvedPermissions);
       setComments(commentsResult.status === "fulfilled" ? commentsResult.value : []);
-      setHeroSettingsRevisions(heroRevisionsResult.status === "fulfilled" ? heroRevisionsResult.value : []);
-      setSiteSettingsRevisions(siteRevisionsResult.status === "fulfilled" ? siteRevisionsResult.value : []);
-      setTips(tipsResult.status === "fulfilled" ? tipsResult.value : []);
 
       if (!shouldLoadMedia) {
         setMedia([]);
@@ -406,8 +407,17 @@ export function DataProvider({ children }) {
         mediaLoadedRef.current = false;
       }
 
+      if (!canLoadUsers) {
+        setUsers([]);
+        usersLoadedRef.current = false;
+      }
+
+      if (!canLoadTips) {
+        setTips([]);
+        tipsLoadedRef.current = false;
+      }
+
       if (adsResult.status === "rejected") console.error("Failed to load ads:", adsResult.reason);
-      if (usersResult.status === "rejected") console.error("Failed to load users:", usersResult.reason);
       if (permsResult.status === "rejected") console.error("Failed to load permissions:", permsResult.reason);
       if (commentsResult.status === "rejected") console.error("Failed to load comments:", commentsResult.reason);
     } else {
@@ -416,6 +426,8 @@ export function DataProvider({ children }) {
       setMedia([]);
       setMediaPipelineStatus(null);
       mediaLoadedRef.current = false;
+      usersLoadedRef.current = false;
+      tipsLoadedRef.current = false;
       setArticleRevisions({});
       setHeroSettingsRevisions([]);
       setSiteSettingsRevisions([]);
@@ -465,6 +477,8 @@ export function DataProvider({ children }) {
     setMedia([]);
     setMediaPipelineStatus(null);
     mediaLoadedRef.current = false;
+    usersLoadedRef.current = false;
+    tipsLoadedRef.current = false;
     setArticleRevisions({});
     setHeroSettingsRevisions([]);
     setSiteSettingsRevisions([]);
@@ -769,9 +783,53 @@ export function DataProvider({ children }) {
   }, [refreshMedia]);
 
   // Users (admin)
-  const addUser = useCallback(async (u) => { const n = await api.users.create(u); setUsers(prev => [...prev, n]); }, []);
-  const updateUser = useCallback(async (id, u) => { const updated = await api.users.update(id, u); setUsers(prev => prev.map(x => x.id === id ? updated : x)); }, []);
-  const deleteUser = useCallback(async (id) => { if (id === 1) return; await api.users.delete(id); setUsers(prev => prev.filter(x => x.id !== id)); }, []);
+  const refreshUsers = useCallback(async () => {
+    const canLoadUsers = session?.role === 'admin' || permissions.some((item) => item?.role === session?.role && item?.permissions?.profiles);
+    if (!session?.token || !canLoadUsers) return [];
+    if (usersLoaderRef.current) return usersLoaderRef.current;
+
+    const task = api.users.getAll()
+      .then((loadedUsers) => {
+        const normalized = Array.isArray(loadedUsers) ? loadedUsers : [];
+        setUsers(normalized);
+        usersLoadedRef.current = true;
+        return normalized;
+      })
+      .finally(() => {
+        if (usersLoaderRef.current === task) {
+          usersLoaderRef.current = null;
+        }
+      });
+
+    usersLoaderRef.current = task;
+    return task;
+  }, [permissions, session?.role, session?.token]);
+  const ensureUsersLoaded = useCallback(async () => {
+    const canLoadUsers = session?.role === 'admin' || permissions.some((item) => item?.role === session?.role && item?.permissions?.profiles);
+    if (!session?.token || !canLoadUsers) return [];
+    if (usersLoadedRef.current) return users;
+    try {
+      return await refreshUsers();
+    } catch {
+      return [];
+    }
+  }, [permissions, refreshUsers, session?.role, session?.token, users]);
+  const addUser = useCallback(async (u) => {
+    const n = await api.users.create(u);
+    usersLoadedRef.current = true;
+    setUsers(prev => [...prev, n]);
+  }, []);
+  const updateUser = useCallback(async (id, u) => {
+    const updated = await api.users.update(id, u);
+    usersLoadedRef.current = true;
+    setUsers(prev => prev.map(x => x.id === id ? updated : x));
+  }, []);
+  const deleteUser = useCallback(async (id) => {
+    if (id === 1) return;
+    await api.users.delete(id);
+    usersLoadedRef.current = true;
+    setUsers(prev => prev.filter(x => x.id !== id));
+  }, []);
 
   // Permissions
   const hasPermission = useCallback((section) => {
@@ -814,18 +872,41 @@ export function DataProvider({ children }) {
 
   // Tips
   const refreshTips = useCallback(async () => {
-    if (!session?.token) return;
-    try {
-      const ts = await api.tips.getAll();
-      setTips(ts);
-    } catch { }
-  }, [session?.token]);
+    const canLoadTips = session?.role === 'admin' || permissions.some((item) => item?.role === session?.role && item?.permissions?.articles);
+    if (!session?.token || !canLoadTips) return [];
+    if (tipsLoaderRef.current) return tipsLoaderRef.current;
+
+    const task = api.tips.getAll()
+      .then((loadedTips) => {
+        const normalized = Array.isArray(loadedTips) ? loadedTips : [];
+        setTips(normalized);
+        tipsLoadedRef.current = true;
+        return normalized;
+      })
+      .catch(() => [])
+      .finally(() => {
+        if (tipsLoaderRef.current === task) {
+          tipsLoaderRef.current = null;
+        }
+      });
+
+    tipsLoaderRef.current = task;
+    return task;
+  }, [permissions, session?.role, session?.token]);
+  const ensureTipsLoaded = useCallback(async () => {
+    const canLoadTips = session?.role === 'admin' || permissions.some((item) => item?.role === session?.role && item?.permissions?.articles);
+    if (!session?.token || !canLoadTips) return [];
+    if (tipsLoadedRef.current) return tips;
+    return await refreshTips();
+  }, [permissions, refreshTips, session?.role, session?.token, tips]);
   const deleteTip = useCallback(async (id) => {
     await api.tips.delete(id);
+    tipsLoadedRef.current = true;
     setTips(prev => prev.filter(t => t.id !== id));
   }, []);
   const updateTip = useCallback(async (id, status) => {
     const updated = await api.tips.update(id, status);
+    tipsLoadedRef.current = true;
     setTips(prev => prev.map(t => t.id === id ? updated : t));
   }, []);
   const createTip = useCallback(async (formData) => {
@@ -880,18 +961,18 @@ export function DataProvider({ children }) {
     heroSettingsRevisions, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
     siteSettingsRevisions, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
     media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
-    users, addUser, updateUser, deleteUser,
+    users, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
-    tips, refreshTips, deleteTip, updateTip, createTip,
+    tips, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
     resetAll,
   }), [
     articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
     heroSettingsRevisions, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
     siteSettingsRevisions, loadSiteSettingsRevisions, restoreSiteSettingsRevision,
     media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
-    users, addUser, updateUser, deleteUser,
+    users, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
-    tips, refreshTips, deleteTip, updateTip, createTip,
+    tips, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
     resetAll,
   ]);
 
@@ -915,9 +996,9 @@ export function DataProvider({ children }) {
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
-    users, addUser, updateUser, deleteUser,
+    users, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
-    tips, refreshTips, deleteTip, updateTip, createTip,
+    tips, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
     session, login, logout,
     refresh: fetchAll, resetAll,
   }), [
@@ -940,9 +1021,9 @@ export function DataProvider({ children }) {
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
-    users, addUser, updateUser, deleteUser,
+    users, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
-    tips, refreshTips, deleteTip, updateTip, createTip,
+    tips, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
     session, login, logout,
     fetchAll, resetAll,
   ]);
