@@ -58,6 +58,14 @@ export function createContentSanitizers() {
     return ['left', 'center', 'right'].includes(normalized) ? normalized : 'center';
   }
 
+  function sanitizeImageAlt(value) {
+    const normalized = normalizeText(value, 180);
+    if (!normalized) return '';
+    if (/^[\w.-]+\.(avif|gif|jpe?g|png|svg|webp)$/i.test(normalized)) return '';
+    if (/^\d{8,}[-_][\w-]+\.(avif|gif|jpe?g|png|svg|webp)$/i.test(normalized)) return '';
+    return normalized;
+  }
+
   function sanitizeTags(value) {
     const rawTags = Array.isArray(value)
       ? value
@@ -115,7 +123,7 @@ export function createContentSanitizers() {
 
         const safeSrc = sanitizeMediaUrl(src);
         if (!safeSrc) return '';
-        const safeAlt = normalizeText(alt, 180);
+        const safeAlt = sanitizeImageAlt(alt);
         const safeWidth = sanitizeImageWidth(width);
         const safeAlign = sanitizeImageAlign(align);
         return `<img src="${escapeHtml(safeSrc)}" alt="${escapeHtml(safeAlt)}" loading="lazy" decoding="async" fetchpriority="low" data-width="${escapeHtml(safeWidth)}" data-align="${escapeHtml(safeAlign)}">`;
@@ -143,6 +151,7 @@ export function createContentSanitizers() {
     sanitizeDateTime,
     sanitizeExternalUrl,
     sanitizeImageAlign,
+    sanitizeImageAlt,
     sanitizeImageWidth,
     sanitizeMediaUrl,
     sanitizeSafeHtml,

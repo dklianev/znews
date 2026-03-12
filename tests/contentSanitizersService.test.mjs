@@ -27,6 +27,9 @@ export async function runContentSanitizersTests() {
 
   assert.equal(helpers.sanitizeImageAlign('LEFT'), 'left');
   assert.equal(helpers.sanitizeImageAlign('weird'), 'center');
+  assert.equal(helpers.sanitizeImageAlt('Promo card'), 'Promo card');
+  assert.equal(helpers.sanitizeImageAlt('1773099819155-967896.webp'), '');
+  assert.equal(helpers.sanitizeImageAlt('poster-final.png'), '');
 
   assert.deepEqual(helpers.sanitizeTags('one, two , ,three'), ['one', 'two', 'three']);
   assert.deepEqual(helpers.sanitizeTags(['alpha', ' beta ', '', 'gamma']), ['alpha', 'beta', 'gamma']);
@@ -42,5 +45,9 @@ export async function runContentSanitizersTests() {
   assert.equal(
     helpers.sanitizeSafeHtml('<img src="/uploads/pic.jpg" alt="Promo card" data-width="75" data-align="RIGHT" onload="x()">'),
     '<img src="/uploads/pic.jpg" alt="Promo card" loading="lazy" decoding="async" fetchpriority="low" data-width="75" data-align="right">'
+  );
+  assert.equal(
+    helpers.sanitizeSafeHtml('<img src="/uploads/pic.jpg" alt="1773099819155-967896.webp">'),
+    '<img src="/uploads/pic.jpg" alt="" loading="lazy" decoding="async" fetchpriority="low" data-width="100" data-align="center">'
   );
 }
