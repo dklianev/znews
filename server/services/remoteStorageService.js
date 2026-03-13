@@ -50,6 +50,23 @@ export function createRemoteStorageService(deps) {
     });
   }
 
+  async function readAzureResponseText(response) {
+    return response.text().catch(() => '');
+  }
+
+  async function assertAzureBlobResponse(response, action, { allowedStatuses = [] } = {}) {
+    if (allowedStatuses.includes(response.status)) {
+      return response;
+    }
+
+    if (response.ok) {
+      return response;
+    }
+
+    const details = await readAzureResponseText(response);
+    throw new Error(`Azure Blob ${action} failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+  }
+
   function parseAzureListBlobsResult(xmlPayload) {
     const xml = String(xmlPayload || '');
     const blobs = [];
@@ -87,10 +104,7 @@ export function createRemoteStorageService(deps) {
         marker,
         maxresults: 5000,
       });
-      if (!response.ok) {
-        const details = await response.text().catch(() => '');
-        throw new Error(`Azure Blob list failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
-      }
+      await assertAzureBlobResponse(response, 'list');
       const xml = await response.text();
       const parsed = parseAzureListBlobsResult(xml);
       items.push(...parsed.blobs);
@@ -112,11 +126,7 @@ export function createRemoteStorageService(deps) {
 
       await Promise.all(chunk.map(async (blobKey) => {
         const response = await sendAzureBlobRequest(blobKey, { method: 'DELETE' });
-        if (response.status === 404) return;
-        if (!response.ok) {
-          const details = await response.text().catch(() => '');
-          throw new Error(`Azure Blob delete failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
-        }
+        await assertAzureBlobResponse(response, 'delete', { allowedStatuses: [404] });
       }));
     }
   }

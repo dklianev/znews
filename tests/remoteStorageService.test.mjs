@@ -4,6 +4,7 @@ import { createRemoteStorageService } from '../server/services/remoteStorageServ
 export async function runRemoteStorageServiceTests() {
   await testAzureBlobListingParsesKeysAndMetadata();
   await testAzureBlobListingSupportsPagination();
+  await testAzureBlobListingIncludesResponseTextOnFailure();
 }
 
 async function testAzureBlobListingParsesKeysAndMetadata() {
@@ -124,4 +125,30 @@ async function testAzureBlobListingSupportsPagination() {
   assert.equal(items[0].Key, 'uploads/first.png');
   assert.equal(items[1].Key, 'uploads/second.png');
   assert.ok(seenUrls[1].includes('marker=page-2'));
+}
+
+async function testAzureBlobListingIncludesResponseTextOnFailure() {
+  const service = createRemoteStorageService({
+    azureBlobApiVersion: '2023-11-03',
+    azureBlobContainer: 'media',
+    azureBlobSasToken: 'sig=test',
+    encodePathForUrl: (value) => value,
+    fetchImpl: async () => ({
+      ok: false,
+      status: 500,
+      text: async () => 'azure is unhappy',
+    }),
+    isAzureStorage: true,
+    isSpacesStorage: false,
+    ListObjectsV2Command: class {},
+    DeleteObjectsCommand: class {},
+    normalizedAzureBlobEndpoint: 'https://example.blob.core.windows.net',
+    spacesBucket: '',
+    spacesS3Client: null,
+  });
+
+  await assert.rejects(
+    () => service.listRemoteObjectsByPrefix('uploads/'),
+    /Azure Blob list failed \(500\): azure is unhappy/
+  );
 }
