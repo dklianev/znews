@@ -1,4 +1,5 @@
 import express from 'express';
+import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function createPublicGamesRouter(deps) {
   const {
@@ -15,7 +16,6 @@ export function createPublicGamesRouter(deps) {
     normalizeSpellingBeeWord,
     normalizeSpellingBeeWords,
     normalizeText,
-    publicError,
     resolveGameAccess,
     sanitizeStringArray,
     SINGLE_CHAR_PATTERN,
@@ -28,93 +28,77 @@ export function createPublicGamesRouter(deps) {
 
   const gamesRouter = express.Router();
 
-  gamesRouter.get('/', async (_req, res) => {
-    try {
-      const games = await listPublicGames();
-      res.json(games);
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
+  gamesRouter.get('/', asyncHandler(async (_req, res) => {
+    const games = await listPublicGames();
+    return res.json(games);
+  }));
+
+  gamesRouter.get('/:slug/today', asyncHandler(async (req, res) => {
+    const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
+    if (!game) return res.status(404).json({ error: 'Not found' });
+    if (!isPubliclyAvailable && !canManageGames) {
+      return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
     }
-  });
 
-  gamesRouter.get('/:slug/today', async (req, res) => {
-    try {
-      const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
-      if (!game) return res.status(404).json({ error: 'Not found' });
-      if (!isPubliclyAvailable && !canManageGames) {
-        return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
-      }
-
-      const puzzle = await findActivePublishedGamePuzzle(slug, getTodayGameDate());
-      if (!puzzle) return res.status(404).json({ error: 'No puzzle for today' });
-      if (isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution) && !canManageGames) {
-        return res.status(404).json({ error: 'No puzzle for today' });
-      }
-
-      res.json(stripPuzzleForPublic(puzzle));
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
+    const puzzle = await findActivePublishedGamePuzzle(slug, getTodayGameDate());
+    if (!puzzle) return res.status(404).json({ error: 'No puzzle for today' });
+    if (isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution) && !canManageGames) {
+      return res.status(404).json({ error: 'No puzzle for today' });
     }
-  });
 
-  gamesRouter.get('/:slug/archive', async (req, res) => {
-    try {
-      const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
-      if (!game) return res.status(404).json({ error: 'Not found' });
-      if (!isPubliclyAvailable && !canManageGames) {
-        return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
-      }
+    return res.json(stripPuzzleForPublic(puzzle));
+  }));
 
-      const limit = Math.min(Number.parseInt(req.query.limit, 10) || 30, 100);
-      const puzzles = await GamePuzzle.find({ gameSlug: slug, status: 'published' })
-        .sort({ puzzleDate: -1, activeUntilDate: -1 })
-        .limit(limit)
-        .lean();
-      res.json(
-        canManageGames
-          ? puzzles
-          : puzzles
-            .filter((puzzle) => !isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution))
-            .map((puzzle) => {
-              const safePuzzle = { ...puzzle };
-              delete safePuzzle.solution;
-              delete safePuzzle.editorNotes;
-              delete safePuzzle.payload;
-              return safePuzzle;
-            })
-      );
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
+  gamesRouter.get('/:slug/archive', asyncHandler(async (req, res) => {
+    const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
+    if (!game) return res.status(404).json({ error: 'Not found' });
+    if (!isPubliclyAvailable && !canManageGames) {
+      return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
     }
-  });
 
-  gamesRouter.get('/:slug/:date', async (req, res) => {
-    try {
-      const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
-      if (!game) return res.status(404).json({ error: 'Not found' });
-      if (!isPubliclyAvailable && !canManageGames) {
-        return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
-      }
+    const limit = Math.min(Number.parseInt(req.query.limit, 10) || 30, 100);
+    const puzzles = await GamePuzzle.find({ gameSlug: slug, status: 'published' })
+      .sort({ puzzleDate: -1, activeUntilDate: -1 })
+      .limit(limit)
+      .lean();
+    return res.json(
+      canManageGames
+        ? puzzles
+        : puzzles
+          .filter((puzzle) => !isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution))
+          .map((puzzle) => {
+            const safePuzzle = { ...puzzle };
+            delete safePuzzle.solution;
+            delete safePuzzle.editorNotes;
+            delete safePuzzle.payload;
+            return safePuzzle;
+          })
+    );
+  }));
 
-      const date = normalizeText(req.params.date, 10);
-      const puzzle = await GamePuzzle.findOne({ gameSlug: slug, puzzleDate: date }).lean();
-
-      if (!puzzle) return res.status(404).json({ error: 'Not found' });
-      if (isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution) && !canManageGames) {
-        return res.status(404).json({ error: 'Not found' });
-      }
-
-      if (puzzle.status !== 'published' && !canManageGames) {
-        return res.status(404).json({ error: 'Not found' });
-      }
-
-      res.json(canManageGames ? puzzle : stripPuzzleForPublic(puzzle));
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
+  gamesRouter.get('/:slug/:date', asyncHandler(async (req, res) => {
+    const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
+    if (!game) return res.status(404).json({ error: 'Not found' });
+    if (!isPubliclyAvailable && !canManageGames) {
+      return res.status(404).json({ error: TEMPORARILY_UNAVAILABLE_GAME_ERROR });
     }
-  });
 
-  gamesRouter.post('/:slug/:date/validate', async (req, res) => {
+    const date = normalizeText(req.params.date, 10);
+    const puzzle = await GamePuzzle.findOne({ gameSlug: slug, puzzleDate: date }).lean();
+
+    if (!puzzle) return res.status(404).json({ error: 'Not found' });
+    if (isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution) && !canManageGames) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    if (puzzle.status !== 'published' && !canManageGames) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    return res.json(canManageGames ? puzzle : stripPuzzleForPublic(puzzle));
+  }));
+
+  gamesRouter.post('/:slug/:date/validate', asyncHandler(async (req, res) => {
     try {
       const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
       if (!game) return res.status(404).json({ error: 'Not found' });
@@ -289,11 +273,11 @@ export function createPublicGamesRouter(deps) {
         });
       }
 
-      res.json({ ok: true });
-    } catch (e) {
-      res.status(e.status || 500).json({ error: statusAwarePublicError(e) });
+      return res.json({ ok: true });
+    } catch (error) {
+      return res.status(error.status || 500).json({ error: statusAwarePublicError(error) });
     }
-  });
+  }));
 
   return gamesRouter;
 }
