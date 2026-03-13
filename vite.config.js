@@ -42,10 +42,16 @@ export default defineConfig({
           if (!normalizedId.includes('/node_modules/')) return undefined;
           if (normalizedId.includes('/node_modules/recharts/')) return 'recharts';
           if (
+            normalizedId.includes('/node_modules/framer-motion/')
+            || normalizedId.includes('/node_modules/motion-dom/')
+            || normalizedId.includes('/node_modules/motion-utils/')
+          ) {
+            return 'motion';
+          }
+          if (
             normalizedId.includes('/node_modules/react/') ||
             normalizedId.includes('/node_modules/react-dom/') ||
-            normalizedId.includes('/node_modules/react-router-dom/') ||
-            normalizedId.includes('/node_modules/framer-motion/')
+            normalizedId.includes('/node_modules/react-router-dom/')
           ) {
             return 'vendor';
           }
