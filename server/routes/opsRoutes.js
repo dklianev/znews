@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function registerOpsRoutes(app, deps) {
   const {
@@ -27,38 +28,34 @@ export function registerOpsRoutes(app, deps) {
     };
   }
 
-  app.get('/api/audit-log', requireAuth, requirePermission('permissions'), async (req, res) => {
-    try {
-      const limit = parsePositiveInt(req.query.limit, 200, { min: 1, max: 200 });
-      const cursor = parseAuditLogCursor(req.query.cursor);
-      const filter = {};
+  app.get('/api/audit-log', requireAuth, requirePermission('permissions'), asyncHandler(async (req, res) => {
+    const limit = parsePositiveInt(req.query.limit, 200, { min: 1, max: 200 });
+    const cursor = parseAuditLogCursor(req.query.cursor);
+    const filter = {};
 
-      if (cursor) {
-        filter.$or = [
-          { timestamp: { $lt: cursor.timestamp } },
-          { timestamp: cursor.timestamp, _id: { $lt: cursor.id } },
-        ];
-      }
-
-      const items = await AuditLog.find(filter)
-        .sort({ timestamp: -1, _id: -1 })
-        .limit(limit)
-        .lean();
-
-      const last = items.length > 0 ? items[items.length - 1] : null;
-      const nextCursor = items.length === limit && last
-        ? `${new Date(last.timestamp).getTime()}:${String(last._id)}`
-        : null;
-
-      items.forEach((item) => {
-        delete item._id;
-        delete item.__v;
-      });
-      res.json({ items, nextCursor });
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
+    if (cursor) {
+      filter.$or = [
+        { timestamp: { $lt: cursor.timestamp } },
+        { timestamp: cursor.timestamp, _id: { $lt: cursor.id } },
+      ];
     }
-  });
+
+    const items = await AuditLog.find(filter)
+      .sort({ timestamp: -1, _id: -1 })
+      .limit(limit)
+      .lean();
+
+    const last = items.length > 0 ? items[items.length - 1] : null;
+    const nextCursor = items.length === limit && last
+      ? `${new Date(last.timestamp).getTime()}:${String(last._id)}`
+      : null;
+
+    items.forEach((item) => {
+      delete item._id;
+      delete item.__v;
+    });
+    res.json({ items, nextCursor });
+  }));
 
   app.get('/api/backup', requireAuth, requireAdmin, async (_req, res) => {
     try {
@@ -72,16 +69,12 @@ export function registerOpsRoutes(app, deps) {
     }
   });
 
-  app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
-    try {
-      if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PRODUCTION_RESET !== 'true') {
-        return res.status(403).json({ error: 'Production reset is disabled.' });
-      }
-      const { seedAll } = await import('../seed.js');
-      await seedAll();
-      res.json({ ok: true });
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
+  app.post('/api/reset', requireAuth, requireAdmin, asyncHandler(async (_req, res) => {
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PRODUCTION_RESET !== 'true') {
+      return res.status(403).json({ error: 'Production reset is disabled.' });
     }
-  });
+    const { seedAll } = await import('../seed.js');
+    await seedAll();
+    res.json({ ok: true });
+  }));
 }
