@@ -65,6 +65,7 @@ export default function ManageContactMessages() {
     archived: items.filter((m) => m?.status === 'archived').length,
   }), [items]);
 
+  /*
   const setStatus = async (id, status) => {
     const numericId = Number.parseInt(String(id), 10);
     if (!Number.isInteger(numericId)) return;
@@ -105,6 +106,7 @@ export default function ManageContactMessages() {
     }
   };
 
+  */
   const runOptimisticStatusUpdate = async (id, status) => {
     const numericId = Number.parseInt(String(id), 10);
     if (!Number.isInteger(numericId)) return;

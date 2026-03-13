@@ -56,6 +56,7 @@ export default function ManageTips() {
         }
     };
 
+    /*
     const setStatus = async (id, status) => {
         setBusyTip({ id, action: 'status' });
         applyTipUpdate({ type: 'status', id, status });
@@ -67,6 +68,7 @@ export default function ManageTips() {
         }
     };
 
+    */
     const runOptimisticStatusUpdate = async (id, status) => {
         setBusyTip({ id, action: 'status' });
         applyTipUpdate({ type: 'status', id, status });
