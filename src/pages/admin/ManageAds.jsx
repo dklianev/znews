@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Pencil, Trash2, X, Save, ExternalLink, ImageIcon, AlertTriangle, Loader2, Eye, Info } from 'lucide-react';
 import { usePublicData } from '../../context/DataContext';
 import AdminImageField from '../../components/admin/AdminImageField';
@@ -372,6 +372,7 @@ export default function ManageAds() {
   const [previewSlotId, setPreviewSlotId] = useState('');
   const [creativeViewport, setCreativeViewport] = useState('desktop');
   const toast = useToast();
+  const fieldRefs = useRef(new Map());
 
   const normalizedAds = useMemo(() => (Array.isArray(ads) ? ads : []).map((ad) => normalizeAdRecord(ad)).sort((a, b) => (b.priority || 0) - (a.priority || 0) || (b.id || 0) - (a.id || 0)), [ads]);
   const categoriesById = useMemo(() => new Map((Array.isArray(categories) ? categories : []).map((category) => [category.id, category])), [categories]);
@@ -488,11 +489,43 @@ export default function ManageAds() {
     return errors;
   }, [draftPayload]);
 
-  const handleToggle = (field, value) => setForm((prev) => {
-    const next = new Set(prev[field] || []);
-    if (next.has(value)) next.delete(value); else next.add(value);
-    return { ...prev, [field]: [...next] };
-  });
+  const validationMessages = useMemo(() => Object.fromEntries(validationEntries), [validationEntries]);
+
+  const registerFieldRef = (field) => (node) => {
+    if (node) fieldRefs.current.set(field, node);
+    else fieldRefs.current.delete(field);
+  };
+
+  const focusValidationField = (field) => {
+    const node = fieldRefs.current.get(field);
+    if (!node) return;
+    if (typeof node.scrollIntoView === 'function') {
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    const target = typeof node.focus === 'function' && node.tabIndex >= 0
+      ? node
+      : node.querySelector?.('input, select, textarea, button, [tabindex]');
+    if (target && typeof target.focus === 'function') {
+      requestAnimationFrame(() => target.focus({ preventScroll: true }));
+    }
+  };
+
+  const getFieldError = (field) => validationMessages[field] || '';
+  const getInputClassName = (field, className = inputCls) => (
+    getFieldError(field) ? `${className} !border-red-400 bg-red-50/30` : className
+  );
+  const clearFormError = () => {
+    if (error) setError('');
+  };
+
+  const handleToggle = (field, value) => {
+    clearFormError();
+    setForm((prev) => {
+      const next = new Set(prev[field] || []);
+      if (next.has(value)) next.delete(value); else next.add(value);
+      return { ...prev, [field]: [...next] };
+    });
+  };
 
   const updateCoverImageMeta = (patch) => setForm((prev) => ({
     ...prev,
@@ -512,7 +545,10 @@ export default function ManageAds() {
 
   const handleSave = async () => {
     setError('');
-    if (validationEntries.length > 0) return setError(validationEntries[0][1]);
+    if (validationEntries.length > 0) {
+      focusValidationField(validationEntries[0][0]);
+      return;
+    }
     setSaving(true);
     try {
       if (editing === 'new') {
@@ -562,9 +598,17 @@ export default function ManageAds() {
             {error ? (
               <div>{error}</div>
             ) : (
-              <ul className="list-disc space-y-1 pl-4">
+              <ul className="space-y-1">
                 {validationEntries.map(([field, message]) => (
-                  <li key={field}>{message}</li>
+                  <li key={field}>
+                    <button
+                      type="button"
+                      onClick={() => focusValidationField(field)}
+                      className="text-left hover:underline underline-offset-2"
+                    >
+                      {message}
+                    </button>
+                  </li>
                 ))}
               </ul>
             )}
@@ -684,9 +728,20 @@ export default function ManageAds() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div><label className={labelCls}>{'Кампания'}</label><input className={inputCls} value={form.campaignName} onChange={(e) => setForm({ ...form, campaignName: e.target.value })} placeholder="Spring launch" /></div>
+              <div><label className={labelCls}>{'Кампания'}</label><input className={inputCls} value={form.campaignName} onChange={(e) => { clearFormError(); setForm({ ...form, campaignName: e.target.value }); }} placeholder="Spring launch" /></div>
               <div><label className={labelCls}>{'Статус'}</label><select className={inputCls} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{AD_STATUS_OPTIONS.map((status) => <option key={status} value={status}>{AD_STATUS_LABELS[status] || status}</option>)}</select></div>
-              <div><label className={labelCls}>{'Заглавие'}</label><input className={inputCls} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder={'Нов продукт'} /></div>
+              <div ref={registerFieldRef('title')}>
+                <label className={labelCls}>{'Заглавие'}</label>
+                <input
+                  className={getInputClassName('title')}
+                  value={form.title}
+                  onChange={(e) => { clearFormError(); setForm({ ...form, title: e.target.value }); }}
+                  placeholder={'Нов продукт'}
+                  aria-invalid={getFieldError('title') ? 'true' : 'false'}
+                  aria-describedby={getFieldError('title') ? 'ad-title-error' : undefined}
+                />
+                {getFieldError('title') && <p id="ad-title-error" className="mt-1 text-xs text-red-600">{getFieldError('title')}</p>}
+              </div>
               <div><label className={labelCls}>{'Подзаглавие'}</label><input className={inputCls} value={form.subtitle} onChange={(e) => setForm({ ...form, subtitle: e.target.value })} placeholder={'Кратък текст'} /></div>
               <div className="md:col-span-2 rounded-xl border border-gray-200 bg-[#fbfaf7] px-4 py-3">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -696,7 +751,7 @@ export default function ManageAds() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, showTitle: !prev.showTitle }))}
+                    onClick={() => { clearFormError(); setForm((prev) => ({ ...prev, showTitle: !prev.showTitle })); }}
                     className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${form.showTitle ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'}`}
                   >
                     {form.showTitle ? 'Заглавието е видимо' : 'Без заглавие'}
@@ -711,7 +766,7 @@ export default function ManageAds() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setForm((prev) => prev.clickable ? { ...prev, clickable: false, showButton: false } : { ...prev, clickable: true })}
+                    onClick={() => { clearFormError(); setForm((prev) => prev.clickable ? { ...prev, clickable: false, showButton: false } : { ...prev, clickable: true }); }}
                     className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${form.clickable ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'}`}
                   >
                     {form.clickable ? 'Clickable е включено' : 'Static без link'}
@@ -726,7 +781,7 @@ export default function ManageAds() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setForm((prev) => prev.showButton ? { ...prev, showButton: false } : { ...prev, clickable: true, showButton: true })}
+                    onClick={() => { clearFormError(); setForm((prev) => prev.showButton ? { ...prev, showButton: false } : { ...prev, clickable: true, showButton: true }); }}
                     className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${form.showButton ? 'border-zn-purple bg-zn-purple text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'}`}
                   >
                     {form.showButton ? 'Бутонът е видим' : 'Без CTA бутон'}
@@ -734,13 +789,35 @@ export default function ManageAds() {
                 </div>
               </div>
               {form.showButton ? (
-                <div><label className={labelCls}>CTA</label><input className={inputCls} value={form.cta} onChange={(e) => setForm({ ...form, cta: e.target.value })} placeholder={'Виж повече'} /></div>
+                <div ref={registerFieldRef('cta')}>
+                  <label className={labelCls}>CTA</label>
+                  <input
+                    className={getInputClassName('cta')}
+                    value={form.cta}
+                    onChange={(e) => { clearFormError(); setForm({ ...form, cta: e.target.value }); }}
+                    placeholder={'Виж повече'}
+                    aria-invalid={getFieldError('cta') ? 'true' : 'false'}
+                    aria-describedby={getFieldError('cta') ? 'ad-cta-error' : undefined}
+                  />
+                  {getFieldError('cta') && <p id="ad-cta-error" className="mt-1 text-xs text-red-600">{getFieldError('cta')}</p>}
+                </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">{'Банерът ще се показва без CTA бутон, но може да остане clickable.'}</div>
               )}
-              <div><label className={labelCls}>{'Тип банер'}</label><select className={inputCls} value={form.type} onChange={(e) => { const nextType = e.target.value; setForm((prev) => ({ ...prev, type: nextType, placements: prev.placements.filter((slotId) => AD_SLOT_DEFINITIONS.find((slot) => slot.id === slotId)?.variant === nextType) })); }}>{AD_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select><p className="mt-1 text-[11px] text-gray-500">{AD_TYPES.find((item) => item.value === form.type)?.description}</p></div>
+              <div><label className={labelCls}>{'Тип банер'}</label><select className={inputCls} value={form.type} onChange={(e) => { clearFormError(); const nextType = e.target.value; setForm((prev) => ({ ...prev, type: nextType, placements: prev.placements.filter((slotId) => AD_SLOT_DEFINITIONS.find((slot) => slot.id === slotId)?.variant === nextType) })); }}>{AD_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</select><p className="mt-1 text-[11px] text-gray-500">{AD_TYPES.find((item) => item.value === form.type)?.description}</p></div>
               {form.clickable ? (
-                <div className="md:col-span-2"><label className={labelCls}>{'Линк'}</label><input className={inputCls} value={form.link} onChange={(e) => setForm({ ...form, link: e.target.value })} placeholder="https://example.com" /></div>
+                <div className="md:col-span-2" ref={registerFieldRef('link')}>
+                  <label className={labelCls}>{'Линк'}</label>
+                  <input
+                    className={getInputClassName('link')}
+                    value={form.link}
+                    onChange={(e) => { clearFormError(); setForm({ ...form, link: e.target.value }); }}
+                    placeholder="https://example.com"
+                    aria-invalid={getFieldError('link') ? 'true' : 'false'}
+                    aria-describedby={getFieldError('link') ? 'ad-link-error' : undefined}
+                  />
+                  {getFieldError('link') && <p id="ad-link-error" className="mt-1 text-xs text-red-600">{getFieldError('link')}</p>}
+                </div>
               ) : (
                 <div className="md:col-span-2 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">{'Линкът се игнорира, докато рекламата е static.'}</div>
               )}
@@ -943,9 +1020,10 @@ export default function ManageAds() {
               </div>
             )}
 
-            <div className="border-t border-gray-200 pt-5">
+            <div className="border-t border-gray-200 pt-5" ref={registerFieldRef('placements')} tabIndex={-1}>
               <div className="mb-3"><h3 className="font-semibold text-gray-900">{'Позиции'}</h3><p className="mt-1 text-xs text-gray-500">{'Избери slot-овете, в които рекламата може да участва.'}</p></div>
-              <div className="space-y-4">{AD_PAGE_TYPES.map((pageType) => <div key={pageType} className="border border-gray-200 p-4"><p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">{PAGE_TYPE_LABELS[pageType]}</p><div className="space-y-2">{AD_SLOT_DEFINITIONS.filter((slot) => slot.pageType === pageType).map((slot) => { const checked = form.placements.includes(slot.id); const disabled = slot.variant !== form.type; return <label key={slot.id} className={`flex items-start gap-3 border p-3 ${checked ? 'border-zn-purple bg-zn-purple/5' : 'border-gray-200'} ${disabled ? 'opacity-40' : ''}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => handleToggle('placements', slot.id)} className="mt-1" /><span><span className="block text-sm font-semibold text-gray-900">{slot.label}</span><span className="block text-xs text-gray-500">{slot.description}</span><span className="mt-1 block text-[11px] text-gray-400">{'Формат: '}{AD_TYPE_LABELS[slot.variant]}</span></span></label>; })}</div></div>)}</div>
+              <div className={`space-y-4 rounded-2xl ${getFieldError('placements') ? 'border border-red-200 bg-red-50/40 p-4' : ''}`}>{AD_PAGE_TYPES.map((pageType) => <div key={pageType} className="border border-gray-200 p-4"><p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">{PAGE_TYPE_LABELS[pageType]}</p><div className="space-y-2">{AD_SLOT_DEFINITIONS.filter((slot) => slot.pageType === pageType).map((slot) => { const checked = form.placements.includes(slot.id); const disabled = slot.variant !== form.type; return <label key={slot.id} className={`flex items-start gap-3 border p-3 ${checked ? 'border-zn-purple bg-zn-purple/5' : 'border-gray-200'} ${disabled ? 'opacity-40' : ''} ${getFieldError('placements') ? 'focus-within:border-red-400' : ''}`}><input type="checkbox" checked={checked} disabled={disabled} onChange={() => handleToggle('placements', slot.id)} className="mt-1" aria-invalid={getFieldError('placements') ? 'true' : 'false'} aria-describedby={getFieldError('placements') ? 'ad-placements-error' : undefined} /><span><span className="block text-sm font-semibold text-gray-900">{slot.label}</span><span className="block text-xs text-gray-500">{slot.description}</span><span className="mt-1 block text-[11px] text-gray-400">{'Формат: '}{AD_TYPE_LABELS[slot.variant]}</span></span></label>; })}</div></div>)}</div>
+              {getFieldError('placements') && <p id="ad-placements-error" className="mt-3 text-xs text-red-600">{getFieldError('placements')}</p>}
             </div>
 
             <div className="border-t border-gray-200 pt-5">
@@ -973,16 +1051,17 @@ export default function ManageAds() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 border-t border-gray-200 pt-5 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 border-t border-gray-200 pt-5 md:grid-cols-2" ref={registerFieldRef('schedule')}>
               <div><label className={labelCls}>Priority</label><input type="number" className={inputCls} value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} /><p className="mt-1 text-[11px] text-gray-500">{'По-високата стойност печели над по-ниската на същия slot.'}</p></div>
               <div><label className={labelCls}>Weight</label><input type="number" min="1" className={inputCls} value={form.weight} onChange={(e) => setForm({ ...form, weight: e.target.value })} /><p className="mt-1 text-[11px] text-gray-500">{'Weight влияе само ако има ротация.'}</p></div>
-              <div><label className={labelCls}>Start</label><input type="datetime-local" className={inputCls} value={form.startAt} onChange={(e) => setForm({ ...form, startAt: e.target.value })} /></div>
-              <div><label className={labelCls}>End</label><input type="datetime-local" className={inputCls} value={form.endAt} onChange={(e) => setForm({ ...form, endAt: e.target.value })} /></div>
+              <div><label className={labelCls}>Start</label><input type="datetime-local" className={getInputClassName('schedule')} value={form.startAt} onChange={(e) => { clearFormError(); setForm({ ...form, startAt: e.target.value }); }} aria-invalid={getFieldError('schedule') ? 'true' : 'false'} aria-describedby={getFieldError('schedule') ? 'ad-schedule-error' : undefined} /></div>
+              <div><label className={labelCls}>End</label><input type="datetime-local" className={getInputClassName('schedule')} value={form.endAt} onChange={(e) => { clearFormError(); setForm({ ...form, endAt: e.target.value }); }} aria-invalid={getFieldError('schedule') ? 'true' : 'false'} aria-describedby={getFieldError('schedule') ? 'ad-schedule-error' : undefined} /></div>
+              {getFieldError('schedule') && <div className="md:col-span-2"><p id="ad-schedule-error" className="text-xs text-red-600">{getFieldError('schedule')}</p></div>}
               <div className="md:col-span-2"><label className={labelCls}>{'Бележки'}</label><textarea className={`${inputCls} min-h-[110px]`} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder={'Вътрешни бележки за екипа'} /></div>
             </div>
 
             <div className="flex gap-2 pt-2">
-              <button onClick={handleSave} disabled={saving || validationEntries.length > 0} className="flex items-center gap-2 bg-zn-purple px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{saving ? 'Записване...' : 'Запази'}</button>
+              <button onClick={handleSave} disabled={saving} aria-busy={saving} className="flex items-center gap-2 bg-zn-purple px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{saving ? 'Записване...' : 'Запази'}</button>
               <button onClick={() => { setEditing(null); setError(''); }} className="flex items-center gap-2 border border-gray-200 px-5 py-2 text-sm text-gray-600"><X className="h-4 w-4" />{'Отказ'}</button>
             </div>
           </div>
