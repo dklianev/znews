@@ -17,6 +17,25 @@ export function createDiagnosticsService(deps) {
     toBucketDate,
   } = deps;
 
+  function buildEmptyAdAnalyticsDiagnostics() {
+    return {
+      last7Days: {
+        impressions: 0,
+        clicks: 0,
+        rows: 0,
+      },
+      latestBucket: null,
+    };
+  }
+
+  async function withDiagnosticsFallback(task, fallbackValue) {
+    try {
+      return await task();
+    } catch {
+      return typeof fallbackValue === 'function' ? fallbackValue() : fallbackValue;
+    }
+  }
+
   async function getAdAnalyticsAggregateDiagnostics() {
     const cutoff = toBucketDate(new Date(Date.now() - (7 * 24 * 60 * 60 * 1000)));
     const [totals, latest] = await Promise.all([
@@ -40,12 +59,40 @@ export function createDiagnosticsService(deps) {
     };
   }
 
+  function getRecentErrors() {
+    return withDiagnosticsFallback(
+      async () => SystemEvent.find().sort({ lastSeenAt: -1 }).limit(12).lean(),
+      []
+    );
+  }
+
+  function getBackgroundJobStates() {
+    return withDiagnosticsFallback(
+      async () => BackgroundJobState.find().sort({ name: 1 }).lean(),
+      []
+    );
+  }
+
+  function getDiagnosticsMediaPipelineStatus() {
+    return withDiagnosticsFallback(
+      async () => getImagePipelineStatus(),
+      null
+    );
+  }
+
+  function getSafeAdAnalyticsDiagnostics() {
+    return withDiagnosticsFallback(
+      async () => getAdAnalyticsAggregateDiagnostics(),
+      () => buildEmptyAdAnalyticsDiagnostics()
+    );
+  }
+
   async function buildDiagnosticsPayload() {
     const [mediaPipeline, recentErrors, jobStates, adAnalytics] = await Promise.all([
-      getImagePipelineStatus().catch(() => null),
-      SystemEvent.find().sort({ lastSeenAt: -1 }).limit(12).lean().catch(() => []),
-      BackgroundJobState.find().sort({ name: 1 }).lean().catch(() => []),
-      getAdAnalyticsAggregateDiagnostics().catch(() => ({ last7Days: { impressions: 0, clicks: 0, rows: 0 }, latestBucket: null })),
+      getDiagnosticsMediaPipelineStatus(),
+      getRecentErrors(),
+      getBackgroundJobStates(),
+      getSafeAdAnalyticsDiagnostics(),
     ]);
     const recentUploadResults = getRecentUploadResults();
     const uploadRequestInFlight = getUploadRequestInFlight();

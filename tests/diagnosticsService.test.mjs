@@ -32,4 +32,38 @@ export async function runDiagnosticsServiceTests() {
   assert.equal(payload.cache.performance.hits, 3);
   assert.equal(payload.requestMetrics.totals.requests, 4);
   assert.equal(payload.requestMetrics.groups[0].name, 'api-homepage');
+
+  const degradedService = createDiagnosticsService({
+    AdAnalyticsAggregate: {
+      aggregate: async () => { throw new Error('aggregate failed'); },
+      findOne: () => ({ sort: () => ({ lean: async () => null }) }),
+    },
+    BackgroundJobState: {
+      find: () => ({ sort: () => ({ lean: async () => { throw new Error('jobs failed'); } }) }),
+    },
+    SystemEvent: {
+      find: () => ({ sort: () => ({ limit: () => ({ lean: async () => { throw new Error('events failed'); } }) }) }),
+    },
+    getApiCacheStats: () => ({ keyCount: 0, ttlSeconds: 60, countsByTag: {}, recentInvalidations: [], performance: { hits: 0, misses: 0, writes: 0, hitRate: 0, hitsByTag: {}, missesByTag: {} } }),
+    getImagePipelineStatus: async () => { throw new Error('pipeline failed'); },
+    getMongoHealthState: () => 'degraded',
+    getRecentUploadResults: () => new Map(),
+    getRequestMetricsSnapshot: () => ({ totals: { requests: 0, errors: 0, cacheHits: 0, cacheMisses: 0, hitRate: 0 }, groups: [], recentRequests: [], slowRequests: [], slowRequestThresholdMs: 900 }),
+    getUploadRequestInFlight: () => new Set(),
+    isRemoteStorage: true,
+    mongoose: { connection: { name: '', host: '' } },
+    sanitizeMonitoringMetadata: (value) => value,
+    storageDriver: 'spaces',
+    storagePublicBaseUrl: 'https://cdn.example.com',
+    toBucketDate: (value) => value,
+  });
+
+  const degradedPayload = await degradedService.buildDiagnosticsPayload();
+  assert.equal(degradedPayload.mediaPipeline, null);
+  assert.deepEqual(degradedPayload.monitoring.recentErrors, []);
+  assert.deepEqual(degradedPayload.jobs, []);
+  assert.deepEqual(degradedPayload.adAnalytics, {
+    last7Days: { impressions: 0, clicks: 0, rows: 0 },
+    latestBucket: null,
+  });
 }
