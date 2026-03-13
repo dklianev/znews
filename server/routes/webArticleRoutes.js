@@ -27,7 +27,9 @@ export function registerWebArticleRoutes(app, deps) {
 
   // The SPA can't set dynamic OG tags reliably, so for bot user-agents we serve a small HTML shell
   // with per-article meta and let real browsers fall back to the SPA entrypoint.
-  app.get('/article/:id(\\d+)', async (req, res, next) => {
+  // Express 5 no longer supports regexp sub-expressions in string paths.
+  // We keep numeric validation inside the handler to preserve behavior.
+  app.get('/article/:id', async (req, res, next) => {
     try {
       if (!isBotUserAgent(req)) return next();
 
@@ -51,7 +53,7 @@ export function registerWebArticleRoutes(app, deps) {
     }
   });
 
-  app.get('/share/article/:id(\\d+)', async (req, res) => {
+  app.get('/share/article/:id', async (req, res) => {
     try {
       const id = Number.parseInt(req.params.id, 10);
       if (!Number.isInteger(id)) return res.status(400).send('Invalid article id');

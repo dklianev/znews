@@ -737,7 +737,7 @@ if (!isRemoteStorage) {
     },
   }));
 } else {
-  app.get('/uploads/*', (req, res) => {
+  app.get('/uploads/{*splat}', (req, res) => {
     const rawSuffix = toPosixRelativePath(req.path.slice('/uploads/'.length));
     if (!rawSuffix || rawSuffix.includes('..')) return res.status(404).send('Not found');
     return res.redirect(302, toUploadsUrlFromRelative(rawSuffix));

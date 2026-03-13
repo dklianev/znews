@@ -18,7 +18,7 @@ export function registerWebSpaRoutes(app, deps) {
     immutable: isProd,
   }));
 
-  app.get('*', (_req, res) => {
+  app.get('/{*splat}', (_req, res) => {
     // Don't cache HTML; assets are fingerprinted and cached via express.static.
     res.setHeader('Cache-Control', 'no-store');
     res.sendFile(path.join(distPath, 'index.html'));

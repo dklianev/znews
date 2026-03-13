@@ -79,7 +79,9 @@ export function createArticlesPublicRouter(deps) {
     }
   });
 
-  articlesRouter.get('/:id(\\d+)', cacheMiddleware, async (req, res) => {
+  // Express 5 no longer supports regexp sub-expressions in string paths.
+  // We keep numeric validation inside the handler to preserve behavior.
+  articlesRouter.get('/:id', cacheMiddleware, async (req, res) => {
     try {
       const id = Number.parseInt(req.params.id, 10);
       if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
