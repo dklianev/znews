@@ -68,9 +68,25 @@ const authorSchema = new mongoose.Schema({
 
 // ÄÄÄ Category ÄÄÄ
 const categorySchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true },
-  name: String,
-  icon: String,
+  id: {
+    type: String,
+    required: [true, 'Slug е задължителен.'],
+    unique: true,
+    trim: true,
+    maxlength: [64, 'Slug-ът трябва да е до 64 символа.'],
+    match: [/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug-ът може да съдържа само малки латински букви, цифри и тирета.'],
+  },
+  name: {
+    type: String,
+    required: [true, 'Името е задължително.'],
+    trim: true,
+    maxlength: [80, 'Името трябва да е до 80 символа.'],
+  },
+  icon: {
+    type: String,
+    trim: true,
+    maxlength: [16, 'Иконата трябва да е до 16 символа.'],
+  },
 }, opts);
 
 // ÄÄÄ Ad ÄÄÄ
@@ -234,12 +250,52 @@ eventSchema.index(
 );
 
 // ─── Poll ───
+const pollOptionSchema = new mongoose.Schema({
+  text: {
+    type: String,
+    required: [true, 'Всяка опция трябва да има текст.'],
+    trim: true,
+    maxlength: [120, 'Опциите трябва да са до 120 символа.'],
+  },
+  votes: {
+    type: Number,
+    default: 0,
+    min: [0, 'Броят гласове не може да е отрицателен.'],
+  },
+}, { _id: false });
+
 const pollSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
-  question: String,
-  options: [{ text: String, votes: { type: Number, default: 0 } }],
+  question: {
+    type: String,
+    required: [true, 'Въпросът е задължителен.'],
+    trim: true,
+    maxlength: [240, 'Въпросът трябва да е до 240 символа.'],
+  },
+  options: {
+    type: [pollOptionSchema],
+    default: [],
+    validate: [
+      {
+        validator(options) {
+          return Array.isArray(options) && options.length >= 2;
+        },
+        message: 'Добави поне две опции.',
+      },
+      {
+        validator(options) {
+          return Array.isArray(options) && options.length <= 6;
+        },
+        message: 'Позволени са най-много шест опции.',
+      },
+    ],
+  },
   active: { type: Boolean, default: true },
-  createdAt: String,
+  createdAt: {
+    type: String,
+    required: [true, 'Датата на създаване е задължителна.'],
+    trim: true,
+  },
 }, opts);
 
 // ─── Comment ───

@@ -27,7 +27,12 @@ export function createCategoriesRouter(deps) {
     const id = normalizeText(req.body.id, 64);
     const name = normalizeText(req.body.name, 80);
     const icon = normalizeText(req.body.icon, 16);
-    if (!id || !name) return res.status(400).json({ error: 'Invalid category payload' });
+    const fieldErrors = {};
+    if (!id) fieldErrors.id = 'Slug е задължителен.';
+    if (!name) fieldErrors.name = 'Името е задължително.';
+    if (Object.keys(fieldErrors).length > 0) {
+      return res.status(400).json({ error: 'Invalid category payload', fieldErrors });
+    }
     const item = await Category.create({ id, name, icon });
 
     invalidateCacheGroup('categories', 'categories-mutation');
@@ -37,7 +42,16 @@ export function createCategoriesRouter(deps) {
 
   catRouter.put('/:id', requireAuth, requirePermission('categories'), asyncHandler(async (req, res) => {
     const updates = {};
-    if (hasOwn(req.body, 'name')) updates.name = normalizeText(req.body.name, 80);
+    if (hasOwn(req.body, 'name')) {
+      const normalizedName = normalizeText(req.body.name, 80);
+      if (!normalizedName) {
+        return res.status(400).json({
+          error: 'No valid fields to update',
+          fieldErrors: { name: 'Името е задължително.' },
+        });
+      }
+      updates.name = normalizedName;
+    }
     if (hasOwn(req.body, 'icon')) updates.icon = normalizeText(req.body.icon, 16);
     if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
