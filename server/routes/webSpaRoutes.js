@@ -18,9 +18,12 @@ export function registerWebSpaRoutes(app, deps) {
     immutable: isProd,
   }));
 
-  app.get('/{*splat}', (_req, res) => {
+  function sendSpaEntrypoint(_req, res) {
     // Don't cache HTML; assets are fingerprinted and cached via express.static.
     res.setHeader('Cache-Control', 'no-store');
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
+    res.sendFile('index.html', { root: distPath });
+  }
+
+  app.get('/', sendSpaEntrypoint);
+  app.get('/{*splat}', sendSpaEntrypoint);
 }
