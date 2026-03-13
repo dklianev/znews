@@ -227,6 +227,8 @@ export async function runServerLifecycleServiceTests() {
     assert.equal(timers.scheduled.length, 2);
     assert.equal(timers.scheduled[0].ms, 12000);
     assert.equal(timers.scheduled[0].unrefCalled, true);
+    assert.equal(timers.scheduled[1].ms, 12000);
+    assert.equal(timers.scheduled[1].unrefCalled, true);
     assert.equal(timers.cleared.length, 2);
   }
 

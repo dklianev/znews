@@ -22,72 +22,34 @@ export function createServerLifecycleService({
   startBackgroundJobs,
   stopBackgroundJobs,
 }) {
-  function registerGracefulShutdown(server) {
-    const sockets = new Set();
+  function trackSocket(server, sockets) {
     server.on('connection', (socket) => {
       sockets.add(socket);
       socket.on('close', () => sockets.delete(socket));
     });
+  }
 
-    const shutdown = async (reason, exitCode = 0) => {
-      if (getShuttingDown()) return;
-      setShuttingDown(true);
+  function runSocketAction(socket, action) {
+    try {
+      action(socket);
+    } catch {}
+  }
 
-      try {
-        logInfo(`\nGraceful shutdown: ${reason}`);
+  function clearTimer(handle) {
+    if (handle) {
+      clearTimeoutImpl(handle);
+    }
+  }
 
-        const closePromise = new Promise((resolve) => server.close(resolve));
+  async function closeMongooseConnection() {
+    try {
+      await mongoose.connection.close(false);
+    } catch (error) {
+      logError('Failed to close MongoDB connection:', error?.message || error);
+    }
+  }
 
-        sockets.forEach((socket) => {
-          try {
-            socket.end();
-          } catch {}
-        });
-
-        const forceShutdownMs = 12_000;
-        const forceTimer = setTimeoutImpl(() => {
-          logWarning(`Forcing shutdown after ${forceShutdownMs}ms`);
-          sockets.forEach((socket) => {
-            try {
-              socket.destroy();
-            } catch {}
-          });
-        }, forceShutdownMs);
-        if (typeof forceTimer?.unref === 'function') {
-          forceTimer.unref();
-        }
-
-        let waitTimer = null;
-        const waitPromise = new Promise((resolve) => {
-          waitTimer = setTimeoutImpl(resolve, forceShutdownMs);
-        });
-
-        await Promise.race([closePromise, waitPromise]);
-
-        if (typeof server.closeIdleConnections === 'function') {
-          server.closeIdleConnections();
-        }
-        if (typeof server.closeAllConnections === 'function') {
-          server.closeAllConnections();
-        }
-
-        stopBackgroundJobs();
-
-        try {
-          await mongoose.connection.close(false);
-        } catch (error) {
-          logError('Failed to close MongoDB connection:', error?.message || error);
-        }
-
-        clearTimeoutImpl(forceTimer);
-        if (waitTimer) {
-          clearTimeoutImpl(waitTimer);
-        }
-      } finally {
-        processObject.exit(exitCode);
-      }
-    };
-
+  function registerProcessShutdownHandlers(shutdown) {
     ['SIGINT', 'SIGTERM'].forEach((signal) => {
       processObject.once(signal, () => {
         shutdown(signal, 0);
@@ -103,6 +65,90 @@ export function createServerLifecycleService({
       logError('Unhandled rejection:', reason);
       shutdown('unhandledRejection', 1);
     });
+  }
+
+  function registerMongooseErrorReporter() {
+    mongoose.connection.on('error', (error) => {
+      reportServerError('mongoose-connection', error).catch(() => {});
+    });
+  }
+
+  function runBootBackfill() {
+    if (processEnv.IMAGE_PIPELINE_BACKFILL_ON_BOOT !== 'true') {
+      return;
+    }
+
+    const parsedLimit = Number.parseInt(processEnv.IMAGE_PIPELINE_BACKFILL_LIMIT || '', 10);
+    const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 0;
+
+    backfillImagePipeline({ force: false, limit })
+      .then((summary) => {
+        logInfo(
+          `Image pipeline backfill finished (${summary.generated} generated, ${summary.skipped} skipped, ${summary.failed} failed, synced=${summary.syncedArticleMeta}/${summary.syncedTipMeta}, engine=${summary.engine})`
+        );
+      })
+      .catch((error) => {
+        logError('Image pipeline backfill failed on boot:', error?.message || error);
+      });
+  }
+
+  function registerGracefulShutdown(server) {
+    const sockets = new Set();
+    trackSocket(server, sockets);
+
+    const shutdown = async (reason, exitCode = 0) => {
+      if (getShuttingDown()) return;
+      setShuttingDown(true);
+
+      try {
+        logInfo(`\nGraceful shutdown: ${reason}`);
+
+        const closePromise = new Promise((resolve) => server.close(resolve));
+
+        sockets.forEach((socket) => {
+          runSocketAction(socket, (target) => target.end());
+        });
+
+        const forceShutdownMs = 12_000;
+        const forceTimer = setTimeoutImpl(() => {
+          logWarning(`Forcing shutdown after ${forceShutdownMs}ms`);
+          sockets.forEach((socket) => {
+            runSocketAction(socket, (target) => target.destroy());
+          });
+        }, forceShutdownMs);
+        if (typeof forceTimer?.unref === 'function') {
+          forceTimer.unref();
+        }
+
+        let waitTimer = null;
+        const waitPromise = new Promise((resolve) => {
+          waitTimer = setTimeoutImpl(resolve, forceShutdownMs);
+        });
+        if (typeof waitTimer?.unref === 'function') {
+          waitTimer.unref();
+        }
+
+        await Promise.race([closePromise, waitPromise]);
+
+        if (typeof server.closeIdleConnections === 'function') {
+          server.closeIdleConnections();
+        }
+        if (typeof server.closeAllConnections === 'function') {
+          server.closeAllConnections();
+        }
+
+        stopBackgroundJobs();
+
+        await closeMongooseConnection();
+
+        clearTimer(forceTimer);
+        clearTimer(waitTimer);
+      } finally {
+        processObject.exit(exitCode);
+      }
+    };
+
+    registerProcessShutdownHandlers(shutdown);
 
     return shutdown;
   }
@@ -114,9 +160,7 @@ export function createServerLifecycleService({
       await ensureDefaultPermissionDocs();
       await migrateBreakingCategoryLabels();
       await ensureGameDefinitions();
-      mongoose.connection.on('error', (error) => {
-        reportServerError('mongoose-connection', error).catch(() => {});
-      });
+      registerMongooseErrorReporter();
     } catch (err) {
       logError('MongoDB error:', err?.message || err);
       processObject.exit(1);
@@ -127,20 +171,7 @@ export function createServerLifecycleService({
       startBackgroundJobs();
       logInfo(`Los Santos News API running on port ${port}`);
       if (!isProd) logInfo('Running in development mode');
-
-      if (processEnv.IMAGE_PIPELINE_BACKFILL_ON_BOOT === 'true') {
-        const parsedLimit = Number.parseInt(processEnv.IMAGE_PIPELINE_BACKFILL_LIMIT || '', 10);
-        const limit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 0;
-        backfillImagePipeline({ force: false, limit })
-          .then((summary) => {
-            logInfo(
-              `Image pipeline backfill finished (${summary.generated} generated, ${summary.skipped} skipped, ${summary.failed} failed, synced=${summary.syncedArticleMeta}/${summary.syncedTipMeta}, engine=${summary.engine})`
-            );
-          })
-          .catch((error) => {
-            logError('Image pipeline backfill failed on boot:', error?.message || error);
-          });
-      }
+      runBootBackfill();
     });
 
     registerGracefulShutdown(server);
