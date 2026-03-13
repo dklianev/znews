@@ -12,13 +12,20 @@ export default function AdminLogin() {
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const { login } = useSessionData();
+  const normalizedUsername = username.trim();
+  const canSubmit = normalizedUsername.length > 0 && password.length > 0 && !submitting;
+  const describedBy = error ? 'admin-login-error admin-login-help' : 'admin-login-help';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!normalizedUsername || !password) {
+      setError('?????? ?????????? ? ??????');
+      return;
+    }
     setError('');
     setSubmitting(true);
     try {
-      const session = await login(username, password);
+      const session = await login(normalizedUsername, password);
       if (session) {
         navigate('/admin');
       } else {
@@ -43,7 +50,7 @@ export default function AdminLogin() {
           <h2 className="font-display text-xl font-bold text-zn-text mb-6 text-center">Вход</h2>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm font-sans">
+            <div id="admin-login-error" role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm font-sans">
               {error}
             </div>
           )}
@@ -57,8 +64,15 @@ export default function AdminLogin() {
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-zn-border text-zn-text font-sans text-sm outline-none focus:border-zn-purple"
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  if (error) setError('');
+                }}
+                autoComplete="username"
+                autoFocus
+                aria-invalid={Boolean(error)}
+                aria-describedby={describedBy}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-zn-border text-zn-text font-sans text-sm outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                 placeholder="admin"
                 required
               />
@@ -74,15 +88,25 @@ export default function AdminLogin() {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white border border-zn-border text-zn-text font-sans text-sm outline-none focus:border-zn-purple"
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (error) setError('');
+                }}
+                autoComplete="current-password"
+                aria-invalid={Boolean(error)}
+                aria-describedby={describedBy}
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-zn-border text-zn-text font-sans text-sm outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                 placeholder="••••••"
                 required
               />
             </div>
           </div>
 
-          <button type="submit" disabled={submitting} className="w-full btn-primary text-center disabled:opacity-50">
+          <p id="admin-login-help" className="mb-4 text-xs font-sans text-zn-text-muted" aria-live="polite">
+            {error ? '???????? ??????? ?? ???????? ? ????????.' : '???????? ???????? ??? ??????? ??????????.'}
+          </p>
+
+          <button type="submit" disabled={!canSubmit} className="w-full btn-primary text-center disabled:cursor-not-allowed disabled:opacity-50">
             {submitting ? 'Влизане...' : 'Влез'}
           </button>
         </form>

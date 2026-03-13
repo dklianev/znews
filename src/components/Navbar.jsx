@@ -164,6 +164,19 @@ export default function Navbar() {
     });
   }, [searchOpen]);
 
+  useEffect(() => {
+    if ((!isOpen && !searchOpen) || typeof window === 'undefined') return undefined;
+
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      setSearchOpen(false);
+      setIsOpen(false);
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, searchOpen]);
+
   const syncMobileMenuViewport = useCallback(() => {
     if (typeof window === 'undefined' || !navRef.current) return;
     const rect = navRef.current.getBoundingClientRect();
@@ -233,17 +246,18 @@ export default function Navbar() {
   };
 
   const searchForm = (
-    <form onSubmit={handleSearch} className="pt-2 pb-3">
+    <form id="site-search-panel" onSubmit={handleSearch} className="pt-2 pb-3" role="search">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-dim" />
         <input
+          id="site-search"
           ref={searchInputRef}
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={navbarCopy.searchPlaceholder}
           aria-label="Търсене"
-          className="w-full pl-10 pr-4 py-3 bg-zn-bg-warm border-2 border-zn-border text-zn-text placeholder-zn-text-dim font-display text-sm outline-none focus:border-zn-hot uppercase tracking-wide"
+          className="w-full pl-10 pr-4 py-3 bg-zn-bg-warm border-2 border-zn-border text-zn-text placeholder-zn-text-dim font-display text-sm outline-none focus:border-zn-hot focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-bg uppercase tracking-wide"
         />
       </div>
     </form>
@@ -267,7 +281,7 @@ export default function Navbar() {
           key={link.to}
           to={link.to}
           onClick={() => setIsOpen(false)}
-          className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 ${location.pathname === link.to
+          className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-inset ${location.pathname === link.to
             ? 'text-zn-hot bg-zn-hot/5'
             : 'text-zn-text hover:text-zn-hot hover:bg-zn-bg-warm'
             }`}
@@ -290,7 +304,7 @@ export default function Navbar() {
             <div className="comic-top-actions flex w-full sm:w-auto flex-nowrap items-center justify-end gap-1 sm:gap-2.5 pb-0.5 sm:pb-0">
               <Link
                 to="/tipline"
-                className={`comic-top-action comic-top-action-hot shrink-0 ${isTiplinePage ? 'comic-top-action-active' : ''}`}
+                className={`comic-top-action comic-top-action-hot shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#26123b] ${isTiplinePage ? 'comic-top-action-active' : ''}`}
                 title="Гореща линия за сигнали"
                 aria-label="Подай сигнал"
               >
@@ -301,7 +315,8 @@ export default function Navbar() {
                 <button
                   onClick={handleSubscribePush}
                   disabled={pushStatus === 'loading' || pushStatus === 'subscribed'}
-                  className={`comic-top-action shrink-0 ${pushStatus === 'subscribed' ? 'comic-top-action-active' : 'comic-top-action-alert'} ${pushStatus === 'loading' ? 'comic-top-action-disabled' : ''}`}
+                  aria-busy={pushStatus === 'loading'}
+                  className={`comic-top-action shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#26123b] ${pushStatus === 'subscribed' ? 'comic-top-action-active' : 'comic-top-action-alert'} ${pushStatus === 'loading' ? 'comic-top-action-disabled' : ''}`}
                   title="Известия за Извънредни Новини"
                   aria-label={pushStatus === 'subscribed' ? 'Известия активни' : 'Известия'}
                 >
@@ -313,7 +328,10 @@ export default function Navbar() {
               )}
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
-                className={`comic-top-action shrink-0 ${searchOpen ? 'comic-top-action-active' : ''}`}
+                aria-controls="site-search-panel"
+                aria-expanded={searchOpen}
+                aria-pressed={searchOpen}
+                className={`comic-top-action shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#26123b] ${searchOpen ? 'comic-top-action-active' : ''}`}
                 aria-label={searchOpen ? 'Затвори търсенето' : 'Отвори търсенето'}
               >
                 <Search className="w-3.5 h-3.5" />
@@ -321,7 +339,7 @@ export default function Navbar() {
               </button>
               <Link
                 to="/about"
-                className={`comic-top-action shrink-0 ${isAboutPage ? 'comic-top-action-active' : ''}`}
+                className={`comic-top-action shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#26123b] ${isAboutPage ? 'comic-top-action-active' : ''}`}
                 aria-label="За нас"
                 title="За нас"
               >
@@ -330,7 +348,8 @@ export default function Navbar() {
               </Link>
               <button
                 onClick={toggleDark}
-                className="comic-top-action comic-top-action-icon shrink-0"
+                aria-pressed={isDark}
+                className="comic-top-action comic-top-action-icon shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#26123b]"
                 aria-label={isDark ? 'Светъл режим' : 'Тъмен режим'}
                 title={isDark ? 'Светъл режим' : 'Тъмен режим'}
               >
@@ -390,7 +409,7 @@ export default function Navbar() {
                 <Link
                   key={to}
                   to={to}
-                  className={`comic-chip whitespace-nowrap ${hot ? 'comic-chip-hot' : ''}`}
+                  className={`comic-chip whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-hot ${hot ? 'comic-chip-hot' : ''}`}
                   style={{ '--chip-tilt': tilt }}
                 >
                   <Icon className="w-4 h-4" />
@@ -413,7 +432,7 @@ export default function Navbar() {
                   <Link
                     key={link.to}
                     to={link.to}
-                    className={`comic-main-nav-link ${isActive ? 'comic-main-nav-link-active' : ''}`}
+                    className={`comic-main-nav-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-inset ${isActive ? 'comic-main-nav-link-active' : ''}`}
                   >
                     {link.hot && <span className="comic-main-nav-hot-dot" aria-hidden="true" />}
                     <span>{link.label}</span>
@@ -455,6 +474,7 @@ export default function Navbar() {
                 style={mobileNavStyle}
               >
                 <div
+                  id="mobile-navigation"
                   className="mx-auto max-w-[1400px] border-2 border-[#1C1428]/75 bg-[#F5EEDF] dark:bg-[#2A2438] dark:border-[#524A62]/75 shadow-[0_12px_24px_rgba(28,20,40,0.3)] dark:shadow-[0_12px_24px_rgba(0,0,0,0.5)] overflow-y-auto overscroll-contain"
                   style={mobileNavInnerStyle}
                 >

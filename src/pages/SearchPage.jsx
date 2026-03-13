@@ -62,6 +62,27 @@ function SearchSectionHeader({ icon: Icon, title, tone = 'hot', count = null }) 
   );
 }
 
+function SearchResultsSkeleton() {
+  return (
+    <div className="mb-8 comic-panel comic-dots bg-white p-5" aria-live="polite" aria-busy="true">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="h-4 w-4 rounded-full bg-zn-hot/30" />
+        <div className="h-4 w-40 rounded bg-zn-text/10" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="comic-panel bg-white p-4">
+            <div className="h-40 rounded bg-zn-text/10 mb-4" />
+            <div className="h-5 w-10/12 rounded bg-zn-text/10 mb-2" />
+            <div className="h-3 w-full rounded bg-zn-text/10 mb-1" />
+            <div className="h-3 w-8/12 rounded bg-zn-text/10" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function SearchPage() {
   const { articles, jobs, court, events, wanted, siteSettings, publicSectionStatus, loadJobs, loadCourt, loadEvents } = usePublicData();
   const layoutPresets = siteSettings?.layoutPresets || {};
@@ -267,6 +288,7 @@ export default function SearchPage() {
   const wantedResults = searchResults.wanted;
   const totalResults = articleResults.length + jobResults.length + courtResults.length + eventResults.length + wantedResults.length;
   const showSuggestions = (suggestLoading || suggestions.length > 0) && localQuery.trim().length >= 2;
+  const showLoadingState = Boolean(trimmedQuery) && remoteLoading && totalResults === 0 && !useLocalFallback;
 
   const sections = useMemo(() => ([
     { key: 'all', label: searchCopy.sections.all },
@@ -319,7 +341,7 @@ export default function SearchPage() {
             value={localQuery}
             onChange={(event) => setLocalQuery(event.target.value)}
             placeholder={searchCopy.inputPlaceholder}
-            className="w-full pl-12 pr-10 py-3.5 bg-transparent text-zn-text placeholder-zn-text-dim font-display text-sm uppercase tracking-wider outline-none relative z-[2]"
+            className="w-full pl-12 pr-10 py-3.5 bg-transparent text-zn-text placeholder-zn-text-dim font-display text-sm uppercase tracking-wider outline-none relative z-[2] focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-inset"
             aria-label={searchCopy.title}
           />
           {localQuery && (
@@ -329,7 +351,7 @@ export default function SearchPage() {
                 setLocalQuery('');
                 navigate('/search');
               }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center text-zn-text-muted hover:text-zn-hot transition-colors z-[3]"
+              className="absolute right-3 top-1/2 -translate-y-1/2 z-[3] flex h-7 w-7 items-center justify-center text-zn-text-muted transition-colors hover:text-zn-hot focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
               aria-label={searchCopy.clearSearch}
             >
               <X className="w-4 h-4" />
@@ -345,7 +367,7 @@ export default function SearchPage() {
             key={section.key}
             type="button"
             onClick={() => navigateToSearch(trimmedQuery, section.key)}
-            className={`comic-chip ${searchType === section.key ? 'comic-chip-hot' : ''}`}
+            className={`comic-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-paper ${searchType === section.key ? 'comic-chip-hot' : ''}`}
           >
             {section.label}{section.key !== 'all' ? ` (${section.count})` : ''}
           </button>
@@ -367,7 +389,7 @@ export default function SearchPage() {
                   key={`${suggestion.type}-${suggestion.label}-${index}`}
                   type="button"
                   onClick={() => handleSuggestionPick(suggestion)}
-                  className="comic-chip hover:translate-y-[-1px] transition-transform"
+                  className="comic-chip transition-transform hover:translate-y-[-1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                 >
                   {suggestion.label}
                 </button>
@@ -383,7 +405,7 @@ export default function SearchPage() {
             <SearchSectionHeader icon={TrendingUp} title={searchCopy.trendingTitle} tone="hot" />
             <div className="flex flex-wrap gap-2">
               {trending.map((item, index) => (
-                <button key={`${item.query}-${index}`} type="button" onClick={() => navigateToSearch(item.query)} className="comic-chip comic-chip-hot">
+                <button key={`${item.query}-${index}`} type="button" onClick={() => navigateToSearch(item.query)} className="comic-chip comic-chip-hot focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white">
                   {item.query}
                 </button>
               ))}
@@ -394,7 +416,7 @@ export default function SearchPage() {
             <SearchSectionHeader icon={History} title={searchCopy.recentTitle} tone="purple" />
             <div className="flex flex-wrap gap-2">
               {recentSearches.map((item, index) => (
-                <button key={`${item}-${index}`} type="button" onClick={() => navigateToSearch(item)} className="comic-chip">
+                <button key={`${item}-${index}`} type="button" onClick={() => navigateToSearch(item)} className="comic-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white">
                   {item}
                 </button>
               ))}
@@ -405,12 +427,25 @@ export default function SearchPage() {
       )}
 
       {trimmedQuery && (
-        <p className="mb-6 font-display font-bold text-sm text-zn-text-muted uppercase tracking-wider">
+        <p className="mb-6 font-display font-bold text-sm text-zn-text-muted uppercase tracking-wider" aria-live="polite">
           {searchCopy.resultsFor} &ldquo;<span className="text-zn-hot">{trimmedQuery}</span>&rdquo; · {totalResults}
           {remoteLoading && <span className="ml-2 text-zn-text-dim">{searchCopy.loading}</span>}
           {useLocalFallback && <span className="ml-2 text-zn-hot">{searchCopy.fallbackNotice}</span>}
         </p>
       )}
+
+      {useLocalFallback && (
+        <div className="mb-6 comic-panel comic-dots bg-white p-4 border-l-4 border-l-zn-hot">
+          <p className="font-display text-xs font-black uppercase tracking-[0.22em] text-zn-hot mb-2">
+            {searchCopy.fallbackNotice}
+          </p>
+          <p className="text-sm font-sans text-zn-text-muted">
+            {remoteError || searchCopy.serviceError}
+          </p>
+        </div>
+      )}
+
+      {showLoadingState && <SearchResultsSkeleton />}
 
       {trimmedQuery && totalResults === 0 && !remoteLoading && (
         <div className="newspaper-page comic-panel comic-dots p-10 text-center relative mb-8">
@@ -513,7 +548,7 @@ export default function SearchPage() {
                     key={`${suggestion.type}-${suggestion.label}-${index}`}
                     type="button"
                     onClick={() => handleSuggestionPick(suggestion)}
-                    className="comic-chip hover:translate-y-[-1px] transition-transform"
+                    className="comic-chip transition-transform hover:translate-y-[-1px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   >
                     {suggestion.label}
                   </button>

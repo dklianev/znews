@@ -62,8 +62,13 @@ const ManageGamePuzzles = lazy(() => import('./pages/admin/ManageGamePuzzles'));
 // ─── Inline loading fallback ───
 function PageFallback() {
   return (
-    <div className="min-h-[50vh] flex items-center justify-center">
-      <div className="w-8 h-8 border-3 border-zn-purple border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-[50vh] flex items-center justify-center px-4" aria-live="polite" aria-busy="true">
+      <div className="comic-panel comic-dots bg-white px-6 py-8 text-center max-w-sm w-full">
+        <div className="w-10 h-10 border-3 border-zn-purple border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="font-display text-sm font-black uppercase tracking-[0.2em] text-zn-text">
+          {appCopy.loadingMessage}
+        </p>
+      </div>
     </div>
   );
 }
@@ -238,7 +243,7 @@ function PublicLayout() {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-zn-bg dark:bg-zn-bg flex items-center justify-center">
+    <div className="min-h-screen bg-zn-bg dark:bg-zn-bg flex items-center justify-center" aria-live="polite" aria-busy="true">
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-zn-purple border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         <h2 className="font-heading text-2xl text-zn-text dark:text-zn-text mb-2">zNews</h2>
