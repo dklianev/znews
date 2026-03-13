@@ -22,6 +22,37 @@ export function createShareCardObjectHelpers({
   uploadsDir,
   fetchImpl = globalThis.fetch,
 }) {
+  async function localFileExists(filePath) {
+    try {
+      await fs.promises.access(filePath, fs.constants.R_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function fetchRemoteImageBuffer(sourceUrl) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
+
+    try {
+      const response = await fetchImpl(sourceUrl, {
+        signal: controller.signal,
+        headers: { Accept: 'image/*' },
+      });
+      if (!response.ok) return null;
+      const contentType = normalizeText(response.headers.get('content-type') || '', 80).toLowerCase();
+      if (!contentType.startsWith('image/')) return null;
+      const arrayBuffer = await response.arrayBuffer();
+      if (!arrayBuffer || arrayBuffer.byteLength < 256) return null;
+      return Buffer.from(arrayBuffer);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   function buildShareCardStorageTarget(article, { categoryLabel = '' } = {}) {
     const normalized = {
       ...buildArticleSnapshot(article),
@@ -74,23 +105,7 @@ export function createShareCardObjectHelpers({
     }
 
     if (!/^https?:\/\//i.test(sourceUrl)) return null;
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 4500);
-      const response = await fetchImpl(sourceUrl, {
-        signal: controller.signal,
-        headers: { Accept: 'image/*' },
-      });
-      clearTimeout(timeout);
-      if (!response.ok) return null;
-      const contentType = normalizeText(response.headers.get('content-type') || '', 80).toLowerCase();
-      if (!contentType.startsWith('image/')) return null;
-      const arrayBuffer = await response.arrayBuffer();
-      if (!arrayBuffer || arrayBuffer.byteLength < 256) return null;
-      return Buffer.from(arrayBuffer);
-    } catch {
-      return null;
-    }
+    return fetchRemoteImageBuffer(sourceUrl);
   }
 
   async function cleanupOldShareCards(articleId, keepFileName) {
@@ -141,12 +156,8 @@ export function createShareCardObjectHelpers({
       }
 
       const fullPath = path.join(uploadsDir, uploadFileName);
-      try {
-        await fs.promises.access(fullPath, fs.constants.R_OK);
-        return { type: 'file', path: fullPath };
-      } catch {
-        return null;
-      }
+      if (!(await localFileExists(fullPath))) return null;
+      return { type: 'file', path: fullPath };
     }
     if (/^https?:\/\//i.test(sourceUrl)) return { type: 'redirect', url: sourceUrl };
     return null;

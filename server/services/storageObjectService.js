@@ -24,9 +24,35 @@ export function createStorageObjectService(deps) {
     toUploadsStorageKey,
   } = deps;
 
+  function getStorageCacheControl(normalizedPath) {
+    return normalizedPath.startsWith('_share/') ? 'public, max-age=300' : 'public, max-age=2592000';
+  }
+
+  async function readAzureFailure(response, action) {
+    const details = await response.text().catch(() => '');
+    return new Error(`Azure Blob ${action} failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+  }
+
+  async function writeLocalObjectAtomically(absolutePath, body) {
+    const dir = path.dirname(absolutePath);
+    await fs.promises.mkdir(dir, { recursive: true });
+
+    const tmpPath = path.join(dir, `.${path.basename(absolutePath)}.tmp-${randomUUID()}`);
+    await fs.promises.writeFile(tmpPath, body);
+    try {
+      await fs.promises.rename(tmpPath, absolutePath);
+    } catch {
+      try { await fs.promises.unlink(absolutePath); } catch { }
+      await fs.promises.rename(tmpPath, absolutePath);
+    } finally {
+      fs.promises.unlink(tmpPath).catch(() => { });
+    }
+  }
+
   async function putStorageObject(relativePath, body, contentType = 'application/octet-stream') {
     const normalized = toPosixRelativePath(relativePath);
     if (!normalized) throw new Error('Invalid storage path');
+    const cacheControl = getStorageCacheControl(normalized);
 
     if (isSpacesStorage) {
       const params = {
@@ -34,14 +60,13 @@ export function createStorageObjectService(deps) {
         Key: toUploadsStorageKey(normalized),
         Body: body,
         ContentType: contentType,
-        CacheControl: normalized.startsWith('_share/') ? 'public, max-age=300' : 'public, max-age=2592000',
+        CacheControl: cacheControl,
       };
       if (spacesObjectAcl) params.ACL = spacesObjectAcl;
       await spacesS3Client.send(new PutObjectCommand(params));
       return;
     }
     if (isAzureStorage) {
-      const cacheControl = normalized.startsWith('_share/') ? 'public, max-age=300' : 'public, max-age=2592000';
       const response = await sendAzureBlobRequest(toUploadsStorageKey(normalized), {
         method: 'PUT',
         headers: {
@@ -54,26 +79,12 @@ export function createStorageObjectService(deps) {
         body,
       });
       if (!response.ok) {
-        const details = await response.text().catch(() => '');
-        throw new Error(`Azure Blob upload failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+        throw await readAzureFailure(response, 'upload');
       }
       return;
     }
 
-    const absolute = getDiskAbsolutePath(normalized);
-    const dir = path.dirname(absolute);
-    await fs.promises.mkdir(dir, { recursive: true });
-
-    const tmpPath = path.join(dir, `.${path.basename(absolute)}.tmp-${randomUUID()}`);
-    await fs.promises.writeFile(tmpPath, body);
-    try {
-      await fs.promises.rename(tmpPath, absolute);
-    } catch (error) {
-      try { await fs.promises.unlink(absolute); } catch { }
-      await fs.promises.rename(tmpPath, absolute);
-    } finally {
-      fs.promises.unlink(tmpPath).catch(() => { });
-    }
+    await writeLocalObjectAtomically(getDiskAbsolutePath(normalized), body);
   }
 
   async function getStorageObjectBuffer(relativePath) {
@@ -96,8 +107,7 @@ export function createStorageObjectService(deps) {
       const response = await sendAzureBlobRequest(toUploadsStorageKey(normalized), { method: 'GET' });
       if (response.status === 404) return null;
       if (!response.ok) {
-        const details = await response.text().catch(() => '');
-        throw new Error(`Azure Blob read failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+        throw await readAzureFailure(response, 'read');
       }
       return Buffer.from(await response.arrayBuffer());
     }
@@ -131,8 +141,7 @@ export function createStorageObjectService(deps) {
       const response = await sendAzureBlobRequest(toUploadsStorageKey(normalized), { method: 'HEAD' });
       if (response.status === 404) return false;
       if (!response.ok) {
-        const details = await response.text().catch(() => '');
-        throw new Error(`Azure Blob HEAD failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+        throw await readAzureFailure(response, 'HEAD');
       }
       return true;
     }
@@ -163,8 +172,7 @@ export function createStorageObjectService(deps) {
       const response = await sendAzureBlobRequest(toUploadsStorageKey(normalized), { method: 'DELETE' });
       if (response.status === 404) return;
       if (!response.ok) {
-        const details = await response.text().catch(() => '');
-        throw new Error(`Azure Blob delete failed (${response.status})${details ? `: ${details.slice(0, 240)}` : ''}`);
+        throw await readAzureFailure(response, 'delete');
       }
       return;
     }
