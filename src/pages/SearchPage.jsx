@@ -1,7 +1,7 @@
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search as SearchIcon, FileText, Briefcase, Scale, CalendarDays, Crosshair, X, TrendingUp, History, Sparkles } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { usePublicData } from '../context/DataContext';
 import { api } from '../utils/api';
 import ComicNewsCard from '../components/ComicNewsCard';
@@ -101,6 +101,7 @@ export default function SearchPage() {
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [trending, setTrending] = useState([]);
   const [recentSearches, setRecentSearches] = useState(() => getRecentSearches());
+  const deferredLocalQuery = useDeferredValue(localQuery);
 
   useEffect(() => {
     setLocalQuery(query);
@@ -135,7 +136,7 @@ export default function SearchPage() {
 
   useEffect(() => {
     let cancelled = false;
-    const currentQuery = localQuery.trim();
+    const currentQuery = deferredLocalQuery.trim();
     if (currentQuery.length < 2) {
       setSuggestions([]);
       setSuggestLoading(false);
@@ -164,7 +165,7 @@ export default function SearchPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [localQuery]);
+  }, [deferredLocalQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -477,7 +478,7 @@ export default function SearchPage() {
           <div className="space-y-3">
             {jobResults.map((item, index) => (
               <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
-                <Link to="/jobs" className="block comic-panel comic-panel-hover bg-white p-4">
+                <Link to="/jobs" prefetch="intent" className="block comic-panel comic-panel-hover bg-white p-4">
                   <h3 className="font-display font-black uppercase text-sm text-zn-text tracking-wider">{item.title}</h3>
                   <p className="text-xs font-display font-bold text-zn-hot uppercase tracking-wider mt-1">{item.org} · {item.salary}</p>
                 </Link>
@@ -493,7 +494,7 @@ export default function SearchPage() {
           <div className="space-y-3">
             {courtResults.map((item, index) => (
               <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
-                <Link to="/court" className="block comic-panel comic-panel-hover bg-white p-4 border-l-4 border-l-blue-600">
+                <Link to="/court" prefetch="intent" className="block comic-panel comic-panel-hover bg-white p-4 border-l-4 border-l-blue-600">
                   <h3 className="font-display font-black uppercase text-sm text-zn-text tracking-wider">{item.title}</h3>
                   <p className="text-xs font-sans text-zn-text-muted mt-1">{item.defendant} · {formatNewsDate(item.date)}</p>
                 </Link>
@@ -509,7 +510,7 @@ export default function SearchPage() {
           <div className="space-y-3">
             {eventResults.map((item, index) => (
               <motion.div key={item.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: index * 0.06 }}>
-                <Link to="/events" className="block comic-panel comic-panel-hover bg-white p-4">
+                <Link to="/events" prefetch="intent" className="block comic-panel comic-panel-hover bg-white p-4">
                   <h3 className="font-display font-black uppercase text-sm text-zn-text tracking-wider">{item.title}</h3>
                   <p className="text-xs font-sans text-zn-text-muted mt-1">{item.location} · {formatNewsDate(item.date)}</p>
                 </Link>

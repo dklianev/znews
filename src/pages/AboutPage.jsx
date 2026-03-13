@@ -48,6 +48,8 @@ export default function AboutPage() {
 
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [contactSent, setContactSent] = useState(false);
+  const [dismissContactError, setDismissContactError] = useState(false);
+  const [contactFieldErrors, setContactFieldErrors] = useState({});
   const about = { ...DEFAULT_ABOUT, ...(siteSettings?.about || {}) };
   const contact = { ...DEFAULT_CONTACT, ...(siteSettings?.contact || {}) };
   const adPlans = Array.isArray(about.adPlans) && about.adPlans.length > 0 ? about.adPlans : DEFAULT_ABOUT.adPlans;
@@ -111,8 +113,27 @@ export default function AboutPage() {
     if (contactState.status === 'error') setContactSent(false);
   }, [contactState.status]);
 
-  const contactError = contactState.status === 'error' ? contactState.message : '';
-  const contactFieldErrors = contactState.fieldErrors || {};
+  useEffect(() => {
+    setContactFieldErrors(contactState.fieldErrors || {});
+  }, [contactState.fieldErrors]);
+
+  useEffect(() => {
+    if (contactState.status !== 'error') {
+      setDismissContactError(false);
+    }
+  }, [contactState.status]);
+
+  const clearContactFieldError = (field) => {
+    setContactFieldErrors((prev) => {
+      if (!prev?.[field]) return prev;
+      return {
+        ...prev,
+        [field]: '',
+      };
+    });
+  };
+
+  const contactError = contactState.status === 'error' && !dismissContactError ? contactState.message : '';
 
   return (
     <motion.div
@@ -228,45 +249,60 @@ export default function AboutPage() {
               name="name"
               placeholder={'\u0418\u043c\u0435'}
               value={contactForm.name}
-              onChange={(event) => setContactForm({ ...contactForm, name: event.target.value })}
+              onChange={(event) => {
+                setContactForm({ ...contactForm, name: event.target.value });
+                setDismissContactError(true);
+                clearContactFieldError('name');
+              }}
               required
               disabled={isContactPending}
               aria-label={'\u0418\u043c\u0435'}
               aria-invalid={Boolean(contactFieldErrors.name)}
+              aria-describedby={contactFieldErrors.name ? 'about-contact-name-error' : undefined}
               className={`w-full px-4 py-2.5 bg-white border-2 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none transition-colors ${contactFieldErrors.name ? 'border-red-400 focus:border-red-500' : 'border-[#1C1428]/20 focus:border-zn-purple'}`}
             />
             {contactFieldErrors.name && (
-              <p className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.name}</p>
+              <p id="about-contact-name-error" className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.name}</p>
             )}
             <input
               type="email"
               name="email"
               placeholder="Email"
               value={contactForm.email}
-              onChange={(event) => setContactForm({ ...contactForm, email: event.target.value })}
+              onChange={(event) => {
+                setContactForm({ ...contactForm, email: event.target.value });
+                setDismissContactError(true);
+                clearContactFieldError('email');
+              }}
               required
               disabled={isContactPending}
               aria-label="Email"
               aria-invalid={Boolean(contactFieldErrors.email)}
+              aria-describedby={contactFieldErrors.email ? 'about-contact-email-error' : undefined}
               className={`w-full px-4 py-2.5 bg-white border-2 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none transition-colors ${contactFieldErrors.email ? 'border-red-400 focus:border-red-500' : 'border-[#1C1428]/20 focus:border-zn-purple'}`}
             />
             {contactFieldErrors.email && (
-              <p className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.email}</p>
+              <p id="about-contact-email-error" className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.email}</p>
             )}
             <textarea
               name="message"
               placeholder={'\u0421\u044a\u043e\u0431\u0449\u0435\u043d\u0438\u0435...'}
               rows="3"
               value={contactForm.message}
-              onChange={(event) => setContactForm({ ...contactForm, message: event.target.value })}
+              onChange={(event) => {
+                setContactForm({ ...contactForm, message: event.target.value });
+                setDismissContactError(true);
+                clearContactFieldError('message');
+              }}
               required
               disabled={isContactPending}
               aria-label={'\u0421\u044a\u043e\u0431\u0449\u0435\u043d\u0438\u0435'}
               aria-invalid={Boolean(contactFieldErrors.message)}
+              aria-describedby={contactFieldErrors.message ? 'about-contact-message-error' : undefined}
               className={`w-full px-4 py-2.5 bg-white border-2 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none resize-none transition-colors ${contactFieldErrors.message ? 'border-red-400 focus:border-red-500' : 'border-[#1C1428]/20 focus:border-zn-purple'}`}
             />
             {contactFieldErrors.message && (
-              <p className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.message}</p>
+              <p id="about-contact-message-error" className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.message}</p>
             )}
             <ContactSubmitButton />
           </form>

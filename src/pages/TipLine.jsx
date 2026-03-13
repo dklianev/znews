@@ -42,6 +42,8 @@ export default function TipLine() {
   const [imagePreview, setImagePreview] = useState(null);
   const [success, setSuccess] = useState(false);
   const [clientError, setClientError] = useState('');
+  const [dismissTipError, setDismissTipError] = useState(false);
+  const [tipFieldErrors, setTipFieldErrors] = useState({});
   const fileInputRef = useRef(null);
   const [tipState, submitTipAction, isTipPending] = useActionState(
     async (_previousState, formData) => {
@@ -106,6 +108,26 @@ export default function TipLine() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [imagePreview, tipState.status]);
 
+  useEffect(() => {
+    setTipFieldErrors(tipState.fieldErrors || {});
+  }, [tipState.fieldErrors]);
+
+  useEffect(() => {
+    if (tipState.status !== 'error') {
+      setDismissTipError(false);
+    }
+  }, [tipState.status]);
+
+  const clearTipFieldError = (field) => {
+    setTipFieldErrors((prev) => {
+      if (!prev?.[field]) return prev;
+      return {
+        ...prev,
+        [field]: '',
+      };
+    });
+  };
+
   const handleImageChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -126,6 +148,9 @@ export default function TipLine() {
     setImage(file);
     setImagePreview(URL.createObjectURL(file));
     setClientError('');
+    setDismissTipError(true);
+    clearTipFieldError('image');
+    clearTipFieldError('text');
   };
 
   const removeImage = () => {
@@ -134,10 +159,11 @@ export default function TipLine() {
     setImagePreview(null);
     setClientError('');
     if (fileInputRef.current) fileInputRef.current.value = '';
+    setDismissTipError(true);
+    clearTipFieldError('image');
   };
 
-  const tipError = clientError || (tipState.status === 'error' ? tipState.message : '');
-  const tipFieldErrors = tipState.fieldErrors || {};
+  const tipError = clientError || (tipState.status === 'error' && !dismissTipError ? tipState.message : '');
 
   if (success) {
     return (
@@ -205,16 +231,21 @@ export default function TipLine() {
             <textarea
               name="text"
               value={text}
-              onChange={(event) => setText(event.target.value)}
+              onChange={(event) => {
+                setText(event.target.value);
+                setDismissTipError(true);
+                clearTipFieldError('text');
+              }}
               disabled={isTipPending}
               aria-invalid={Boolean(tipFieldErrors.text)}
+              aria-describedby={tipFieldErrors.text ? 'tipline-text-error' : undefined}
               className="w-full h-40 px-4 py-3 font-sans text-lg bg-gray-50 dark:bg-[#1C1828] dark:text-gray-200 border-2 border-zn-black dark:border-[#524A62] focus:outline-none focus:ring-4 focus:ring-zn-purple/20 focus:border-zn-purple transition-all resize-none comic-ink-shadow-sm dark:placeholder-gray-500"
               placeholder={'\u041e\u043f\u0438\u0448\u0435\u0442\u0435 \u0441\u044a\u0431\u0438\u0442\u0438\u0435\u0442\u043e \u0434\u0435\u0442\u0430\u0439\u043b\u043d\u043e. \u041a\u043e\u0439, \u043a\u0430\u043a\u0432\u043e, \u043a\u043e\u0433\u0430...'}
               aria-required="true"
               aria-label={'\u041e\u043f\u0438\u0441\u0430\u043d\u0438\u0435 \u043d\u0430 \u0441\u0438\u0433\u043d\u0430\u043b\u0430'}
             />
             {tipFieldErrors.text && (
-              <p className="text-sm font-sans text-red-700 dark:text-red-300" role="alert">{tipFieldErrors.text}</p>
+              <p id="tipline-text-error" className="text-sm font-sans text-red-700 dark:text-red-300" role="alert">{tipFieldErrors.text}</p>
             )}
           </div>
 
@@ -231,7 +262,10 @@ export default function TipLine() {
                   type="text"
                   name="location"
                   value={location}
-                  onChange={(event) => setLocation(event.target.value)}
+                  onChange={(event) => {
+                    setLocation(event.target.value);
+                    setDismissTipError(true);
+                  }}
                   disabled={isTipPending}
                   className="w-full pl-10 pr-4 py-3 font-sans text-lg bg-gray-50 dark:bg-[#1C1828] dark:text-gray-200 border-2 border-zn-black dark:border-[#524A62] focus:outline-none focus:ring-4 focus:ring-zn-purple/20 focus:border-zn-purple transition-all comic-ink-shadow-sm dark:placeholder-gray-500"
                   placeholder={'\u0423\u043b\u0438\u0446\u0430, \u043a\u0432\u0430\u0440\u0442\u0430\u043b \u0438\u043b\u0438 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u0438...'}
@@ -276,9 +310,10 @@ export default function TipLine() {
                 accept="image/*"
                 className="hidden"
                 disabled={isTipPending}
+                aria-describedby={tipFieldErrors.image ? 'tipline-image-error' : undefined}
               />
               {tipFieldErrors.image && (
-                <p className="text-sm font-sans text-red-700 dark:text-red-300" role="alert">{tipFieldErrors.image}</p>
+                <p id="tipline-image-error" className="text-sm font-sans text-red-700 dark:text-red-300" role="alert">{tipFieldErrors.image}</p>
               )}
             </div>
           </div>

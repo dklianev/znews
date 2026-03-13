@@ -30,6 +30,7 @@ export default function AdminLogin() {
   const { login } = useSessionData();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [dismissLoginError, setDismissLoginError] = useState(false);
   const normalizedUsername = username.trim();
   const [loginState, submitLoginAction, isLoginPending] = useActionState(
     async (_previousState, formData) => {
@@ -63,7 +64,13 @@ export default function AdminLogin() {
     if (loginState.status === 'success') navigate('/admin');
   }, [loginState.status, navigate]);
 
-  const error = loginState.status === 'error' ? loginState.message : '';
+  useEffect(() => {
+    if (loginState.status !== 'error') {
+      setDismissLoginError(false);
+    }
+  }, [loginState.status]);
+
+  const error = loginState.status === 'error' && !dismissLoginError ? loginState.message : '';
   const canSubmit = normalizedUsername.length > 0 && password.length > 0;
   const describedBy = error ? 'admin-login-error admin-login-help' : 'admin-login-help';
 
@@ -94,7 +101,10 @@ export default function AdminLogin() {
                 type="text"
                 name="username"
                 value={username}
-                onChange={(event) => setUsername(event.target.value)}
+                onChange={(event) => {
+                  setUsername(event.target.value);
+                  if (loginState.status === 'error') setDismissLoginError(true);
+                }}
                 autoComplete="username"
                 autoFocus
                 disabled={isLoginPending}
@@ -117,7 +127,10 @@ export default function AdminLogin() {
                 type="password"
                 name="password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  if (loginState.status === 'error') setDismissLoginError(true);
+                }}
                 autoComplete="current-password"
                 disabled={isLoginPending}
                 aria-invalid={Boolean(error)}
