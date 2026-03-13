@@ -879,7 +879,7 @@ export default function ManageArticles() {
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [filterCat, searchQuery]);
 
-  const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
+  const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white";
   const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
 
   // Scroll-to-top
@@ -909,7 +909,7 @@ export default function ManageArticles() {
         </div>
         <button
           onClick={startNewArticle}
-          className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
         >
           <Plus className="w-4 h-4" />
           Нова статия
@@ -939,19 +939,31 @@ export default function ManageArticles() {
             </div>
 
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setShowPreviewModal(true)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-sans font-semibold hover:bg-blue-700 transition-colors">
+              <button
+                type="button"
+                onClick={() => setShowPreviewModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-sans font-semibold hover:bg-blue-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              >
                 <Eye className="w-4 h-4" /> Live Preview
               </button>
-              <button onClick={handleSave} disabled={saving} className={`flex items-center gap-2 px-4 py-2 text-white text-sm font-sans font-semibold transition-colors ${saving ? 'bg-zn-purple/60 cursor-not-allowed' : 'bg-zn-purple hover:bg-zn-purple-dark'}`}>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                aria-busy={saving}
+                className={`flex items-center gap-2 px-4 py-2 text-white text-sm font-sans font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white ${saving ? 'bg-zn-purple/60 cursor-not-allowed' : 'bg-zn-purple hover:bg-zn-purple-dark'}`}
+              >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {saving ? 'Запазване...' : 'Запази'}
               </button>
-              <button onClick={handleCancel} className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
+              <button
+                onClick={handleCancel}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              >
                 <X className="w-4 h-4" /> Откажи
               </button>
               {editing === 'new' && (
                 <button
                   onClick={() => { clearDraft(); setForm(emptyForm); setAutosavedAt(null); loadHistoryForScope('new'); }}
-                  className="flex items-center px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 transition-colors"
+                  className="flex items-center px-3 py-2 border border-red-200 text-red-600 hover:bg-red-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                   title="Изчисти чернова"
                 >
                   <Trash2 className="w-4 h-4" />

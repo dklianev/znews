@@ -170,7 +170,7 @@ function CommentItem({
               type="button"
               onClick={() => onReact(comment.id, 'like')}
               disabled={isReacting}
-              className={`inline-flex h-8 items-center gap-1.5 px-2.5 border text-[11px] sm:text-xs font-display font-black uppercase tracking-wider transition-colors disabled:opacity-50 ${selectedReaction === 'like' ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'bg-[#F7F3EA] border-[#1C1428]/20 text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40'}`}
+              className={`inline-flex h-8 items-center gap-1.5 px-2.5 border text-[11px] sm:text-xs font-display font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] disabled:opacity-50 ${selectedReaction === 'like' ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'bg-[#F7F3EA] border-[#1C1428]/20 text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40'}`}
               aria-label="Харесай коментара"
             >
               <ThumbsUp className="w-3.5 h-3.5" />
@@ -180,7 +180,7 @@ function CommentItem({
               type="button"
               onClick={() => onReact(comment.id, 'dislike')}
               disabled={isReacting}
-              className={`inline-flex h-8 items-center gap-1.5 px-2.5 border text-[11px] sm:text-xs font-display font-black uppercase tracking-wider transition-colors disabled:opacity-50 ${selectedReaction === 'dislike' ? 'bg-red-100 border-red-400 text-red-700' : 'bg-[#F7F3EA] border-[#1C1428]/20 text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40'}`}
+              className={`inline-flex h-8 items-center gap-1.5 px-2.5 border text-[11px] sm:text-xs font-display font-black uppercase tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] disabled:opacity-50 ${selectedReaction === 'dislike' ? 'bg-red-100 border-red-400 text-red-700' : 'bg-[#F7F3EA] border-[#1C1428]/20 text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40'}`}
               aria-label="Не харесвам коментара"
             >
               <ThumbsDown className="w-3.5 h-3.5" />
@@ -189,7 +189,7 @@ function CommentItem({
             <button
               type="button"
               onClick={() => setShowReplyForm(prev => !prev)}
-              className="inline-flex h-8 items-center gap-1.5 px-2.5 border border-[#1C1428]/20 bg-white text-[11px] sm:text-xs font-display font-black uppercase tracking-wider text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40 transition-colors"
+              className="inline-flex h-8 items-center gap-1.5 px-2.5 border border-[#1C1428]/20 bg-white text-[11px] sm:text-xs font-display font-black uppercase tracking-wider text-zn-text-muted hover:text-zn-text hover:border-[#1C1428]/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1]"
               aria-label="Отговори на коментара"
             >
               <CornerDownRight className="w-3.5 h-3.5" />
@@ -211,7 +211,7 @@ function CommentItem({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-700 text-[11px] font-display font-black uppercase tracking-wider">
+                <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-700 text-[11px] font-display font-black uppercase tracking-wider" role="status">
                   Отговорът е изпратен и чака одобрение.
                 </div>
               </motion.div>
@@ -237,7 +237,7 @@ function CommentItem({
                   onSubmit={handleReplySubmit}
                 >
                   {replyError && (
-                    <div className="p-2.5 bg-red-50 border border-red-300 text-red-700 text-[11px] font-display font-black uppercase tracking-wider">
+                    <div className="p-2.5 bg-red-50 border border-red-300 text-red-700 text-[11px] font-display font-black uppercase tracking-wider" role="alert">
                       {replyError}
                     </div>
                   )}
@@ -250,7 +250,7 @@ function CommentItem({
                       placeholder="Твоето име..."
                       required
                       maxLength={COMMENT_AUTHOR_MAX_LEN}
-                      className="w-full pl-8 pr-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none focus:border-zn-purple"
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none transition-colors focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1]"
                     />
                   </div>
                   <textarea
@@ -260,14 +260,15 @@ function CommentItem({
                     required
                     rows="2"
                     maxLength={COMMENT_TEXT_MAX_LEN}
-                    className="w-full px-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none focus:border-zn-purple resize-none"
+                    className="w-full px-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none transition-colors focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] resize-none"
                   />
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted">
                     <span>{replyText.length}/{COMMENT_TEXT_MAX_LEN}</span>
                     <button
                       type="submit"
                       disabled={submittingReply}
-                      className="comment-submit-btn w-full sm:w-auto px-3 py-1.5 text-[11px]"
+                      className="comment-submit-btn w-full sm:w-auto px-3 py-1.5 text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1]"
+                      aria-busy={submittingReply}
                     >
                       <Send className="w-3.5 h-3.5" />
                       {submittingReply ? 'Изпращане...' : 'Изпрати'}
@@ -439,7 +440,7 @@ export default function CommentsSection({ articleId }) {
               transition={{ duration: 0.3 }}
               className="overflow-hidden"
             >
-              <div className="mb-3 p-3 bg-emerald-50 border-2 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-400/30 dark:text-emerald-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
+              <div className="mb-3 p-3 bg-emerald-50 border-2 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-400/30 dark:text-emerald-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]" role="status">
                 Коментарът е изпратен и очаква одобрение.
               </div>
             </motion.div>
@@ -454,7 +455,7 @@ export default function CommentsSection({ articleId }) {
               transition={{ duration: 0.3 }}
               className="overflow-hidden"
             >
-              <div className="mb-3 p-3 bg-red-50 border-2 border-red-300 text-red-700 dark:bg-red-950/30 dark:border-red-400/30 dark:text-red-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
+              <div className="mb-3 p-3 bg-red-50 border-2 border-red-300 text-red-700 dark:bg-red-950/30 dark:border-red-400/30 dark:text-red-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]" role="alert">
                 {error}
               </div>
             </motion.div>
@@ -469,7 +470,7 @@ export default function CommentsSection({ articleId }) {
               transition={{ duration: 0.3 }}
               className="overflow-hidden"
             >
-              <div className="mb-3 p-3 bg-red-50 border-2 border-red-300 text-red-700 dark:bg-red-950/30 dark:border-red-400/30 dark:text-red-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]">
+              <div className="mb-3 p-3 bg-red-50 border-2 border-red-300 text-red-700 dark:bg-red-950/30 dark:border-red-400/30 dark:text-red-200 text-sm font-display font-bold uppercase tracking-wider relative z-[2]" role="alert">
                 {reactionError}
               </div>
             </motion.div>
@@ -486,7 +487,7 @@ export default function CommentsSection({ articleId }) {
               required
               maxLength={COMMENT_AUTHOR_MAX_LEN}
               aria-label="Твоето име"
-              className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple transition-colors"
+              className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] transition-colors"
             />
           </div>
         </div>
@@ -498,7 +499,7 @@ export default function CommentsSection({ articleId }) {
           rows="3"
           maxLength={COMMENT_TEXT_MAX_LEN}
           aria-label="Коментар"
-          className="w-full px-3 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple resize-none mb-3 relative z-[2]"
+          className="w-full px-3 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] resize-none mb-3 relative z-[2]"
         />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-1 relative z-[2]">
           <div className="flex items-center justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted w-full sm:w-auto gap-4">
@@ -510,7 +511,8 @@ export default function CommentsSection({ articleId }) {
           <button
             type="submit"
             disabled={submittingComment}
-            className="comment-submit-btn w-full sm:w-auto relative z-[2]"
+            className="comment-submit-btn w-full sm:w-auto relative z-[2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1]"
+            aria-busy={submittingComment}
           >
             <Send className="w-4 h-4" />
             {submittingComment ? 'Изпращане...' : 'Изпрати'}

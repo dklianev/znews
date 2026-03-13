@@ -63,7 +63,10 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
      ══════════════════════════════════════ */
   if (size === 'featured') {
     return (
-      <Link to={`/article/${article.id}`}>
+      <Link
+        to={`/article/${article.id}`}
+        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]"
+      >
         <motion.div
           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
           className="polaroid-thick group cursor-pointer h-full comic-panel-hover"
@@ -119,7 +122,10 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
      polaroid-like padding and tape
      ══════════════════════════════════════ */
   return (
-    <Link to={`/article/${article.id}`}>
+    <Link
+      to={`/article/${article.id}`}
+      className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]"
+    >
       <motion.div
         initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
         className="comic-story-card overflow-visible group cursor-pointer flex flex-col sm:flex-row"

@@ -141,7 +141,7 @@ export default function AdminLayout() {
               key={item.to}
               to={item.to}
               onClick={() => setSidebarOpen(false)}
-              className={`flex items-center gap-3 px-5 py-2.5 text-sm font-sans transition-colors ${isActive
+              className={`flex items-center gap-3 px-5 py-2.5 text-sm font-sans transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-inset ${isActive
                 ? 'text-white bg-white/10 border-l-[3px] border-zn-purple'
                 : 'text-white/60 hover:text-zn-text hover:bg-white/5'
                 }`}
@@ -164,7 +164,8 @@ export default function AdminLayout() {
           </div>
           <button
             onClick={toggleDark}
-            className="p-1.5 text-white/40 hover:text-zn-text transition-colors"
+            className="p-1.5 text-white/40 hover:text-zn-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-bg"
+            aria-pressed={isDark}
             title={isDark ? 'Светла тема' : 'Тъмна тема'}
           >
             {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -175,14 +176,14 @@ export default function AdminLayout() {
             href="/"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-sans text-white/50 hover:text-zn-text border border-white/10 hover:border-white/30 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-sans text-white/50 hover:text-zn-text border border-white/10 hover:border-white/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-bg"
           >
             <ExternalLink className="w-3 h-3" />
             Сайт
           </a>
           <button
             onClick={handleLogout}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-sans text-white/50 hover:text-red-400 border border-white/10 hover:border-red-400/30 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-sans text-white/50 hover:text-red-400 border border-white/10 hover:border-red-400/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-bg"
           >
             <LogOut className="w-3 h-3" />
             Изход
@@ -197,7 +198,13 @@ export default function AdminLayout() {
       <div className="min-h-[100dvh] bg-gray-50 flex">
         {/* Mobile header */}
         <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-zn-bg text-white flex items-center justify-between px-4 py-3">
-          <button onClick={() => setSidebarOpen(true)} className="p-1" aria-label="Отвори менюто">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-bg"
+            aria-label="Отвори менюто"
+            aria-controls="admin-sidebar"
+            aria-expanded={sidebarOpen}
+          >
             <Menu className="w-6 h-6" />
           </button>
           <h1 className="font-display text-lg font-bold">Los Santos News CMS</h1>
@@ -210,14 +217,17 @@ export default function AdminLayout() {
         )}
 
         {/* Sidebar */}
-        <aside className={`
+        <aside
+          id="admin-sidebar"
+          className={`
         fixed top-0 left-0 z-50 h-[100dvh] lg:h-screen w-64 bg-zn-bg text-white flex flex-col min-h-0 shrink-0 transition-transform duration-200
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+      `}
+        >
           {/* Mobile close button */}
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden absolute top-4 right-4 text-white/60 hover:text-zn-text"
+            className="lg:hidden absolute top-4 right-4 text-white/60 hover:text-zn-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-bg"
             aria-label="Затвори менюто"
           >
             <X className="w-5 h-5" />
@@ -228,7 +238,7 @@ export default function AdminLayout() {
         {/* Main */}
         <main className="flex-1 min-h-[100dvh] overflow-auto lg:ml-64 mt-14 lg:mt-0">
           {globalError && (
-            <div className="mx-4 mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm font-sans flex items-start gap-2">
+            <div className="mx-4 mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm font-sans flex items-start gap-2" role="alert">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">Грешка</p>
@@ -237,7 +247,7 @@ export default function AdminLayout() {
               <button
                 type="button"
                 onClick={() => setGlobalError('')}
-                className="p-1 text-red-700 hover:text-red-900"
+                className="p-1 text-red-700 hover:text-red-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
                 aria-label="Затвори"
               >
                 <X className="w-4 h-4" />

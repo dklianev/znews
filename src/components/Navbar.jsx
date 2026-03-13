@@ -445,7 +445,13 @@ export default function Navbar() {
             </div>
 
             {/* Mobile toggle */}
-            <button onClick={() => setIsOpen(!isOpen)} className="md:hidden p-3 text-zn-text" aria-label={isOpen ? 'Затвори менюто' : 'Отвори менюто'}>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="md:hidden p-3 text-zn-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-paper"
+              aria-label={isOpen ? 'Затвори менюто' : 'Отвори менюто'}
+              aria-controls="mobile-navigation"
+              aria-expanded={isOpen}
+            >
               {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
             {/* Mobile logo */}
