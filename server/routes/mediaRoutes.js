@@ -1,4 +1,5 @@
 import path from 'path';
+import { asyncHandler } from '../services/expressAsyncService.js';
 
 const MEDIA_PERMISSIONS = ['articles', 'ads', 'gallery', 'events'];
 
@@ -18,7 +19,6 @@ export function registerMediaRoutes(app, deps) {
     isProd,
     isStorageNotFoundError,
     listMediaFiles,
-    publicError,
     readOriginalUploadBuffer,
     requireAnyPermission,
     requireAuth,
@@ -27,16 +27,12 @@ export function registerMediaRoutes(app, deps) {
 
   const mediaAccess = [requireAuth, requireAnyPermission(MEDIA_PERMISSIONS)];
 
-  app.get('/api/media', ...mediaAccess, async (_req, res) => {
-    try {
-      const files = await listMediaFiles();
-      res.json(files);
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
-    }
-  });
+  app.get('/api/media', ...mediaAccess, asyncHandler(async (_req, res) => {
+    const files = await listMediaFiles();
+    return res.json(files);
+  }));
 
-  app.get('/api/media/source/:fileName', ...mediaAccess, async (req, res) => {
+  app.get('/api/media/source/:fileName', ...mediaAccess, asyncHandler(async (req, res) => {
     try {
       const decoded = decodeURIComponent(req.params.fileName || '');
       const fileName = path.basename(decoded);
@@ -47,37 +43,31 @@ export function registerMediaRoutes(app, deps) {
 
       res.set('Cache-Control', isProd ? 'public, max-age=31536000, immutable' : 'no-store');
       res.type(fileName);
-      res.send(buffer);
-    } catch (e) {
-      if (e?.code === 'ENOENT' || isStorageNotFoundError(e)) return res.status(404).json({ error: 'File not found' });
-      res.status(500).json({ error: publicError(e) });
+      return res.send(buffer);
+    } catch (error) {
+      if (error?.code === 'ENOENT' || isStorageNotFoundError(error)) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+      throw error;
     }
-  });
+  }));
 
-  app.get('/api/media/pipeline/status', ...mediaAccess, async (_req, res) => {
-    try {
-      const status = await getImagePipelineStatus();
-      res.json(status);
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
-    }
-  });
+  app.get('/api/media/pipeline/status', ...mediaAccess, asyncHandler(async (_req, res) => {
+    const status = await getImagePipelineStatus();
+    return res.json(status);
+  }));
 
-  app.post('/api/media/pipeline/backfill', ...mediaAccess, async (req, res) => {
-    try {
-      const force = Boolean(req.body?.force);
-      const parsedLimit = Number.parseInt(req.body?.limit, 10);
-      const limit = Number.isInteger(parsedLimit) && parsedLimit > 0
-        ? Math.min(parsedLimit, 5000)
-        : 0;
-      const summary = await backfillImagePipeline({ force, limit });
-      res.json(summary);
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
-    }
-  });
+  app.post('/api/media/pipeline/backfill', ...mediaAccess, asyncHandler(async (req, res) => {
+    const force = Boolean(req.body?.force);
+    const parsedLimit = Number.parseInt(req.body?.limit, 10);
+    const limit = Number.isInteger(parsedLimit) && parsedLimit > 0
+      ? Math.min(parsedLimit, 5000)
+      : 0;
+    const summary = await backfillImagePipeline({ force, limit });
+    return res.json(summary);
+  }));
 
-  app.delete('/api/media/:fileName', ...mediaAccess, async (req, res) => {
+  app.delete('/api/media/:fileName', ...mediaAccess, asyncHandler(async (req, res) => {
     try {
       const decoded = decodeURIComponent(req.params.fileName || '');
       const fileName = path.basename(decoded);
@@ -111,10 +101,12 @@ export function registerMediaRoutes(app, deps) {
 
       await deleteStorageObject(fileName);
       await deleteStoragePrefix(getVariantsRelativeDir(fileName));
-      res.json({ ok: true });
-    } catch (e) {
-      if (e?.code === 'ENOENT' || isStorageNotFoundError(e)) return res.status(404).json({ error: 'File not found' });
-      res.status(500).json({ error: publicError(e) });
+      return res.json({ ok: true });
+    } catch (error) {
+      if (error?.code === 'ENOENT' || isStorageNotFoundError(error)) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+      throw error;
     }
-  });
+  }));
 }

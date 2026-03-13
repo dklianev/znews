@@ -1,3 +1,5 @@
+import { asyncHandler } from '../services/expressAsyncService.js';
+
 export function registerAuthRoutes(app, deps) {
   const {
     accessTokenMaxAgeMs,
@@ -8,52 +10,47 @@ export function registerAuthRoutes(app, deps) {
     decodeRefreshToken,
     normalizeText,
     parseCookies,
-    publicError,
     REFRESH_COOKIE_NAME,
     rotateTokensForUser,
     setRefreshCookie,
     User,
   } = deps;
 
-  app.post('/api/auth/login', authLimiter, async (req, res) => {
-    try {
-      const username = normalizeText(req.body.username, 40).toLowerCase();
-      const password = typeof req.body.password === 'string' ? req.body.password : '';
-      if (!username || !password) return res.status(401).json({ error: 'Invalid credentials' });
+  app.post('/api/auth/login', authLimiter, asyncHandler(async (req, res) => {
+    const username = normalizeText(req.body.username, 40).toLowerCase();
+    const password = typeof req.body.password === 'string' ? req.body.password : '';
+    if (!username || !password) return res.status(401).json({ error: 'Invalid credentials' });
 
-      const user = await User.findOne({ username }).lean();
-      if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+    const user = await User.findOne({ username }).lean();
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
-      const isBcryptHash = user.password && user.password.startsWith('$2');
-      let isMatch = false;
-      if (isBcryptHash) {
-        isMatch = await bcrypt.compare(password, user.password);
-      } else {
-        isMatch = (password === user.password);
-        if (isMatch) {
-          const hashed = await bcrypt.hash(password, 10);
-          await User.updateOne({ id: user.id }, { $set: { password: hashed } });
-        }
+    const isBcryptHash = user.password && user.password.startsWith('$2');
+    let isMatch = false;
+    if (isBcryptHash) {
+      isMatch = await bcrypt.compare(password, user.password);
+    } else {
+      isMatch = (password === user.password);
+      if (isMatch) {
+        const hashed = await bcrypt.hash(password, 10);
+        await User.updateOne({ id: user.id }, { $set: { password: hashed } });
       }
-      if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
-
-      const { accessToken, refreshToken } = await rotateTokensForUser(req, user);
-      setRefreshCookie(res, refreshToken);
-
-      res.json({
-        userId: user.id,
-        username: user.username,
-        role: user.role,
-        name: user.name,
-        token: accessToken,
-        accessTokenExpiresIn: Math.floor(accessTokenMaxAgeMs / 1000),
-      });
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
     }
-  });
+    if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 
-  app.post('/api/auth/refresh', async (req, res) => {
+    const { accessToken, refreshToken } = await rotateTokensForUser(req, user);
+    setRefreshCookie(res, refreshToken);
+
+    return res.json({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      name: user.name,
+      token: accessToken,
+      accessTokenExpiresIn: Math.floor(accessTokenMaxAgeMs / 1000),
+    });
+  }));
+
+  app.post('/api/auth/refresh', asyncHandler(async (req, res) => {
     try {
       const cookies = parseCookies(req);
       const refreshToken = cookies[REFRESH_COOKIE_NAME];
@@ -93,13 +90,13 @@ export function registerAuthRoutes(app, deps) {
         token: accessToken,
         accessTokenExpiresIn: Math.floor(accessTokenMaxAgeMs / 1000),
       });
-    } catch (e) {
+    } catch (error) {
       clearRefreshCookie(res);
-      return res.status(500).json({ error: publicError(e) });
+      throw error;
     }
-  });
+  }));
 
-  app.post('/api/auth/logout', async (req, res) => {
+  app.post('/api/auth/logout', asyncHandler(async (req, res) => {
     try {
       const cookies = parseCookies(req);
       const refreshToken = cookies[REFRESH_COOKIE_NAME];
@@ -110,9 +107,9 @@ export function registerAuthRoutes(app, deps) {
       }
       clearRefreshCookie(res);
       return res.json({ ok: true });
-    } catch (e) {
+    } catch (error) {
       clearRefreshCookie(res);
-      return res.status(500).json({ error: publicError(e) });
+      throw error;
     }
-  });
+  }));
 }
