@@ -2,7 +2,7 @@ import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-d
 import { useAdminData, useSessionData } from '../../context/DataContext';
 import { api } from '../../utils/api';
 import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3, Mail, Gamepad2, Puzzle, Activity } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { makeTitle, useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { ToastProvider } from '../../components/admin/Toast';
@@ -68,11 +68,50 @@ export default function AdminLayout() {
     navigate('/admin/login');
   };
 
+  const formatClientIssue = useEffectEvent((reason) => {
+    if (!reason) return 'Неочаквана грешка';
+    if (typeof reason === 'string') return reason.slice(0, 500);
+    if (typeof reason?.message === 'string') return reason.message.slice(0, 500);
+    try {
+      return JSON.stringify(reason).slice(0, 500);
+    } catch {
+      return 'Неочаквана грешка';
+    }
+  });
+
+  const reportClientIssue = useEffectEvent((component, message, extra = null) => {
+    api.monitoring.reportClientError({
+      component,
+      message,
+      pathname: typeof window !== 'undefined' ? window.location.pathname : '',
+      extra,
+    }).catch(() => {});
+  });
+
+  const handleUnhandledRejection = useEffectEvent((event) => {
+    const message = formatClientIssue(event?.reason);
+    setGlobalError(message);
+    reportClientIssue('AdminLayout.unhandledrejection', message, {
+      reason: formatClientIssue(event?.reason),
+    });
+  });
+
+  const handleWindowError = useEffectEvent((event) => {
+    const message = formatClientIssue(event?.error || event?.message);
+    setGlobalError(message);
+    reportClientIssue('AdminLayout.window-error', message, {
+      stack: event?.error?.stack || '',
+    });
+  });
+
   useEffect(() => {
     setGlobalError('');
   }, [location.pathname]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    /*
     const reportClientIssue = (component, message, extra = null) => {
       api.monitoring.reportClientError({
         component,
@@ -93,16 +132,13 @@ export default function AdminLayout() {
       }
     };
 
+    */
     const onUnhandledRejection = (event) => {
-      const message = formatReason(event?.reason);
-      setGlobalError(message);
-      reportClientIssue('AdminLayout.unhandledrejection', message, { reason: formatReason(event?.reason) });
+      handleUnhandledRejection(event);
     };
 
     const onWindowError = (event) => {
-      const message = formatReason(event?.error || event?.message);
-      setGlobalError(message);
-      reportClientIssue('AdminLayout.window-error', message, { stack: event?.error?.stack || '' });
+      handleWindowError(event);
     };
 
     window.addEventListener('unhandledrejection', onUnhandledRejection);
