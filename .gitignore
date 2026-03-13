@@ -46,3 +46,5 @@ last_commit.txt
 last3_commits.txt
 temp_*.txt
 .codex-tmp/
+.playwright-cli/
+.smoke-safe-runtime/
