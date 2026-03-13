@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
 import { Save, Plus, Trash2, RotateCcw, RefreshCw, ShieldAlert, History, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { COMIC_LAYOUT_PRESET_OPTIONS } from '../../utils/comicCardDesign';
@@ -140,6 +140,7 @@ export default function ManageSiteSettings() {
   const [error, setError] = useState('');
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [restoringHistory, setRestoringHistory] = useState(null);
+  const fieldRefs = useRef(new Map());
   const toast = useToast();
 
   useEffect(() => {
@@ -169,6 +170,66 @@ export default function ManageSiteSettings() {
   const tinyLabelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
 
   const canEdit = useMemo(() => hasPermission('permissions'), [hasPermission]);
+  const validationEntries = useMemo(() => {
+    const errors = [];
+    const email = String(form.contact?.email || '').trim();
+    const buttonLink = String(form.tipLinePromo?.buttonLink || '').trim();
+    const incompleteAdPlan = (form.about?.adPlans || []).some((plan) => (
+      !String(plan?.name || '').trim()
+      || !String(plan?.price || '').trim()
+      || !String(plan?.desc || '').trim()
+    ));
+
+    if (!String(form.breakingBadgeLabel || '').trim()) errors.push(['breakingBadgeLabel', 'Breaking badge текстът е задължителен.']);
+    if (!String(form.contact?.address || '').trim()) errors.push(['contact.address', 'Адресът е задължителен.']);
+    if (!String(form.contact?.phone || '').trim()) errors.push(['contact.phone', 'Телефонът е задължителен.']);
+    if (!email) errors.push(['contact.email', 'Имейлът е задължителен.']);
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push(['contact.email', 'Имейлът трябва да е във валиден формат.']);
+    if (!String(form.about?.heroText || '').trim()) errors.push(['about.heroText', 'Hero текстът е задължителен.']);
+    if (!String(form.about?.missionTitle || '').trim()) errors.push(['about.missionTitle', 'Mission заглавието е задължително.']);
+    if (!String(form.about?.missionParagraph1 || '').trim()) errors.push(['about.missionParagraph1', 'Първият mission параграф е задължителен.']);
+    if (!String(form.about?.missionParagraph2 || '').trim()) errors.push(['about.missionParagraph2', 'Вторият mission параграф е задължителен.']);
+    if (!String(form.about?.adIntro || '').trim()) errors.push(['about.adIntro', 'Ad intro текстът е задължителен.']);
+    if (Boolean(form.tipLinePromo?.enabled)) {
+      if (!String(form.tipLinePromo?.title || '').trim()) errors.push(['tipLinePromo.title', 'Tip line заглавието е задължително.']);
+      if (!String(form.tipLinePromo?.description || '').trim()) errors.push(['tipLinePromo.description', 'Tip line описанието е задължително.']);
+      if (!String(form.tipLinePromo?.buttonLabel || '').trim()) errors.push(['tipLinePromo.buttonLabel', 'Tip line бутон текстът е задължителен.']);
+      if (!buttonLink) errors.push(['tipLinePromo.buttonLink', 'Tip line линкът е задължителен.']);
+      else if (!buttonLink.startsWith('/')) errors.push(['tipLinePromo.buttonLink', 'Tip line линкът трябва да започва с /.']);
+    }
+    if (incompleteAdPlan) errors.push(['about.adPlans', 'Всеки рекламен план трябва да има име, цена и описание.']);
+
+    return errors;
+  }, [form]);
+  const validationMessages = useMemo(() => Object.fromEntries(validationEntries), [validationEntries]);
+
+  const registerFieldRef = (field) => (node) => {
+    if (node) fieldRefs.current.set(field, node);
+    else fieldRefs.current.delete(field);
+  };
+
+  const focusValidationField = (field) => {
+    const node = fieldRefs.current.get(field);
+    if (!node) return;
+    if (typeof node.scrollIntoView === 'function') {
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    const target = typeof node.focus === 'function' && node.tabIndex >= 0
+      ? node
+      : node.querySelector?.('input, select, textarea, button, [tabindex]');
+    if (target && typeof target.focus === 'function') {
+      requestAnimationFrame(() => target.focus({ preventScroll: true }));
+    }
+  };
+
+  const getFieldError = (field) => validationMessages[field] || '';
+  const getInputClassName = (field, className = inputCls) => (
+    getFieldError(field) ? `${className} !border-red-400 bg-red-50/30` : className
+  );
+  const clearFeedback = () => {
+    if (error) setError('');
+    if (saved) setSaved(false);
+  };
 
   const updateListItem = (key, index, field, value) => {
     setForm((prev) => ({
@@ -208,9 +269,13 @@ export default function ManageSiteSettings() {
   };
 
   const save = async () => {
-    setSaving(true);
     setSaved(false);
     setError('');
+    if (validationEntries.length > 0) {
+      focusValidationField(validationEntries[0][0]);
+      return;
+    }
+    setSaving(true);
     try {
       await saveSiteSettings(form);
       setSaved(true);
@@ -302,6 +367,7 @@ export default function ManageSiteSettings() {
           <button
             onClick={save}
             disabled={saving}
+            aria-busy={saving}
             className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
@@ -314,6 +380,25 @@ export default function ManageSiteSettings() {
         <div className="bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <span className="break-words">{error}</span>
+        </div>
+      )}
+
+      {validationEntries.length > 0 && (
+        <div className="bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert" aria-live="polite">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <ul className="space-y-1">
+            {validationEntries.map(([field, message]) => (
+              <li key={field}>
+                <button
+                  type="button"
+                  onClick={() => focusValidationField(field)}
+                  className="text-left hover:underline underline-offset-2"
+                >
+                  {message}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -422,15 +507,25 @@ export default function ManageSiteSettings() {
         <h2 className="font-sans font-semibold text-gray-900">Card badges</h2>
         <p className="text-xs font-sans text-gray-500">Текстът на breaking badge в картите на начална страница и листинги.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+          <div ref={registerFieldRef('breakingBadgeLabel')}>
             <label className={tinyLabelCls}>Breaking badge label</label>
             <input
-              className={inputCls}
+              className={getInputClassName('breakingBadgeLabel')}
               maxLength={24}
               value={form.breakingBadgeLabel || ''}
-              onChange={(e) => setForm((prev) => ({ ...prev, breakingBadgeLabel: e.target.value }))}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, breakingBadgeLabel: e.target.value }));
+              }}
+              aria-invalid={Boolean(getFieldError('breakingBadgeLabel'))}
+              aria-describedby={getFieldError('breakingBadgeLabel') ? 'site-breaking-badge-error' : undefined}
               placeholder="ГОРЕЩО!"
             />
+            {getFieldError('breakingBadgeLabel') && (
+              <p id="site-breaking-badge-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('breakingBadgeLabel')}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -605,17 +700,59 @@ export default function ManageSiteSettings() {
       <section className={listSectionCls}>
         <h2 className="font-sans font-semibold text-gray-900">Contact</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+          <div ref={registerFieldRef('contact.address')}>
             <label className={tinyLabelCls}>Адрес</label>
-            <input className={inputCls} value={form.contact.address || ''} onChange={(e) => setForm((prev) => ({ ...prev, contact: { ...prev.contact, address: e.target.value } }))} />
+            <input
+              className={getInputClassName('contact.address')}
+              value={form.contact.address || ''}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, contact: { ...prev.contact, address: e.target.value } }));
+              }}
+              aria-invalid={Boolean(getFieldError('contact.address'))}
+              aria-describedby={getFieldError('contact.address') ? 'site-contact-address-error' : undefined}
+            />
+            {getFieldError('contact.address') && (
+              <p id="site-contact-address-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('contact.address')}
+              </p>
+            )}
           </div>
-          <div>
+          <div ref={registerFieldRef('contact.phone')}>
             <label className={tinyLabelCls}>Телефон</label>
-            <input className={inputCls} value={form.contact.phone || ''} onChange={(e) => setForm((prev) => ({ ...prev, contact: { ...prev.contact, phone: e.target.value } }))} />
+            <input
+              className={getInputClassName('contact.phone')}
+              value={form.contact.phone || ''}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, contact: { ...prev.contact, phone: e.target.value } }));
+              }}
+              aria-invalid={Boolean(getFieldError('contact.phone'))}
+              aria-describedby={getFieldError('contact.phone') ? 'site-contact-phone-error' : undefined}
+            />
+            {getFieldError('contact.phone') && (
+              <p id="site-contact-phone-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('contact.phone')}
+              </p>
+            )}
           </div>
-          <div>
+          <div ref={registerFieldRef('contact.email')}>
             <label className={tinyLabelCls}>Email</label>
-            <input className={inputCls} value={form.contact.email || ''} onChange={(e) => setForm((prev) => ({ ...prev, contact: { ...prev.contact, email: e.target.value } }))} />
+            <input
+              className={getInputClassName('contact.email')}
+              value={form.contact.email || ''}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, contact: { ...prev.contact, email: e.target.value } }));
+              }}
+              aria-invalid={Boolean(getFieldError('contact.email'))}
+              aria-describedby={getFieldError('contact.email') ? 'site-contact-email-error' : undefined}
+            />
+            {getFieldError('contact.email') && (
+              <p id="site-contact-email-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('contact.email')}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -623,25 +760,95 @@ export default function ManageSiteSettings() {
       <section className={listSectionCls}>
         <h2 className="font-sans font-semibold text-gray-900">About page</h2>
         <div className="space-y-4">
-          <div>
+          <div ref={registerFieldRef('about.heroText')}>
             <label className={tinyLabelCls}>Hero текст</label>
-            <textarea className={`${inputCls} h-20 resize-y`} value={form.about.heroText || ''} onChange={(e) => setForm((prev) => ({ ...prev, about: { ...prev.about, heroText: e.target.value } }))} />
+            <textarea
+              className={getInputClassName('about.heroText', `${inputCls} h-20 resize-y`)}
+              value={form.about.heroText || ''}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, about: { ...prev.about, heroText: e.target.value } }));
+              }}
+              aria-invalid={Boolean(getFieldError('about.heroText'))}
+              aria-describedby={getFieldError('about.heroText') ? 'site-about-hero-error' : undefined}
+            />
+            {getFieldError('about.heroText') && (
+              <p id="site-about-hero-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('about.heroText')}
+              </p>
+            )}
           </div>
-          <div>
+          <div ref={registerFieldRef('about.missionTitle')}>
             <label className={tinyLabelCls}>Мисия заглавие</label>
-            <input className={inputCls} value={form.about.missionTitle || ''} onChange={(e) => setForm((prev) => ({ ...prev, about: { ...prev.about, missionTitle: e.target.value } }))} />
+            <input
+              className={getInputClassName('about.missionTitle')}
+              value={form.about.missionTitle || ''}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, about: { ...prev.about, missionTitle: e.target.value } }));
+              }}
+              aria-invalid={Boolean(getFieldError('about.missionTitle'))}
+              aria-describedby={getFieldError('about.missionTitle') ? 'site-about-mission-title-error' : undefined}
+            />
+            {getFieldError('about.missionTitle') && (
+              <p id="site-about-mission-title-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('about.missionTitle')}
+              </p>
+            )}
           </div>
-          <div>
+          <div ref={registerFieldRef('about.missionParagraph1')}>
             <label className={tinyLabelCls}>Мисия абзац 1</label>
-            <textarea className={`${inputCls} h-24 resize-y`} value={form.about.missionParagraph1 || ''} onChange={(e) => setForm((prev) => ({ ...prev, about: { ...prev.about, missionParagraph1: e.target.value } }))} />
+            <textarea
+              className={getInputClassName('about.missionParagraph1', `${inputCls} h-24 resize-y`)}
+              value={form.about.missionParagraph1 || ''}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, about: { ...prev.about, missionParagraph1: e.target.value } }));
+              }}
+              aria-invalid={Boolean(getFieldError('about.missionParagraph1'))}
+              aria-describedby={getFieldError('about.missionParagraph1') ? 'site-about-mission-one-error' : undefined}
+            />
+            {getFieldError('about.missionParagraph1') && (
+              <p id="site-about-mission-one-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('about.missionParagraph1')}
+              </p>
+            )}
           </div>
-          <div>
+          <div ref={registerFieldRef('about.missionParagraph2')}>
             <label className={tinyLabelCls}>Мисия абзац 2</label>
-            <textarea className={`${inputCls} h-24 resize-y`} value={form.about.missionParagraph2 || ''} onChange={(e) => setForm((prev) => ({ ...prev, about: { ...prev.about, missionParagraph2: e.target.value } }))} />
+            <textarea
+              className={getInputClassName('about.missionParagraph2', `${inputCls} h-24 resize-y`)}
+              value={form.about.missionParagraph2 || ''}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, about: { ...prev.about, missionParagraph2: e.target.value } }));
+              }}
+              aria-invalid={Boolean(getFieldError('about.missionParagraph2'))}
+              aria-describedby={getFieldError('about.missionParagraph2') ? 'site-about-mission-two-error' : undefined}
+            />
+            {getFieldError('about.missionParagraph2') && (
+              <p id="site-about-mission-two-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('about.missionParagraph2')}
+              </p>
+            )}
           </div>
-          <div>
+          <div ref={registerFieldRef('about.adIntro')}>
             <label className={tinyLabelCls}>Реклама intro</label>
-            <textarea className={`${inputCls} h-20 resize-y`} value={form.about.adIntro || ''} onChange={(e) => setForm((prev) => ({ ...prev, about: { ...prev.about, adIntro: e.target.value } }))} />
+            <textarea
+              className={getInputClassName('about.adIntro', `${inputCls} h-20 resize-y`)}
+              value={form.about.adIntro || ''}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, about: { ...prev.about, adIntro: e.target.value } }));
+              }}
+              aria-invalid={Boolean(getFieldError('about.adIntro'))}
+              aria-describedby={getFieldError('about.adIntro') ? 'site-about-ad-intro-error' : undefined}
+            />
+            {getFieldError('about.adIntro') && (
+              <p id="site-about-ad-intro-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('about.adIntro')}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -651,30 +858,94 @@ export default function ManageSiteSettings() {
         <p className="text-xs font-sans text-gray-500">Големият рекламен блок за сигнали над същинския футер.</p>
         <div className="space-y-4 pt-2">
           <label className="flex items-center gap-2 text-sm font-sans text-gray-700">
-            <input type="checkbox" checked={Boolean(form.tipLinePromo?.enabled)} onChange={(e) => setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, enabled: e.target.checked } }))} className="w-4 h-4 accent-zn-purple" />
+            <input
+              type="checkbox"
+              checked={Boolean(form.tipLinePromo?.enabled)}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, enabled: e.target.checked } }));
+              }}
+              className="w-4 h-4 accent-zn-purple"
+            />
             Показвай този блок на сайта
           </label>
-          <div>
+          <div ref={registerFieldRef('tipLinePromo.title')}>
             <label className={tinyLabelCls}>Заглавие</label>
-            <input className={inputCls} value={form.tipLinePromo?.title || ''} onChange={(e) => setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, title: e.target.value } }))} />
+            <input
+              className={getInputClassName('tipLinePromo.title')}
+              value={form.tipLinePromo?.title || ''}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, title: e.target.value } }));
+              }}
+              aria-invalid={Boolean(getFieldError('tipLinePromo.title'))}
+              aria-describedby={getFieldError('tipLinePromo.title') ? 'site-tip-title-error' : undefined}
+            />
+            {getFieldError('tipLinePromo.title') && (
+              <p id="site-tip-title-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('tipLinePromo.title')}
+              </p>
+            )}
           </div>
-          <div>
+          <div ref={registerFieldRef('tipLinePromo.description')}>
             <label className={tinyLabelCls}>Описание</label>
-            <textarea className={`${inputCls} h-16 resize-y`} value={form.tipLinePromo?.description || ''} onChange={(e) => setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, description: e.target.value } }))} />
+            <textarea
+              className={getInputClassName('tipLinePromo.description', `${inputCls} h-16 resize-y`)}
+              value={form.tipLinePromo?.description || ''}
+              onChange={(e) => {
+                clearFeedback();
+                setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, description: e.target.value } }));
+              }}
+              aria-invalid={Boolean(getFieldError('tipLinePromo.description'))}
+              aria-describedby={getFieldError('tipLinePromo.description') ? 'site-tip-description-error' : undefined}
+            />
+            {getFieldError('tipLinePromo.description') && (
+              <p id="site-tip-description-error" className="mt-1 text-xs font-sans text-red-700">
+                {getFieldError('tipLinePromo.description')}
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div ref={registerFieldRef('tipLinePromo.buttonLabel')}>
               <label className={tinyLabelCls}>Текст на бутона</label>
-              <input className={inputCls} value={form.tipLinePromo?.buttonLabel || ''} onChange={(e) => setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, buttonLabel: e.target.value } }))} />
+              <input
+                className={getInputClassName('tipLinePromo.buttonLabel')}
+                value={form.tipLinePromo?.buttonLabel || ''}
+                onChange={(e) => {
+                  clearFeedback();
+                  setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, buttonLabel: e.target.value } }));
+                }}
+                aria-invalid={Boolean(getFieldError('tipLinePromo.buttonLabel'))}
+                aria-describedby={getFieldError('tipLinePromo.buttonLabel') ? 'site-tip-button-label-error' : undefined}
+              />
+              {getFieldError('tipLinePromo.buttonLabel') && (
+                <p id="site-tip-button-label-error" className="mt-1 text-xs font-sans text-red-700">
+                  {getFieldError('tipLinePromo.buttonLabel')}
+                </p>
+              )}
             </div>
-            <div>
+            <div ref={registerFieldRef('tipLinePromo.buttonLink')}>
               <label className={tinyLabelCls}>Линка на бутона (URL)</label>
-              <input className={inputCls} value={form.tipLinePromo?.buttonLink || ''} onChange={(e) => setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, buttonLink: e.target.value } }))} />
+              <input
+                className={getInputClassName('tipLinePromo.buttonLink')}
+                value={form.tipLinePromo?.buttonLink || ''}
+                onChange={(e) => {
+                  clearFeedback();
+                  setForm((prev) => ({ ...prev, tipLinePromo: { ...prev.tipLinePromo, buttonLink: e.target.value } }));
+                }}
+                aria-invalid={Boolean(getFieldError('tipLinePromo.buttonLink'))}
+                aria-describedby={getFieldError('tipLinePromo.buttonLink') ? 'site-tip-button-link-error' : undefined}
+              />
+              {getFieldError('tipLinePromo.buttonLink') && (
+                <p id="site-tip-button-link-error" className="mt-1 text-xs font-sans text-red-700">
+                  {getFieldError('tipLinePromo.buttonLink')}
+                </p>
+              )}
             </div>
           </div>
         </div>
       </section>
-      <section className={listSectionCls}>
+      <section ref={registerFieldRef('about.adPlans')} className={listSectionCls}>
         <div className="flex items-center justify-between">
           <h2 className="font-sans font-semibold text-gray-900">About рекламни планове</h2>
           <button onClick={() => setForm((prev) => ({ ...prev, about: { ...prev.about, adPlans: [...prev.about.adPlans, { name: '', price: '', desc: '' }] } }))} className="text-xs font-sans text-zn-hot inline-flex items-center gap-1">
@@ -700,6 +971,11 @@ export default function ManageSiteSettings() {
             </button>
           </div>
         ))}
+        {getFieldError('about.adPlans') && (
+          <p id="site-about-ad-plans-error" className="mt-2 text-xs font-sans text-red-700">
+            {getFieldError('about.adPlans')}
+          </p>
+        )}
       </section>
     </div >
   );
