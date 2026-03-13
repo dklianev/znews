@@ -215,4 +215,12 @@ export async function runDbBootstrapServiceTests() {
     assert.equal(warnings.some((line) => line.includes('In-memory MongoDB failed: memory failed')), true);
     assert.equal(warnings.some((line) => line.includes('Trying local MongoDB fallback')), true);
   }
+
+  {
+    const { helpers } = createHelpers({ isProd: true, mongoUri: '' });
+    await assert.rejects(
+      () => helpers.connectDB(),
+      /MONGODB_URI must be configured for production/
+    );
+  }
 }

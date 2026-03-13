@@ -6,16 +6,33 @@ export function createRuntimeBootstrapHelpers({
   logInfo = () => {},
   logWarning = () => {},
 }) {
+  function resolveDnsServers(value) {
+    return String(value || '')
+      .split(',')
+      .map((server) => server.trim())
+      .filter(Boolean);
+  }
+
+  function logBundledAssetPresence(message, assetPath, exists) {
+    if (exists) {
+      logInfo(`${message}${assetPath}`);
+      return true;
+    }
+
+    return false;
+  }
+
+  function resolveBundledAssetPath(baseDir, fileName) {
+    return path.join(baseDir, 'fonts', fileName);
+  }
+
   function applyMongoDnsServers({ nodeEnv, mongoDnsServersEnv }) {
     const normalizedNodeEnv = String(nodeEnv || '').toLowerCase();
     const dnsServersInput = String(mongoDnsServersEnv || '').trim();
 
     if (dnsServersInput) {
       try {
-        const servers = dnsServersInput
-          .split(',')
-          .map((server) => server.trim())
-          .filter(Boolean);
+        const servers = resolveDnsServers(dnsServersInput);
         if (servers.length) dns.setServers(servers);
       } catch (error) {
         logWarning('\u26a0 Failed to apply MONGODB_DNS_SERVERS: ' + (error?.message || error));
@@ -46,9 +63,8 @@ export function createRuntimeBootstrapHelpers({
   }
 
   function loadBundledFontFile(baseDir) {
-    const fontPath = path.join(baseDir, 'fonts', 'NotoSans.ttf');
-    if (fs.existsSync(fontPath)) {
-      logInfo('\u2713 Bundled font: ' + fontPath);
+    const fontPath = resolveBundledAssetPath(baseDir, 'NotoSans.ttf');
+    if (logBundledAssetPresence('\u2713 Bundled font: ', fontPath, fs.existsSync(fontPath))) {
       return fontPath;
     }
     logWarning('\u26a0 server/fonts/NotoSans.ttf not found \u2014 share card Cyrillic text may break.');
@@ -56,9 +72,8 @@ export function createRuntimeBootstrapHelpers({
   }
 
   function loadBrandLogoPng(baseDir) {
-    const logoPath = path.join(baseDir, 'fonts', 'brand-logo.png');
-    if (fs.existsSync(logoPath)) {
-      logInfo('\u2713 Brand logo: ' + logoPath);
+    const logoPath = resolveBundledAssetPath(baseDir, 'brand-logo.png');
+    if (logBundledAssetPresence('\u2713 Brand logo: ', logoPath, fs.existsSync(logoPath))) {
       return fs.readFileSync(logoPath);
     }
     logWarning('\u26a0 server/fonts/brand-logo.png not found \u2014 share card brand will be missing.');

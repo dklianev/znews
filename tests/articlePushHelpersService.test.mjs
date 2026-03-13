@@ -18,9 +18,9 @@ export async function runArticlePushHelpersTests() {
     webpush: {
       async sendNotification(sub, payload) {
         sentPayloads.push({ sub, payload: JSON.parse(payload) });
-        if (sub.endpoint === 'gone') {
+        if (sub.endpoint === 'gone' || sub.endpoint === 'missing') {
           const error = new Error('Gone');
-          error.statusCode = 410;
+          error.statusCode = sub.endpoint === 'missing' ? 404 : 410;
           throw error;
         }
       },
@@ -50,13 +50,20 @@ export async function runArticlePushHelpersTests() {
     subscriptions = [
       { _id: 'ok', endpoint: 'ok' },
       { _id: 'gone', endpoint: 'gone' },
+      { _id: 'missing', endpoint: 'missing' },
     ];
     await helpers.sendPushNotificationForArticle({ id: 42, title: 'Breaking title' });
 
-    assert.equal(sentPayloads.length, 2);
+    assert.equal(sentPayloads.length, 3);
     assert.equal(sentPayloads[0].payload.url, '/article/42');
     assert.equal(sentPayloads[0].payload.body, 'Breaking title');
-    assert.deepEqual(deletedIds, ['gone']);
+    assert.deepEqual(deletedIds, ['gone', 'missing']);
+
+    sentPayloads.length = 0;
+    subscriptions = [{ _id: 'fallback', endpoint: 'ok' }];
+    await helpers.sendPushNotificationForArticle({ id: 43 });
+    assert.equal(sentPayloads[0].payload.title, 'Breaking News');
+    assert.equal(sentPayloads[0].payload.body, 'New article on zNews');
   } finally {
     if (originalPublic === undefined) {
       delete process.env.VAPID_PUBLIC_KEY;

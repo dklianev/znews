@@ -22,7 +22,7 @@ export function createDbBootstrapService({
   mongoose,
   normalizeText,
 }) {
-  const LEGACY_BROKEN_BREAKING_LABEL = '\u003f\u003f\u003f\u003f\u003f\u003f';
+  const LEGACY_BROKEN_BREAKING_LABEL = '??????';
 
   function sanitizePermissionMap(value) {
     const src = value && typeof value === 'object' ? value : {};
@@ -30,6 +30,60 @@ export function createDbBootstrapService({
       acc[key] = Boolean(src[key]);
       return acc;
     }, {});
+  }
+
+  function logBootstrapWarning(message, error) {
+    logWarning(message, error?.message || error);
+  }
+
+  function normalizeBreakingLinks(links) {
+    if (!Array.isArray(links)) return { next: null, changed: false };
+
+    let changed = false;
+    const next = links.map((item) => {
+      if (!item || item.to !== '/category/breaking') return item;
+
+      const normalizedLabel = normalizeText(item.label, 50);
+      if (normalizedLabel && normalizedLabel.toLowerCase() !== LEGACY_BROKEN_BREAKING_LABEL) {
+        return item;
+      }
+
+      changed = true;
+      return { ...item, label: BREAKING_CATEGORY_LABEL };
+    });
+
+    return { next, changed };
+  }
+
+  function isPlaceholderMongoUri(uri) {
+    return !uri || /YOUR_PASSWORD|xxxxx|user:password/i.test(uri);
+  }
+
+  async function connectInMemoryMongo() {
+    const MongoMemoryServer = await loadMongoMemoryServer();
+    const mongod = await MongoMemoryServer.create();
+    const memUri = mongod.getUri();
+    await mongoose.connect(memUri);
+    logInfo('– MongoDB in-memory (dev mode)');
+
+    const seedAll = await loadSeedAll();
+    await seedAll({ allowDestructive: true, reason: 'dev-inmemory-bootstrap' });
+    logInfo('– Database seeded with defaults');
+  }
+
+  async function connectLocalMongoFallback(memoryError) {
+    logWarning(`? In-memory MongoDB failed: ${memoryError.message}`);
+    logWarning(`? Trying local MongoDB fallback: ${devMongoFallbackUri}`);
+
+    try {
+      await mongoose.connect(devMongoFallbackUri, { serverSelectionTimeoutMS: 3000 });
+      logInfo('– MongoDB local fallback connected');
+    } catch (fallbackError) {
+      throw new Error(
+        `Mongo init failed. In-memory: ${memoryError.message}. Local fallback: ${fallbackError.message}. ` +
+        'Set a valid MONGODB_URI in .env.'
+      );
+    }
   }
 
   async function ensureDefaultPermissionDocs() {
@@ -56,7 +110,7 @@ export function createDbBootstrapService({
         })
       );
     } catch (error) {
-      logWarning('? Failed to ensure default permissions:', error?.message || error);
+      logBootstrapWarning('? Failed to ensure default permissions:', error);
     }
   }
 
@@ -75,25 +129,12 @@ export function createDbBootstrapService({
         { $set: { name: BREAKING_CATEGORY_LABEL } }
       );
     } catch (error) {
-      logWarning('? Failed to migrate breaking category label:', error?.message || error);
+      logBootstrapWarning('? Failed to migrate breaking category label:', error);
     }
 
     try {
       const doc = await SiteSettings.findOne({ key: 'main' }).lean();
       if (!doc) return;
-
-      const normalizeBreakingLinks = (links) => {
-        if (!Array.isArray(links)) return { next: null, changed: false };
-        let changed = false;
-        const next = links.map((item) => {
-          if (!item || item.to !== '/category/breaking') return item;
-          const normalizedLabel = normalizeText(item.label, 50);
-          if (normalizedLabel && normalizedLabel.toLowerCase() !== LEGACY_BROKEN_BREAKING_LABEL) return item;
-          changed = true;
-          return { ...item, label: BREAKING_CATEGORY_LABEL };
-        });
-        return { next, changed };
-      };
 
       const navbarLinks = normalizeBreakingLinks(doc.navbarLinks);
       const footerQuickLinks = normalizeBreakingLinks(doc.footerQuickLinks);
@@ -105,56 +146,37 @@ export function createDbBootstrapService({
 
       await SiteSettings.updateOne({ key: 'main' }, { $set: updates });
     } catch (error) {
-      logWarning('? Failed to migrate breaking labels in site settings:', error?.message || error);
+      logBootstrapWarning('? Failed to migrate breaking labels in site settings:', error);
     }
   }
 
   async function connectDB() {
     const uri = mongoUri;
-    const isPlaceholder = !uri || /YOUR_PASSWORD|xxxxx|user:password/i.test(uri);
 
-    if (isPlaceholder) {
+    if (isPlaceholderMongoUri(uri)) {
       if (isProd) {
         throw new Error('MONGODB_URI must be configured for production.');
       }
 
       try {
-        const MongoMemoryServer = await loadMongoMemoryServer();
-        const mongod = await MongoMemoryServer.create();
-        const memUri = mongod.getUri();
-        await mongoose.connect(memUri);
-        logInfo('û MongoDB in-memory (dev mode)');
-
-        const seedAll = await loadSeedAll();
-        await seedAll({ allowDestructive: true, reason: 'dev-inmemory-bootstrap' });
-        logInfo('û Database seeded with defaults');
+        await connectInMemoryMongo();
         return;
-      } catch (memoryErr) {
-        logWarning(`? In-memory MongoDB failed: ${memoryErr.message}`);
-        logWarning(`? Trying local MongoDB fallback: ${devMongoFallbackUri}`);
-        try {
-          await mongoose.connect(devMongoFallbackUri, { serverSelectionTimeoutMS: 3000 });
-          logInfo('û MongoDB local fallback connected');
-          return;
-        } catch (fallbackErr) {
-          throw new Error(
-            `Mongo init failed. In-memory: ${memoryErr.message}. Local fallback: ${fallbackErr.message}. ` +
-            'Set a valid MONGODB_URI in .env.'
-          );
-        }
+      } catch (memoryError) {
+        await connectLocalMongoFallback(memoryError);
+        return;
       }
     }
 
     await mongoose.connect(uri);
-    logInfo('û MongoDB connected');
+    logInfo('– MongoDB connected');
   }
 
   async function ensureDbIndexes() {
     try {
       await Promise.all(modelsWithIndexes.map((Model) => Model.init()));
-      logInfo('û MongoDB indexes ensured');
-    } catch (err) {
-      logWarning('? MongoDB index init failed:', err?.message || err);
+      logInfo('– MongoDB indexes ensured');
+    } catch (error) {
+      logBootstrapWarning('? MongoDB index init failed:', error);
     }
   }
 
