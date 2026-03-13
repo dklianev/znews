@@ -12,6 +12,7 @@
     "dev:server": "node --watch server/index.js",
     "smoke:safe": "node scripts/smoke-safe.mjs",
     "audit:motion": "node scripts/audit-motion.mjs",
+    "audit:perf": "node scripts/audit-performance.mjs",
     "check:server": "node --check server/index.js && node --check server/app.js && node --check server/seed.js && node --check server/gameSeed.js && node --check server/scripts/seed-games-next-month.js && node --check server/scripts/backfill-image-pipeline.js && node --check server/scripts/migrate-local-uploads-to-spaces.js && node --check server/scripts/migrate-ads-to-slots.js && node --check server/scripts/audit-article-dates.js",
     "check": "npm run check:server && npm run build",
     "test": "node tests/run-tests.mjs",

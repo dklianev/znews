@@ -37,5 +37,8 @@ jobs:
       - name: Build app
         run: npm run build
 
+      - name: Audit bundle performance
+        run: npm run audit:perf
+
       - name: Run safe smoke
         run: npm run smoke:safe
