@@ -1,21 +1,22 @@
+import { useActionState, useEffect, useState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Mail, Phone, MapPin, Users, Award, Newspaper, Shield, CheckCircle, AlertTriangle } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
-import { useState } from 'react';
 import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const AVATAR_COLORS = ['bg-zn-hot', 'bg-zn-purple', 'bg-blue-700', 'bg-emerald-700', 'bg-amber-700', 'bg-violet-700', 'bg-rose-700', 'bg-teal-700'];
 const DEFAULT_ABOUT = {
-  heroText: 'Независим новинарски портал за града Los Santos. Доставяме ви новини, репортажи и разследвания 24 часа в денонощието, 7 дни в седмицата.',
-  missionTitle: 'Нашата мисия',
-  missionParagraph1: 'zNews е създаден с целта да предостави на гражданите на Los Santos честна, навременна и безпристрастна информация за случващото се в града. Ние вярваме в силата на журналистиката да информира, образова и вдъхновява промяна.',
-  missionParagraph2: 'Нашият екип от опитни журналисти работи денонощно, за да покрива всички аспекти на живота в Los Santos — от криминалните хроники до обществените събития, от бизнес новините до спортните триумфи.',
-  adIntro: 'Искаш да рекламираш своя бизнес в Los Santos? zNews предлага разнообразни рекламни формати:',
+  heroText: '\u041d\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043c \u043d\u043e\u0432\u0438\u043d\u0430\u0440\u0441\u043a\u0438 \u043f\u043e\u0440\u0442\u0430\u043b \u0437\u0430 \u0433\u0440\u0430\u0434\u0430 Los Santos. \u0414\u043e\u0441\u0442\u0430\u0432\u044f\u043c\u0435 \u0432\u0438 \u043d\u043e\u0432\u0438\u043d\u0438, \u0440\u0435\u043f\u043e\u0440\u0442\u0430\u0436\u0438 \u0438 \u0440\u0430\u0437\u0441\u043b\u0435\u0434\u0432\u0430\u043d\u0438\u044f 24 \u0447\u0430\u0441\u0430 \u0432 \u0434\u0435\u043d\u043e\u043d\u043e\u0449\u0438\u0435\u0442\u043e, 7 \u0434\u043d\u0438 \u0432 \u0441\u0435\u0434\u043c\u0438\u0446\u0430\u0442\u0430.',
+  missionTitle: '\u041d\u0430\u0448\u0430\u0442\u0430 \u043c\u0438\u0441\u0438\u044f',
+  missionParagraph1: 'zNews \u0435 \u0441\u044a\u0437\u0434\u0430\u0434\u0435\u043d \u0441 \u0446\u0435\u043b\u0442\u0430 \u0434\u0430 \u043f\u0440\u0435\u0434\u043e\u0441\u0442\u0430\u0432\u0438 \u043d\u0430 \u0433\u0440\u0430\u0436\u0434\u0430\u043d\u0438\u0442\u0435 \u043d\u0430 Los Santos \u0447\u0435\u0441\u0442\u043d\u0430, \u043d\u0430\u0432\u0440\u0435\u043c\u0435\u043d\u043d\u0430 \u0438 \u0431\u0435\u0437\u043f\u0440\u0438\u0441\u0442\u0440\u0430\u0441\u0442\u043d\u0430 \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f \u0437\u0430 \u0441\u043b\u0443\u0447\u0432\u0430\u0449\u043e\u0442\u043e \u0441\u0435 \u0432 \u0433\u0440\u0430\u0434\u0430. \u041d\u0438\u0435 \u0432\u044f\u0440\u0432\u0430\u043c\u0435 \u0432 \u0441\u0438\u043b\u0430\u0442\u0430 \u043d\u0430 \u0436\u0443\u0440\u043d\u0430\u043b\u0438\u0441\u0442\u0438\u043a\u0430\u0442\u0430 \u0434\u0430 \u0438\u043d\u0444\u043e\u0440\u043c\u0438\u0440\u0430, \u043e\u0431\u0440\u0430\u0437\u043e\u0432\u0430 \u0438 \u0432\u0434\u044a\u0445\u043d\u043e\u0432\u044f\u0432\u0430 \u043f\u0440\u043e\u043c\u044f\u043d\u0430.',
+  missionParagraph2: '\u041d\u0430\u0448\u0438\u044f\u0442 \u0435\u043a\u0438\u043f \u043e\u0442 \u043e\u043f\u0438\u0442\u043d\u0438 \u0436\u0443\u0440\u043d\u0430\u043b\u0438\u0441\u0442\u0438 \u0440\u0430\u0431\u043e\u0442\u0438 \u0434\u0435\u043d\u043e\u043d\u043e\u0449\u043d\u043e, \u0437\u0430 \u0434\u0430 \u043f\u043e\u043a\u0440\u0438\u0432\u0430 \u0432\u0441\u0438\u0447\u043a\u0438 \u0430\u0441\u043f\u0435\u043a\u0442\u0438 \u043d\u0430 \u0436\u0438\u0432\u043e\u0442\u0430 \u0432 Los Santos - \u043e\u0442 \u043a\u0440\u0438\u043c\u0438\u043d\u0430\u043b\u043d\u0438\u0442\u0435 \u0445\u0440\u043e\u043d\u0438\u043a\u0438 \u0434\u043e \u043e\u0431\u0449\u0435\u0441\u0442\u0432\u0435\u043d\u0438\u0442\u0435 \u0441\u044a\u0431\u0438\u0442\u0438\u044f, \u043e\u0442 \u0431\u0438\u0437\u043d\u0435\u0441 \u043d\u043e\u0432\u0438\u043d\u0438\u0442\u0435 \u0434\u043e \u0441\u043f\u043e\u0440\u0442\u043d\u0438\u0442\u0435 \u0442\u0440\u0438\u0443\u043c\u0444\u0438.',
+  adIntro: '\u0418\u0441\u043a\u0430\u0448 \u0434\u0430 \u0440\u0435\u043a\u043b\u0430\u043c\u0438\u0440\u0430\u0448 \u0441\u0432\u043e\u044f \u0431\u0438\u0437\u043d\u0435\u0441 \u0432 Los Santos? zNews \u043f\u0440\u0435\u0434\u043b\u0430\u0433\u0430 \u0440\u0430\u0437\u043d\u043e\u043e\u0431\u0440\u0430\u0437\u043d\u0438 \u0440\u0435\u043a\u043b\u0430\u043c\u043d\u0438 \u0444\u043e\u0440\u043c\u0430\u0442\u0438:',
   adPlans: [
-    { name: 'Банер (горен)', price: '$500/месец', desc: 'Хоризонтален банер в горната част' },
-    { name: 'Банер (страничен)', price: '$300/месец', desc: 'Странично каре в sidebar' },
-    { name: 'Банер (в статия)', price: '$400/месец', desc: 'Вграден в съдържанието' },
+    { name: '\u0411\u0430\u043d\u0435\u0440 (\u0433\u043e\u0440\u0435\u043d)', price: '$500/\u043c\u0435\u0441\u0435\u0446', desc: '\u0425\u043e\u0440\u0438\u0437\u043e\u043d\u0442\u0430\u043b\u0435\u043d \u0431\u0430\u043d\u0435\u0440 \u0432 \u0433\u043e\u0440\u043d\u0430\u0442\u0430 \u0447\u0430\u0441\u0442' },
+    { name: '\u0411\u0430\u043d\u0435\u0440 (\u0441\u0442\u0440\u0430\u043d\u0438\u0447\u0435\u043d)', price: '$300/\u043c\u0435\u0441\u0435\u0446', desc: '\u0421\u0442\u0440\u0430\u043d\u0438\u0447\u043d\u043e \u043a\u0430\u0440\u0435 \u0432 sidebar' },
+    { name: '\u0411\u0430\u043d\u0435\u0440 (\u0432 \u0441\u0442\u0430\u0442\u0438\u044f)', price: '$400/\u043c\u0435\u0441\u0435\u0446', desc: '\u0412\u0433\u0440\u0430\u0434\u0435\u043d \u0432 \u0441\u044a\u0434\u044a\u0440\u0436\u0430\u043d\u0438\u0435\u0442\u043e' },
   ],
 };
 
@@ -25,35 +26,93 @@ const DEFAULT_CONTACT = {
   email: 'redakciq@znews.live',
 };
 
+const INITIAL_CONTACT_STATE = Object.freeze({
+  status: 'idle',
+  message: '',
+  fieldErrors: {},
+});
+
+function ContactSubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button type="submit" disabled={pending} className="btn-primary w-full disabled:opacity-60" aria-busy={pending}>
+      {pending ? '\u0418\u0437\u043f\u0440\u0430\u0449\u0430\u043d\u0435...' : '\u0418\u0437\u043f\u0440\u0430\u0442\u0438'}
+    </button>
+  );
+}
+
 export default function AboutPage() {
   const { authors, siteSettings } = usePublicData();
-  useDocumentTitle(makeTitle('За нас'));
+  useDocumentTitle(makeTitle('\u0417\u0430 \u043d\u0430\u0441'));
+
   const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
   const [contactSent, setContactSent] = useState(false);
-  const [contactSending, setContactSending] = useState(false);
-  const [contactError, setContactError] = useState('');
   const about = { ...DEFAULT_ABOUT, ...(siteSettings?.about || {}) };
   const contact = { ...DEFAULT_CONTACT, ...(siteSettings?.contact || {}) };
   const adPlans = Array.isArray(about.adPlans) && about.adPlans.length > 0 ? about.adPlans : DEFAULT_ABOUT.adPlans;
+  const [contactState, submitContactAction, isContactPending] = useActionState(
+    async (_previousState, formData) => {
+      const nextForm = {
+        name: String(formData.get('name') || '').trim(),
+        email: String(formData.get('email') || '').trim(),
+        message: String(formData.get('message') || '').trim(),
+      };
+      const fieldErrors = {};
 
-  const handleContactSubmit = async (e) => {
-    e.preventDefault();
-    if (!contactForm.name || !contactForm.email || !contactForm.message) return;
-    if (contactSending) return;
+      if (!nextForm.name) fieldErrors.name = '\u0418\u043c\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.';
+      if (!nextForm.email) fieldErrors.email = '\u0418\u043c\u0435\u0439\u043b\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.';
+      if (!nextForm.message) fieldErrors.message = '\u0421\u044a\u043e\u0431\u0449\u0435\u043d\u0438\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.';
 
-    setContactSending(true);
-    setContactError('');
-    try {
-      await api.contactMessages.submit(contactForm);
-      setContactSent(true);
-      setContactForm({ name: '', email: '', message: '' });
-      setTimeout(() => setContactSent(false), 5000);
-    } catch (err) {
-      setContactError(err?.message || 'Неуспешно изпращане. Опитай пак.');
-    } finally {
-      setContactSending(false);
-    }
-  };
+      if (nextForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextForm.email)) {
+        fieldErrors.email = '\u0412\u044a\u0432\u0435\u0434\u0438 \u0432\u0430\u043b\u0438\u0434\u0435\u043d \u0438\u043c\u0435\u0439\u043b \u0430\u0434\u0440\u0435\u0441.';
+      }
+
+      if (Object.keys(fieldErrors).length > 0) {
+        return {
+          status: 'error',
+          message: '\u041f\u043e\u043f\u044a\u043b\u043d\u0438 \u043f\u0440\u0430\u0432\u0438\u043b\u043d\u043e \u043f\u043e\u043b\u0435\u0442\u0430\u0442\u0430 \u0432\u044a\u0432 \u0444\u043e\u0440\u043c\u0430\u0442\u0430.',
+          fieldErrors,
+        };
+      }
+
+      try {
+        await api.contactMessages.submit(nextForm);
+        return {
+          status: 'success',
+          message: '',
+          fieldErrors: {},
+        };
+      } catch (error) {
+        const payloadFieldErrors = error?.payload?.fieldErrors && typeof error.payload.fieldErrors === 'object'
+          ? error.payload.fieldErrors
+          : {};
+
+        return {
+          status: 'error',
+          message: error?.message || '\u0421\u044a\u043e\u0431\u0449\u0435\u043d\u0438\u0435\u0442\u043e \u043d\u0435 \u0431\u0435\u0448\u0435 \u0438\u0437\u043f\u0440\u0430\u0442\u0435\u043d\u043e. \u041e\u043f\u0438\u0442\u0430\u0439 \u043f\u0430\u043a.',
+          fieldErrors: payloadFieldErrors,
+        };
+      }
+    },
+    INITIAL_CONTACT_STATE,
+  );
+
+  useEffect(() => {
+    if (contactState.status !== 'success') return undefined;
+
+    setContactSent(true);
+    setContactForm({ name: '', email: '', message: '' });
+    const timeoutId = window.setTimeout(() => setContactSent(false), 5000);
+    return () => window.clearTimeout(timeoutId);
+  }, [contactState.status]);
+
+  useEffect(() => {
+    if (contactState.status === 'error') setContactSent(false);
+  }, [contactState.status]);
+
+  const contactError = contactState.status === 'error' ? contactState.message : '';
+  const contactFieldErrors = contactState.fieldErrors || {};
 
   return (
     <motion.div
@@ -61,7 +120,6 @@ export default function AboutPage() {
       animate={{ opacity: 1 }}
       className="max-w-4xl mx-auto px-4 py-8"
     >
-      {/* Hero */}
       <div className="text-center mb-12 relative">
         <div className="comic-speed-lines py-6">
           <h1 className="font-display text-5xl md:text-6xl font-black text-zn-text mb-4 tracking-wider uppercase text-shadow-brutal text-comic-stroke">
@@ -74,13 +132,12 @@ export default function AboutPage() {
         </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
         {[
-          { icon: Newspaper, label: 'Покритие', value: '24/7' },
-          { icon: Users, label: 'Читатели', value: 'Целият Град' },
-          { icon: Award, label: 'Нашата Цел', value: 'Истината' },
-          { icon: Shield, label: 'Статус', value: 'Независими' },
+          { icon: Newspaper, label: '\u041f\u043e\u043a\u0440\u0438\u0442\u0438\u0435', value: '24/7' },
+          { icon: Users, label: '\u0427\u0438\u0442\u0430\u0442\u0435\u043b\u0438', value: '\u0426\u0435\u043b\u0438\u044f\u0442 \u0433\u0440\u0430\u0434' },
+          { icon: Award, label: '\u041d\u0430\u0448\u0430\u0442\u0430 \u0446\u0435\u043b', value: '\u0418\u0441\u0442\u0438\u043d\u0430\u0442\u0430' },
+          { icon: Shield, label: '\u0421\u0442\u0430\u0442\u0443\u0441', value: '\u041d\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043c\u0438' },
         ].map((stat, index) => (
           <motion.div
             key={stat.label}
@@ -96,7 +153,6 @@ export default function AboutPage() {
         ))}
       </div>
 
-      {/* Mission */}
       <section className="newspaper-page comic-panel comic-dots p-8 mb-12 relative">
         <div className="absolute -top-2 right-8 w-14 h-5 bg-yellow-200/70 border border-black/5 transform rotate-3 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
         <h2 className="font-display text-2xl font-black text-zn-text mb-4 tracking-wider uppercase relative z-[2]">{about.missionTitle}</h2>
@@ -109,11 +165,10 @@ export default function AboutPage() {
         </p>
       </section>
 
-      {/* Team */}
       <section className="mb-12">
         <div className="flex items-center gap-2 mb-6">
           <div className="h-1.5 w-8 bg-zn-hot" />
-          <h2 className="font-display text-2xl font-black text-zn-text tracking-wider uppercase">Нашият екип</h2>
+          <h2 className="font-display text-2xl font-black text-zn-text tracking-wider uppercase">{'\u041d\u0430\u0448\u0438\u044f\u0442 \u0435\u043a\u0438\u043f'}</h2>
           <div className="h-1.5 flex-1 bg-gradient-to-r from-zn-hot/30 to-transparent" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -135,10 +190,9 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Contact */}
       <section className="newspaper-page comic-panel comic-dots p-8 relative">
         <div className="absolute -top-2 left-8 w-16 h-5 bg-yellow-200/70 border border-black/5 transform -rotate-4 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
-        <h2 className="font-display text-2xl font-black text-zn-text mb-2 tracking-wider uppercase relative z-[2]">Свържи се с нас</h2>
+        <h2 className="font-display text-2xl font-black text-zn-text mb-2 tracking-wider uppercase relative z-[2]">{'\u0421\u0432\u044a\u0440\u0436\u0438 \u0441\u0435 \u0441 \u043d\u0430\u0441'}</h2>
         <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-6 relative z-[2]" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-[2]">
           <div className="space-y-4">
@@ -156,11 +210,11 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <form className="space-y-3" onSubmit={handleContactSubmit}>
+          <form className="space-y-3" action={submitContactAction} aria-busy={isContactPending}>
             {contactSent && (
               <div className="flex items-center gap-2 p-3 bg-emerald-50 border-2 border-emerald-300 text-emerald-700 text-sm font-display font-bold uppercase tracking-wider">
                 <CheckCircle className="w-4 h-4 shrink-0" />
-                Съобщението е изпратено!
+                {'\u0421\u044a\u043e\u0431\u0449\u0435\u043d\u0438\u0435\u0442\u043e \u0435 \u0438\u0437\u043f\u0440\u0430\u0442\u0435\u043d\u043e!'}
               </div>
             )}
             {contactError && (
@@ -171,47 +225,62 @@ export default function AboutPage() {
             )}
             <input
               type="text"
-              placeholder="Име"
+              name="name"
+              placeholder={'\u0418\u043c\u0435'}
               value={contactForm.name}
-              onChange={e => setContactForm({ ...contactForm, name: e.target.value })}
+              onChange={(event) => setContactForm({ ...contactForm, name: event.target.value })}
               required
-              aria-label="Име"
-              className="w-full px-4 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple transition-colors"
+              disabled={isContactPending}
+              aria-label={'\u0418\u043c\u0435'}
+              aria-invalid={Boolean(contactFieldErrors.name)}
+              className={`w-full px-4 py-2.5 bg-white border-2 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none transition-colors ${contactFieldErrors.name ? 'border-red-400 focus:border-red-500' : 'border-[#1C1428]/20 focus:border-zn-purple'}`}
             />
+            {contactFieldErrors.name && (
+              <p className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.name}</p>
+            )}
             <input
               type="email"
+              name="email"
               placeholder="Email"
               value={contactForm.email}
-              onChange={e => setContactForm({ ...contactForm, email: e.target.value })}
+              onChange={(event) => setContactForm({ ...contactForm, email: event.target.value })}
               required
+              disabled={isContactPending}
               aria-label="Email"
-              className="w-full px-4 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple transition-colors"
+              aria-invalid={Boolean(contactFieldErrors.email)}
+              className={`w-full px-4 py-2.5 bg-white border-2 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none transition-colors ${contactFieldErrors.email ? 'border-red-400 focus:border-red-500' : 'border-[#1C1428]/20 focus:border-zn-purple'}`}
             />
+            {contactFieldErrors.email && (
+              <p className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.email}</p>
+            )}
             <textarea
-              placeholder="Съобщение..."
+              name="message"
+              placeholder={'\u0421\u044a\u043e\u0431\u0449\u0435\u043d\u0438\u0435...'}
               rows="3"
               value={contactForm.message}
-              onChange={e => setContactForm({ ...contactForm, message: e.target.value })}
+              onChange={(event) => setContactForm({ ...contactForm, message: event.target.value })}
               required
-              aria-label="Съобщение"
-              className="w-full px-4 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple resize-none transition-colors"
+              disabled={isContactPending}
+              aria-label={'\u0421\u044a\u043e\u0431\u0449\u0435\u043d\u0438\u0435'}
+              aria-invalid={Boolean(contactFieldErrors.message)}
+              className={`w-full px-4 py-2.5 bg-white border-2 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none resize-none transition-colors ${contactFieldErrors.message ? 'border-red-400 focus:border-red-500' : 'border-[#1C1428]/20 focus:border-zn-purple'}`}
             />
-            <button disabled={contactSending} className="btn-primary w-full disabled:opacity-60">
-              {contactSending ? 'Изпращане...' : 'Изпрати'}
-            </button>
+            {contactFieldErrors.message && (
+              <p className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.message}</p>
+            )}
+            <ContactSubmitButton />
           </form>
         </div>
       </section>
 
-      {/* Advertising info */}
       <section className="comic-panel comic-dots bg-white p-8 mt-8 relative">
-        <h2 className="font-display text-2xl font-black text-zn-text mb-2 tracking-wider uppercase relative z-[2]">Реклама</h2>
+        <h2 className="font-display text-2xl font-black text-zn-text mb-2 tracking-wider uppercase relative z-[2]">{'\u0420\u0435\u043a\u043b\u0430\u043c\u0430'}</h2>
         <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-4 relative z-[2]" />
         <p className="font-sans text-zn-text leading-relaxed mb-6 relative z-[2]">
           {about.adIntro}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 relative z-[2]">
-          {adPlans.map(plan => (
+          {adPlans.map((plan) => (
             <div key={plan.name} className="p-4 newspaper-page comic-panel comic-panel-hover">
               <h3 className="font-display font-black text-zn-text uppercase tracking-wider">{plan.name}</h3>
               <p className="text-zn-hot font-display font-black text-xl my-1">{plan.price}</p>
@@ -220,7 +289,7 @@ export default function AboutPage() {
           ))}
         </div>
         <p className="text-sm font-sans text-zn-text-muted relative z-[2]">
-          За повече информация, свържете се с нас на <span className="text-zn-hot font-display font-bold">{contact.email}</span>
+          {'\u0417\u0430 \u043f\u043e\u0432\u0435\u0447\u0435 \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f, \u0441\u0432\u044a\u0440\u0436\u0435\u0442\u0435 \u0441\u0435 \u0441 \u043d\u0430\u0441 \u043d\u0430'} <span className="text-zn-hot font-display font-bold">{contact.email}</span>
         </p>
       </section>
     </motion.div>

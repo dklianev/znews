@@ -487,12 +487,10 @@ export function DataProvider({ children }) {
 
   // Auth
   const login = useCallback(async (username, password) => {
-    try {
-      const s = await api.auth.login(username, password);
-      saveSession(s);
-      setSession(s);
-      return s;
-    } catch { return null; }
+    const s = await api.auth.login(username, password);
+    saveSession(s);
+    setSession(s);
+    return s;
   }, []);
 
   const logout = useCallback(() => {

@@ -1,4 +1,5 @@
 import express from 'express';
+import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function createContactMessagesRouter(deps) {
   const {
@@ -8,7 +9,6 @@ export function createContactMessagesRouter(deps) {
     nextNumericId,
     normalizeText,
     parsePositiveInt,
-    publicError,
     requireAuth,
     requirePermission,
   } = deps;
@@ -25,93 +25,93 @@ export function createContactMessagesRouter(deps) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
-  contactMessagesRouter.post('/', contactMessageLimiter, async (req, res) => {
-    try {
-      const name = normalizeText(req.body?.name, 80);
-      const email = normalizeEmail(req.body?.email);
-      const message = normalizeText(req.body?.message, 4000);
+  contactMessagesRouter.post('/', contactMessageLimiter, asyncHandler(async (req, res) => {
+    const name = normalizeText(req.body?.name, 80);
+    const email = normalizeEmail(req.body?.email);
+    const message = normalizeText(req.body?.message, 4000);
 
-      if (!name || !email || !message) {
-        return res.status(400).json({ error: 'Missing required fields' });
-      }
-      if (!isValidEmail(email)) {
-        return res.status(400).json({ error: 'Invalid email' });
-      }
-
-      const id = await nextNumericId(ContactMessage);
-      const item = await ContactMessage.create({
-        id,
-        name,
-        email,
-        message,
-        status: 'new',
-        createdAt: new Date(),
+    if (!name || !email || !message) {
+      return res.status(400).json({
+        error: '\u041b\u0438\u043f\u0441\u0432\u0430\u0442 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u0438 \u043f\u043e\u043b\u0435\u0442\u0430',
+        fieldErrors: {
+          ...(!name ? { name: '\u0418\u043c\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.' } : {}),
+          ...(!email ? { email: '\u0418\u043c\u0435\u0439\u043b\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.' } : {}),
+          ...(!message ? { message: '\u0421\u044a\u043e\u0431\u0449\u0435\u043d\u0438\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.' } : {}),
+        },
       });
-
-      return res.json({ ok: true, id: item.id });
-    } catch (e) {
-      return res.status(500).json({ error: publicError(e) });
     }
-  });
 
-  contactMessagesRouter.get('/', requireAuth, requirePermission('contact'), async (req, res) => {
-    try {
-      const limit = parsePositiveInt(req.query.limit, 200, { min: 1, max: 200 });
-      const status = normalizeText(req.query.status, 20);
-      const filter = {};
-      if (status && ['new', 'read', 'archived'].includes(status)) {
-        filter.status = status;
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        error: '\u041d\u0435\u0432\u0430\u043b\u0438\u0434\u0435\u043d \u0438\u043c\u0435\u0439\u043b',
+        fieldErrors: {
+          email: '\u0412\u044a\u0432\u0435\u0434\u0438 \u0432\u0430\u043b\u0438\u0434\u0435\u043d \u0438\u043c\u0435\u0439\u043b \u0430\u0434\u0440\u0435\u0441.',
+        },
+      });
+    }
+
+    const id = await nextNumericId(ContactMessage);
+    const item = await ContactMessage.create({
+      id,
+      name,
+      email,
+      message,
+      status: 'new',
+      createdAt: new Date(),
+    });
+
+    return res.json({ ok: true, id: item.id });
+  }));
+
+  contactMessagesRouter.get('/', requireAuth, requirePermission('contact'), asyncHandler(async (req, res) => {
+    const limit = parsePositiveInt(req.query.limit, 200, { min: 1, max: 200 });
+    const status = normalizeText(req.query.status, 20);
+    const filter = {};
+    if (status && ['new', 'read', 'archived'].includes(status)) {
+      filter.status = status;
+    }
+
+    const items = await ContactMessage.find(filter)
+      .sort({ createdAt: -1, id: -1 })
+      .limit(limit)
+      .lean();
+
+    items.forEach((item) => {
+      delete item._id;
+      delete item.__v;
+    });
+    return res.json(items);
+  }));
+
+  contactMessagesRouter.put('/:id', requireAuth, requirePermission('contact'), asyncHandler(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const data = {};
+    if (hasOwn(req.body, 'status')) {
+      const nextStatus = normalizeText(req.body.status, 20);
+      if (!['new', 'read', 'archived'].includes(nextStatus)) {
+        return res.status(400).json({ error: 'Invalid status' });
       }
-
-      const items = await ContactMessage.find(filter)
-        .sort({ createdAt: -1, id: -1 })
-        .limit(limit)
-        .lean();
-
-      items.forEach((i) => { delete i._id; delete i.__v; });
-      return res.json(items);
-    } catch (e) {
-      return res.status(500).json({ error: publicError(e) });
+      data.status = nextStatus;
     }
-  });
 
-  contactMessagesRouter.put('/:id', requireAuth, requirePermission('contact'), async (req, res) => {
-    try {
-      const id = Number.parseInt(req.params.id, 10);
-      if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    if (Object.keys(data).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
-      const data = {};
-      if (hasOwn(req.body, 'status')) {
-        const nextStatus = normalizeText(req.body.status, 20);
-        if (!['new', 'read', 'archived'].includes(nextStatus)) {
-          return res.status(400).json({ error: 'Invalid status' });
-        }
-        data.status = nextStatus;
-      }
+    const updated = await ContactMessage.findOneAndUpdate({ id }, { $set: data }, { new: true }).lean();
+    if (!updated) return res.status(404).json({ error: 'Not found' });
+    delete updated._id;
+    delete updated.__v;
+    return res.json(updated);
+  }));
 
-      if (Object.keys(data).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
-
-      const updated = await ContactMessage.findOneAndUpdate({ id }, { $set: data }, { new: true }).lean();
-      if (!updated) return res.status(404).json({ error: 'Not found' });
-      delete updated._id;
-      delete updated.__v;
-      return res.json(updated);
-    } catch (e) {
-      return res.status(500).json({ error: publicError(e) });
-    }
-  });
-
-  contactMessagesRouter.delete('/:id', requireAuth, requirePermission('contact'), async (req, res) => {
-    try {
-      const id = Number.parseInt(req.params.id, 10);
-      if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
-      const result = await ContactMessage.deleteOne({ id });
-      if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
-      return res.json({ ok: true });
-    } catch (e) {
-      return res.status(500).json({ error: publicError(e) });
-    }
-  });
+  contactMessagesRouter.delete('/:id', requireAuth, requirePermission('contact'), asyncHandler(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    const result = await ContactMessage.deleteOne({ id });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+    return res.json({ ok: true });
+  }));
 
   return contactMessagesRouter;
 }

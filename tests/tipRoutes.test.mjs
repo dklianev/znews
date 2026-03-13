@@ -112,9 +112,6 @@ export async function runTipRoutesTests() {
     normalizeText(value) {
       return typeof value === 'string' ? value.trim() : '';
     },
-    publicError(error) {
-      return error.message;
-    },
     async putStorageObject() {
       throw new Error('should not upload without file');
     },
@@ -155,12 +152,12 @@ export async function runTipRoutesTests() {
   {
     const handlers = app.routes.get('POST /api/tips');
     const res = createResponse();
-    await runHandlers(handlers, { body: { text: '  Сигнал  ', location: '  Vinewood  ' } }, res);
+    await runHandlers(handlers, { body: { text: '  \u0441\u0438\u0433\u043d\u0430\u043b  ', location: '  Vinewood  ' } }, res);
     assert.equal(res.statusCode, 200);
     assert.deepEqual(res.body, { ok: true, id: 55 });
     assert.equal(saved.length, 1);
     assert.equal(saved[0].id, 55);
-    assert.equal(saved[0].text, 'Сигнал');
+    assert.equal(saved[0].text, '\u0441\u0438\u0433\u043d\u0430\u043b');
     assert.equal(saved[0].location, 'Vinewood');
     assert.equal(saved[0].image, '');
     assert.equal(saved[0].imageMeta, null);
@@ -172,7 +169,11 @@ export async function runTipRoutesTests() {
     const res = createResponse();
     await runHandlers(handlers, { body: { text: '   ', location: '' } }, res);
     assert.equal(res.statusCode, 400);
-    assert.deepEqual(res.body, { error: 'Моля, добавете текст или снимка към сигнала.' });
+    assert.equal(res.body?.error, '\u0414\u043e\u0431\u0430\u0432\u0438 \u0442\u0435\u043a\u0441\u0442 \u0438\u043b\u0438 \u0441\u043d\u0438\u043c\u043a\u0430, \u0437\u0430 \u0434\u0430 \u0438\u0437\u043f\u0440\u0430\u0442\u0438\u0448 \u0441\u0438\u0433\u043d\u0430\u043b\u0430.');
+    assert.deepEqual(res.body?.fieldErrors, {
+      text: '\u0414\u043e\u0431\u0430\u0432\u0438 \u043f\u043e\u0434\u0440\u043e\u0431\u043d\u043e\u0441\u0442\u0438 \u0437\u0430 \u0441\u0438\u0433\u043d\u0430\u043b\u0430 \u0438\u043b\u0438 \u043a\u0430\u0447\u0438 \u0441\u043d\u0438\u043c\u043a\u0430.',
+      image: '\u041a\u0430\u0447\u0438 \u0441\u043d\u0438\u043c\u043a\u0430, \u0430\u043a\u043e \u043d\u0435 \u0438\u0441\u043a\u0430\u0448 \u0434\u0430 \u0438\u0437\u043f\u0440\u0430\u0449\u0430\u0448 \u0442\u0435\u043a\u0441\u0442.',
+    });
   }
 
   {

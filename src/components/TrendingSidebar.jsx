@@ -63,6 +63,7 @@ export default function TrendingSidebar() {
           >
             <Link
               to={`/article/${article.id}`}
+              prefetch="intent"
               className={`comic-sidebar-row flex gap-3 group py-3 px-2 transition-all duration-200 mb-2 last:mb-0 ${index === 0 ? 'bg-zn-hot/5 border-l-3 border-l-zn-hot pl-3 hover:bg-zn-hot/10' : index === 1 ? 'bg-zn-orange/5 border-l-3 border-l-zn-orange pl-3 hover:bg-zn-orange/10' : 'hover:bg-zn-hot/5 hover:pl-1'
                 }`}
             >

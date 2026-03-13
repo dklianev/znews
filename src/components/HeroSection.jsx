@@ -47,10 +47,10 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                         <span className="comic-kicker">{category.name}</span>
                     )}
                 </div>
-                <Link to={`/article/${article.id}`} className="group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
+                <Link to={`/article/${article.id}`} prefetch="intent" className="group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
                     <div className="flex items-start gap-3 mb-4">
                         <Megaphone className="hidden md:inline-block mt-2 w-10 h-10 text-zn-hot" style={{ filter: 'drop-shadow(3px 3px 0 rgba(0,0,0,0.3))', transform: 'rotate(-10deg)' }} aria-hidden="true" />
-                        <h1 className="flex-1 min-w-0 font-display font-black uppercase leading-[0.88] cursor-pointer" style={{ fontSize: heroTitleFontSize, textShadow: '3px 3px 0 rgba(204,10,26,0.25), 5px 5px 0 rgba(0,0,0,0.15)', letterSpacing: '-0.03em' }}>
+                        <h1 className="flex-1 min-w-0 font-display font-black uppercase leading-[0.88] cursor-pointer text-balance" style={{ fontSize: heroTitleFontSize, textShadow: '3px 3px 0 rgba(204,10,26,0.25), 5px 5px 0 rgba(0,0,0,0.15)', letterSpacing: '-0.03em' }}>
                             <ColorTitle text={article.title} />
                         </h1>
                         <div className="h-1.5 w-32 bg-gradient-to-r from-red-600 to-orange-500 mt-2 mb-1" />
@@ -65,7 +65,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                     <span className="normal-case">{formatNewsDate(article.date)}</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5 px-2 sm:px-0">
-                    <Link to={`/article/${mainPhoto.id}`} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
+                    <Link to={`/article/${mainPhoto.id}`} prefetch="intent" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
                         <div className="polaroid-thick relative" style={{ '--tilt': '-2deg' }}>
                             <div className="tape tape-tl" />
                             <div className="tape tape-tr" />
@@ -86,7 +86,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                         </div>
                     </Link>
                     {siblingArticles[0] && (
-                        <Link to={`/article/${siblingArticles[0].id}`} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
+                        <Link to={`/article/${siblingArticles[0].id}`} prefetch="intent" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
                             <div className="polaroid-thick relative" style={{ '--tilt': '2deg' }}>
                                 <div className="tape tape-tl" />
                                 <div className="relative overflow-hidden" style={{ height: '320px' }}>
@@ -126,7 +126,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                             <div className="starburst text-lg md:text-xl" style={{ padding: '16px 22px' }}>{shockLabel}</div>
                         </div>
                         {siblingArticles[1] ? (
-                            <Link to={`/article/${siblingArticles[1].id}`} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
+                            <Link to={`/article/${siblingArticles[1].id}`} prefetch="intent" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
                                 <div className="polaroid-thick relative" style={{ '--tilt': '-1deg' }}>
                                     <div className="tape tape-tr" />
                                     <div className="relative overflow-hidden" style={{ height: '280px' }}>
@@ -161,7 +161,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                         )}
                     </div>
                 </div>
-                <Link to={`/article/${article.id}`} className="block text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
+                <Link to={`/article/${article.id}`} prefetch="intent" className="block text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
                     <motion.span
                         initial={{ opacity: 0, scale: 0.96, y: 6 }}
                         animate={{ opacity: 1, scale: [1, 1.03, 1], y: [0, -2, 0] }}

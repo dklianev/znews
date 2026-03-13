@@ -26,6 +26,7 @@ export default memo(function ComicNewsCard({
   return (
     <Link
       to={`/article/${article.id}`}
+      prefetch="intent"
       className={`group comic-latest-card comic-panel comic-dots bg-white overflow-visible relative block h-full comic-card-variant-${resolvedVariant} ${className}`}
       style={{ '--latest-tilt': tilt }}
     >
@@ -72,7 +73,7 @@ export default memo(function ComicNewsCard({
       </div>
 
       <div className={`relative z-10 flex flex-col justify-between ${compact ? 'p-3 gap-2' : 'p-4 gap-3'}`}>
-        <h3 className={`font-display font-black uppercase text-zn-black group-hover:text-zn-hot transition-colors line-clamp-3 ${compact ? 'text-[1.08rem] leading-[1.1]' : 'text-[1.45rem] leading-[1.05]'}`}>
+        <h3 className={`font-display font-black uppercase text-zn-black group-hover:text-zn-hot transition-colors line-clamp-3 text-balance ${compact ? 'text-[1.08rem] leading-[1.1]' : 'text-[1.45rem] leading-[1.05]'}`}>
           {article.title}
         </h3>
         <p className={`text-zn-text-muted italic line-clamp-2 ${compact ? 'text-sm' : 'text-base'}`}>

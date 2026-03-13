@@ -280,6 +280,7 @@ export default function Navbar() {
         <Link
           key={link.to}
           to={link.to}
+          prefetch="intent"
           onClick={() => setIsOpen(false)}
           className={`flex items-center gap-3 px-3 py-3 text-sm font-display font-bold uppercase tracking-wider transition-all border-b border-zn-border/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-inset ${location.pathname === link.to
             ? 'text-zn-hot bg-zn-hot/5'
@@ -304,6 +305,7 @@ export default function Navbar() {
             <div className="comic-top-actions flex w-full sm:w-auto flex-nowrap items-center justify-end gap-1 sm:gap-2.5 pb-0.5 sm:pb-0">
               <Link
                 to="/tipline"
+                prefetch="intent"
                 className={`comic-top-action comic-top-action-hot shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#26123b] ${isTiplinePage ? 'comic-top-action-active' : ''}`}
                 title="Гореща линия за сигнали"
                 aria-label="Подай сигнал"
@@ -339,6 +341,7 @@ export default function Navbar() {
               </button>
               <Link
                 to="/about"
+                prefetch="intent"
                 className={`comic-top-action shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#26123b] ${isAboutPage ? 'comic-top-action-active' : ''}`}
                 aria-label="За нас"
                 title="За нас"
@@ -359,7 +362,7 @@ export default function Navbar() {
           </div>
 
           {/* COMIC LOGO — big tabloid name */}
-          <Link to="/" className="inline-block group overflow-visible">
+          <Link to="/" prefetch="intent" className="inline-block group overflow-visible">
             <div className="relative inline-block overflow-visible px-2 sm:px-3 pr-8 sm:pr-10 transition-transform duration-300 group-hover:scale-[1.03]">
               {/* Background glow */}
               <div className="absolute -inset-6 bg-gradient-to-br from-yellow-400/15 via-transparent to-orange-400/15 blur-2xl transition-opacity duration-300 group-hover:from-yellow-400/25 group-hover:to-orange-400/25" />
@@ -409,6 +412,7 @@ export default function Navbar() {
                 <Link
                   key={to}
                   to={to}
+                  prefetch="intent"
                   className={`comic-chip whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-hot ${hot ? 'comic-chip-hot' : ''}`}
                   style={{ '--chip-tilt': tilt }}
                 >
@@ -432,6 +436,7 @@ export default function Navbar() {
                   <Link
                     key={link.to}
                     to={link.to}
+                    prefetch="intent"
                     className={`comic-main-nav-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-inset ${isActive ? 'comic-main-nav-link-active' : ''}`}
                   >
                     {link.hot && <span className="comic-main-nav-hot-dot" aria-hidden="true" />}
@@ -455,7 +460,7 @@ export default function Navbar() {
               {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
             {/* Mobile logo */}
-            <Link to="/" className="md:hidden font-comic text-3xl uppercase logo-mobile-text">
+            <Link to="/" prefetch="intent" className="md:hidden font-comic text-3xl uppercase logo-mobile-text">
               <span className="text-zn-black">z</span>
               <span className="text-zn-hot">News</span>
             </Link>

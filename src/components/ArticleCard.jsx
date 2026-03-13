@@ -65,6 +65,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
     return (
       <Link
         to={`/article/${article.id}`}
+        prefetch="intent"
         className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]"
       >
         <motion.div
@@ -103,7 +104,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
           </div>
 
           <div className="pt-3">
-            <h3 className="font-display font-black text-base text-zn-black mb-1 group-hover:text-zn-hot transition-colors line-clamp-2 leading-tight uppercase">
+            <h3 className="font-display font-black text-base text-zn-black mb-1 group-hover:text-zn-hot transition-colors line-clamp-2 leading-tight uppercase text-balance">
               {article.title}
             </h3>
             <p className="text-zn-text-muted text-sm mb-2 line-clamp-2 italic font-sans">{article.excerpt}</p>
@@ -124,6 +125,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
   return (
     <Link
       to={`/article/${article.id}`}
+      prefetch="intent"
       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]"
     >
       <motion.div
@@ -166,7 +168,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
                 {category.name}
               </span>
             )}
-            <h3 className="font-display font-black text-lg mt-1 mb-2 group-hover:text-zn-hot transition-colors duration-300 line-clamp-2 text-zn-black leading-snug uppercase">
+            <h3 className="font-display font-black text-lg mt-1 mb-2 group-hover:text-zn-hot transition-colors duration-300 line-clamp-2 text-zn-black leading-snug uppercase text-balance">
               {article.title}
             </h3>
             <p className="text-sm text-zn-text-muted line-clamp-2 italic font-sans">{article.excerpt}</p>

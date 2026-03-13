@@ -19,7 +19,7 @@ export function createWebArticleMetaHelpers({
     const description = clampText(
       article.shareSubtitle || stripHtmlToText(article.excerpt || article.content || ''),
       220
-    ) || '?????? ?????? ?? Los Santos.';
+    ) || '\u041d\u043e\u0432\u0438\u043d\u0438 \u0434\u0438\u0440\u0435\u043a\u0442\u043d\u043e \u043e\u0442 Los Santos.';
 
     return {
       articleUrl,
@@ -87,7 +87,7 @@ export function createWebArticleMetaHelpers({
     <meta http-equiv="refresh" content="0;url=${meta.safeRedirectUrl}" />
   </head>
   <body>
-    <p style="font-family: Arial, sans-serif; padding: 16px;">???????????? ??? ????????...</p>
+    <p style="font-family: Arial, sans-serif; padding: 16px;">\u041f\u0440\u0435\u043d\u0430\u0441\u043e\u0447\u0432\u0430\u043d\u0435 \u043a\u044a\u043c \u0441\u0442\u0430\u0442\u0438\u044f\u0442\u0430...</p>
     <script>window.location.replace(${JSON.stringify(`/article/${meta.id}`)});</script>
   </body>
 </html>`;

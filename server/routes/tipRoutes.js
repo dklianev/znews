@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { asyncHandler } from '../services/expressAsyncService.js';
 
 const TIP_ADMIN_PERMISSIONS = ['articles'];
 
@@ -12,7 +13,6 @@ export function registerTipRoutes(app, deps) {
     loadSharp,
     nextNumericId,
     normalizeText,
-    publicError,
     putStorageObject,
     rateLimit,
     rateLimitKeyGenerator,
@@ -33,16 +33,12 @@ export function registerTipRoutes(app, deps) {
     keyGenerator: rateLimitKeyGenerator,
   });
 
-  app.get('/api/tips', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), async (_req, res) => {
-    try {
-      const tips = await Tip.find().sort({ createdAt: -1 }).lean();
-      res.json(tips);
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
-    }
-  });
+  app.get('/api/tips', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), asyncHandler(async (_req, res) => {
+    const tips = await Tip.find().sort({ createdAt: -1 }).lean();
+    res.json(tips);
+  }));
 
-  app.post('/api/tips', tipRateLimiter, (req, res) => {
+  app.post('/api/tips', tipRateLimiter, (req, res, next) => {
     upload.single('image')(req, res, async (err) => {
       try {
         if (err) return res.status(400).json({ error: err.message });
@@ -79,7 +75,13 @@ export function registerTipRoutes(app, deps) {
 
         const text = normalizeText(req.body.text || '', 2000);
         if (!text && !imageUrl) {
-          return res.status(400).json({ error: 'Моля, добавете текст или снимка към сигнала.' });
+          return res.status(400).json({
+            error: '\u0414\u043e\u0431\u0430\u0432\u0438 \u0442\u0435\u043a\u0441\u0442 \u0438\u043b\u0438 \u0441\u043d\u0438\u043c\u043a\u0430, \u0437\u0430 \u0434\u0430 \u0438\u0437\u043f\u0440\u0430\u0442\u0438\u0448 \u0441\u0438\u0433\u043d\u0430\u043b\u0430.',
+            fieldErrors: {
+              text: '\u0414\u043e\u0431\u0430\u0432\u0438 \u043f\u043e\u0434\u0440\u043e\u0431\u043d\u043e\u0441\u0442\u0438 \u0437\u0430 \u0441\u0438\u0433\u043d\u0430\u043b\u0430 \u0438\u043b\u0438 \u043a\u0430\u0447\u0438 \u0441\u043d\u0438\u043c\u043a\u0430.',
+              image: '\u041a\u0430\u0447\u0438 \u0441\u043d\u0438\u043c\u043a\u0430, \u0430\u043a\u043e \u043d\u0435 \u0438\u0441\u043a\u0430\u0448 \u0434\u0430 \u0438\u0437\u043f\u0440\u0430\u0449\u0430\u0448 \u0442\u0435\u043a\u0441\u0442.',
+            },
+          });
         }
 
         const ipHash = createHash('sha256').update(getTrustedClientIp(req)).digest('hex');
@@ -96,37 +98,29 @@ export function registerTipRoutes(app, deps) {
         await newTip.save();
 
         res.json({ ok: true, id: newTip.id });
-      } catch (e) {
-        res.status(500).json({ error: publicError(e) });
+      } catch (error) {
+        next(error);
       }
     });
   });
 
-  app.patch('/api/tips/:id', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), async (req, res) => {
-    try {
-      const { status } = req.body;
-      if (!['new', 'processed', 'rejected'].includes(status)) {
-        return res.status(400).json({ error: 'Invalid status' });
-      }
-      const tip = await Tip.findOneAndUpdate(
-        { id: Number(req.params.id) },
-        { status },
-        { new: true }
-      );
-      if (!tip) return res.status(404).json({ error: 'Not found' });
-      res.json(tip);
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
+  app.patch('/api/tips/:id', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), asyncHandler(async (req, res) => {
+    const { status } = req.body;
+    if (!['new', 'processed', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
     }
-  });
+    const tip = await Tip.findOneAndUpdate(
+      { id: Number(req.params.id) },
+      { status },
+      { new: true }
+    );
+    if (!tip) return res.status(404).json({ error: 'Not found' });
+    res.json(tip);
+  }));
 
-  app.delete('/api/tips/:id', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), async (req, res) => {
-    try {
-      const tip = await Tip.findOneAndDelete({ id: Number(req.params.id) });
-      if (!tip) return res.status(404).json({ error: 'Not found' });
-      res.json({ ok: true });
-    } catch (e) {
-      res.status(500).json({ error: publicError(e) });
-    }
-  });
+  app.delete('/api/tips/:id', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), asyncHandler(async (req, res) => {
+    const tip = await Tip.findOneAndDelete({ id: Number(req.params.id) });
+    if (!tip) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  }));
 }

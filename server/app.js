@@ -107,6 +107,7 @@ import { createShareCardHelpers } from './services/shareCardHelpersService.js';
 import { createShareCardObjectHelpers } from './services/shareCardObjectService.js';
 import { createShareCardRuntimeHelpers } from './services/shareCardRuntimeService.js';
 import { createServerLifecycleService } from './services/serverLifecycleService.js';
+import { createApiErrorHandler } from './services/expressAsyncService.js';
 import { createRequestHelpers } from './services/requestHelpersService.js';
 import { createFramePolicyHelpers } from './services/framePolicyService.js';
 import { createRuntimeBootstrapHelpers } from './services/runtimeBootstrapHelpersService.js';
@@ -163,6 +164,8 @@ const {
   parsePositiveInt,
   publicError,
 } = createCoreHelpers({ isProd });
+
+const apiErrorHandler = createApiErrorHandler({ publicError });
 
 // ─── API Performance Caching ───
 const apiCache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
@@ -1970,6 +1973,8 @@ registerMediaRoutes(app, {
   requireAuth,
   storageObjectExists,
 });
+
+app.use('/api', apiErrorHandler);
 
 registerWebArticleRoutes(app, {
   Article,
