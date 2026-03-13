@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { X, Camera, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import ResponsiveImage from '../components/ResponsiveImage';

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Search, Home } from 'lucide-react';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 

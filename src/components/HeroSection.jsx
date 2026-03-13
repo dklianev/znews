@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Eye, Flame, Megaphone } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import ResponsiveImage from './ResponsiveImage';
 import { buildScaledClamp, normalizeHeroTitleScale } from '../utils/heroTitleScale';
 import { formatNewsDate } from '../utils/newsDate';

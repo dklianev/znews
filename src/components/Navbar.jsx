@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../context/ThemeContext';
 import { usePublicData } from '../context/DataContext';
 import { navbarCopy } from '../content/uiCopy';

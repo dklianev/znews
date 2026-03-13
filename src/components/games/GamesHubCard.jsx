@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Flame } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { getGameIconComponent } from '../../utils/gameIcons';
 import { getGameHubDescription } from '../../utils/gamesCatalog';
 

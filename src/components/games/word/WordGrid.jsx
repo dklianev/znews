@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 export default function WordGrid({ guesses, currentGuess, wordLength, maxAttempts }) {
     const empties = Math.max(0, maxAttempts - guesses.length - (currentGuess ? 1 : 0));

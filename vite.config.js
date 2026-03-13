@@ -42,7 +42,7 @@ export default defineConfig({
           if (!normalizedId.includes('/node_modules/')) return undefined;
           if (normalizedId.includes('/node_modules/recharts/')) return 'recharts';
           if (
-            normalizedId.includes('/node_modules/framer-motion/')
+            normalizedId.includes('/node_modules/motion/')
             || normalizedId.includes('/node_modules/motion-dom/')
             || normalizedId.includes('/node_modules/motion-utils/')
           ) {

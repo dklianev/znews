@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, ChevronRight, Flame } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
 import HeroSection from './HeroSection';
 import ResponsiveImage from './ResponsiveImage';

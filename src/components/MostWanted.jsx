@@ -1,5 +1,5 @@
 import { Siren } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
 
 const dangerColors = {

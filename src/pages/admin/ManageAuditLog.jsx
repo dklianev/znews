@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { ClipboardList, Plus, Pencil, Trash2, Filter, Clock, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useAdminData, useSessionData } from '../../context/DataContext';
 import { api } from '../../utils/api';

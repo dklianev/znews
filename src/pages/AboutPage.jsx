@@ -1,6 +1,6 @@
 import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Users, Award, Newspaper, Shield, CheckCircle, AlertTriangle } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import { api } from '../utils/api';

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import ArticleCard from '../components/ArticleCard';
 import TrendingSidebar from '../components/TrendingSidebar';
 import MostWanted from '../components/MostWanted';

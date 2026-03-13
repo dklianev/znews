@@ -34,10 +34,11 @@ function countMatches(source, pattern) {
 
 const sourceFiles = await collectSourceFiles(srcRoot);
 const sourceStats = [];
+const motionImportPattern = /from ['"]motion\/react['"]/g;
 
 for (const filePath of sourceFiles) {
   const source = await readFile(filePath, 'utf8');
-  if (!source.includes('framer-motion')) continue;
+  if (!source.includes('motion/react')) continue;
 
   sourceStats.push({
     file: path.relative(repoRoot, filePath),
@@ -45,7 +46,7 @@ for (const filePath of sourceFiles) {
     layoutId: countMatches(source, /layoutId=/g),
     whileHover: countMatches(source, /whileHover=/g),
     whileTap: countMatches(source, /whileTap=/g),
-    motionImports: countMatches(source, /from 'framer-motion'/g),
+    motionImports: countMatches(source, motionImportPattern),
   });
 }
 
@@ -55,10 +56,11 @@ for (const entry of assetEntries) {
   if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
   const fullPath = path.join(distAssetsRoot, entry.name);
   const source = await readFile(fullPath, 'utf8');
+  const isNamedMotionChunk = /^motion-.*\.js$/i.test(entry.name);
   jsAssets.push({
     name: entry.name,
     size: source.length,
-    includesMotionRuntime: source.includes('framer-motion') || source.includes('motion-dom') || source.includes('motion-utils'),
+    includesMotionRuntime: isNamedMotionChunk || source.includes('motion-dom') || source.includes('motion-utils'),
   });
 }
 
@@ -68,7 +70,7 @@ const motionAssets = jsAssets.filter((asset) => asset.includesMotionRuntime || a
 
 console.log('Motion usage audit');
 console.log('==================');
-console.log(`Source files importing framer-motion: ${sourceStats.length}`);
+console.log(`Source files importing motion/react: ${sourceStats.length}`);
 console.log(`AnimatePresence usages: ${sourceStats.reduce((sum, item) => sum + item.animatePresence, 0)}`);
 console.log(`layoutId usages: ${sourceStats.reduce((sum, item) => sum + item.layoutId, 0)}`);
 console.log(`whileHover usages: ${sourceStats.reduce((sum, item) => sum + item.whileHover, 0)}`);

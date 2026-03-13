@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 const DIFFICULTY_COLORS = {
     1: 'bg-amber-100 text-amber-950 border border-amber-200 dark:bg-amber-400 dark:text-amber-950 dark:border-transparent',

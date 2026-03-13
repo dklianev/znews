@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import TrendingSidebar from '../components/TrendingSidebar';
 import AdSlot from '../components/ads/AdSlot';
 import { usePublicData } from '../context/DataContext';

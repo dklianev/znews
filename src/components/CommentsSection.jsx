@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useOptimistic, useState } from 'react';
 import { MessageCircle, Send, User, ThumbsUp, ThumbsDown, CornerDownRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
 import { formatNewsDate } from '../utils/newsDate';
 

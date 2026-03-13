@@ -1,5 +1,5 @@
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Search as SearchIcon, FileText, Briefcase, Scale, CalendarDays, Crosshair, X, TrendingUp, History, Sparkles } from 'lucide-react';
 import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { usePublicData } from '../context/DataContext';

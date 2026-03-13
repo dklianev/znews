@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Briefcase, MapPin, DollarSign, Shield, Heart, Wrench, Scale, Car, Building } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';

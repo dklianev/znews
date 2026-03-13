@@ -1,7 +1,7 @@
 import { usePublicData } from '../context/DataContext';
 import { BarChart3, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 function getVotedPolls() {
   try { return JSON.parse(localStorage.getItem('zn_voted_polls') || '{}'); } catch { return {}; }

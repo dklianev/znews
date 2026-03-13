@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { Clock, Eye, ChevronRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
 import AdSlot from '../components/ads/AdSlot';
 import TrendingSidebar from '../components/TrendingSidebar';

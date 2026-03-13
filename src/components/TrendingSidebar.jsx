@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TrendingUp, Eye, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
 
 const numberClasses = [
