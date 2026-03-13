@@ -22,7 +22,7 @@ export default function ManageContactMessages() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState('all'); // all | new | read | archived
+  const [filter, setFilter] = useState('all');
   const [busyId, setBusyId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const toast = useToast();
@@ -49,81 +49,41 @@ export default function ManageContactMessages() {
       setLoading(false);
       return;
     }
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    void load();
   }, [canView]);
 
-  const filtered = useMemo(() => {
+  const filteredItems = useMemo(() => {
     if (filter === 'all') return items;
-    return items.filter((m) => m?.status === filter);
+    return items.filter((item) => item?.status === filter);
   }, [filter, items]);
 
   const counts = useMemo(() => ({
     all: items.length,
-    new: items.filter((m) => m?.status === 'new').length,
-    read: items.filter((m) => m?.status === 'read').length,
-    archived: items.filter((m) => m?.status === 'archived').length,
+    new: items.filter((item) => item?.status === 'new').length,
+    read: items.filter((item) => item?.status === 'read').length,
+    archived: items.filter((item) => item?.status === 'archived').length,
   }), [items]);
 
-  /*
-  const setStatus = async (id, status) => {
-    const numericId = Number.parseInt(String(id), 10);
-    if (!Number.isInteger(numericId)) return;
-    const previousItems = items;
-    setBusyId(numericId);
-    setError('');
-    setItems((prev) => prev.map((m) => (
-      m.id === numericId ? { ...m, status } : m
-    )));
-    try {
-      const updated = await api.contactMessages.update(numericId, { status });
-      setItems((prev) => prev.map((m) => m.id === numericId ? updated : m));
-      toast.success(status === 'read' ? 'Маркирано като прочетено' : 'Архивирано');
-    } catch (e) {
-      setError(e?.message || 'Грешка при запис');
-      toast.error('Грешка при промяна на статуса');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    const numericId = Number.parseInt(String(id), 10);
-    if (!Number.isInteger(numericId)) return;
-    if (!confirm('Изтрий съобщението?')) return;
-    setBusyId(numericId);
-    setError('');
-    try {
-      await api.contactMessages.delete(numericId);
-      setItems((prev) => prev.filter((m) => m.id !== numericId));
-      if (expandedId === numericId) setExpandedId(null);
-      toast.success('Съобщението е изтрито');
-    } catch (e) {
-      setError(e?.message || 'Грешка при изтриване');
-      toast.error('Грешка при изтриване');
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  */
   const runOptimisticStatusUpdate = async (id, status) => {
     const numericId = Number.parseInt(String(id), 10);
     if (!Number.isInteger(numericId)) return;
+
     const previousItems = items;
     setBusyId(numericId);
     setError('');
     setItems((prev) => prev.map((item) => (
       item.id === numericId ? { ...item, status } : item
     )));
+
     try {
       const updated = await api.contactMessages.update(numericId, { status });
-      setItems((prev) => prev.map((item) => item.id === numericId ? updated : item));
-      toast.success(status === 'read' ? '????????? ???? ?????????' : '??????????');
+      setItems((prev) => prev.map((item) => (item.id === numericId ? updated : item)));
+      toast.success(status === 'read' ? 'Съобщението е отбелязано като прочетено' : 'Съобщението е архивирано');
     } catch (e) {
       setItems(previousItems);
-      setError(e?.message || '?????? ??? ?????');
-      toast.error('?????? ??? ??????? ?? ???????');
+      setError(e?.message || 'Грешка при промяна на статуса');
+      toast.error('Грешка при промяна на статуса');
     } finally {
       setBusyId(null);
     }
@@ -132,21 +92,23 @@ export default function ManageContactMessages() {
   const runOptimisticDelete = async (id) => {
     const numericId = Number.parseInt(String(id), 10);
     if (!Number.isInteger(numericId)) return;
-    if (!confirm('?????? ????????????')) return;
+    if (!confirm('Изтриване на съобщението?')) return;
+
     const previousItems = items;
     const previousExpandedId = expandedId;
     setBusyId(numericId);
     setError('');
     setItems((prev) => prev.filter((item) => item.id !== numericId));
     if (expandedId === numericId) setExpandedId(null);
+
     try {
       await api.contactMessages.delete(numericId);
-      toast.success('??????????? ? ???????');
+      toast.success('Съобщението е изтрито');
     } catch (e) {
       setItems(previousItems);
       setExpandedId(previousExpandedId);
-      setError(e?.message || '?????? ??? ?????????');
-      toast.error('?????? ??? ?????????');
+      setError(e?.message || 'Грешка при изтриване');
+      toast.error('Грешка при изтриване');
     } finally {
       setBusyId(null);
     }
@@ -156,7 +118,9 @@ export default function ManageContactMessages() {
     <button
       type="button"
       onClick={() => setFilter(value)}
-      className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filter === value ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
+      className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filter === value
+        ? 'bg-zn-hot text-white border-zn-hot'
+        : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
         }`}
     >
       {label}
@@ -168,8 +132,8 @@ export default function ManageContactMessages() {
       <div className="p-8">
         <div className="bg-red-50 border border-red-200 p-6 text-center">
           <Mail className="w-8 h-8 text-red-500 mx-auto mb-2" />
-          <p className="font-sans text-red-700 font-semibold">Нямате достъп до тази страница</p>
-          <p className="font-sans text-red-500 text-sm mt-1">Нужни са права за: contact</p>
+          <p className="font-sans text-red-700 font-semibold">Нямате права за този раздел</p>
+          <p className="font-sans text-red-500 text-sm mt-1">Нужно е право: contact</p>
         </div>
       </div>
     );
@@ -181,7 +145,7 @@ export default function ManageContactMessages() {
         <div>
           <h1 className="text-2xl font-display font-bold text-gray-900 flex items-center gap-2">
             <Mail className="w-6 h-6 text-zn-purple" />
-            Запитвания
+            Контактни съобщения
           </h1>
           <p className="text-sm font-sans text-gray-500 mt-1">
             {counts.all} съобщения • {counts.new} нови
@@ -189,7 +153,7 @@ export default function ManageContactMessages() {
         </div>
         <button
           type="button"
-          onClick={load}
+          onClick={() => void load()}
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
         >
@@ -214,20 +178,22 @@ export default function ManageContactMessages() {
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">Зареждане...</div>
-      ) : filtered.length === 0 ? (
+      ) : filteredItems.length === 0 ? (
         <div className="text-center py-12 text-gray-400">Няма съобщения</div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((msg) => {
-            const createdLabel = msg?.createdAt ? new Date(msg.createdAt).toLocaleString('bg-BG') : '';
-            const status = msg?.status || 'new';
-            const isExpanded = expandedId === msg.id;
+          {filteredItems.map((message) => {
+            const createdLabel = message?.createdAt ? new Date(message.createdAt).toLocaleString('bg-BG') : '';
+            const status = message?.status || 'new';
+            const isExpanded = expandedId === message.id;
+            const isBusy = busyId === message.id;
+
             return (
-              <div key={msg.id} className="bg-white border border-gray-200 p-4" aria-busy={busyId === msg.id}>
+              <div key={message.id} className="bg-white border border-gray-200 p-4" aria-busy={isBusy}>
                 <div className="flex items-start justify-between gap-4">
                   <button
                     type="button"
-                    onClick={() => setExpandedId(isExpanded ? null : msg.id)}
+                    onClick={() => setExpandedId(isExpanded ? null : message.id)}
                     className="text-left flex-1 min-w-0"
                     aria-expanded={isExpanded}
                   >
@@ -235,13 +201,13 @@ export default function ManageContactMessages() {
                       <span className={`px-2 py-0.5 text-[10px] font-sans font-bold uppercase tracking-wider border ${STATUS_STYLES[status] || STATUS_STYLES.new}`}>
                         {STATUS_LABELS[status] || status}
                       </span>
-                      <span className="text-sm font-sans font-semibold text-gray-900 truncate">{msg.name || '—'}</span>
-                      <span className="text-xs font-sans text-gray-400 truncate">{msg.email || ''}</span>
+                      <span className="text-sm font-sans font-semibold text-gray-900 truncate">{message.name || '-'}</span>
+                      <span className="text-xs font-sans text-gray-400 truncate">{message.email || ''}</span>
                       <span className="text-xs font-sans text-gray-400">{createdLabel}</span>
                     </div>
                     {!isExpanded && (
                       <p className="mt-2 text-sm font-sans text-gray-700 line-clamp-2 whitespace-pre-wrap">
-                        {msg.message || ''}
+                        {message.message || ''}
                       </p>
                     )}
                   </button>
@@ -250,8 +216,8 @@ export default function ManageContactMessages() {
                     {status !== 'read' && (
                       <button
                         type="button"
-                        onClick={() => runOptimisticStatusUpdate(msg.id, 'read')}
-                        disabled={busyId === msg.id}
+                        onClick={() => void runOptimisticStatusUpdate(message.id, 'read')}
+                        disabled={isBusy}
                         className="p-2 text-gray-400 hover:text-emerald-700 disabled:opacity-50"
                         title="Маркирай като прочетено"
                       >
@@ -261,8 +227,8 @@ export default function ManageContactMessages() {
                     {status !== 'archived' && (
                       <button
                         type="button"
-                        onClick={() => runOptimisticStatusUpdate(msg.id, 'archived')}
-                        disabled={busyId === msg.id}
+                        onClick={() => void runOptimisticStatusUpdate(message.id, 'archived')}
+                        disabled={isBusy}
                         className="p-2 text-gray-400 hover:text-gray-700 disabled:opacity-50"
                         title="Архивирай"
                       >
@@ -271,8 +237,8 @@ export default function ManageContactMessages() {
                     )}
                     <button
                       type="button"
-                      onClick={() => runOptimisticDelete(msg.id)}
-                      disabled={busyId === msg.id}
+                      onClick={() => void runOptimisticDelete(message.id)}
+                      disabled={isBusy}
                       className="p-2 text-gray-400 hover:text-red-700 disabled:opacity-50"
                       title="Изтрий"
                     >
@@ -284,10 +250,10 @@ export default function ManageContactMessages() {
                 {isExpanded && (
                   <div className="mt-3 border-t border-gray-100 pt-3">
                     <p className="text-sm font-sans text-gray-700 whitespace-pre-wrap">
-                      {msg.message || ''}
+                      {message.message || ''}
                     </p>
                     <div className="mt-3 text-xs font-sans text-gray-400">
-                      ID: {msg.id}
+                      ID: {message.id}
                     </div>
                   </div>
                 )}
