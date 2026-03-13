@@ -22,6 +22,8 @@ export function createDbBootstrapService({
   mongoose,
   normalizeText,
 }) {
+  const LEGACY_BROKEN_BREAKING_LABEL = '\u003f\u003f\u003f\u003f\u003f\u003f';
+
   function sanitizePermissionMap(value) {
     const src = value && typeof value === 'object' ? value : {};
     return PERMISSION_KEYS.reduce((acc, key) => {
@@ -86,7 +88,7 @@ export function createDbBootstrapService({
         const next = links.map((item) => {
           if (!item || item.to !== '/category/breaking') return item;
           const normalizedLabel = normalizeText(item.label, 50);
-          if (normalizedLabel && normalizedLabel.toLowerCase() !== '??????') return item;
+          if (normalizedLabel && normalizedLabel.toLowerCase() !== LEGACY_BROKEN_BREAKING_LABEL) return item;
           changed = true;
           return { ...item, label: BREAKING_CATEGORY_LABEL };
         });

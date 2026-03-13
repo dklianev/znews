@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createDbBootstrapService } from '../server/services/dbBootstrapService.js';
 
+const LEGACY_BROKEN_BREAKING_LABEL = '\u003f\u003f\u003f\u003f\u003f\u003f';
+
 function createPermissionModel(existingDocs = {}) {
   const created = [];
   const updated = [];
@@ -122,7 +124,7 @@ export async function runDbBootstrapServiceTests() {
       siteSettingsDoc: {
         key: 'main',
         navbarLinks: [
-          { to: '/category/breaking', label: '??????' },
+          { to: '/category/breaking', label: LEGACY_BROKEN_BREAKING_LABEL },
           { to: '/category/crime', label: 'Криминални' },
         ],
         footerQuickLinks: [
