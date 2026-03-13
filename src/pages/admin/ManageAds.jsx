@@ -465,16 +465,6 @@ export default function ManageAds() {
       : (resolution.resolvedAd ? 'В този пример печели друга реклама с по-висок priority или по-специфичен targeting.' : 'Няма разрешен delivery за този context.') };
   }), [adsForPreview, articlesById, previewAd, selectedSlots]);
 
-  const validationErrors = useMemo(() => {
-    const errors = [];
-    if (!draftPayload.title) errors.push('Заглавието е задължително.');
-    if (draftPayload.showButton !== false && !draftPayload.cta) errors.push('CTA текстът е задължителен.');
-    if (draftPayload.clickable !== false && (!draftPayload.link || draftPayload.link === '#')) errors.push('Линкът е задължителен за clickable реклама.');
-    if (!draftPayload.placements.length) errors.push('Избери поне една позиция.');
-    if (draftPayload.startAt && draftPayload.endAt && new Date(draftPayload.startAt).getTime() > new Date(draftPayload.endAt).getTime()) errors.push('Началната дата трябва да е преди крайната.');
-    return errors;
-  }, [draftPayload]);
-
   const validationEntries = useMemo(() => {
     const errors = [];
     if (!draftPayload.title) errors.push(['title', 'Заглавието е задължително.']);
