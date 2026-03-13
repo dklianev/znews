@@ -10,6 +10,14 @@ import { useToast } from '../../components/admin/Toast';
 
 const ARTICLE_DRAFT_KEY = 'zn_manage_articles_draft_v1';
 const ARTICLE_HISTORY_KEY = 'zn_manage_articles_history_v1';
+const FIELD_TAB_BY_KEY = Object.freeze({
+  title: 'content',
+  excerpt: 'content',
+  content: 'content',
+  image: 'media',
+  category: 'settings',
+  authorId: 'settings',
+});
 
 function dateTimeToLocalInput(value) {
   if (!value) return '';
@@ -61,6 +69,9 @@ const REVISION_COMPARE_FIELDS = [
   { key: 'shareImage', label: 'Share снимка' },
   { key: 'relatedArticles', label: 'Свързани статии' },
 ];
+const VALIDATION_FIELD_LABELS = Object.freeze(
+  Object.fromEntries(REVISION_COMPARE_FIELDS.map(({ key, label }) => [key, label])),
+);
 
 function stripHtmlToText(value) {
   if (!value) return '';
@@ -158,8 +169,80 @@ export default function ManageArticles() {
   const [currentPage, setCurrentPage] = useState(1);
   const ARTICLES_PER_PAGE = 15;
   const initialFormRef = useRef(emptyForm);
+  const fieldRefs = useRef({});
   const [selectedIds, setSelectedIds] = useState([]);
   const toast = useToast();
+
+  const registerFieldRef = useCallback((field) => (node) => {
+    if (node) {
+      fieldRefs.current[field] = node;
+      return;
+    }
+    delete fieldRefs.current[field];
+  }, []);
+
+  const clearValidationError = useCallback((field) => {
+    setValidationErrors((prev) => {
+      if (!prev || !Object.prototype.hasOwnProperty.call(prev, field)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
+
+  const focusValidationField = useCallback((field) => {
+    if (!field) return;
+
+    const targetTab = FIELD_TAB_BY_KEY[field];
+    if (targetTab && targetTab !== activeTab) {
+      setActiveTab(targetTab);
+    }
+    if (field === 'content' && contentMode !== 'write') {
+      setContentMode('write');
+    }
+
+    const focusTarget = () => {
+      const node = fieldRefs.current[field];
+      if (!node) return;
+
+      if (typeof node.scrollIntoView === 'function') {
+        node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      const selector = 'input, textarea, select, button, [tabindex]:not([tabindex="-1"])';
+      const focusable = typeof node.matches === 'function' && node.matches(selector)
+        ? node
+        : node.querySelector?.(selector);
+
+      if (focusable && typeof focusable.focus === 'function') {
+        focusable.focus({ preventScroll: true });
+        return;
+      }
+
+      if (typeof node.focus === 'function') {
+        node.focus({ preventScroll: true });
+      }
+    };
+
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(focusTarget);
+      });
+      return;
+    }
+
+    focusTarget();
+  }, [activeTab, contentMode]);
+
+  useEffect(() => {
+    const entries = Object.entries(validationErrors || {});
+    if (entries.length === 0) return;
+
+    const normalizedEntries = entries.filter(([, value]) => value != null && value !== '');
+    if (normalizedEntries.length === entries.length) return;
+
+    setValidationErrors(Object.fromEntries(normalizedEntries));
+  }, [validationErrors]);
 
   const filtered = useMemo(() => {
     let result = filterCat === 'all' ? articles : articles.filter(a => a.category === filterCat);
@@ -617,8 +700,10 @@ export default function ManageArticles() {
 
   const handleSave = async () => {
     const errors = validateForm();
+    const firstInvalidField = Object.keys(errors)[0];
     setValidationErrors(errors);
     if (Object.keys(errors).length > 0) {
+      focusValidationField(firstInvalidField);
       toast.error('Моля поправи грешките преди запазване');
       return;
     }
@@ -992,13 +1077,25 @@ export default function ManageArticles() {
           </div>
 
           {Object.keys(validationErrors).length > 0 && (
-            <div className="mx-6 mt-6 p-4 bg-red-50 border border-red-200 text-red-800 text-sm font-sans">
+            <div
+              className="mx-6 mt-6 p-4 bg-red-50 border border-red-200 text-red-800 text-sm font-sans"
+              role="alert"
+              aria-live="assertive"
+            >
               <strong className="block mb-2 text-base">Грешки при валидация:</strong>
-              <ul className="list-disc pl-5 space-y-1">
+              <ul className="space-y-1">
                 {Object.entries(validationErrors).map(([field, error]) => (
                   <li key={field}>
-                    <span className="font-semibold uppercase text-xs mr-2 opacity-70">{field}</span>
-                    {error}
+                    <button
+                      type="button"
+                      onClick={() => focusValidationField(field)}
+                      className="text-left hover:underline underline-offset-2"
+                    >
+                      <span className="font-semibold uppercase text-xs mr-2 opacity-70">
+                        {VALIDATION_FIELD_LABELS[field] || field}
+                      </span>
+                      {error}
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -1009,21 +1106,21 @@ export default function ManageArticles() {
             {/* CONTENT TAB */}
             <div className={activeTab === 'content' ? 'block' : 'hidden'}>
               <div className="space-y-6 max-w-full">
-                <div>
+                <div ref={registerFieldRef('title')}>
                   <div className="flex items-center justify-between">
                     <label className={labelCls}>Заглавие <span className="text-red-500">*</span></label>
                     <span className={`text-[10px] font-sans tabular-nums ${form.title.length > 100 ? 'text-amber-600' : 'text-gray-400'}`}>{form.title.length}/120</span>
                   </div>
-                  <input className={inputCls + (validationErrors.title ? ' !border-red-400 bg-red-50/30' : '')} value={form.title} onChange={e => { setForm({ ...form, title: e.target.value }); if (validationErrors.title) setValidationErrors(prev => ({ ...prev, title: undefined })); }} placeholder="Заглавие на статията" />
-                  {validationErrors.title && <p className="text-xs text-red-500 mt-1 font-sans">{validationErrors.title}</p>}
+                  <input id="article-title" className={inputCls + (validationErrors.title ? ' !border-red-400 bg-red-50/30' : '')} value={form.title} onChange={e => { setForm({ ...form, title: e.target.value }); clearValidationError('title'); }} placeholder="Заглавие на статията" aria-invalid={validationErrors.title ? 'true' : 'false'} aria-describedby={validationErrors.title ? 'article-title-error' : undefined} />
+                  {validationErrors.title && <p id="article-title-error" className="text-xs text-red-500 mt-1 font-sans">{validationErrors.title}</p>}
                 </div>
-                <div>
+                <div ref={registerFieldRef('excerpt')}>
                   <div className="flex items-center justify-between">
                     <label className={labelCls}>Резюме <span className="text-red-500">*</span></label>
                     <button type="button" onClick={autoGenerateExcerpt} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-zn-purple text-zn-purple bg-zn-purple/5 hover:bg-zn-purple/10 text-[10px] font-sans font-bold uppercase tracking-wider transition-colors mb-2" title="Генерирай от съдържанието">✨ AI Резюме</button>
                   </div>
-                  <textarea className={inputCls + ' h-20 resize-none ' + (validationErrors.excerpt ? ' !border-red-400 bg-red-50/30' : '')} value={form.excerpt} onChange={e => { setForm({ ...form, excerpt: e.target.value }); if (validationErrors.excerpt) setValidationErrors(prev => ({ ...prev, excerpt: undefined })); }} placeholder="Кратко описание..." />
-                  {validationErrors.excerpt && <p className="text-xs text-red-500 mt-1 font-sans">{validationErrors.excerpt}</p>}
+                  <textarea id="article-excerpt" className={inputCls + ' h-20 resize-none ' + (validationErrors.excerpt ? ' !border-red-400 bg-red-50/30' : '')} value={form.excerpt} onChange={e => { setForm({ ...form, excerpt: e.target.value }); clearValidationError('excerpt'); }} placeholder="Кратко описание..." aria-invalid={validationErrors.excerpt ? 'true' : 'false'} aria-describedby={validationErrors.excerpt ? 'article-excerpt-error' : undefined} />
+                  {validationErrors.excerpt && <p id="article-excerpt-error" className="text-xs text-red-500 mt-1 font-sans">{validationErrors.excerpt}</p>}
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -1047,11 +1144,17 @@ export default function ManageArticles() {
                   </div>
 
                   {contentMode === 'write' ? (
-                    <div className={`overflow-hidden border rounded-sm shadow-sm ${validationErrors.content ? 'border-red-400' : 'border-gray-200'}`}>
+                    <div
+                      ref={registerFieldRef('content')}
+                      tabIndex={-1}
+                      aria-invalid={validationErrors.content ? 'true' : 'false'}
+                      aria-describedby={validationErrors.content ? 'article-content-error' : undefined}
+                      className={`overflow-hidden border rounded-sm shadow-sm ${validationErrors.content ? 'border-red-400' : 'border-gray-200'}`}
+                    >
                       <RichTextEditor
                         className="min-h-[500px] border-none"
                         value={form.content}
-                        onChange={(nextHtml) => { setForm(prev => ({ ...prev, content: nextHtml })); if (validationErrors.content) setValidationErrors(prev => ({ ...prev, content: undefined })); }}
+                        onChange={(nextHtml) => { setForm(prev => ({ ...prev, content: nextHtml })); clearValidationError('content'); }}
                         placeholder="Напиши текста на статията..."
                       />
                     </div>
@@ -1068,7 +1171,7 @@ export default function ManageArticles() {
                       Разрешени формати: bold, italic, underline, strike, H2/H3/H4, списъци, цитат, линк и снимки от медийната библиотека.
                     </p>
                   </div>
-                  {validationErrors.content && <p className="text-xs text-red-500 mt-1 font-sans">{validationErrors.content}</p>}
+                  {validationErrors.content && <p id="article-content-error" className="text-xs text-red-500 mt-1 font-sans">{validationErrors.content}</p>}
                 </div>
 
                 {/* Revision history inside the Editor column if editing */}
@@ -1188,17 +1291,24 @@ export default function ManageArticles() {
             {/* MEDIA TAB */}
             <div className={activeTab === 'media' ? 'block' : 'hidden'}>
               <div className="space-y-6 max-w-4xl">
-                <div className="p-4 border border-gray-200 bg-gray-50/30">
+                <div
+                  ref={registerFieldRef('image')}
+                  tabIndex={-1}
+                  aria-invalid={validationErrors.image ? 'true' : 'false'}
+                  aria-describedby={validationErrors.image ? 'article-image-error' : undefined}
+                  className={`p-4 border bg-gray-50/30 ${validationErrors.image ? 'border-red-300 bg-red-50/20' : 'border-gray-200'}`}
+                >
                   <AdminImageField
                     label="Основна Снимка"
                     required
                     value={form.image}
-                    onChange={(nextValue) => setForm(prev => ({ ...prev, image: nextValue }))}
+                    onChange={(nextValue) => { setForm(prev => ({ ...prev, image: nextValue })); clearValidationError('image'); }}
                     imageMeta={form.imageMeta}
-                    onChangeMeta={(nextMeta) => setForm(prev => ({ ...prev, imageMeta: nextMeta }))}
+                    onChangeMeta={(nextMeta) => { setForm(prev => ({ ...prev, imageMeta: nextMeta })); clearValidationError('image'); }}
                     helperText="Избери снимка (16:9 препоръчително) или качи нова от компютъра."
                     previewClassName="h-64"
                   />
+                  {validationErrors.image && <p id="article-image-error" className="text-xs text-red-500 mt-3 font-sans">{validationErrors.image}</p>}
                 </div>
 
                 <div className="p-4 border border-gray-200 bg-gray-50/30">
@@ -1225,21 +1335,23 @@ export default function ManageArticles() {
                       <option value="draft">🟡 Чернова (скрита от читателите)</option>
                     </select>
                   </div>
-                  <div>
+                  <div ref={registerFieldRef('category')}>
                     <label className={labelCls}>Категория</label>
-                    <select className={inputCls} value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
+                    <select className={inputCls + (validationErrors.category ? ' !border-red-400 bg-red-50/30' : '')} value={form.category} onChange={e => { setForm({ ...form, category: e.target.value }); clearValidationError('category'); }} aria-invalid={validationErrors.category ? 'true' : 'false'} aria-describedby={validationErrors.category ? 'article-category-error' : undefined}>
                       {categories.filter(c => c.id !== 'all').map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
+                    {validationErrors.category && <p id="article-category-error" className="text-xs text-red-500 mt-1 font-sans">{validationErrors.category}</p>}
                   </div>
-                  <div>
+                  <div ref={registerFieldRef('authorId')}>
                     <label className={labelCls}>Автор</label>
-                    <select className={inputCls} value={form.authorId} onChange={e => setForm({ ...form, authorId: e.target.value })}>
+                    <select className={inputCls + (validationErrors.authorId ? ' !border-red-400 bg-red-50/30' : '')} value={form.authorId} onChange={e => { setForm({ ...form, authorId: e.target.value }); clearValidationError('authorId'); }} aria-invalid={validationErrors.authorId ? 'true' : 'false'} aria-describedby={validationErrors.authorId ? 'article-author-error' : undefined}>
                       {authors.map(a => (
                         <option key={a.id} value={a.id}>{a.avatar} {a.name}</option>
                       ))}
                     </select>
+                    {validationErrors.authorId && <p id="article-author-error" className="text-xs text-red-500 mt-1 font-sans">{validationErrors.authorId}</p>}
                   </div>
                 </div>
 
