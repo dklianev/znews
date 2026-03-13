@@ -26,6 +26,60 @@ export function createImagePipelineService(deps) {
 
   const imagePipelineBackfillInFlight = new Map();
 
+  function getVariantRelativePath(fileName, variantFileName) {
+    return path.posix.join(getVariantsRelativeDir(fileName), variantFileName);
+  }
+
+  function getVariantUrl(fileName, variantFileName) {
+    return toUploadsUrlFromRelative(getVariantRelativePath(fileName, variantFileName));
+  }
+
+  function normalizePipelineWidths(sourceWidth) {
+    return [...new Set(
+      imagePipelineWidths
+        .map((width) => sourceWidth ? Math.min(width, sourceWidth) : width)
+        .filter((width) => Number.isFinite(width) && width > 0)
+    )].sort((a, b) => a - b);
+  }
+
+  async function listRemoteOriginalUploadEntries() {
+    const prefixKey = toUploadsStorageKey('');
+    const objects = await listRemoteObjectsByPrefix(prefixKey);
+    return objects
+      .map((item) => {
+        const key = String(item?.Key || '');
+        if (!key.startsWith(prefixKey)) return null;
+        const relativePath = key.slice(prefixKey.length);
+        if (!relativePath || relativePath.includes('/')) return null;
+        const ext = path.extname(relativePath).toLowerCase();
+        if (!allowedImageExtensions.has(ext)) return null;
+        if (!isOriginalUploadFileName(relativePath)) return null;
+        return {
+          name: relativePath,
+          size: Number(item.Size) || 0,
+          updatedAt: item.LastModified ? new Date(item.LastModified).toISOString() : new Date(0).toISOString(),
+        };
+      })
+      .filter(Boolean);
+  }
+
+  async function listLocalOriginalUploadEntries() {
+    const entries = await fs.promises.readdir(uploadsDir, { withFileTypes: true });
+    const mapped = await Promise.all(entries.map(async (entry) => {
+      if (!entry.isFile()) return null;
+      const ext = path.extname(entry.name).toLowerCase();
+      if (!allowedImageExtensions.has(ext)) return null;
+      if (!isOriginalUploadFileName(entry.name)) return null;
+      const stats = await fs.promises.stat(path.join(uploadsDir, entry.name));
+      return {
+        name: entry.name,
+        size: stats.size,
+        updatedAt: stats.mtime.toISOString(),
+      };
+    }));
+    return mapped.filter(Boolean);
+  }
+
   async function readImageManifest(fileName) {
     try {
       if (!fileName || !isOriginalUploadFileName(fileName)) return null;
@@ -74,11 +128,7 @@ export function createImagePipelineService(deps) {
     const sourceWidth = Number(meta.width) || null;
     const sourceHeight = Number(meta.height) || null;
 
-    const widths = [...new Set(
-      imagePipelineWidths
-        .map(width => sourceWidth ? Math.min(width, sourceWidth) : width)
-        .filter(width => Number.isFinite(width) && width > 0)
-    )].sort((a, b) => a - b);
+    const widths = normalizePipelineWidths(sourceWidth);
 
     const variants = [];
     for (const width of widths) {
@@ -86,19 +136,19 @@ export function createImagePipelineService(deps) {
       const avifName = `w${width}.avif`;
       const webpBuffer = await sharp(originalBuffer).rotate().resize({ width, withoutEnlargement: true }).webp({ quality: 74 }).toBuffer();
       const avifBuffer = await sharp(originalBuffer).rotate().resize({ width, withoutEnlargement: true }).avif({ quality: 52 }).toBuffer();
-      await putStorageObject(path.posix.join(getVariantsRelativeDir(fileName), webpName), webpBuffer, 'image/webp');
-      await putStorageObject(path.posix.join(getVariantsRelativeDir(fileName), avifName), avifBuffer, 'image/avif');
+      await putStorageObject(getVariantRelativePath(fileName, webpName), webpBuffer, 'image/webp');
+      await putStorageObject(getVariantRelativePath(fileName, avifName), avifBuffer, 'image/avif');
 
       variants.push({
         width,
-        webp: toUploadsUrlFromRelative(path.posix.join(getVariantsRelativeDir(fileName), webpName)),
-        avif: toUploadsUrlFromRelative(path.posix.join(getVariantsRelativeDir(fileName), avifName)),
+        webp: getVariantUrl(fileName, webpName),
+        avif: getVariantUrl(fileName, avifName),
       });
     }
 
     const blurName = 'blur.webp';
     const blurBuffer = await sharp(originalBuffer).rotate().resize({ width: 32, withoutEnlargement: true }).blur(2).webp({ quality: 48 }).toBuffer();
-    await putStorageObject(path.posix.join(getVariantsRelativeDir(fileName), blurName), blurBuffer, 'image/webp');
+    await putStorageObject(getVariantRelativePath(fileName, blurName), blurBuffer, 'image/webp');
 
     const manifest = {
       generatedAt: new Date().toISOString(),
@@ -108,7 +158,7 @@ export function createImagePipelineService(deps) {
         height: sourceHeight,
         format: meta.format || '',
       },
-      placeholder: toUploadsUrlFromRelative(path.posix.join(getVariantsRelativeDir(fileName), blurName)),
+      placeholder: getVariantUrl(fileName, blurName),
       variants,
     };
 
@@ -261,40 +311,9 @@ export function createImagePipelineService(deps) {
 
   async function listOriginalUploadEntries() {
     if (isRemoteStorage) {
-      const prefixKey = toUploadsStorageKey('');
-      const objects = await listRemoteObjectsByPrefix(prefixKey);
-      return objects
-        .map((item) => {
-          const key = String(item?.Key || '');
-          if (!key.startsWith(prefixKey)) return null;
-          const relativePath = key.slice(prefixKey.length);
-          if (!relativePath || relativePath.includes('/')) return null;
-          const ext = path.extname(relativePath).toLowerCase();
-          if (!allowedImageExtensions.has(ext)) return null;
-          if (!isOriginalUploadFileName(relativePath)) return null;
-          return {
-            name: relativePath,
-            size: Number(item.Size) || 0,
-            updatedAt: item.LastModified ? new Date(item.LastModified).toISOString() : new Date(0).toISOString(),
-          };
-        })
-        .filter(Boolean);
+      return listRemoteOriginalUploadEntries();
     }
-
-    const entries = await fs.promises.readdir(uploadsDir, { withFileTypes: true });
-    const mapped = await Promise.all(entries.map(async (entry) => {
-      if (!entry.isFile()) return null;
-      const ext = path.extname(entry.name).toLowerCase();
-      if (!allowedImageExtensions.has(ext)) return null;
-      if (!isOriginalUploadFileName(entry.name)) return null;
-      const stats = await fs.promises.stat(path.join(uploadsDir, entry.name));
-      return {
-        name: entry.name,
-        size: stats.size,
-        updatedAt: stats.mtime.toISOString(),
-      };
-    }));
-    return mapped.filter(Boolean);
+    return listLocalOriginalUploadEntries();
   }
 
   async function getPipelineEngineName() {

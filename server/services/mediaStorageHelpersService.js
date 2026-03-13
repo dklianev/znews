@@ -24,6 +24,12 @@ export function createMediaStorageHelpers({
   const escape = typeof escapeHtml === 'function' ? escapeHtml : defaultEscapeHtml;
   let sharpMissingWarned = false;
 
+  function warnSharpUnavailableOnce() {
+    if (sharpMissingWarned) return;
+    sharpMissingWarned = true;
+    logWarning('Image pipeline is disabled because optional dependency "sharp" is not available.');
+  }
+
   function isSafeUploadFilename(name) {
     return /^[a-zA-Z0-9._-]+$/.test(name || '');
   }
@@ -59,10 +65,7 @@ export function createMediaStorageHelpers({
     sharpLoaderPromise = importSharp()
       .then((mod) => mod.default || mod)
       .catch(() => {
-        if (!sharpMissingWarned) {
-          sharpMissingWarned = true;
-          logWarning('? Image pipeline is disabled because optional dependency "sharp" is not available.');
-        }
+        warnSharpUnavailableOnce();
         return null;
       });
     return sharpLoaderPromise;
