@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useOptimistic, useState } from 'react';
 import { useAdminData } from '../../context/DataContext';
 import { RefreshCw, Trash2, Edit3, Image as ImageIcon, MapPin, Check, X, FileText, Search } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
@@ -10,7 +10,25 @@ export default function ManageTips() {
     const navigate = useNavigate();
     const [query, setQuery] = useState('');
 
-    const [deleting, setDeleting] = useState(null);
+    const [busyTip, setBusyTip] = useState(null);
+    const [optimisticTips, applyTipUpdate] = useOptimistic(
+        tips,
+        (currentTips, mutation) => {
+            if (!Array.isArray(currentTips)) return [];
+
+            if (mutation.type === 'status') {
+                return currentTips.map((tip) => (
+                    tip.id === mutation.id ? { ...tip, status: mutation.status } : tip
+                ));
+            }
+
+            if (mutation.type === 'delete') {
+                return currentTips.filter((tip) => tip.id !== mutation.id);
+            }
+
+            return currentTips;
+        },
+    );
 
     useEffect(() => {
         void ensureTipsLoaded();
@@ -18,23 +36,29 @@ export default function ManageTips() {
 
     const filtered = useMemo(() => {
         const q = query.toLowerCase();
-        return tips.filter(t => (t.text || '').toLowerCase().includes(q) || (t.location || '').toLowerCase().includes(q));
-    }, [tips, query]);
+        return optimisticTips.filter(t => (t.text || '').toLowerCase().includes(q) || (t.location || '').toLowerCase().includes(q));
+    }, [optimisticTips, query]);
+
+    const isTipBusy = (id) => busyTip?.id === id;
 
     const handleDelete = async (id) => {
         if (!confirm('Сигурни ли сте, че искате да изтриете този сигнал?')) return;
-        setDeleting(id);
+        setBusyTip({ id, action: 'delete' });
+        applyTipUpdate({ type: 'delete', id });
         try {
             await deleteTip(id);
             toast.success('Сигналът беше изтрит');
         } catch (e) {
+            await refreshTips();
             toast.error('Грешка: ' + e.message);
         } finally {
-            setDeleting(null);
+            setBusyTip(null);
         }
     };
 
     const setStatus = async (id, status) => {
+        setBusyTip({ id, action: 'status' });
+        applyTipUpdate({ type: 'status', id, status });
         try {
             await updateTip(id, status);
             toast.success('Статусът е обновен');
@@ -43,9 +67,23 @@ export default function ManageTips() {
         }
     };
 
+    const runOptimisticStatusUpdate = async (id, status) => {
+        setBusyTip({ id, action: 'status' });
+        applyTipUpdate({ type: 'status', id, status });
+        try {
+            await updateTip(id, status);
+            toast.success('???????? ? ???????');
+        } catch (e) {
+            await refreshTips();
+            toast.error('??????: ' + e.message);
+        } finally {
+            setBusyTip(null);
+        }
+    };
+
     const handleConvertToArticle = (tip) => {
         // Mark as processed
-        setStatus(tip.id, 'processed');
+        void runOptimisticStatusUpdate(tip.id, 'processed');
 
         // Navigate to new article passing data via state
         const prefill = {
@@ -98,7 +136,7 @@ export default function ManageTips() {
                     </div>
                 ) : (
                     filtered.map(tip => (
-                        <div key={tip.id} className="bg-white border border-gray-200 p-5 flex flex-col md:flex-row gap-6 shadow-sm">
+                        <div key={tip.id} className="bg-white border border-gray-200 p-5 flex flex-col md:flex-row gap-6 shadow-sm" aria-busy={isTipBusy(tip.id)}>
                             {tip.image ? (
                                 <div className="w-full md:w-64 h-40 bg-black flex-shrink-0 flex items-center justify-center border-4 border-zn-black" style={{ boxShadow: '4px 4px 0 #1C1428' }}>
                                     <img src={tip.image} className="max-w-full max-h-full object-contain" alt="Tip Evidence" loading="lazy" />
@@ -133,22 +171,23 @@ export default function ManageTips() {
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
                                         {tip.status !== 'rejected' && (
-                                            <button onClick={() => setStatus(tip.id, 'rejected')} className="text-gray-400 hover:text-red-500 font-sans text-xs px-2 py-1">
+                                            <button onClick={() => void runOptimisticStatusUpdate(tip.id, 'rejected')} disabled={isTipBusy(tip.id)} className="text-gray-400 hover:text-red-500 disabled:opacity-50 font-sans text-xs px-2 py-1">
                                                 Отхвърли
                                             </button>
                                         )}
                                         <button
                                             onClick={() => handleConvertToArticle(tip)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-zn-purple/10 text-zn-purple font-bold font-sans text-xs hover:bg-zn-purple/20 transition-colors"
+                                            disabled={isTipBusy(tip.id)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-zn-purple/10 text-zn-purple font-bold font-sans text-xs hover:bg-zn-purple/20 disabled:opacity-50 transition-colors"
                                         >
                                             <Edit3 className="w-3.5 h-3.5" /> Превърни в Статия
                                         </button>
                                         <button
                                             onClick={() => handleDelete(tip.id)}
-                                            disabled={deleting === tip.id}
-                                            className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
+                                            disabled={isTipBusy(tip.id)}
+                                            className="p-1.5 text-gray-400 hover:text-red-500 disabled:opacity-50 transition-colors"
                                         >
-                                            {deleting === tip.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                            {isTipBusy(tip.id) ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                         </button>
                                     </div>
                                 </div>

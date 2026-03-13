@@ -68,8 +68,12 @@ export default function ManageContactMessages() {
   const setStatus = async (id, status) => {
     const numericId = Number.parseInt(String(id), 10);
     if (!Number.isInteger(numericId)) return;
+    const previousItems = items;
     setBusyId(numericId);
     setError('');
+    setItems((prev) => prev.map((m) => (
+      m.id === numericId ? { ...m, status } : m
+    )));
     try {
       const updated = await api.contactMessages.update(numericId, { status });
       setItems((prev) => prev.map((m) => m.id === numericId ? updated : m));
@@ -96,6 +100,51 @@ export default function ManageContactMessages() {
     } catch (e) {
       setError(e?.message || 'Грешка при изтриване');
       toast.error('Грешка при изтриване');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runOptimisticStatusUpdate = async (id, status) => {
+    const numericId = Number.parseInt(String(id), 10);
+    if (!Number.isInteger(numericId)) return;
+    const previousItems = items;
+    setBusyId(numericId);
+    setError('');
+    setItems((prev) => prev.map((item) => (
+      item.id === numericId ? { ...item, status } : item
+    )));
+    try {
+      const updated = await api.contactMessages.update(numericId, { status });
+      setItems((prev) => prev.map((item) => item.id === numericId ? updated : item));
+      toast.success(status === 'read' ? '????????? ???? ?????????' : '??????????');
+    } catch (e) {
+      setItems(previousItems);
+      setError(e?.message || '?????? ??? ?????');
+      toast.error('?????? ??? ??????? ?? ???????');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const runOptimisticDelete = async (id) => {
+    const numericId = Number.parseInt(String(id), 10);
+    if (!Number.isInteger(numericId)) return;
+    if (!confirm('?????? ????????????')) return;
+    const previousItems = items;
+    const previousExpandedId = expandedId;
+    setBusyId(numericId);
+    setError('');
+    setItems((prev) => prev.filter((item) => item.id !== numericId));
+    if (expandedId === numericId) setExpandedId(null);
+    try {
+      await api.contactMessages.delete(numericId);
+      toast.success('??????????? ? ???????');
+    } catch (e) {
+      setItems(previousItems);
+      setExpandedId(previousExpandedId);
+      setError(e?.message || '?????? ??? ?????????');
+      toast.error('?????? ??? ?????????');
     } finally {
       setBusyId(null);
     }
@@ -172,7 +221,7 @@ export default function ManageContactMessages() {
             const status = msg?.status || 'new';
             const isExpanded = expandedId === msg.id;
             return (
-              <div key={msg.id} className="bg-white border border-gray-200 p-4">
+              <div key={msg.id} className="bg-white border border-gray-200 p-4" aria-busy={busyId === msg.id}>
                 <div className="flex items-start justify-between gap-4">
                   <button
                     type="button"
@@ -199,7 +248,7 @@ export default function ManageContactMessages() {
                     {status !== 'read' && (
                       <button
                         type="button"
-                        onClick={() => setStatus(msg.id, 'read')}
+                        onClick={() => runOptimisticStatusUpdate(msg.id, 'read')}
                         disabled={busyId === msg.id}
                         className="p-2 text-gray-400 hover:text-emerald-700 disabled:opacity-50"
                         title="Маркирай като прочетено"
@@ -210,7 +259,7 @@ export default function ManageContactMessages() {
                     {status !== 'archived' && (
                       <button
                         type="button"
-                        onClick={() => setStatus(msg.id, 'archived')}
+                        onClick={() => runOptimisticStatusUpdate(msg.id, 'archived')}
                         disabled={busyId === msg.id}
                         className="p-2 text-gray-400 hover:text-gray-700 disabled:opacity-50"
                         title="Архивирай"
@@ -220,7 +269,7 @@ export default function ManageContactMessages() {
                     )}
                     <button
                       type="button"
-                      onClick={() => handleDelete(msg.id)}
+                      onClick={() => runOptimisticDelete(msg.id)}
                       disabled={busyId === msg.id}
                       className="p-2 text-gray-400 hover:text-red-700 disabled:opacity-50"
                       title="Изтрий"
