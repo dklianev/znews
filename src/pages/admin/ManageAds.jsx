@@ -474,6 +474,20 @@ export default function ManageAds() {
     return errors;
   }, [draftPayload]);
 
+  const validationEntries = useMemo(() => {
+    const errors = [];
+    if (!draftPayload.title) errors.push(['title', 'Заглавието е задължително.']);
+    if (draftPayload.showButton !== false && !draftPayload.cta) errors.push(['cta', 'CTA текстът е задължителен.']);
+    if (draftPayload.clickable !== false && (!draftPayload.link || draftPayload.link === '#')) {
+      errors.push(['link', 'Линкът е задължителен за clickable реклама.']);
+    }
+    if (!draftPayload.placements.length) errors.push(['placements', 'Избери поне една позиция.']);
+    if (draftPayload.startAt && draftPayload.endAt && new Date(draftPayload.startAt).getTime() > new Date(draftPayload.endAt).getTime()) {
+      errors.push(['schedule', 'Началната дата трябва да е преди крайната.']);
+    }
+    return errors;
+  }, [draftPayload]);
+
   const handleToggle = (field, value) => setForm((prev) => {
     const next = new Set(prev[field] || []);
     if (next.has(value)) next.delete(value); else next.add(value);
@@ -498,7 +512,7 @@ export default function ManageAds() {
 
   const handleSave = async () => {
     setError('');
-    if (validationErrors.length > 0) return setError(validationErrors[0]);
+    if (validationEntries.length > 0) return setError(validationEntries[0][1]);
     setSaving(true);
     try {
       if (editing === 'new') {
@@ -541,7 +555,22 @@ export default function ManageAds() {
         </button>
       </div>
 
-      {(error || validationErrors.length > 0) && <div className="flex items-start gap-2 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /><div>{error || validationErrors[0]}</div></div>}
+      {(error || validationEntries.length > 0) && (
+        <div className="flex items-start gap-2 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert" aria-live="polite">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0">
+            {error ? (
+              <div>{error}</div>
+            ) : (
+              <ul className="list-disc space-y-1 pl-4">
+                {validationEntries.map(([field, message]) => (
+                  <li key={field}>{message}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -953,7 +982,7 @@ export default function ManageAds() {
             </div>
 
             <div className="flex gap-2 pt-2">
-              <button onClick={handleSave} disabled={saving || validationErrors.length > 0} className="flex items-center gap-2 bg-zn-purple px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{saving ? 'Записване...' : 'Запази'}</button>
+              <button onClick={handleSave} disabled={saving || validationEntries.length > 0} className="flex items-center gap-2 bg-zn-purple px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{saving ? 'Записване...' : 'Запази'}</button>
               <button onClick={() => { setEditing(null); setError(''); }} className="flex items-center gap-2 border border-gray-200 px-5 py-2 text-sm text-gray-600"><X className="h-4 w-4" />{'Отказ'}</button>
             </div>
           </div>
