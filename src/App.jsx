@@ -2,7 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate }
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider, useAdminData, usePublicData, useSessionData } from './context/DataContext';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import Navbar from './components/Navbar';
 import BreakingTicker from './components/BreakingTicker';
 import Footer from './components/Footer';
@@ -335,9 +335,11 @@ function App() {
   return (
     <ThemeProvider>
       <DataProvider>
-        <ErrorBoundary>
-          <AppContent />
-        </ErrorBoundary>
+        <MotionConfig reducedMotion="user">
+          <ErrorBoundary>
+            <AppContent />
+          </ErrorBoundary>
+        </MotionConfig>
       </DataProvider>
     </ThemeProvider>
   );

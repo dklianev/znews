@@ -9,6 +9,12 @@ const COMMENT_AUTHOR_MAX_LEN = 50;
 const COMMENT_TEXT_MAX_LEN = 1200;
 const COMMENT_REACTIONS_STORAGE_KEY = 'zn_comment_reactions_v1';
 const MAX_REPLY_INDENT_PX = 54;
+const EMPTY_COMMENT_FIELD_ERRORS = Object.freeze({
+  articleId: '',
+  author: '',
+  text: '',
+  parentId: '',
+});
 
 const COMMENT_COPY = Object.freeze({
   replyBadge: '\u041e\u0442\u0433\u043e\u0432\u043e\u0440',
@@ -21,6 +27,8 @@ const COMMENT_COPY = Object.freeze({
   namePlaceholder: '\u0422\u0432\u043e\u0435\u0442\u043e \u0438\u043c\u0435...',
   replyPlaceholder: '\u0422\u0432\u043e\u044f\u0442 \u043e\u0442\u0433\u043e\u0432\u043e\u0440...',
   commentPlaceholder: '\u0422\u0432\u043e\u044f\u0442 \u043a\u043e\u043c\u0435\u043d\u0442\u0430\u0440...',
+  authorRequired: '\u0418\u043c\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.',
+  textRequired: '\u041a\u043e\u043c\u0435\u043d\u0442\u0430\u0440\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.',
   submitPending: '\u0418\u0437\u043f\u0440\u0430\u0449\u0430\u043d\u0435...',
   submit: '\u0418\u0437\u043f\u0440\u0430\u0442\u0438',
   commentsHeading: '\u041a\u043e\u043c\u0435\u043d\u0442\u0430\u0440\u0438',
@@ -58,13 +66,37 @@ function maxCharactersLabel(maxLength) {
   return `\u041c\u0430\u043a\u0441. ${maxLength} \u0437\u043d\u0430\u043a\u0430`;
 }
 
-function mapCommentErrorMessage(message, fallbackMessage) {
+function normalizeCommentFieldErrors(payload) {
+  const fieldErrors = payload?.fieldErrors;
+  if (!fieldErrors || typeof fieldErrors !== 'object') return EMPTY_COMMENT_FIELD_ERRORS;
+
+  return {
+    articleId: typeof fieldErrors.articleId === 'string' ? fieldErrors.articleId : '',
+    author: typeof fieldErrors.author === 'string' ? fieldErrors.author : '',
+    text: typeof fieldErrors.text === 'string' ? fieldErrors.text : '',
+    parentId: typeof fieldErrors.parentId === 'string' ? fieldErrors.parentId : '',
+  };
+}
+
+function clearCommentFieldError(fieldErrors, key) {
+  if (!fieldErrors[key]) return fieldErrors;
+  return {
+    ...fieldErrors,
+    [key]: '',
+  };
+}
+
+function getFirstCommentFieldError(fieldErrors) {
+  return fieldErrors.author || fieldErrors.text || fieldErrors.parentId || fieldErrors.articleId || '';
+}
+
+function mapCommentErrorMessage(message, fallbackMessage, fieldErrors = EMPTY_COMMENT_FIELD_ERRORS) {
   const normalized = String(message || '');
   if (normalized.includes('Too many comments')) return COMMENT_COPY.tooManyComments;
   if (normalized.includes('Comment too long')) return textTooLongMessage(COMMENT_TEXT_MAX_LEN);
   if (normalized.includes('Author too long')) return authorTooLongMessage(COMMENT_AUTHOR_MAX_LEN);
   if (normalized.includes('Parent comment')) return COMMENT_COPY.parentMissing;
-  return normalized || fallbackMessage;
+  return normalized || getFirstCommentFieldError(fieldErrors) || fallbackMessage;
 }
 
 function getAvatarColor(name) {
@@ -171,6 +203,7 @@ function CommentItem({
   const [replyError, setReplyError] = useState('');
   const [replySubmitted, setReplySubmitted] = useState(false);
   const [submittingReply, setSubmittingReply] = useState(false);
+  const [replyFieldErrors, setReplyFieldErrors] = useState(EMPTY_COMMENT_FIELD_ERRORS);
 
   const likeCount = Math.max(0, Number.parseInt(comment.likes, 10) || 0);
   const dislikeCount = Math.max(0, Number.parseInt(comment.dislikes, 10) || 0);
@@ -183,15 +216,27 @@ function CommentItem({
   const handleReplySubmit = async (event) => {
     event.preventDefault();
     setReplyError('');
+    setReplyFieldErrors(EMPTY_COMMENT_FIELD_ERRORS);
 
     const author = replyName.trim();
     const text = replyText.trim();
-    if (!author || !text) return;
+    if (!author || !text) {
+      const nextFieldErrors = {
+        ...EMPTY_COMMENT_FIELD_ERRORS,
+        author: author ? '' : COMMENT_COPY.authorRequired,
+        text: text ? '' : COMMENT_COPY.textRequired,
+      };
+      setReplyFieldErrors(nextFieldErrors);
+      setReplyError(mapCommentErrorMessage('', COMMENT_COPY.replyFallbackError, nextFieldErrors));
+      return;
+    }
     if (author.length > COMMENT_AUTHOR_MAX_LEN) {
+      setReplyFieldErrors((prev) => ({ ...prev, author: authorTooLongMessage(COMMENT_AUTHOR_MAX_LEN) }));
       setReplyError(authorTooLongMessage(COMMENT_AUTHOR_MAX_LEN));
       return;
     }
     if (text.length > COMMENT_TEXT_MAX_LEN) {
+      setReplyFieldErrors((prev) => ({ ...prev, text: textTooLongMessage(COMMENT_TEXT_MAX_LEN) }));
       setReplyError(textTooLongMessage(COMMENT_TEXT_MAX_LEN));
       return;
     }
@@ -205,7 +250,9 @@ function CommentItem({
       setShowReplyForm(false);
       window.setTimeout(() => setReplySubmitted(false), 5000);
     } catch (error) {
-      setReplyError(mapCommentErrorMessage(error?.message, COMMENT_COPY.replyFallbackError));
+      const nextFieldErrors = normalizeCommentFieldErrors(error?.payload);
+      setReplyFieldErrors(nextFieldErrors);
+      setReplyError(mapCommentErrorMessage(error?.message, COMMENT_COPY.replyFallbackError, nextFieldErrors));
     } finally {
       setSubmittingReply(false);
     }
@@ -316,22 +363,48 @@ function CommentItem({
                     <input
                       type="text"
                       value={replyName}
-                      onChange={event => setReplyName(event.target.value)}
+                      onChange={(event) => {
+                        setReplyName(event.target.value);
+                        setReplyFieldErrors((prev) => clearCommentFieldError(prev, 'author'));
+                      }}
                       placeholder={COMMENT_COPY.namePlaceholder}
                       required
                       maxLength={COMMENT_AUTHOR_MAX_LEN}
-                      className="w-full pl-8 pr-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none transition-colors focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1]"
+                      aria-invalid={replyFieldErrors.author ? 'true' : 'false'}
+                      aria-describedby={replyFieldErrors.author ? `reply-author-error-${comment.id}` : undefined}
+                      className={`w-full pl-8 pr-3 py-2 bg-white border text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none transition-colors focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] ${replyFieldErrors.author ? 'border-red-400' : 'border-[#1C1428]/20'}`}
                     />
                   </div>
+                  {replyFieldErrors.author && (
+                    <p
+                      id={`reply-author-error-${comment.id}`}
+                      className="text-[10px] font-display font-black uppercase tracking-wider text-red-700"
+                    >
+                      {replyFieldErrors.author}
+                    </p>
+                  )}
                   <textarea
                     value={replyText}
-                    onChange={event => setReplyText(event.target.value)}
+                    onChange={(event) => {
+                      setReplyText(event.target.value);
+                      setReplyFieldErrors((prev) => clearCommentFieldError(prev, 'text'));
+                    }}
                     placeholder={COMMENT_COPY.replyPlaceholder}
                     required
                     rows="2"
                     maxLength={COMMENT_TEXT_MAX_LEN}
-                    className="w-full px-3 py-2 bg-white border border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none transition-colors focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] resize-none"
+                    aria-invalid={replyFieldErrors.text ? 'true' : 'false'}
+                    aria-describedby={replyFieldErrors.text ? `reply-text-error-${comment.id}` : undefined}
+                    className={`w-full px-3 py-2 bg-white border text-zn-text placeholder-zn-text-dim font-sans text-xs outline-none transition-colors focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] resize-none ${replyFieldErrors.text ? 'border-red-400' : 'border-[#1C1428]/20'}`}
                   />
+                  {replyFieldErrors.text && (
+                    <p
+                      id={`reply-text-error-${comment.id}`}
+                      className="text-[10px] font-display font-black uppercase tracking-wider text-red-700"
+                    >
+                      {replyFieldErrors.text}
+                    </p>
+                  )}
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted">
                     <span>{replyText.length}/{COMMENT_TEXT_MAX_LEN}</span>
                     <button
@@ -381,6 +454,7 @@ export default function CommentsSection({ articleId }) {
   const [loadingComments, setLoadingComments] = useState(false);
   const [reactingId, setReactingId] = useState(null);
   const [reactionByComment, setReactionByComment] = useState(readStoredReactions);
+  const [commentFieldErrors, setCommentFieldErrors] = useState(EMPTY_COMMENT_FIELD_ERRORS);
 
   useEffect(() => {
     let cancelled = false;
@@ -420,15 +494,27 @@ export default function CommentsSection({ articleId }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
+    setCommentFieldErrors(EMPTY_COMMENT_FIELD_ERRORS);
     const author = name.trim();
     const body = text.trim();
 
-    if (!author || !body) return;
+    if (!author || !body) {
+      const nextFieldErrors = {
+        ...EMPTY_COMMENT_FIELD_ERRORS,
+        author: author ? '' : COMMENT_COPY.authorRequired,
+        text: body ? '' : COMMENT_COPY.textRequired,
+      };
+      setCommentFieldErrors(nextFieldErrors);
+      setError(mapCommentErrorMessage('', COMMENT_COPY.commentFallbackError, nextFieldErrors));
+      return;
+    }
     if (author.length > COMMENT_AUTHOR_MAX_LEN) {
+      setCommentFieldErrors((prev) => ({ ...prev, author: authorTooLongMessage(COMMENT_AUTHOR_MAX_LEN) }));
       setError(authorTooLongMessage(COMMENT_AUTHOR_MAX_LEN));
       return;
     }
     if (body.length > COMMENT_TEXT_MAX_LEN) {
+      setCommentFieldErrors((prev) => ({ ...prev, text: textTooLongMessage(COMMENT_TEXT_MAX_LEN) }));
       setError(textTooLongMessage(COMMENT_TEXT_MAX_LEN));
       return;
     }
@@ -445,7 +531,9 @@ export default function CommentsSection({ articleId }) {
       setSubmitted(true);
       window.setTimeout(() => setSubmitted(false), 5000);
     } catch (submitError) {
-      setError(mapCommentErrorMessage(submitError?.message, COMMENT_COPY.commentFallbackError));
+      const nextFieldErrors = normalizeCommentFieldErrors(submitError?.payload);
+      setCommentFieldErrors(nextFieldErrors);
+      setError(mapCommentErrorMessage(submitError?.message, COMMENT_COPY.commentFallbackError, nextFieldErrors));
     } finally {
       setSubmittingComment(false);
     }
@@ -569,25 +657,51 @@ export default function CommentsSection({ articleId }) {
             <input
               type="text"
               value={name}
-              onChange={event => setName(event.target.value)}
+              onChange={(event) => {
+                setName(event.target.value);
+                setCommentFieldErrors((prev) => clearCommentFieldError(prev, 'author'));
+              }}
               placeholder={COMMENT_COPY.namePlaceholder}
               required
               maxLength={COMMENT_AUTHOR_MAX_LEN}
               aria-label={COMMENT_COPY.nameAria}
-              className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] transition-colors"
+              aria-invalid={commentFieldErrors.author ? 'true' : 'false'}
+              aria-describedby={commentFieldErrors.author ? 'comment-author-error' : undefined}
+              className={`w-full pl-9 pr-3 py-2.5 bg-white border-2 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] transition-colors ${commentFieldErrors.author ? 'border-red-400' : 'border-[#1C1428]/20'}`}
             />
           </div>
         </div>
+        {commentFieldErrors.author && (
+          <p
+            id="comment-author-error"
+            className="mb-3 text-[10px] font-display font-black uppercase tracking-wider text-red-700 relative z-[2]"
+          >
+            {commentFieldErrors.author}
+          </p>
+        )}
         <textarea
           value={text}
-          onChange={event => setText(event.target.value)}
+          onChange={(event) => {
+            setText(event.target.value);
+            setCommentFieldErrors((prev) => clearCommentFieldError(prev, 'text'));
+          }}
           placeholder={COMMENT_COPY.commentPlaceholder}
           required
           rows="3"
           maxLength={COMMENT_TEXT_MAX_LEN}
           aria-label={COMMENT_COPY.commentAria}
-          className="w-full px-3 py-2.5 bg-white border-2 border-[#1C1428]/20 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] resize-none mb-3 relative z-[2]"
+          aria-invalid={commentFieldErrors.text ? 'true' : 'false'}
+          aria-describedby={commentFieldErrors.text ? 'comment-text-error' : undefined}
+          className={`w-full px-3 py-2.5 bg-white border-2 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF8F1] resize-none mb-3 relative z-[2] ${commentFieldErrors.text ? 'border-red-400' : 'border-[#1C1428]/20'}`}
         />
+        {commentFieldErrors.text && (
+          <p
+            id="comment-text-error"
+            className="mb-3 text-[10px] font-display font-black uppercase tracking-wider text-red-700 relative z-[2]"
+          >
+            {commentFieldErrors.text}
+          </p>
+        )}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-1 relative z-[2]">
           <div className="flex items-center justify-between text-[10px] font-display font-bold uppercase tracking-wider text-zn-text-muted w-full sm:w-auto gap-4">
             <span>{maxCharactersLabel(COMMENT_TEXT_MAX_LEN)}</span>

@@ -5,7 +5,7 @@ import { usePublicData } from '../context/DataContext';
 import AdSlot from '../components/ads/AdSlot';
 import TrendingSidebar from '../components/TrendingSidebar';
 import CommentsSection from '../components/CommentsSection';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import ComicNewsCard from '../components/ComicNewsCard';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
@@ -472,17 +472,27 @@ export default function ArticlePage() {
     }
   };
 
+  const handleYapperOutsideDismiss = useEffectEvent((event) => {
+    if (yapperRef.current && !yapperRef.current.contains(event.target)) {
+      setYapperOpen(false);
+    }
+  });
+
+  const handleYapperEscapeDismiss = useEffectEvent((event) => {
+    if (event.key === 'Escape') setYapperOpen(false);
+  });
+
   // Close yapper popup on outside click or Esc
   useEffect(() => {
-    if (!yapperOpen) return;
-    const handleClick = (e) => {
-      if (yapperRef.current && !yapperRef.current.contains(e.target)) {
-        setYapperOpen(false);
-      }
+    if (!yapperOpen) return undefined;
+
+    const handleClick = (event) => {
+      handleYapperOutsideDismiss(event);
     };
-    const handleKey = (e) => {
-      if (e.key === 'Escape') setYapperOpen(false);
+    const handleKey = (event) => {
+      handleYapperEscapeDismiss(event);
     };
+
     document.addEventListener('pointerdown', handleClick);
     document.addEventListener('keydown', handleKey);
     return () => {
@@ -536,19 +546,31 @@ export default function ArticlePage() {
   // Reading progress bar
   const [readProgress, setReadProgress] = useState(0);
   const articleBodyRef = useRef(null);
+  const updateReadProgress = useEffectEvent(() => {
+    const el = articleBodyRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const total = el.scrollHeight;
+    const visible = window.innerHeight;
+    const scrolled = Math.max(0, -rect.top);
+    const pct = Math.min(100, Math.max(0, (scrolled / (total - visible)) * 100));
+    setReadProgress(pct);
+  });
+
   useEffect(() => {
-    const handleScroll = () => {
-      const el = articleBodyRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const total = el.scrollHeight;
-      const visible = window.innerHeight;
-      const scrolled = Math.max(0, -rect.top);
-      const pct = Math.min(100, Math.max(0, (scrolled / (total - visible)) * 100));
-      setReadProgress(pct);
+    if (typeof window === 'undefined') return undefined;
+
+    const handleViewportChange = () => {
+      updateReadProgress();
     };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    updateReadProgress();
+    window.addEventListener('scroll', handleViewportChange, { passive: true });
+    window.addEventListener('resize', handleViewportChange);
+    return () => {
+      window.removeEventListener('scroll', handleViewportChange);
+      window.removeEventListener('resize', handleViewportChange);
+    };
   }, [article?.id]);
 
   return (

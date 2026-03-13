@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -125,27 +125,35 @@ export default function Navbar() {
     }
   };
 
+  const focusSearchInput = useEffectEvent((selectAll = false) => {
+    if (!searchInputRef.current) return;
+    try {
+      searchInputRef.current.focus();
+      if (selectAll && typeof searchInputRef.current.select === 'function') {
+        searchInputRef.current.select();
+      }
+    } catch { }
+  });
+
+  const handleSearchShortcut = useEffectEvent((event) => {
+    const key = (event?.key || '').toLowerCase();
+    if (key !== 'k') return;
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+
+    event.preventDefault();
+    setIsOpen(false);
+    setSearchOpen(true);
+    window.requestAnimationFrame(() => {
+      focusSearchInput(true);
+    });
+  });
+
   // Ctrl/Cmd + K opens the search box (common modern shortcut).
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
     const onKeyDown = (event) => {
-      const key = (event?.key || '').toLowerCase();
-      if (key !== 'k') return;
-      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-
-      event.preventDefault();
-      setIsOpen(false);
-      setSearchOpen(true);
-
-      // Focus once the collapsible is rendered.
-      window.requestAnimationFrame(() => {
-        if (!searchInputRef.current) return;
-        try {
-          searchInputRef.current.focus();
-          if (typeof searchInputRef.current.select === 'function') searchInputRef.current.select();
-        } catch { }
-      });
+      handleSearchShortcut(event);
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -156,28 +164,30 @@ export default function Navbar() {
     if (!searchOpen) return;
     if (typeof window === 'undefined') return;
 
-    window.requestAnimationFrame(() => {
-      if (!searchInputRef.current) return;
-      try {
-        searchInputRef.current.focus();
-      } catch { }
+    const frameId = window.requestAnimationFrame(() => {
+      focusSearchInput(false);
     });
+    return () => window.cancelAnimationFrame(frameId);
   }, [searchOpen]);
+
+  const handleEscapeClose = useEffectEvent((event) => {
+    if (event.key !== 'Escape') return;
+    setSearchOpen(false);
+    setIsOpen(false);
+  });
 
   useEffect(() => {
     if ((!isOpen && !searchOpen) || typeof window === 'undefined') return undefined;
 
     const onKeyDown = (event) => {
-      if (event.key !== 'Escape') return;
-      setSearchOpen(false);
-      setIsOpen(false);
+      handleEscapeClose(event);
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, searchOpen]);
 
-  const syncMobileMenuViewport = useCallback(() => {
+  const syncMobileMenuViewport = useEffectEvent(() => {
     if (typeof window === 'undefined' || !navRef.current) return;
     const rect = navRef.current.getBoundingClientRect();
     const viewportHeight = window.visualViewport?.height || window.innerHeight;
@@ -188,7 +198,7 @@ export default function Navbar() {
         ? current
         : { top, maxHeight }
     ));
-  }, []);
+  });
 
   // Lock body scroll when mobile nav is open
   useEffect(() => {
@@ -222,7 +232,7 @@ export default function Navbar() {
       visualViewport?.removeEventListener('resize', syncMobileMenuViewport);
       visualViewport?.removeEventListener('scroll', syncMobileMenuViewport);
     };
-  }, [isOpen, searchOpen, syncMobileMenuViewport]);
+  }, [isOpen]);
 
   const today = new Date().toLocaleDateString('bg-BG', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
