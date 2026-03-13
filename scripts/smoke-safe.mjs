@@ -132,7 +132,8 @@ async function prepareRuntime() {
   await rm(path.join(runtimeRoot, 'server', '.env'), { force: true });
 
   const runtimeNodeModules = path.join(runtimeRoot, 'node_modules');
-  await symlink(path.join(repoRoot, 'node_modules'), runtimeNodeModules, 'junction');
+  const symlinkType = process.platform === 'win32' ? 'junction' : 'dir';
+  await symlink(path.join(repoRoot, 'node_modules'), runtimeNodeModules, symlinkType);
 }
 
 async function waitFor(check, { timeoutMs = 30000, intervalMs = 500, label = 'condition' } = {}) {
