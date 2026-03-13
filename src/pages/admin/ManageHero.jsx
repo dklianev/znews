@@ -54,6 +54,7 @@ export default function ManageHero() {
     photoArticleId2: '',
   });
   const initialCopyRef = useRef(copyForm);
+  const fieldRefs = useRef(new Map());
 
   // Sync from server
   useEffect(() => {
@@ -190,6 +191,33 @@ export default function ManageHero() {
     return [previewMainPhoto, ...resolvedSiblings];
   }, [copyForm.photoArticleId1, copyForm.photoArticleId2, previewHeroArticle, previewMainPhoto, sortedArticles]);
 
+  const validationEntries = useMemo(() => {
+    const errors = [];
+    if (!String(copyForm.headline || '').trim()) errors.push(['headline', 'Headline текстът е задължителен.']);
+    if (!String(copyForm.headlineBoardText || '').trim()) errors.push(['headlineBoardText', 'Headline board текстът е задължителен.']);
+    if (!String(copyForm.caption1 || '').trim()) errors.push(['caption1', 'Първият caption е задължителен.']);
+    if (!String(copyForm.caption2 || '').trim()) errors.push(['caption2', 'Вторият caption е задължителен.']);
+    if (!String(copyForm.caption3 || '').trim()) errors.push(['caption3', 'Третият caption е задължителен.']);
+    if (!String(copyForm.shockLabel || '').trim()) errors.push(['shockLabel', 'Starburst текстът е задължителен.']);
+    if (!String(copyForm.ctaLabel || '').trim()) errors.push(['ctaLabel', 'CTA текстът е задължителен.']);
+
+    const selectedPhotoIds = [
+      copyForm.mainPhotoArticleId,
+      copyForm.photoArticleId1,
+      copyForm.photoArticleId2,
+    ]
+      .map((value) => Number.parseInt(value, 10))
+      .filter((value) => Number.isInteger(value) && value > 0);
+
+    if (new Set(selectedPhotoIds).size !== selectedPhotoIds.length) {
+      errors.push(['photos', 'Избери различни статии за Hero снимките.']);
+    }
+
+    return errors;
+  }, [copyForm]);
+
+  const validationMessages = useMemo(() => Object.fromEntries(validationEntries), [validationEntries]);
+
   // Handlers
   const setHero = async (articleId) => {
     setSavingId(articleId);
@@ -226,8 +254,12 @@ export default function ManageHero() {
   };
 
   const saveCopy = async () => {
-    setSavingCopy(true);
     setError('');
+    if (validationEntries.length > 0) {
+      focusValidationField(validationEntries[0][0]);
+      return;
+    }
+    setSavingCopy(true);
     try {
       const mainPhotoArticleIdRaw = Number.parseInt(copyForm.mainPhotoArticleId, 10);
       const mainPhotoArticleId = Number.isInteger(mainPhotoArticleIdRaw) && mainPhotoArticleIdRaw > 0
@@ -277,6 +309,37 @@ export default function ManageHero() {
   const labelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
   const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple';
 
+  const registerFieldRef = (field) => (node) => {
+    if (node) fieldRefs.current.set(field, node);
+    else fieldRefs.current.delete(field);
+  };
+
+  const focusValidationField = (field) => {
+    const node = fieldRefs.current.get(field);
+    if (!node) return;
+    if (typeof node.scrollIntoView === 'function') {
+      node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    const target = typeof node.focus === 'function' && node.tabIndex >= 0
+      ? node
+      : node.querySelector?.('input, select, textarea, button, [tabindex]');
+    if (target && typeof target.focus === 'function') {
+      requestAnimationFrame(() => target.focus({ preventScroll: true }));
+    }
+  };
+
+  const getFieldError = (field) => validationMessages[field] || '';
+  const getInputClassName = (field, className = inputCls) => (
+    getFieldError(field) ? `${className} !border-red-400 bg-red-50/30` : className
+  );
+  const clearCopyError = () => {
+    if (error) setError('');
+  };
+  const updateCopyField = (field, value) => {
+    clearCopyError();
+    setCopyForm((prev) => ({ ...prev, [field]: value }));
+  };
+
   // Headline for demo
   const headlineLines = (copyForm.headline || DEFAULT_COPY.headline).split('\n').filter(Boolean);
 
@@ -309,6 +372,25 @@ export default function ManageHero() {
         <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <span className="break-words">{error}</span>
+        </div>
+      )}
+
+      {validationEntries.length > 0 && (
+        <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert" aria-live="polite">
+          <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+          <ul className="space-y-1">
+            {validationEntries.map(([field, message]) => (
+              <li key={field}>
+                <button
+                  type="button"
+                  onClick={() => focusValidationField(field)}
+                  className="text-left hover:underline underline-offset-2"
+                >
+                  {message}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -360,6 +442,7 @@ export default function ManageHero() {
             <button
               onClick={saveCopy}
               disabled={savingCopy}
+              aria-busy={savingCopy}
               className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50"
             >
               {savingCopy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -368,10 +451,19 @@ export default function ManageHero() {
           </div>
 
           {/* Photo selection */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border border-gray-200 bg-gray-50/40">
+          <div
+            ref={registerFieldRef('photos')}
+            className={`grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-gray-50/40 ${getFieldError('photos') ? 'border border-red-300 bg-red-50/40' : 'border border-gray-200'}`}
+          >
             <div>
               <label className={labelCls}>Снимка 1 (главна, вляво)</label>
-              <select value={copyForm.mainPhotoArticleId} onChange={(e) => setCopyForm(prev => ({ ...prev, mainPhotoArticleId: e.target.value }))} className={inputCls}>
+              <select
+                value={copyForm.mainPhotoArticleId}
+                onChange={(e) => updateCopyField('mainPhotoArticleId', e.target.value)}
+                className={getInputClassName('photos')}
+                aria-invalid={Boolean(getFieldError('photos'))}
+                aria-describedby={getFieldError('photos') ? 'hero-photos-error' : undefined}
+              >
                 <option value="">Автоматично (Hero статия)</option>
                 {sortedArticles.map(article => (
                   <option key={`hero-photo-main-${article.id}`} value={String(article.id)} disabled={copyForm.photoArticleId1 === String(article.id) || copyForm.photoArticleId2 === String(article.id)}>
@@ -382,7 +474,13 @@ export default function ManageHero() {
             </div>
             <div>
               <label className={labelCls}>Снимка 2 (горе вдясно)</label>
-              <select value={copyForm.photoArticleId1} onChange={(e) => setCopyForm(prev => ({ ...prev, photoArticleId1: e.target.value }))} className={inputCls}>
+              <select
+                value={copyForm.photoArticleId1}
+                onChange={(e) => updateCopyField('photoArticleId1', e.target.value)}
+                className={getInputClassName('photos')}
+                aria-invalid={Boolean(getFieldError('photos'))}
+                aria-describedby={getFieldError('photos') ? 'hero-photos-error' : undefined}
+              >
                 <option value="">Автоматично</option>
                 {sortedArticles.map(article => (
                   <option key={`hero-photo-1-${article.id}`} value={String(article.id)} disabled={copyForm.mainPhotoArticleId === String(article.id) || copyForm.photoArticleId2 === String(article.id)}>
@@ -393,7 +491,13 @@ export default function ManageHero() {
             </div>
             <div>
               <label className={labelCls}>Снимка 3 (долу вдясно)</label>
-              <select value={copyForm.photoArticleId2} onChange={(e) => setCopyForm(prev => ({ ...prev, photoArticleId2: e.target.value }))} className={inputCls}>
+              <select
+                value={copyForm.photoArticleId2}
+                onChange={(e) => updateCopyField('photoArticleId2', e.target.value)}
+                className={getInputClassName('photos')}
+                aria-invalid={Boolean(getFieldError('photos'))}
+                aria-describedby={getFieldError('photos') ? 'hero-photos-error' : undefined}
+              >
                 <option value="">Автоматично</option>
                 {sortedArticles.map(article => (
                   <option key={`hero-photo-2-${article.id}`} value={String(article.id)} disabled={copyForm.mainPhotoArticleId === String(article.id) || copyForm.photoArticleId1 === String(article.id)}>
@@ -403,16 +507,43 @@ export default function ManageHero() {
               </select>
             </div>
           </div>
+          {getFieldError('photos') && (
+            <p id="hero-photos-error" className="mt-2 text-xs font-sans text-red-700">
+              {getFieldError('photos')}
+            </p>
+          )}
 
           {/* Text fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
+            <div ref={registerFieldRef('headline')} className="md:col-span-2">
               <label className={labelCls}>Голям червен надпис (нов ред с Enter)</label>
-              <textarea value={copyForm.headline} onChange={(e) => setCopyForm(prev => ({ ...prev, headline: e.target.value }))} className={inputCls + ' resize-y h-20'} />
+              <textarea
+                value={copyForm.headline}
+                onChange={(e) => updateCopyField('headline', e.target.value)}
+                className={getInputClassName('headline', `${inputCls} resize-y h-20`)}
+                aria-invalid={Boolean(getFieldError('headline'))}
+                aria-describedby={getFieldError('headline') ? 'hero-headline-error' : undefined}
+              />
+              {getFieldError('headline') && (
+                <p id="hero-headline-error" className="mt-1 text-xs font-sans text-red-700">
+                  {getFieldError('headline')}
+                </p>
+              )}
             </div>
-            <div className="md:col-span-2">
+            <div ref={registerFieldRef('headlineBoardText')} className="md:col-span-2">
               <label className={labelCls}>Горен board текст (над Hero)</label>
-              <input value={copyForm.headlineBoardText} onChange={(e) => setCopyForm(prev => ({ ...prev, headlineBoardText: e.target.value }))} className={inputCls} />
+              <input
+                value={copyForm.headlineBoardText}
+                onChange={(e) => updateCopyField('headlineBoardText', e.target.value)}
+                className={getInputClassName('headlineBoardText')}
+                aria-invalid={Boolean(getFieldError('headlineBoardText'))}
+                aria-describedby={getFieldError('headlineBoardText') ? 'hero-headline-board-error' : undefined}
+              />
+              {getFieldError('headlineBoardText') && (
+                <p id="hero-headline-board-error" className="mt-1 text-xs font-sans text-red-700">
+                  {getFieldError('headlineBoardText')}
+                </p>
+              )}
             </div>
             <div className="md:col-span-2">
               <label className={labelCls}>Размер на голямото заглавие в Hero ({normalizeHeroTitleScale(copyForm.heroTitleScale)}%)</label>
@@ -423,7 +554,10 @@ export default function ManageHero() {
                   max={130}
                   step={5}
                   value={normalizeHeroTitleScale(copyForm.heroTitleScale)}
-                  onChange={(e) => setCopyForm(prev => ({ ...prev, heroTitleScale: normalizeHeroTitleScale(e.target.value) }))}
+                  onChange={(e) => {
+                    clearCopyError();
+                    setCopyForm(prev => ({ ...prev, heroTitleScale: normalizeHeroTitleScale(e.target.value) }));
+                  }}
                   className="flex-1 accent-zn-purple"
                 />
                 <input
@@ -432,31 +566,89 @@ export default function ManageHero() {
                   max={130}
                   step={5}
                   value={normalizeHeroTitleScale(copyForm.heroTitleScale)}
-                  onChange={(e) => setCopyForm(prev => ({ ...prev, heroTitleScale: normalizeHeroTitleScale(e.target.value) }))}
+                  onChange={(e) => {
+                    clearCopyError();
+                    setCopyForm(prev => ({ ...prev, heroTitleScale: normalizeHeroTitleScale(e.target.value) }));
+                  }}
                   className="w-20 px-2 py-1.5 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple text-center"
                 />
               </div>
               <p className="mt-1 text-[11px] font-sans text-gray-500">100% е текущият default. Можеш да намалиш до 70% или увеличиш до 130%.</p>
             </div>
-            <div>
+            <div ref={registerFieldRef('caption1')}>
               <label className={labelCls}>Лента върху 1-ва снимка</label>
-              <input value={copyForm.caption1} onChange={(e) => setCopyForm(prev => ({ ...prev, caption1: e.target.value }))} className={inputCls} />
+              <input
+                value={copyForm.caption1}
+                onChange={(e) => updateCopyField('caption1', e.target.value)}
+                className={getInputClassName('caption1')}
+                aria-invalid={Boolean(getFieldError('caption1'))}
+                aria-describedby={getFieldError('caption1') ? 'hero-caption1-error' : undefined}
+              />
+              {getFieldError('caption1') && (
+                <p id="hero-caption1-error" className="mt-1 text-xs font-sans text-red-700">
+                  {getFieldError('caption1')}
+                </p>
+              )}
             </div>
-            <div>
+            <div ref={registerFieldRef('caption2')}>
               <label className={labelCls}>Лента върху 2-ра снимка</label>
-              <input value={copyForm.caption2} onChange={(e) => setCopyForm(prev => ({ ...prev, caption2: e.target.value }))} className={inputCls} />
+              <input
+                value={copyForm.caption2}
+                onChange={(e) => updateCopyField('caption2', e.target.value)}
+                className={getInputClassName('caption2')}
+                aria-invalid={Boolean(getFieldError('caption2'))}
+                aria-describedby={getFieldError('caption2') ? 'hero-caption2-error' : undefined}
+              />
+              {getFieldError('caption2') && (
+                <p id="hero-caption2-error" className="mt-1 text-xs font-sans text-red-700">
+                  {getFieldError('caption2')}
+                </p>
+              )}
             </div>
-            <div>
+            <div ref={registerFieldRef('caption3')}>
               <label className={labelCls}>Лента върху 3-та снимка</label>
-              <input value={copyForm.caption3} onChange={(e) => setCopyForm(prev => ({ ...prev, caption3: e.target.value }))} className={inputCls} />
+              <input
+                value={copyForm.caption3}
+                onChange={(e) => updateCopyField('caption3', e.target.value)}
+                className={getInputClassName('caption3')}
+                aria-invalid={Boolean(getFieldError('caption3'))}
+                aria-describedby={getFieldError('caption3') ? 'hero-caption3-error' : undefined}
+              />
+              {getFieldError('caption3') && (
+                <p id="hero-caption3-error" className="mt-1 text-xs font-sans text-red-700">
+                  {getFieldError('caption3')}
+                </p>
+              )}
             </div>
-            <div>
+            <div ref={registerFieldRef('shockLabel')}>
               <label className={labelCls}>Starburst текст</label>
-              <input value={copyForm.shockLabel} onChange={(e) => setCopyForm(prev => ({ ...prev, shockLabel: e.target.value }))} className={inputCls} />
+              <input
+                value={copyForm.shockLabel}
+                onChange={(e) => updateCopyField('shockLabel', e.target.value)}
+                className={getInputClassName('shockLabel')}
+                aria-invalid={Boolean(getFieldError('shockLabel'))}
+                aria-describedby={getFieldError('shockLabel') ? 'hero-shock-label-error' : undefined}
+              />
+              {getFieldError('shockLabel') && (
+                <p id="hero-shock-label-error" className="mt-1 text-xs font-sans text-red-700">
+                  {getFieldError('shockLabel')}
+                </p>
+              )}
             </div>
-            <div className="md:col-span-2">
+            <div ref={registerFieldRef('ctaLabel')} className="md:col-span-2">
               <label className={labelCls}>CTA текст (долу)</label>
-              <input value={copyForm.ctaLabel} onChange={(e) => setCopyForm(prev => ({ ...prev, ctaLabel: e.target.value }))} className={inputCls} />
+              <input
+                value={copyForm.ctaLabel}
+                onChange={(e) => updateCopyField('ctaLabel', e.target.value)}
+                className={getInputClassName('ctaLabel')}
+                aria-invalid={Boolean(getFieldError('ctaLabel'))}
+                aria-describedby={getFieldError('ctaLabel') ? 'hero-cta-label-error' : undefined}
+              />
+              {getFieldError('ctaLabel') && (
+                <p id="hero-cta-label-error" className="mt-1 text-xs font-sans text-red-700">
+                  {getFieldError('ctaLabel')}
+                </p>
+              )}
             </div>
           </div>
         </div>
