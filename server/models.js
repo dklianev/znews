@@ -164,12 +164,39 @@ const breakingSchema = new mongoose.Schema({
 // ─── User (admin accounts) ───
 const userSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
-  username: { type: String, index: true },
-  password: String,
-  name: String,
-  role: String,
-  profession: String,
-  avatar: String,
+  username: {
+    type: String,
+    required: [true, 'Потребителското име е задължително.'],
+    trim: true,
+    lowercase: true,
+    maxlength: [40, 'Потребителското име трябва да е до 40 символа.'],
+  },
+  password: {
+    type: String,
+    required: [true, 'Паролата е задължителна.'],
+  },
+  name: {
+    type: String,
+    required: [true, 'Името е задължително.'],
+    trim: true,
+    maxlength: [80, 'Името трябва да е до 80 символа.'],
+  },
+  role: {
+    type: String,
+    required: [true, 'Ролята е задължителна.'],
+    trim: true,
+    maxlength: [32, 'Ролята трябва да е до 32 символа.'],
+  },
+  profession: {
+    type: String,
+    trim: true,
+    maxlength: [120, 'Професията трябва да е до 120 символа.'],
+  },
+  avatar: {
+    type: String,
+    trim: true,
+    maxlength: [16, 'Аватарът трябва да е до 16 символа.'],
+  },
   createdAt: String,
 }, {
   toJSON: {
@@ -198,14 +225,49 @@ wantedSchema.index(
 // ─── Job ───
 const jobSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
-  title: String,
-  org: String,
-  type: String,
-  description: String,
-  requirements: String,
-  salary: String,
-  contact: String,
-  date: String,
+  title: {
+    type: String,
+    required: [true, 'Заглавието е задължително.'],
+    trim: true,
+    maxlength: [120, 'Заглавието трябва да е до 120 символа.'],
+  },
+  org: {
+    type: String,
+    required: [true, 'Организацията е задължителна.'],
+    trim: true,
+    maxlength: [120, 'Организацията трябва да е до 120 символа.'],
+  },
+  type: {
+    type: String,
+    required: [true, 'Типът е задължителен.'],
+    enum: ['police', 'ems', 'mechanic', 'lawyer', 'driver', 'government', 'other'],
+  },
+  description: {
+    type: String,
+    trim: true,
+    maxlength: [2000, 'Описанието трябва да е до 2000 символа.'],
+  },
+  requirements: {
+    type: String,
+    trim: true,
+    maxlength: [600, 'Изискванията трябва да са до 600 символа.'],
+  },
+  salary: {
+    type: String,
+    trim: true,
+    maxlength: [120, 'Заплащането трябва да е до 120 символа.'],
+  },
+  contact: {
+    type: String,
+    trim: true,
+    maxlength: [160, 'Контактът трябва да е до 160 символа.'],
+  },
+  date: {
+    type: String,
+    required: [true, 'Датата е задължителна.'],
+    trim: true,
+    maxlength: [32, 'Датата трябва да е до 32 символа.'],
+  },
   active: { type: Boolean, default: true },
 }, opts);
 jobSchema.index(
@@ -235,14 +297,49 @@ courtSchema.index(
 // ─── Event ───
 const eventSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
-  title: String,
-  description: String,
-  date: String,
-  time: String,
-  location: String,
-  organizer: String,
-  type: String,
-  image: String,
+  title: {
+    type: String,
+    required: [true, 'Заглавието е задължително.'],
+    trim: true,
+    maxlength: [120, 'Заглавието трябва да е до 120 символа.'],
+  },
+  description: {
+    type: String,
+    trim: true,
+    maxlength: [2000, 'Описанието трябва да е до 2000 символа.'],
+  },
+  date: {
+    type: String,
+    required: [true, 'Датата е задължителна.'],
+    trim: true,
+    maxlength: [32, 'Датата трябва да е до 32 символа.'],
+  },
+  time: {
+    type: String,
+    trim: true,
+    maxlength: [32, 'Часът трябва да е до 32 символа.'],
+  },
+  location: {
+    type: String,
+    required: [true, 'Локацията е задължителна.'],
+    trim: true,
+    maxlength: [160, 'Локацията трябва да е до 160 символа.'],
+  },
+  organizer: {
+    type: String,
+    trim: true,
+    maxlength: [120, 'Организаторът трябва да е до 120 символа.'],
+  },
+  type: {
+    type: String,
+    required: [true, 'Типът е задължителен.'],
+    enum: ['race', 'party', 'tournament', 'meeting', 'concert', 'other'],
+  },
+  image: {
+    type: String,
+    trim: true,
+    maxlength: [16, 'Иконата трябва да е до 16 символа.'],
+  },
 }, opts);
 eventSchema.index(
   { title: 'text', description: 'text', location: 'text', organizer: 'text', type: 'text' },

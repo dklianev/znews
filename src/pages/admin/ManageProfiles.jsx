@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 
 const BASE_ROLES = Object.freeze(['admin', 'editor', 'reporter', 'photographer', 'intern']);
@@ -23,18 +23,75 @@ const emptyForm = {
   avatar: '👤',
 };
 
+const EMPTY_USER_FIELD_ERRORS = Object.freeze({
+  name: '',
+  username: '',
+  password: '',
+  role: '',
+});
+
+function normalizeUserFieldErrors(payload) {
+  const source = payload?.fieldErrors && typeof payload.fieldErrors === 'object'
+    ? payload.fieldErrors
+    : null;
+
+  if (!source) return EMPTY_USER_FIELD_ERRORS;
+
+  return {
+    name: typeof source.name === 'string' ? source.name : '',
+    username: typeof source.username === 'string' ? source.username : '',
+    password: typeof source.password === 'string' ? source.password : '',
+    role: typeof source.role === 'string' ? source.role : '',
+  };
+}
+
+function validateUserForm(form, isNew) {
+  const nextErrors = { ...EMPTY_USER_FIELD_ERRORS };
+  const normalizedName = String(form.name || '').trim();
+  const normalizedUsername = String(form.username || '').trim();
+  const password = typeof form.password === 'string' ? form.password : '';
+  const role = String(form.role || '').trim();
+
+  if (!normalizedName) nextErrors.name = 'Името е задължително.';
+  if (!normalizedUsername) nextErrors.username = 'Потребителското име е задължително.';
+  if (!role) nextErrors.role = 'Ролята е задължителна.';
+
+  if (isNew && password.length < 8) {
+    nextErrors.password = 'Паролата трябва да е поне 8 символа.';
+  } else if (!isNew && password.length > 0 && password.length < 8) {
+    nextErrors.password = 'Новата парола трябва да е поне 8 символа.';
+  }
+
+  return nextErrors;
+}
+
+function getFirstUserErrorField(fieldErrors) {
+  if (fieldErrors.name) return 'name';
+  if (fieldErrors.username) return 'username';
+  if (fieldErrors.password) return 'password';
+  if (fieldErrors.role) return 'role';
+  return '';
+}
+
 export default function ManageProfiles() {
   const { authors, articles, addAuthor, updateAuthor, deleteAuthor } = usePublicData();
   const { users, ensureUsersLoaded, addUser, updateUser, deleteUser, permissions, createRole } = useAdminData();
   const { session } = useSessionData();
   const canManageUsers = session?.role === 'admin';
-  const [editing, setEditing] = useState(null); // null | 'new' | userId
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [tab, setTab] = useState('users'); // 'users' | 'authors'
+  const [tab, setTab] = useState('users');
   const [newRoleKey, setNewRoleKey] = useState('');
   const [newRoleError, setNewRoleError] = useState('');
   const [creatingRole, setCreatingRole] = useState(false);
+  const [savingUser, setSavingUser] = useState(false);
+  const [userFormError, setUserFormError] = useState('');
+  const [userFieldErrors, setUserFieldErrors] = useState(EMPTY_USER_FIELD_ERRORS);
   const toast = useToast();
+  const nameRef = useRef(null);
+  const usernameRef = useRef(null);
+  const passwordRef = useRef(null);
+  const roleRef = useRef(null);
 
   useEffect(() => {
     if (tab !== 'users') return;
@@ -45,35 +102,126 @@ export default function ManageProfiles() {
 
   const roleOptions = useMemo(() => {
     const permsRoles = Array.isArray(permissions)
-      ? permissions.map(p => p?.role).filter(Boolean)
+      ? permissions.map((permission) => permission?.role).filter(Boolean)
       : [];
-    const extraRoles = [...new Set(permsRoles.filter(r => !BASE_ROLES.includes(r)))]
+    const extraRoles = [...new Set(permsRoles.filter((role) => !BASE_ROLES.includes(role)))]
       .sort((a, b) => a.localeCompare(b));
-    return [...BASE_ROLES, ...extraRoles].map(value => ({
+    return [...BASE_ROLES, ...extraRoles].map((value) => ({
       value,
       label: ROLE_LABELS[value] || value,
     }));
   }, [permissions]);
 
-  // --- Author form ---
   const [authorForm, setAuthorForm] = useState({ name: '', avatar: '👤', role: '' });
   const [editingAuthor, setEditingAuthor] = useState(null);
 
-  const handleSaveUser = async () => {
-    if (!form.name || !form.username) return;
-    if (editing === 'new') {
-      await addUser(form);
-      toast.success('Потребителят е добавен');
-    } else {
-      await updateUser(editing, form);
-      toast.success('Потребителят е актуализиран');
-    }
+  const focusUserField = (field) => {
+    if (field === 'name') nameRef.current?.focus();
+    if (field === 'username') usernameRef.current?.focus();
+    if (field === 'password') passwordRef.current?.focus();
+    if (field === 'role') roleRef.current?.focus();
+  };
+
+  const clearUserFieldError = (field) => {
+    setUserFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      return { ...prev, [field]: '' };
+    });
+  };
+
+  const resetUserEditor = () => {
     setEditing(null);
     setForm(emptyForm);
+    setUserFormError('');
+    setUserFieldErrors(EMPTY_USER_FIELD_ERRORS);
+    setNewRoleError('');
+    setNewRoleKey('');
+  };
+
+  const openCreateUser = () => {
+    setEditing('new');
+    setForm(emptyForm);
+    setUserFormError('');
+    setUserFieldErrors(EMPTY_USER_FIELD_ERRORS);
+    setNewRoleError('');
+    setNewRoleKey('');
+  };
+
+  const openEditUser = (user) => {
+    setEditing(user.id);
+    setForm({
+      name: user.name || '',
+      username: user.username || '',
+      password: '',
+      role: user.role || 'reporter',
+      profession: user.profession || '',
+      avatar: user.avatar || '👤',
+    });
+    setUserFormError('');
+    setUserFieldErrors(EMPTY_USER_FIELD_ERRORS);
+    setNewRoleError('');
+    setNewRoleKey('');
+  };
+
+  const handleSaveUser = async () => {
+    const isNew = editing === 'new';
+    const nextFieldErrors = validateUserForm(form, isNew);
+    const firstField = getFirstUserErrorField(nextFieldErrors);
+
+    if (firstField) {
+      setUserFieldErrors(nextFieldErrors);
+      setUserFormError('Поправи маркираните полета и опитай отново.');
+      focusUserField(firstField);
+      return;
+    }
+
+    setSavingUser(true);
+    setUserFormError('');
+    setUserFieldErrors(EMPTY_USER_FIELD_ERRORS);
+
+    try {
+      const payload = {
+        ...form,
+        name: form.name.trim(),
+        username: form.username.trim(),
+        role: form.role.trim(),
+        profession: form.profession.trim(),
+        password: form.password,
+      };
+
+      if (!payload.password && !isNew) {
+        delete payload.password;
+      }
+
+      if (isNew) {
+        await addUser(payload);
+        toast.success('Потребителят е създаден');
+      } else {
+        await updateUser(editing, payload);
+        toast.success('Потребителят е обновен');
+      }
+
+      resetUserEditor();
+    } catch (error) {
+      const payloadFieldErrors = normalizeUserFieldErrors(error?.payload);
+      const message = payloadFieldErrors.name
+        || payloadFieldErrors.username
+        || payloadFieldErrors.password
+        || payloadFieldErrors.role
+        || error?.message
+        || 'Грешка при запис.';
+
+      setUserFieldErrors(payloadFieldErrors);
+      setUserFormError(message);
+      focusUserField(getFirstUserErrorField(payloadFieldErrors));
+      toast.error('Грешка при запис');
+    } finally {
+      setSavingUser(false);
+    }
   };
 
   const handleDeleteUser = async (id) => {
-    if (id === 1) return toast.warning('Не може да изтриете главния админ!');
+    if (id === 1) return toast.warning('Не можеш да изтриеш главния админ!');
     if (!confirm('Сигурен ли сте?')) return;
     await deleteUser(id);
     toast.success('Потребителят е изтрит');
@@ -87,11 +235,11 @@ export default function ManageProfiles() {
     setNewRoleError('');
 
     if (role === 'admin' || BASE_ROLES.includes(role)) {
-      setNewRoleError('Тази роля е вградена. Избери я от списъка.');
+      setNewRoleError('Тази роля е системна. Избери име за нова роля.');
       return;
     }
     if (!isValidRoleKey(role)) {
-      setNewRoleError('Невалидна роля. Ползвай малки латински букви, цифри, "_" или "-".');
+      setNewRoleError('Невалидна роля. Ползвай само малки букви, цифри, "_" или "-".');
       return;
     }
 
@@ -99,9 +247,11 @@ export default function ManageProfiles() {
     try {
       const ensured = await createRole(role);
       setForm((prev) => ({ ...prev, role: ensured.role }));
+      clearUserFieldError('role');
+      setUserFormError('');
       setNewRoleKey('');
-    } catch (e) {
-      setNewRoleError(e?.message || 'Неуспешно добавяне на роля');
+    } catch (error) {
+      setNewRoleError(error?.message || 'Грешка при създаване на роля');
     } finally {
       setCreatingRole(false);
     }
@@ -111,10 +261,10 @@ export default function ManageProfiles() {
     if (!authorForm.name) return;
     if (editingAuthor === 'new') {
       await addAuthor(authorForm);
-      toast.success('Авторът е добавен');
+      toast.success('Авторът е създаден');
     } else {
       await updateAuthor(editingAuthor, authorForm);
-      toast.success('Авторът е актуализиран');
+      toast.success('Авторът е обновен');
     }
     setEditingAuthor(null);
     setAuthorForm({ name: '', avatar: '👤', role: '' });
@@ -126,8 +276,9 @@ export default function ManageProfiles() {
     toast.success('Авторът е изтрит');
   };
 
-  const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
-  const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
+  const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple';
+  const labelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
+  const userValidationEntries = Object.entries(userFieldErrors).filter(([, message]) => Boolean(message));
 
   return (
     <div className="p-8">
@@ -138,65 +289,146 @@ export default function ManageProfiles() {
         </div>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-0 mb-6 border-b border-gray-200">
         {[
           { id: 'users', label: 'Потребители (акаунти)' },
           { id: 'authors', label: 'Автори (репортери)' },
-        ].map(t => (
+        ].map((currentTab) => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`px-5 py-3 text-sm font-sans font-medium border-b-2 transition-colors ${tab === t.id ? 'border-zn-purple text-zn-hot' : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
+            key={currentTab.id}
+            onClick={() => setTab(currentTab.id)}
+            className={`px-5 py-3 text-sm font-sans font-medium border-b-2 transition-colors ${
+              tab === currentTab.id
+                ? 'border-zn-purple text-zn-hot'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
           >
-            {t.label}
+            {currentTab.label}
           </button>
         ))}
       </div>
 
       {tab === 'users' && (
         <>
-          {canManageUsers && (
+          {canManageUsers ? (
             <button
-              onClick={() => { setEditing('new'); setForm(emptyForm); }}
+              onClick={openCreateUser}
               className="mb-4 flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors"
             >
               <Plus className="w-4 h-4" />
               Нов потребител
             </button>
-          )}
+          ) : null}
 
-          {/* Edit / New form */}
-          {editing && canManageUsers && (
+          {editing && canManageUsers ? (
             <div className="bg-white border border-gray-200 p-6 mb-6">
               <h3 className="font-sans font-semibold text-gray-900 mb-4">
                 {editing === 'new' ? 'Нов потребител' : 'Редактирай потребител'}
               </h3>
+
+              {(userFormError || userValidationEntries.length > 0) ? (
+                <div className="mb-4 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    {userFormError ? <p className="break-words">{userFormError}</p> : null}
+                    {userValidationEntries.length > 0 ? (
+                      <ul className="list-disc pl-4">
+                        {userValidationEntries.map(([field, message]) => (
+                          <li key={field}>
+                            <button
+                              type="button"
+                              className="text-left underline decoration-dotted underline-offset-2"
+                              onClick={() => focusUserField(field)}
+                            >
+                              {message}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className={labelCls}>Име</label>
-                  <input className={inputCls} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Иван Иванов" />
+                  <input
+                    ref={nameRef}
+                    className={`${inputCls} ${userFieldErrors.name ? '!border-red-400 bg-red-50/30' : ''}`}
+                    value={form.name}
+                    onChange={(event) => {
+                      setForm({ ...form, name: event.target.value });
+                      clearUserFieldError('name');
+                      setUserFormError('');
+                    }}
+                    placeholder="Иван Иванов"
+                    aria-invalid={userFieldErrors.name ? 'true' : 'false'}
+                    aria-describedby={userFieldErrors.name ? 'user-name-error' : undefined}
+                  />
+                  {userFieldErrors.name ? <p id="user-name-error" className="mt-1 text-xs font-sans text-red-600">{userFieldErrors.name}</p> : null}
                 </div>
+
                 <div>
                   <label className={labelCls}>Потребителско име</label>
-                  <input className={inputCls} value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} placeholder="ivan" />
+                  <input
+                    ref={usernameRef}
+                    className={`${inputCls} ${userFieldErrors.username ? '!border-red-400 bg-red-50/30' : ''}`}
+                    value={form.username}
+                    onChange={(event) => {
+                      setForm({ ...form, username: event.target.value });
+                      clearUserFieldError('username');
+                      setUserFormError('');
+                    }}
+                    placeholder="ivan"
+                    aria-invalid={userFieldErrors.username ? 'true' : 'false'}
+                    aria-describedby={userFieldErrors.username ? 'user-username-error' : undefined}
+                  />
+                  {userFieldErrors.username ? <p id="user-username-error" className="mt-1 text-xs font-sans text-red-600">{userFieldErrors.username}</p> : null}
                 </div>
+
                 <div>
                   <label className={labelCls}>Парола</label>
-                  <input className={inputCls} type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="••••••" />
+                  <input
+                    ref={passwordRef}
+                    className={`${inputCls} ${userFieldErrors.password ? '!border-red-400 bg-red-50/30' : ''}`}
+                    type="password"
+                    value={form.password}
+                    onChange={(event) => {
+                      setForm({ ...form, password: event.target.value });
+                      clearUserFieldError('password');
+                      setUserFormError('');
+                    }}
+                    placeholder="••••••••"
+                    aria-invalid={userFieldErrors.password ? 'true' : 'false'}
+                    aria-describedby={userFieldErrors.password ? 'user-password-error' : undefined}
+                  />
+                  {userFieldErrors.password ? <p id="user-password-error" className="mt-1 text-xs font-sans text-red-600">{userFieldErrors.password}</p> : null}
                 </div>
+
                 <div>
                   <label className={labelCls}>Роля</label>
-                  <select className={inputCls} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>
-                    {roleOptions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  <select
+                    ref={roleRef}
+                    className={`${inputCls} ${userFieldErrors.role ? '!border-red-400 bg-red-50/30' : ''}`}
+                    value={form.role}
+                    onChange={(event) => {
+                      setForm({ ...form, role: event.target.value });
+                      clearUserFieldError('role');
+                      setUserFormError('');
+                    }}
+                    aria-invalid={userFieldErrors.role ? 'true' : 'false'}
+                    aria-describedby={userFieldErrors.role ? 'user-role-error' : undefined}
+                  >
+                    {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
                   </select>
+                  {userFieldErrors.role ? <p id="user-role-error" className="mt-1 text-xs font-sans text-red-600">{userFieldErrors.role}</p> : null}
                   <div className="mt-2">
                     <div className="flex gap-2">
                       <input
                         className={inputCls}
                         value={newRoleKey}
-                        onChange={(e) => setNewRoleKey(e.target.value)}
+                        onChange={(event) => setNewRoleKey(event.target.value)}
                         placeholder="Нова роля (напр. moderator)"
                       />
                       <button
@@ -209,48 +441,62 @@ export default function ManageProfiles() {
                         {creatingRole ? '...' : 'Добави'}
                       </button>
                     </div>
-                    {newRoleError && (
-                      <p className="mt-1 text-xs font-sans text-red-600">{newRoleError}</p>
-                    )}
+                    {newRoleError ? <p className="mt-1 text-xs font-sans text-red-600">{newRoleError}</p> : null}
                     <p className="mt-1 text-[10px] font-sans text-gray-400">
                       Ролята създава нов ред в „Права“, с изключени разрешения по подразбиране.
                     </p>
                   </div>
                 </div>
+
                 <div>
                   <label className={labelCls}>Професия</label>
-                  <input className={inputCls} value={form.profession} onChange={e => setForm({ ...form, profession: e.target.value })} placeholder="Криминален репортер" />
+                  <input
+                    className={inputCls}
+                    value={form.profession}
+                    onChange={(event) => setForm({ ...form, profession: event.target.value })}
+                    placeholder="Разследващ репортер"
+                  />
                 </div>
+
                 <div>
                   <label className={labelCls}>Аватар</label>
                   <div className="flex flex-wrap gap-1.5">
-                    {AVATARS.map(a => (
+                    {AVATARS.map((avatar) => (
                       <button
-                        key={a}
-                        onClick={() => setForm({ ...form, avatar: a })}
-                        className={`w-8 h-8 text-lg flex items-center justify-center border transition-colors ${form.avatar === a ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200 hover:border-gray-400'
-                          }`}
+                        key={avatar}
+                        type="button"
+                        onClick={() => setForm({ ...form, avatar })}
+                        className={`w-8 h-8 text-lg flex items-center justify-center border transition-colors ${
+                          form.avatar === avatar ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200 hover:border-gray-400'
+                        }`}
                       >
-                        {a}
+                        {avatar}
                       </button>
                     ))}
                   </div>
                 </div>
               </div>
+
               <div className="flex gap-2 mt-5">
-                <button onClick={handleSaveUser} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors">
+                <button
+                  onClick={handleSaveUser}
+                  disabled={savingUser}
+                  className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-60"
+                >
                   <Save className="w-4 h-4" />
-                  Запази
+                  {savingUser ? 'Запис...' : 'Запази'}
                 </button>
-                <button onClick={() => setEditing(null)} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
+                <button
+                  onClick={resetUserEditor}
+                  className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors"
+                >
                   <X className="w-4 h-4" />
-                  Откажи
+                  Отказ
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Users table */}
           <div className="bg-white border border-gray-200 overflow-hidden">
             <table className="w-full">
               <thead>
@@ -263,7 +509,7 @@ export default function ManageProfiles() {
                 </tr>
               </thead>
               <tbody>
-                {users.map(user => (
+                {users.map((user) => (
                   <tr key={user.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -273,33 +519,35 @@ export default function ManageProfiles() {
                     </td>
                     <td className="px-4 py-3 text-sm font-sans text-gray-500">{user.username}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 text-[10px] font-sans font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-zn-purple text-white' : 'bg-gray-100 text-gray-600'
-                        }`}>
-                        {roleOptions.find(r => r.value === user.role)?.label || user.role}
+                      <span className={`px-2 py-0.5 text-[10px] font-sans font-bold uppercase tracking-wider ${
+                        user.role === 'admin' ? 'bg-zn-purple text-white' : 'bg-gray-100 text-gray-600'
+                      }`}
+                      >
+                        {roleOptions.find((role) => role.value === user.role)?.label || user.role}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm font-sans text-gray-500">{user.profession || '—'}</td>
+                    <td className="px-4 py-3 text-sm font-sans text-gray-500">{user.profession || '-'}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         {canManageUsers ? (
                           <>
                             <button
-                              onClick={() => { setEditing(user.id); setForm(user); }}
+                              onClick={() => openEditUser(user)}
                               className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
-                            {user.id !== 1 && (
+                            {user.id !== 1 ? (
                               <button
                                 onClick={() => handleDeleteUser(user.id)}
                                 className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
-                            )}
+                            ) : null}
                           </>
                         ) : (
-                          <span className="text-xs font-sans text-gray-300 px-1.5">—</span>
+                          <span className="text-xs font-sans text-gray-300 px-1.5">-</span>
                         )}
                       </div>
                     </td>
@@ -314,14 +562,17 @@ export default function ManageProfiles() {
       {tab === 'authors' && (
         <>
           <button
-            onClick={() => { setEditingAuthor('new'); setAuthorForm({ name: '', avatar: '👤', role: '' }); }}
+            onClick={() => {
+              setEditingAuthor('new');
+              setAuthorForm({ name: '', avatar: '👤', role: '' });
+            }}
             className="mb-4 flex items-center gap-2 px-4 py-2 bg-zn-hot text-white text-sm font-sans font-semibold hover:bg-zn-hot transition-colors"
           >
             <Plus className="w-4 h-4" />
             Нов автор
           </button>
 
-          {editingAuthor && (
+          {editingAuthor ? (
             <div className="bg-white border border-gray-200 p-6 mb-6">
               <h3 className="font-sans font-semibold text-gray-900 mb-4">
                 {editingAuthor === 'new' ? 'Нов автор' : 'Редактирай автор'}
@@ -329,23 +580,35 @@ export default function ManageProfiles() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className={labelCls}>Име</label>
-                  <input className={inputCls} value={authorForm.name} onChange={e => setAuthorForm({ ...authorForm, name: e.target.value })} placeholder="Марко Николич" />
+                  <input
+                    className={inputCls}
+                    value={authorForm.name}
+                    onChange={(event) => setAuthorForm({ ...authorForm, name: event.target.value })}
+                    placeholder="Мария Георгиева"
+                  />
                 </div>
                 <div>
                   <label className={labelCls}>Позиция</label>
-                  <input className={inputCls} value={authorForm.role} onChange={e => setAuthorForm({ ...authorForm, role: e.target.value })} placeholder="Криминален репортер" />
+                  <input
+                    className={inputCls}
+                    value={authorForm.role}
+                    onChange={(event) => setAuthorForm({ ...authorForm, role: event.target.value })}
+                    placeholder="Разследващ журналист"
+                  />
                 </div>
                 <div>
                   <label className={labelCls}>Аватар</label>
                   <div className="flex flex-wrap gap-1.5">
-                    {AVATARS.map(a => (
+                    {AVATARS.map((avatar) => (
                       <button
-                        key={a}
-                        onClick={() => setAuthorForm({ ...authorForm, avatar: a })}
-                        className={`w-8 h-8 text-lg flex items-center justify-center border transition-colors ${authorForm.avatar === a ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200 hover:border-gray-400'
-                          }`}
+                        key={avatar}
+                        type="button"
+                        onClick={() => setAuthorForm({ ...authorForm, avatar })}
+                        className={`w-8 h-8 text-lg flex items-center justify-center border transition-colors ${
+                          authorForm.avatar === avatar ? 'border-zn-purple bg-zn-purple/10' : 'border-gray-200 hover:border-gray-400'
+                        }`}
                       >
-                        {a}
+                        {avatar}
                       </button>
                     ))}
                   </div>
@@ -356,11 +619,11 @@ export default function ManageProfiles() {
                   <Save className="w-4 h-4" /> Запази
                 </button>
                 <button onClick={() => setEditingAuthor(null)} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
-                  <X className="w-4 h-4" /> Откажи
+                  <X className="w-4 h-4" /> Отказ
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
 
           <div className="bg-white border border-gray-200 overflow-hidden">
             <table className="w-full">
@@ -373,36 +636,37 @@ export default function ManageProfiles() {
                 </tr>
               </thead>
               <tbody>
-                {authors.map(author => {
-                  return (
-                    <tr key={author.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{author.avatar}</span>
-                          <span className="text-sm font-sans font-medium text-gray-900">{author.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-sans text-gray-500">{author.role}</td>
-                      <td className="px-4 py-3 text-sm font-sans text-gray-500">{articles.filter(a => a.authorId === author.id).length}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => { setEditingAuthor(author.id); setAuthorForm(author); }}
-                            className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteAuthor(author.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {authors.map((author) => (
+                  <tr key={author.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{author.avatar}</span>
+                        <span className="text-sm font-sans font-medium text-gray-900">{author.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm font-sans text-gray-500">{author.role}</td>
+                    <td className="px-4 py-3 text-sm font-sans text-gray-500">{articles.filter((article) => article.authorId === author.id).length}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingAuthor(author.id);
+                            setAuthorForm(author);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAuthor(author.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
