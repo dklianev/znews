@@ -324,19 +324,22 @@ export default function HomePage() {
 
   if (loadError && (!articles || articles.length === 0)) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <div className="comic-headline-board mb-6 inline-flex">
+      <div className="max-w-3xl mx-auto px-4 py-16 flex flex-col items-center text-center">
+        <div className="comic-headline-board mb-5 inline-flex">
           <span className="comic-headline-board-word comic-headline-board-word-hot">{homeCopy.loadErrorBadge}</span>
         </div>
-        <h1 className="font-display text-4xl font-black text-zn-black mb-4 uppercase">{homeCopy.loadErrorTitle}</h1>
-        <p className="font-display text-zn-text-muted uppercase tracking-wider mb-6 inline-flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-zn-hot" />
+        <h1 className="font-display text-3xl md:text-4xl font-black text-zn-black mb-3 uppercase">
+          {homeCopy.loadErrorTitle}
+        </h1>
+        <p className="font-display text-zn-text-muted uppercase tracking-wider text-sm mb-8 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-zn-hot shrink-0" />
           {loadError}
         </p>
         <button
           type="button"
           onClick={() => refresh()}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-zn-purple text-white text-sm font-display font-black uppercase tracking-wider border-3 border-[#1C1428] hover:bg-zn-purple-dark transition-colors"
+          style={{ boxShadow: '4px 4px 0 #1C1428' }}
         >
           <RefreshCw className="w-4 h-4" />
           {homeCopy.loadErrorRetry}

@@ -231,9 +231,9 @@ export default function AdminLayout() {
 
   return (
     <ToastProvider>
-      <div className="min-h-[100dvh] bg-gray-50 flex">
+      <div className="min-h-[100dvh] bg-gray-50 dark:bg-[#120e1c] flex">
         {/* Mobile header */}
-        <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-zn-bg text-white flex items-center justify-between px-4 py-3">
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-zn-bg dark:bg-[#1a1425] text-white flex items-center justify-between px-4 py-3">
           <button
             onClick={() => setSidebarOpen(true)}
             className="p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-bg"
@@ -256,7 +256,7 @@ export default function AdminLayout() {
         <aside
           id="admin-sidebar"
           className={`
-        fixed top-0 left-0 z-50 h-[100dvh] lg:h-screen w-64 bg-zn-bg text-white flex flex-col min-h-0 shrink-0 transition-transform duration-200
+        fixed top-0 left-0 z-50 h-[100dvh] lg:h-screen w-64 bg-zn-bg dark:bg-[#1a1425] text-white flex flex-col min-h-0 shrink-0 transition-transform duration-200
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}
         >
@@ -274,7 +274,7 @@ export default function AdminLayout() {
         {/* Main */}
         <main className="flex-1 min-h-[100dvh] overflow-auto lg:ml-64 mt-14 lg:mt-0">
           {globalError && (
-            <div className="mx-4 mt-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm font-sans flex items-start gap-2" role="alert">
+            <div className="mx-4 mt-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-300 px-4 py-3 text-sm font-sans flex items-start gap-2" role="alert">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">Грешка</p>

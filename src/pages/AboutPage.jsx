@@ -7,6 +7,8 @@ import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const AVATAR_COLORS = ['bg-zn-hot', 'bg-zn-purple', 'bg-blue-700', 'bg-emerald-700', 'bg-amber-700', 'bg-violet-700', 'bg-rose-700', 'bg-teal-700'];
+const STAT_COLORS = ['text-zn-hot', 'text-zn-purple', 'text-zn-orange', 'text-zn-blue'];
+const STAT_BG = ['bg-zn-hot/10', 'bg-zn-purple/10', 'bg-zn-orange/10', 'bg-zn-blue/10'];
 const DEFAULT_ABOUT = {
   heroText: '\u041d\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043c \u043d\u043e\u0432\u0438\u043d\u0430\u0440\u0441\u043a\u0438 \u043f\u043e\u0440\u0442\u0430\u043b \u0437\u0430 \u0433\u0440\u0430\u0434\u0430 Los Santos. \u0414\u043e\u0441\u0442\u0430\u0432\u044f\u043c\u0435 \u0432\u0438 \u043d\u043e\u0432\u0438\u043d\u0438, \u0440\u0435\u043f\u043e\u0440\u0442\u0430\u0436\u0438 \u0438 \u0440\u0430\u0437\u0441\u043b\u0435\u0434\u0432\u0430\u043d\u0438\u044f 24 \u0447\u0430\u0441\u0430 \u0432 \u0434\u0435\u043d\u043e\u043d\u043e\u0449\u0438\u0435\u0442\u043e, 7 \u0434\u043d\u0438 \u0432 \u0441\u0435\u0434\u043c\u0438\u0446\u0430\u0442\u0430.',
   missionTitle: '\u041d\u0430\u0448\u0430\u0442\u0430 \u043c\u0438\u0441\u0438\u044f',
@@ -142,15 +144,48 @@ export default function AboutPage() {
       className="max-w-4xl mx-auto px-4 py-8"
     >
       <div className="text-center mb-12 relative">
-        <div className="comic-speed-lines py-6">
-          <h1 className="font-display text-5xl md:text-6xl font-black text-zn-text mb-4 tracking-wider uppercase text-shadow-brutal text-comic-stroke">
-            zNews
-          </h1>
-        </div>
-        <div className="w-24 h-1.5 bg-gradient-to-r from-zn-hot to-zn-purple mx-auto mb-4" />
-        <p className="text-lg font-sans text-zn-text-muted max-w-xl mx-auto leading-relaxed">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="relative inline-block mb-6"
+        >
+          <div className="comic-panel px-10 py-6 md:px-14 md:py-8 relative overflow-hidden bg-gradient-to-br from-amber-400 via-orange-500 to-red-600">
+            <div className="absolute inset-0 comic-dots opacity-30 pointer-events-none" />
+            <h1 className="font-comic text-6xl md:text-8xl tracking-tight uppercase leading-none relative z-[2]" style={{ letterSpacing: '-0.01em' }}>
+              <span className="text-white logo-z-letter">z</span>
+              <span className="inline-block pr-[0.14em] text-transparent bg-clip-text bg-gradient-to-b from-yellow-100 via-white to-yellow-200 logo-news-letters">
+                News
+              </span>
+            </h1>
+            <p className="font-display text-[0.6rem] md:text-xs font-bold uppercase tracking-[0.35em] text-white/70 mt-2 relative z-[2]">
+              Los Santos Edition
+            </p>
+          </div>
+          <motion.div
+            initial={{ opacity: 0, rotate: -12, scale: 0 }}
+            animate={{ opacity: 1, rotate: -12, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.4, type: 'spring', stiffness: 200 }}
+            className="absolute -top-2 -right-3 md:-top-3 md:-right-4 z-10"
+          >
+            <span className="comic-stamp-circle text-[0.5rem] md:text-[0.6rem]" style={{ width: '2.5rem', height: '2.5rem' }}>HOT</span>
+          </motion.div>
+        </motion.div>
+
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="w-32 h-1.5 bg-gradient-to-r from-zn-hot via-zn-purple to-zn-hot mx-auto mb-5 origin-center"
+        />
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.5 }}
+          className="text-lg font-sans text-zn-text-muted max-w-xl mx-auto leading-relaxed"
+        >
           {about.heroText}
-        </p>
+        </motion.p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
@@ -165,26 +200,45 @@ export default function AboutPage() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.1 }}
-            className="comic-panel comic-dots bg-white p-5 text-center relative"
+            whileHover={{ y: -4, transition: { duration: 0.2 } }}
+            className="comic-panel comic-dots bg-white p-5 text-center relative cursor-default group"
           >
-            <stat.icon className="w-7 h-7 text-zn-hot mx-auto mb-2 relative z-[2]" />
+            <div className={`w-12 h-12 ${STAT_BG[index]} rounded-full flex items-center justify-center mx-auto mb-3 relative z-[2] group-hover:scale-110 transition-transform`}>
+              <stat.icon className={`w-6 h-6 ${STAT_COLORS[index]}`} />
+            </div>
             <div className="text-2xl font-display font-black text-zn-text relative z-[2]">{stat.value}</div>
-            <div className="text-sm font-display font-bold text-zn-text-muted uppercase tracking-wider relative z-[2]">{stat.label}</div>
+            <div className="text-xs font-display font-bold text-zn-text-muted uppercase tracking-wider relative z-[2]">{stat.label}</div>
           </motion.div>
         ))}
       </div>
 
-      <section className="newspaper-page comic-panel comic-dots p-8 mb-12 relative">
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="newspaper-page comic-panel comic-dots p-8 mb-12 relative"
+      >
         <div className="absolute -top-2 right-8 w-14 h-5 bg-yellow-200/70 border border-black/5 transform rotate-3 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
         <h2 className="font-display text-2xl font-black text-zn-text mb-4 tracking-wider uppercase relative z-[2]">{about.missionTitle}</h2>
-        <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-4 relative z-[2]" />
-        <p className="font-sans text-zn-text leading-relaxed mb-4 relative z-[2]">
-          {about.missionParagraph1}
-        </p>
+        <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-5 relative z-[2]" />
+        <div className="border-l-[6px] border-zn-hot pl-5 mb-5 relative z-[2]">
+          <p className="font-sans text-zn-text leading-[1.8] italic text-[1.05rem]">
+            {about.missionParagraph1}
+          </p>
+        </div>
         <p className="font-sans text-zn-text leading-relaxed relative z-[2]">
           {about.missionParagraph2}
         </p>
-      </section>
+      </motion.section>
+
+      <motion.div
+        initial={{ scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="h-0.5 bg-gradient-to-r from-transparent via-zn-hot/30 to-transparent my-2 origin-center"
+      />
 
       <section className="mb-12">
         <div className="flex items-center gap-2 mb-6">
@@ -197,38 +251,56 @@ export default function AboutPage() {
             <motion.div
               key={author.id}
               initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
               transition={{ duration: 0.3, delay: index * 0.08 }}
-              className="comic-panel comic-panel-hover bg-white p-6 text-center"
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              className="comic-panel comic-dots bg-white p-6 text-center relative group"
             >
-              <div className={`w-16 h-16 ${AVATAR_COLORS[index % AVATAR_COLORS.length]} text-white flex items-center justify-center font-display font-black text-2xl border-3 border-[#1C1428] mx-auto mb-3 comic-ink-shadow`}>
-                {author.name?.charAt(0)}
+              <div className="relative inline-block mb-3">
+                <div className={`w-18 h-18 ${AVATAR_COLORS[index % AVATAR_COLORS.length]} text-white flex items-center justify-center font-comic text-3xl border-3 border-[#1C1428] rounded-full mx-auto group-hover:scale-105 transition-transform relative z-[2]`} style={{ boxShadow: '3px 3px 0 #1C1428' }}>
+                  {author.name?.charAt(0)}
+                </div>
               </div>
-              <h3 className="font-display font-black text-lg text-zn-text tracking-wider uppercase">{author.name}</h3>
-              <p className="text-sm font-display font-bold text-zn-hot uppercase tracking-wider">{author.role}</p>
+              <h3 className="font-display font-black text-lg text-zn-text tracking-wider uppercase relative z-[2]">{author.name}</h3>
+              <p className="text-sm font-display font-bold text-zn-hot uppercase tracking-wider relative z-[2]">{author.role}</p>
             </motion.div>
           ))}
         </div>
       </section>
 
-      <section className="newspaper-page comic-panel comic-dots p-8 relative">
+      <motion.div
+        initial={{ scaleX: 0 }}
+        whileInView={{ scaleX: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.6 }}
+        className="h-0.5 bg-gradient-to-r from-transparent via-zn-purple/30 to-transparent mb-8 origin-center"
+      />
+
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="newspaper-page comic-panel comic-dots p-8 relative"
+      >
         <div className="absolute -top-2 left-8 w-16 h-5 bg-yellow-200/70 border border-black/5 transform -rotate-4 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
         <h2 className="font-display text-2xl font-black text-zn-text mb-2 tracking-wider uppercase relative z-[2]">{'\u0421\u0432\u044a\u0440\u0436\u0438 \u0441\u0435 \u0441 \u043d\u0430\u0441'}</h2>
         <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-6 relative z-[2]" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-[2]">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 font-sans text-zn-text text-sm">
-              <MapPin className="w-5 h-5 text-zn-hot shrink-0" />
-              <span>{contact.address}</span>
-            </div>
-            <div className="flex items-center gap-3 font-sans text-zn-text text-sm">
-              <Phone className="w-5 h-5 text-zn-hot shrink-0" />
-              <span>{contact.phone}</span>
-            </div>
-            <div className="flex items-center gap-3 font-sans text-zn-text text-sm">
-              <Mail className="w-5 h-5 text-zn-hot shrink-0" />
-              <span>{contact.email}</span>
-            </div>
+          <div className="space-y-5">
+            {[
+              { icon: MapPin, value: contact.address, color: 'bg-zn-hot/10 text-zn-hot' },
+              { icon: Phone, value: contact.phone, color: 'bg-zn-purple/10 text-zn-purple' },
+              { icon: Mail, value: contact.email, color: 'bg-zn-orange/10 text-zn-orange' },
+            ].map((item) => (
+              <div key={item.value} className="flex items-center gap-4 font-sans text-zn-text text-sm group/contact cursor-default">
+                <div className={`w-10 h-10 ${item.color} rounded-full flex items-center justify-center shrink-0 transition-transform duration-200 group-hover/contact:scale-110`}>
+                  <item.icon className="w-5 h-5" />
+                </div>
+                <span className="font-medium">{item.value}</span>
+              </div>
+            ))}
           </div>
 
           <form className="space-y-3" action={submitContactAction} aria-busy={isContactPending}>
@@ -307,27 +379,41 @@ export default function AboutPage() {
             <ContactSubmitButton />
           </form>
         </div>
-      </section>
+      </motion.section>
 
-      <section className="comic-panel comic-dots bg-white p-8 mt-8 relative">
+      <motion.section
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5 }}
+        className="comic-panel comic-dots bg-white p-8 mt-8 relative"
+      >
         <h2 className="font-display text-2xl font-black text-zn-text mb-2 tracking-wider uppercase relative z-[2]">{'\u0420\u0435\u043a\u043b\u0430\u043c\u0430'}</h2>
         <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-4 relative z-[2]" />
         <p className="font-sans text-zn-text leading-relaxed mb-6 relative z-[2]">
           {about.adIntro}
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 relative z-[2]">
-          {adPlans.map((plan) => (
-            <div key={plan.name} className="p-4 newspaper-page comic-panel comic-panel-hover">
-              <h3 className="font-display font-black text-zn-text uppercase tracking-wider">{plan.name}</h3>
-              <p className="text-zn-hot font-display font-black text-xl my-1">{plan.price}</p>
-              <p className="text-xs font-sans text-zn-text-muted">{plan.desc}</p>
-            </div>
-          ))}
+          {adPlans.map((plan, index) => {
+            const planColors = ['border-t-zn-hot', 'border-t-zn-purple', 'border-t-zn-orange'];
+            const priceColors = ['text-zn-hot', 'text-zn-purple', 'text-zn-orange'];
+            return (
+              <motion.div
+                key={plan.name}
+                whileHover={{ y: -4, transition: { duration: 0.2 } }}
+                className={`p-5 newspaper-page comic-panel border-t-4 ${planColors[index % 3]} cursor-default`}
+              >
+                <h3 className="font-display font-black text-zn-text uppercase tracking-wider text-sm">{plan.name}</h3>
+                <p className={`${priceColors[index % 3]} font-display font-black text-2xl my-2`}>{plan.price}</p>
+                <p className="text-xs font-sans text-zn-text-muted">{plan.desc}</p>
+              </motion.div>
+            );
+          })}
         </div>
         <p className="text-sm font-sans text-zn-text-muted relative z-[2]">
           {'\u0417\u0430 \u043f\u043e\u0432\u0435\u0447\u0435 \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f, \u0441\u0432\u044a\u0440\u0436\u0435\u0442\u0435 \u0441\u0435 \u0441 \u043d\u0430\u0441 \u043d\u0430'} <span className="text-zn-hot font-display font-bold">{contact.email}</span>
         </p>
-      </section>
+      </motion.section>
     </motion.div>
   );
 }
