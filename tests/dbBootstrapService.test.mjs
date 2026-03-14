@@ -185,8 +185,10 @@ export async function runDbBootstrapServiceTests() {
   {
     const mongoose = {
       connectCalls: [],
+      connection: { readyState: 0 },
       async connect(...args) {
         this.connectCalls.push(args);
+        this.connection.readyState = 1;
       },
     };
     const warnings = [];
@@ -214,6 +216,56 @@ export async function runDbBootstrapServiceTests() {
     ]]);
     assert.equal(warnings.some((line) => line.includes('In-memory MongoDB failed: memory failed')), true);
     assert.equal(warnings.some((line) => line.includes('Trying local MongoDB fallback')), true);
+  }
+
+  {
+    const mongoose = {
+      connectCalls: [],
+      disconnectCalls: 0,
+      connection: { readyState: 0 },
+      async connect(...args) {
+        this.connectCalls.push(args);
+        this.connection.readyState = 1;
+      },
+      async disconnect() {
+        this.disconnectCalls += 1;
+        this.connection.readyState = 0;
+      },
+    };
+    const warnings = [];
+    const helpers = createDbBootstrapService({
+      BREAKING_CATEGORY_LABEL: '??????????',
+      Category: { async updateOne() {} },
+      DEFAULT_PERMISSION_DOCS: {},
+      Permission: createPermissionModel(),
+      PERMISSION_KEYS: [],
+      SiteSettings: { findOne: () => ({ lean: async () => null }), async updateOne() {} },
+      devMongoFallbackUri: 'mongodb://127.0.0.1:27017/zemun-news',
+      isProd: false,
+      loadMongoMemoryServer: async () => ({
+        create: async () => ({
+          getUri: () => 'mongodb://memory/zemun-news',
+          stop: async () => {},
+        }),
+      }),
+      loadSeedAll: async () => {
+        throw new Error('seed import failed');
+      },
+      logInfo: () => {},
+      logWarning: (...args) => warnings.push(args.join(' ')),
+      modelsWithIndexes: [],
+      mongoUri: '',
+      mongoose,
+      normalizeText: (value) => String(value ?? '').trim(),
+    });
+
+    await helpers.connectDB();
+    assert.deepEqual(mongoose.connectCalls, [
+      ['mongodb://memory/zemun-news'],
+      ['mongodb://127.0.0.1:27017/zemun-news', { serverSelectionTimeoutMS: 3000 }],
+    ]);
+    assert.equal(mongoose.disconnectCalls, 1);
+    assert.equal(warnings.some((line) => line.includes('In-memory MongoDB failed: seed import failed')), true);
   }
 
   {

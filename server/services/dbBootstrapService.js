@@ -59,16 +59,39 @@ export function createDbBootstrapService({
     return !uri || /YOUR_PASSWORD|xxxxx|user:password/i.test(uri);
   }
 
+  async function resetConnectionForFallback() {
+    const readyState = Number(mongoose?.connection?.readyState || 0);
+    if (readyState === 0) return;
+
+    try {
+      if (typeof mongoose.disconnect === 'function') {
+        await mongoose.disconnect();
+        return;
+      }
+      if (typeof mongoose?.connection?.close === 'function') {
+        await mongoose.connection.close();
+      }
+    } catch (error) {
+      logBootstrapWarning('? Failed to reset previous Mongo connection before fallback:', error);
+    }
+  }
+
   async function connectInMemoryMongo() {
     const MongoMemoryServer = await loadMongoMemoryServer();
     const mongod = await MongoMemoryServer.create();
-    const memUri = mongod.getUri();
-    await mongoose.connect(memUri);
-    logInfo('– MongoDB in-memory (dev mode)');
+    try {
+      const memUri = mongod.getUri();
+      await mongoose.connect(memUri);
+      logInfo('- MongoDB in-memory (dev mode)');
 
-    const seedAll = await loadSeedAll();
-    await seedAll({ allowDestructive: true, reason: 'dev-inmemory-bootstrap' });
-    logInfo('– Database seeded with defaults');
+      const seedAll = await loadSeedAll();
+      await seedAll({ allowDestructive: true, reason: 'dev-inmemory-bootstrap' });
+      logInfo('- Database seeded with defaults');
+    } catch (error) {
+      await resetConnectionForFallback();
+      await mongod.stop().catch(() => {});
+      throw error;
+    }
   }
 
   async function connectLocalMongoFallback(memoryError) {
@@ -76,8 +99,9 @@ export function createDbBootstrapService({
     logWarning(`? Trying local MongoDB fallback: ${devMongoFallbackUri}`);
 
     try {
+      await resetConnectionForFallback();
       await mongoose.connect(devMongoFallbackUri, { serverSelectionTimeoutMS: 3000 });
-      logInfo('– MongoDB local fallback connected');
+      logInfo('- MongoDB local fallback connected');
     } catch (fallbackError) {
       throw new Error(
         `Mongo init failed. In-memory: ${memoryError.message}. Local fallback: ${fallbackError.message}. ` +
