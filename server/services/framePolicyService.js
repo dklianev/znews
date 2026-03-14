@@ -32,7 +32,7 @@ function normalizePathname(value) {
 export function createFramePolicyHelpers({
   publicFrameAncestors = process.env.PUBLIC_FRAME_ANCESTORS,
 } = {}) {
-  const normalizedPublicFrameAncestors = normalizeFrameAncestors(publicFrameAncestors, ['*']);
+  const normalizedPublicFrameAncestors = normalizeFrameAncestors(publicFrameAncestors, ["'self'", 'http:', 'https:', 'nui:']);
 
   function isProtectedFramePath(pathname) {
     const normalizedPathname = normalizePathname(pathname).toLowerCase();
