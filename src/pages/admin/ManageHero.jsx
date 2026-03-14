@@ -787,7 +787,7 @@ export default function ManageHero() {
           </div>
           <div className="border-2 border-dashed border-gray-300 overflow-hidden bg-white">
             {/* Actual hero rendering */}
-            <div className="newspaper-page relative comic-panel comic-dots comic-speed-lines hero-sunset-bg">
+            <div className="newspaper-page relative comic-panel comic-dots hero-sunset-bg">
               <div className="h-3 bg-gradient-to-r from-red-700 via-red-600 to-orange-500 border-y-2 border-black/30" />
               <div className="px-5 md:px-10 pt-6 pb-8 relative z-[1]">
                 {/* Breaking + category */}

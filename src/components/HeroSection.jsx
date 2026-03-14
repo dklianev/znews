@@ -34,7 +34,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
     const heroTitleFontSize = useMemo(() => buildScaledClamp('2.8rem', '8vw', '6.5rem', heroTitleScale), [heroTitleScale]);
 
     return (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="newspaper-page relative comic-panel comic-dots comic-speed-lines hero-sunset-bg">
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="newspaper-page relative comic-panel comic-dots hero-sunset-bg">
             <div className="h-3 bg-gradient-to-r from-red-700 via-red-600 to-orange-500 border-y-2 border-black/30" />
             <div className="px-5 md:px-10 pt-6 pb-8 relative z-[1]">
                 <div className="flex items-center gap-3 mb-3">

@@ -56,7 +56,7 @@
   --animate-wiggle-fast: wiggleFast 1s ease-in-out infinite;
   --animate-pop-in: popIn 0.4s cubic-bezier(0.2, 0.8, 0.4, 1.4) forwards;
   --animate-pulse-glow: pulseGlow 2s ease-in-out infinite;
-  --animate-shimmer: shimmer 2s ease-in-out infinite;
+  --animate-shimmer: shimmer 3.5s ease-in-out infinite;
 
   --background-image-gradient-hot: linear-gradient(
     135deg,
@@ -466,6 +466,8 @@
 
   &:hover {
     background: linear-gradient(150deg, #e81228 0%, #ff8f2d 100%);
+    transform: translateY(-2px);
+    box-shadow: 3px 4px 0 rgba(13, 6, 40, 0.55);
   }
 
   &.comic-top-action-active {
@@ -586,7 +588,6 @@
     0 4px 24px rgba(0, 0, 0, 0.16),
     0 0 0 1px rgba(28, 20, 40, 0.08),
     inset 0 0 60px rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(28, 20, 40, 0.08);
   overflow: visible;
   transition:
     background-color 0.3s ease,
@@ -1976,48 +1977,54 @@
 @utility comic-ad-side {
   transform: rotate(var(--ad-tilt, 0deg));
   transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    background-color 0.3s ease,
+    border-color 0.3s ease !important;
 
   &:hover {
-    transform: translateY(-2px) rotate(var(--ad-tilt, 0deg));
-    box-shadow: 6px 7px 0 #1c1428;
+    transform: scale(1.025) translateY(-5px) rotate(var(--ad-tilt, 0deg));
+    box-shadow: 7px 11px 0 #1c1428;
   }
 
   .dark &:hover {
-    box-shadow: 6px 7px 0 #0a0812;
+    box-shadow: 7px 11px 0 #0a0812;
   }
 }
 
 @utility comic-ad-horizontal {
   transform: rotate(var(--ad-tilt, 0deg));
   transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    background-color 0.3s ease,
+    border-color 0.3s ease !important;
 
   &:hover {
-    transform: translateY(-2px) rotate(var(--ad-tilt, 0deg));
-    box-shadow: 6px 7px 0 #1c1428;
+    transform: scale(1.02) translateY(-4px) rotate(var(--ad-tilt, 0deg));
+    box-shadow: 7px 9px 0 #1c1428;
   }
 
   .dark &:hover {
-    box-shadow: 6px 7px 0 #0a0812;
+    box-shadow: 7px 9px 0 #0a0812;
   }
 }
 
 @utility comic-ad-inline {
   transform: rotate(var(--ad-tilt, 0deg));
   transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    background-color 0.3s ease,
+    border-color 0.3s ease !important;
 
   &:hover {
-    transform: translateY(-2px) rotate(var(--ad-tilt, 0deg));
-    box-shadow: 6px 7px 0 #1c1428;
+    transform: scale(1.018) translateY(-3px) rotate(var(--ad-tilt, 0deg));
+    box-shadow: 6px 8px 0 #1c1428;
   }
 
   .dark &:hover {
-    box-shadow: 6px 7px 0 #0a0812;
+    box-shadow: 6px 8px 0 #0a0812;
   }
 }
 

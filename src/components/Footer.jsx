@@ -64,11 +64,11 @@ export default function Footer() {
   };
 
   return (
-    <footer className="mt-10">
+    <footer className="mt-0">
       {/* ── TIP LINE PROMO ── */}
       {tipLinePromo.enabled && (
         <div className="bg-zn-hot comic-dots border-t-8 border-b-8 border-zn-black relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-shimmer" />
           <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex-1 text-center md:text-left">
               <h3 className="text-3xl md:text-5xl font-comic text-white text-shadow-comic mb-4 flex flex-col md:flex-row items-center justify-center md:justify-start gap-4">
@@ -92,9 +92,7 @@ export default function Footer() {
         </div>
       )}
 
-      {/* ── TOP GRADIENT BAR ── */}
-      <div className="h-3 bg-gradient-to-r from-zn-hot via-zn-purple to-zn-navy" />
-      <div className="h-2 bg-zn-black" />
+
 
       {/* ── TABLOID CATEGORY BAR ── */}
       <div className="bg-gradient-to-r from-zn-hot via-zn-purple to-zn-navy py-4 px-4 border-b-4 border-black/20">
@@ -186,7 +184,7 @@ export default function Footer() {
           </div>
 
           {/* Bottom bar */}
-          <div className="mt-8 pt-6 border-t-2 border-zn-border flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="mt-8 pt-6 border-t border-zn-border/60 flex flex-col md:flex-row items-center justify-between gap-3">
             <p className="text-xs text-zn-text-dim font-display uppercase tracking-wider font-bold">
               &copy; {new Date().getFullYear()} zNews — Горещи градски новини
             </p>
@@ -197,9 +195,7 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* ── COMIC BOTTOM EDGE ── */}
-      <div className="h-2 bg-zn-black" />
-      <div className="h-3 bg-gradient-to-r from-zn-navy via-zn-purple to-zn-hot" />
+
     </footer>
   );
 }
