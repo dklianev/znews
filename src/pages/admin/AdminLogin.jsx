@@ -19,13 +19,13 @@ function AdminLoginSubmitButton({ disabled }) {
       disabled={disabled || pending}
       className="w-full btn-primary text-center disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {pending ? '\u0412\u043b\u0438\u0437\u0430\u043d\u0435...' : '\u0412\u0445\u043e\u0434'}
+      {pending ? 'Влизане...' : 'Вход'}
     </button>
   );
 }
 
 export default function AdminLogin() {
-  useDocumentTitle(makeTitle('\u0412\u0445\u043e\u0434 \u0432 \u0430\u0434\u043c\u0438\u043d'));
+  useDocumentTitle(makeTitle('Вход в админ'));
   const navigate = useNavigate();
   const { login } = useSessionData();
   const [username, setUsername] = useState('');
@@ -40,7 +40,7 @@ export default function AdminLogin() {
       if (!nextUsername || !nextPassword) {
         return {
           status: 'error',
-          message: '\u041f\u043e\u043f\u044a\u043b\u043d\u0438 \u0438 \u043f\u043e\u0442\u0440\u0435\u0431\u0438\u0442\u0435\u043b\u0441\u043a\u043e \u0438\u043c\u0435, \u0438 \u043f\u0430\u0440\u043e\u043b\u0430.',
+          message: 'Попълни и потребителско име, и парола.',
         };
       }
 
@@ -53,7 +53,7 @@ export default function AdminLogin() {
       } catch (error) {
         return {
           status: 'error',
-          message: error?.message || '\u0412\u0445\u043e\u0434\u044a\u0442 \u043d\u0435 \u0431\u0435\u0448\u0435 \u0443\u0441\u043f\u0435\u0448\u0435\u043d. \u041e\u043f\u0438\u0442\u0430\u0439 \u043e\u0442\u043d\u043e\u0432\u043e.',
+          message: error?.message || 'Входът не беше успешен. Опитай отново.',
         };
       }
     },
@@ -79,11 +79,11 @@ export default function AdminLogin() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="font-display text-3xl font-bold text-white">Los Santos News</h1>
-          <p className="font-sans text-xs text-white/40 tracking-[0.3em] uppercase mt-1">\u0410\u0434\u043c\u0438\u043d \u043f\u0430\u043d\u0435\u043b</p>
+          <p className="font-sans text-xs text-white/40 tracking-[0.3em] uppercase mt-1">Админ панел</p>
         </div>
 
         <form action={submitLoginAction} aria-busy={isLoginPending} className="bg-zn-bg border border-zn-border p-8">
-          <h2 className="font-display text-xl font-bold text-zn-text mb-6 text-center">\u0412\u0445\u043e\u0434</h2>
+          <h2 className="font-display text-xl font-bold text-zn-text mb-6 text-center">Вход</h2>
 
           {error && (
             <div id="admin-login-error" role="alert" className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm font-sans">
@@ -93,7 +93,7 @@ export default function AdminLogin() {
 
           <div className="mb-4">
             <label className="block text-xs font-sans font-semibold uppercase tracking-wider text-zn-text-muted mb-1.5">
-              \u041f\u043e\u0442\u0440\u0435\u0431\u0438\u0442\u0435\u043b
+              Потребител
             </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-muted" />
@@ -119,7 +119,7 @@ export default function AdminLogin() {
 
           <div className="mb-6">
             <label className="block text-xs font-sans font-semibold uppercase tracking-wider text-zn-text-muted mb-1.5">
-              \u041f\u0430\u0440\u043e\u043b\u0430
+              Парола
             </label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zn-text-muted" />
@@ -144,15 +144,15 @@ export default function AdminLogin() {
 
           <p id="admin-login-help" className="mb-4 text-xs font-sans text-zn-text-muted" aria-live="polite">
             {error
-              ? '\u041f\u0440\u043e\u0432\u0435\u0440\u0438 \u0434\u0430\u043d\u043d\u0438\u0442\u0435 \u0438 \u043e\u043f\u0438\u0442\u0430\u0439 \u043e\u0442\u043d\u043e\u0432\u043e.'
-              : '\u0418\u0437\u043f\u043e\u043b\u0437\u0432\u0430\u0439 \u0441\u043b\u0443\u0436\u0435\u0431\u043d\u0438\u044f \u0441\u0438 \u043f\u0440\u043e\u0444\u0438\u043b \u0437\u0430 \u0434\u043e\u0441\u0442\u044a\u043f.'}
+              ? 'Провери данните и опитай отново.'
+              : 'Използвай служебния си профил за достъп.'}
           </p>
 
           <AdminLoginSubmitButton disabled={!canSubmit} />
         </form>
 
         <p className="text-center mt-4 text-xs font-sans text-white/30">
-          \u041d\u0435\u043e\u0442\u043e\u0440\u0438\u0437\u0438\u0440\u0430\u043d \u0434\u043e\u0441\u0442\u044a\u043f \u043d\u0435 \u0435 \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d.
+          Неоторизиран достъп не е разрешен.
         </p>
       </div>
     </div>

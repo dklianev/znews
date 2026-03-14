@@ -133,6 +133,73 @@ export async function runAuthRoutesTests() {
 
   {
     const app = createMockApp();
+    const compared = [];
+
+    registerAuthRoutes(app, {
+      accessTokenMaxAgeMs: 15 * 60 * 1000,
+      authLimiter: (_req, _res, next) => next(),
+      AuthSession: { deleteOne: async () => {} },
+      bcrypt: {
+        async compare(password, hash) {
+          compared.push([password, hash]);
+          return password === 'secret' && hash === '$2legacy';
+        },
+        async hash() {
+          throw new Error('hash should not be called for bcrypt users');
+        },
+      },
+      clearRefreshCookie() {},
+      decodeRefreshToken() {
+        return null;
+      },
+      normalizeText(value) {
+        return typeof value === 'string' ? value.trim() : '';
+      },
+      parseCookies() {
+        return {};
+      },
+      REFRESH_COOKIE_NAME: 'refresh_token',
+      async rotateTokensForUser(_req, user) {
+        return {
+          accessToken: `access-${user.id}`,
+          refreshToken: `refresh-${user.id}`,
+        };
+      },
+      setRefreshCookie() {},
+      User: {
+        findOne(query) {
+          assert.deepEqual(query, { username: 'admin' });
+          return {
+            lean: async () => null,
+          };
+        },
+        find(query, projection) {
+          assert.deepEqual(query, { username: { $exists: true, $ne: null } });
+          assert.deepEqual(projection, { id: 1, username: 1, role: 1, name: 1, password: 1 });
+          return {
+            lean: async () => [{
+              id: 8,
+              username: ' Admin ',
+              role: 'admin',
+              name: 'Legacy Admin',
+              password: '$2legacy',
+            }],
+          };
+        },
+      },
+    });
+
+    const handlers = app.routes.get('POST /api/auth/login');
+    const res = createResponse();
+    await runHandlers(handlers, { body: { username: 'admin', password: 'secret' } }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(compared, [['secret', '$2legacy']]);
+    assert.equal(res.body?.userId, 8);
+  }
+
+  {
+    const app = createMockApp();
     const updates = [];
 
     registerAuthRoutes(app, {

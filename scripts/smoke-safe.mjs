@@ -240,6 +240,25 @@ async function waitForServerHealth() {
   }, { label: 'safe smoke backend health' });
 }
 
+async function verifyAuthLogin() {
+  const res = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: 'admin', password: 'admin123' }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Expected /api/auth/login to succeed for the safe smoke admin, received HTTP ${res.status}`);
+  }
+
+  const payload = await res.json();
+  if (payload?.username !== 'admin' || !payload?.token) {
+    throw new Error('Expected safe smoke admin login payload to include username "admin" and a token.');
+  }
+
+  console.log('[smoke:safe] PASS /api/auth/login -> admin session');
+}
+
 async function stopChildProcess(task) {
   if (!task?.child || task.child.exitCode !== null) return;
 
@@ -507,6 +526,7 @@ async function main() {
       cwd: runtimeRoot,
       env: {
         PORT: String(serverPort),
+        DEFAULT_ADMIN_PASSWORD: 'admin123',
         DISABLE_BACKGROUND_JOBS: 'true',
         IMAGE_PIPELINE_BACKFILL_ON_BOOT: 'false',
         DEV_MONGODB_FALLBACK_URI: 'mongodb://127.0.0.1:65530/zemun-news',
@@ -530,6 +550,7 @@ async function main() {
 
   try {
     await waitForServerHealth();
+    await verifyAuthLogin();
 
     const manifestRes = await fetch(`${baseUrl}/manifest.webmanifest`);
     if (!manifestRes.ok) {

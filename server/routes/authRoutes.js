@@ -1,5 +1,20 @@
 import { asyncHandler } from '../services/expressAsyncService.js';
 
+async function findUserByNormalizedUsername(User, normalizeText, username) {
+  const exactUser = await User.findOne({ username }).lean();
+  if (exactUser) return exactUser;
+  if (typeof User.find !== 'function') return null;
+
+  const legacyCandidates = await User.find(
+    { username: { $exists: true, $ne: null } },
+    { id: 1, username: 1, role: 1, name: 1, password: 1 }
+  ).lean();
+
+  return (Array.isArray(legacyCandidates) ? legacyCandidates : []).find((candidate) => {
+    return normalizeText(candidate?.username, 40).toLowerCase() === username;
+  }) || null;
+}
+
 export function registerAuthRoutes(app, deps) {
   const {
     accessTokenMaxAgeMs,
@@ -21,7 +36,7 @@ export function registerAuthRoutes(app, deps) {
     const password = typeof req.body.password === 'string' ? req.body.password : '';
     if (!username || !password) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const user = await User.findOne({ username }).lean();
+    const user = await findUserByNormalizedUsername(User, normalizeText, username);
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
     const isBcryptHash = user.password && user.password.startsWith('$2');
