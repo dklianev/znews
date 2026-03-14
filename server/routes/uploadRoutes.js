@@ -1,4 +1,5 @@
 import { asyncHandler } from '../services/expressAsyncService.js';
+import { createImageUploadErrorHelpers } from '../services/imageUploadErrorsService.js';
 
 const MEDIA_UPLOAD_PERMISSIONS = ['articles', 'ads', 'gallery', 'events'];
 
@@ -19,8 +20,14 @@ export function registerUploadRoutes(app, deps) {
     requireAuth,
     toImageMetaFromManifest,
     upload,
+    uploadMaxFileSizeMb,
     uploadRequestInFlight,
   } = deps;
+  const {
+    buildEmptyBufferPayload,
+    buildMissingFilePayload,
+    buildUploadErrorPayload,
+  } = createImageUploadErrorHelpers({ uploadMaxFileSizeMb });
 
   function runSingleUpload(req, res) {
     return new Promise((resolve, reject) => {
@@ -41,12 +48,12 @@ export function registerUploadRoutes(app, deps) {
       try {
         await runSingleUpload(req, res);
       } catch (error) {
-        return res.status(400).json({ error: error.message });
+        return res.status(400).json(buildUploadErrorPayload(error));
       }
 
-      if (!req.file) return res.status(400).json({ error: 'No file provided' });
+      if (!req.file) return res.status(400).json(buildMissingFilePayload());
       if (!Buffer.isBuffer(req.file.buffer) || req.file.buffer.byteLength === 0) {
-        return res.status(400).json({ error: 'Upload buffer is empty' });
+        return res.status(400).json(buildEmptyBufferPayload());
       }
 
       const mimeType = normalizeText(req.file.mimetype || '', 120).toLowerCase();

@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { asyncHandler } from '../services/expressAsyncService.js';
+import { createImageUploadErrorHelpers } from '../services/imageUploadErrorsService.js';
 
 const TIP_ADMIN_PERMISSIONS = ['articles'];
 
@@ -21,7 +22,12 @@ export function registerTipRoutes(app, deps) {
     shouldSkipRateLimit,
     toImageMetaFromManifest,
     upload,
+    uploadMaxFileSizeMb,
   } = deps;
+  const {
+    buildEmptyBufferPayload,
+    buildUploadErrorPayload,
+  } = createImageUploadErrorHelpers({ uploadMaxFileSizeMb });
 
   const tipRateLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
@@ -54,7 +60,7 @@ export function registerTipRoutes(app, deps) {
     try {
       await runSingleUpload(req, res);
     } catch (error) {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json(buildUploadErrorPayload(error));
     }
 
     let imageUrl = '';
@@ -62,7 +68,7 @@ export function registerTipRoutes(app, deps) {
 
     if (req.file) {
       if (!Buffer.isBuffer(req.file.buffer) || req.file.buffer.byteLength === 0) {
-        return res.status(400).json({ error: 'Upload buffer is empty' });
+        return res.status(400).json(buildEmptyBufferPayload());
       }
 
       const sharp = await loadSharp();

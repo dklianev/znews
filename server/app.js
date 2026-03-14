@@ -152,6 +152,7 @@ const bundledFontFile = loadBundledFontFile(__dirname);
 const brandLogoPng = loadBrandLogoPng(__dirname);
 
 const app = express();
+app.disable('x-powered-by');
 const isProd = process.env.NODE_ENV === 'production';
 const rawJwtSecret = process.env.JWT_SECRET;
 const rawRefreshSecret = process.env.REFRESH_TOKEN_SECRET || rawJwtSecret;
@@ -703,6 +704,13 @@ const shareCardsDir = path.join(uploadsDir, '_share');
 if (!isRemoteStorage && !fs.existsSync(shareCardsDir)) fs.mkdirSync(shareCardsDir, { recursive: true });
 const shareCardWidth = 1200;
 const shareCardHeight = 630;
+const rawUploadMaxFileSizeMb = Number.parseInt(process.env.UPLOAD_MAX_FILE_SIZE_MB || '', 10);
+const uploadMaxFileSizeMb = Number.isInteger(rawUploadMaxFileSizeMb)
+  && rawUploadMaxFileSizeMb >= 1
+  && rawUploadMaxFileSizeMb <= 25
+  ? rawUploadMaxFileSizeMb
+  : 10;
+const uploadMaxFileSizeBytes = uploadMaxFileSizeMb * 1024 * 1024;
 
 // Font stack for SVG text elements — fontconfig maps these to bundled Noto Sans
 const shareCardFontStackDisplay = "Noto Sans, sans-serif";
@@ -725,7 +733,7 @@ const {
 // Multer always uses memoryStorage so we can process with sharp via buffer before writing
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  limits: { fileSize: uploadMaxFileSizeBytes, files: 1 },
   fileFilter: (_req, file, cb) => {
     if (allowedImageMimeTypes.has(file.mimetype)) cb(null, true);
     else cb(new Error('Only JPEG, PNG, GIF, and WebP files are allowed'));
@@ -1923,6 +1931,7 @@ registerUploadRoutes(app, {
   requireAuth,
   toImageMetaFromManifest,
   upload,
+  uploadMaxFileSizeMb,
   uploadRequestInFlight,
 });
 
@@ -1944,6 +1953,7 @@ registerTipRoutes(app, {
   shouldSkipRateLimit,
   toImageMetaFromManifest,
   upload,
+  uploadMaxFileSizeMb,
 });
 
 registerPushRoutes(app, {

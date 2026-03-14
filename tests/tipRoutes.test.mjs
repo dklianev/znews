@@ -139,6 +139,7 @@ export async function runTipRoutesTests() {
         return (req, _res, callback) => callback(null);
       },
     },
+    uploadMaxFileSizeMb: 10,
   });
 
   {
@@ -196,5 +197,68 @@ export async function runTipRoutesTests() {
     assert.equal(res.statusCode, 200);
     assert.deepEqual(deletedTips, [{ id: 55 }]);
     assert.deepEqual(res.body, { ok: true });
+  }
+
+  {
+    const uploadErrorApp = createMockApp();
+    registerTipRoutes(uploadErrorApp, {
+      Tip: MockTip,
+      async ensureImagePipeline() {
+        throw new Error('should not run image pipeline on upload error');
+      },
+      getOriginalUploadUrl(name) {
+        return `/uploads/${name}`;
+      },
+      getTrustedClientIp() {
+        return '127.0.0.1';
+      },
+      imageMimeToExt: { 'image/jpeg': '.jpg' },
+      async loadSharp() {
+        return null;
+      },
+      async nextNumericId() {
+        return 56;
+      },
+      normalizeText(value) {
+        return typeof value === 'string' ? value.trim() : '';
+      },
+      async putStorageObject() {
+        throw new Error('should not upload on multer failure');
+      },
+      rateLimit(_config) {
+        return (_req, _res, next) => next();
+      },
+      rateLimitKeyGenerator() {
+        return 'tip-test';
+      },
+      requireAnyPermission() {
+        return (_req, _res, next) => next();
+      },
+      requireAuth(req, _res, next) {
+        req.user = { id: 1 };
+        next();
+      },
+      shouldSkipRateLimit() {
+        return false;
+      },
+      toImageMetaFromManifest() {
+        return null;
+      },
+      upload: {
+        single() {
+          return (_req, _res, callback) => callback({ code: 'LIMIT_FILE_SIZE', message: 'File too large' });
+        },
+      },
+      uploadMaxFileSizeMb: 12,
+    });
+
+    const handlers = uploadErrorApp.routes.get('POST /api/tips');
+    const res = createResponse();
+    await runHandlers(handlers, { body: { text: 'сигнал' } }, res);
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body?.error, 'Файлът е твърде голям.');
+    assert.deepEqual(res.body?.fieldErrors, {
+      image: 'Качи изображение до 12 MB.',
+    });
   }
 }
