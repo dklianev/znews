@@ -27,7 +27,7 @@ function AdminLoginSubmitButton({ disabled }) {
 export default function AdminLogin() {
   useDocumentTitle(makeTitle('Вход в админ'));
   const navigate = useNavigate();
-  const { login } = useSessionData();
+  const { login, session } = useSessionData();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [dismissLoginError, setDismissLoginError] = useState(false);
@@ -63,6 +63,10 @@ export default function AdminLogin() {
   useEffect(() => {
     if (loginState.status === 'success') navigate('/admin');
   }, [loginState.status, navigate]);
+
+  useEffect(() => {
+    if (session?.token) navigate('/admin', { replace: true });
+  }, [navigate, session?.token]);
 
   useEffect(() => {
     if (loginState.status !== 'error') {
