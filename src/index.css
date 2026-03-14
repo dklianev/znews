@@ -247,17 +247,17 @@
     background:
       radial-gradient(
         circle at 5% 8%,
-        rgba(255, 212, 71, 0.22) 0%,
+        rgba(255, 212, 71, 0.12) 0%,
         transparent 30%
       ),
       radial-gradient(
         circle at 96% 2%,
-        rgba(204, 10, 26, 0.18) 0%,
+        rgba(204, 10, 26, 0.08) 0%,
         transparent 28%
       ),
       radial-gradient(
         circle at 50% 100%,
-        rgba(46, 74, 138, 0.12) 0%,
+        rgba(46, 74, 138, 0.06) 0%,
         transparent 45%
       );
     pointer-events: none;
@@ -278,17 +278,17 @@
   background:
     linear-gradient(
       145deg,
-      rgba(255, 255, 255, 0.75) 0%,
-      rgba(237, 228, 208, 0.9) 100%
+      rgba(255, 255, 255, 0.9) 0%,
+      rgba(244, 237, 226, 0.96) 100%
     ),
     radial-gradient(
       circle at 1px 1px,
-      rgba(28, 20, 40, 0.12) 1px,
+      rgba(28, 20, 40, 0.08) 1px,
       transparent 1px
     );
   background-size:
     auto,
-    12px 12px;
+    14px 14px;
 
   &::before {
     content: '';
@@ -300,12 +300,12 @@
     transform: rotate(28deg);
     background: linear-gradient(
       90deg,
-      rgba(204, 10, 26, 0.9),
-      rgba(232, 116, 32, 0.8)
+      rgba(204, 10, 26, 0.72),
+      rgba(232, 116, 32, 0.62)
     );
     border: var(--ink-line-thin) solid #1c1428;
     box-shadow: 2px 2px 0 #1c1428;
-    opacity: 0.95;
+    opacity: 0.82;
     pointer-events: none;
   }
 }
@@ -575,18 +575,18 @@
      NEWSPAPER PAGE — the whole content 
      sits on a paper-like white sheet
      ═════════════════════════════════════ */
-  background: #ede4d0;
+  background: #f3ede4;
   background-image:
-    radial-gradient(circle, rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    radial-gradient(circle, rgba(0, 0, 0, 0.018) 1px, transparent 1px),
     url("data:image/svg+xml,%3Csvg width='8' height='8' viewBox='0 0 8 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c4b49a' fill-opacity='0.08'%3E%3Cpath d='M5 0h1L0 6V5zM6 5v1H5z'/%3E%3C/g%3E%3C/svg%3E");
   background-size:
-    6px 6px,
+    8px 8px,
     8px 8px;
   box-shadow:
-    0 4px 30px rgba(0, 0, 0, 0.25),
-    0 0 0 2px rgba(0, 0, 0, 0.08),
-    inset 0 0 80px rgba(0, 0, 0, 0.03);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+    0 4px 24px rgba(0, 0, 0, 0.16),
+    0 0 0 1px rgba(28, 20, 40, 0.08),
+    inset 0 0 60px rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(28, 20, 40, 0.08);
   overflow: visible;
   transition:
     background-color 0.3s ease,
@@ -1564,11 +1564,11 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 180px;
+    height: 144px;
     background: linear-gradient(
       180deg,
-      rgba(123, 47, 160, 0.15) 0%,
-      rgba(200, 64, 128, 0.08) 40%,
+      rgba(255, 226, 170, 0.16) 0%,
+      rgba(244, 231, 206, 0.08) 44%,
       transparent 100%
     );
     pointer-events: none;
