@@ -9,9 +9,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Zemun News',
-        short_name: 'ZNews',
+        name: 'zNews',
+        short_name: 'zNews',
         description: 'Горещи новини, скандали и слухове',
+        lang: 'bg',
         theme_color: '#1C1428',
         background_color: '#ECE9E6',
         display: 'standalone',
