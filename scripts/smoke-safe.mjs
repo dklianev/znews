@@ -114,9 +114,12 @@ async function prepareRuntime() {
     ['server', 'server'],
     ['shared', 'shared'],
     ['dist', 'dist'],
-    ['src/data', 'src/data'],
     ['package.json', 'package.json'],
   ];
+
+  if (await exists(path.join(repoRoot, 'src', 'data'))) {
+    copies.push(['src/data', 'src/data']);
+  }
 
   if (await exists(path.join(repoRoot, '.env'))) {
     copies.push(['.env', '.env']);
