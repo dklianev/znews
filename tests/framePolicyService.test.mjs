@@ -4,15 +4,15 @@ import { createFramePolicyHelpers } from '../server/services/framePolicyService.
 export async function runFramePolicyServiceTests() {
   {
     const helpers = createFramePolicyHelpers();
-    assert.deepEqual(helpers.publicFrameAncestors, ['*']);
+    assert.deepEqual(helpers.publicFrameAncestors, ["'self'", 'http:', 'https:', 'nui:']);
     assert.equal(helpers.isProtectedFramePath('/'), false);
     assert.equal(helpers.isProtectedFramePath('/category/crime'), false);
     assert.equal(helpers.isProtectedFramePath('/admin'), true);
     assert.equal(helpers.isProtectedFramePath('/admin/login'), true);
     assert.equal(helpers.isProtectedFramePath('/api/search'), true);
-    assert.deepEqual(helpers.getFrameAncestorsForPath('/'), ['*']);
+    assert.deepEqual(helpers.getFrameAncestorsForPath('/'), ["'self'", 'http:', 'https:', 'nui:']);
     assert.deepEqual(helpers.getFrameAncestorsForPath('/admin/login'), ["'none'"]);
-    assert.equal(helpers.getFrameAncestorsDirectiveValue('/games'), '*');
+    assert.equal(helpers.getFrameAncestorsDirectiveValue('/games'), "'self' http: https: nui:");
     assert.equal(helpers.getFrameAncestorsDirectiveValue('/api/bootstrap'), "'none'");
   }
 
