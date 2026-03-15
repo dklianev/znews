@@ -54,11 +54,15 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@csstools/postcss-color-mix-function": "^4.0.2",
+    "@csstools/postcss-media-minmax": "^3.0.1",
+    "@csstools/postcss-oklab-function": "^5.0.2",
     "@tailwindcss/postcss": "^4.2.1",
     "@vitejs/plugin-react": "^6.0.1",
     "docx": "^9.6.1",
     "mongodb-memory-server": "^11.0.1",
     "postcss": "^8.4.40",
+    "postcss-value-parser": "^4.2.0",
     "tailwindcss": "^4.2.1",
     "vite": "^8.0.0",
     "vite-plugin-pwa": "^1.2.0",
