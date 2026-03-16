@@ -55,17 +55,23 @@ export function createArticlesPublicRouter(deps) {
       query = query.skip((page - 1) * limit).limit(limit);
     }
 
-    const items = await query.lean();
+    if (!shouldPaginate) {
+      const items = await query.lean();
+      items.forEach((item) => {
+        delete item._id;
+        delete item.__v;
+      });
+      return res.json(items);
+    }
+
+    const [items, total] = await Promise.all([
+      query.lean(),
+      Article.countDocuments(filter),
+    ]);
     items.forEach((item) => {
       delete item._id;
       delete item.__v;
     });
-
-    if (!shouldPaginate) {
-      return res.json(items);
-    }
-
-    const total = await Article.countDocuments(filter);
     return res.json({
       items,
       page,
@@ -141,9 +147,6 @@ export function createArticlesPublicRouter(deps) {
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
     const filter = { id, ...getPublishedFilter() };
-    const existing = await Article.findOne(filter).lean();
-    if (!existing) return res.status(404).json({ error: 'Not found' });
-
     const viewerHash = hashClientFingerprint(req, `view:${id}`);
     const windowKey = getWindowKey(articleViewWindowMs);
     const expiresAt = new Date(Date.now() + articleViewWindowMs + (15 * 60 * 1000));
@@ -162,7 +165,7 @@ export function createArticlesPublicRouter(deps) {
     }
 
     const item = deduped
-      ? existing
+      ? await Article.findOne(filter).lean()
       : await Article.findOneAndUpdate(filter, { $inc: { views: 1 } }, { new: true }).lean();
 
     if (!item) return res.status(404).json({ error: 'Not found' });

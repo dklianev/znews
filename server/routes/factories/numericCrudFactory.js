@@ -31,16 +31,24 @@ export function createNumericCrudFactory({
       if (pagination.shouldPaginate) {
         query = query.skip(pagination.skip).limit(pagination.limit);
       }
-      const items = await query.lean();
+      if (!pagination.shouldPaginate) {
+        const items = await query.lean();
+        items.forEach((item) => {
+          delete item._id;
+          delete item.__v;
+          sensitiveFields.forEach((field) => delete item[field]);
+        });
+        return res.json(items);
+      }
+      const [items, total] = await Promise.all([
+        query.lean(),
+        Model.countDocuments({}),
+      ]);
       items.forEach((item) => {
         delete item._id;
         delete item.__v;
         sensitiveFields.forEach((field) => delete item[field]);
       });
-      if (!pagination.shouldPaginate) {
-        return res.json(items);
-      }
-      const total = await Model.countDocuments({});
       return res.json({
         items,
         page: pagination.page,
@@ -62,7 +70,7 @@ export function createNumericCrudFactory({
         resource: resourceName,
         resourceId: id,
         details: obj.title || obj.name || obj.question || '',
-      }).catch(() => {});
+      }).catch((err) => console.warn('Audit log failed:', err.message));
 
       invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 
@@ -85,7 +93,7 @@ export function createNumericCrudFactory({
         resource: resourceName,
         resourceId: id,
         details: data.title || data.name || '',
-      }).catch(() => {});
+      }).catch((err) => console.warn('Audit log failed:', err.message));
 
       invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 
@@ -104,7 +112,7 @@ export function createNumericCrudFactory({
         resource: resourceName,
         resourceId: id,
         details: '',
-      }).catch(() => {});
+      }).catch((err) => console.warn('Audit log failed:', err.message));
 
       invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 

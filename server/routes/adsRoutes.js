@@ -5,6 +5,7 @@ export function createAdsRouter(deps) {
   const {
     Ad,
     AuditLog,
+    adTrackingLimiter,
     buildAdAnalyticsSummary,
     buildAdCandidate,
     cacheMiddleware,
@@ -29,7 +30,7 @@ export function createAdsRouter(deps) {
     res.json(summary);
   }));
 
-  adsRouter.post('/:id/impression', asyncHandler(async (req, res) => {
+  adsRouter.post('/:id/impression', adTrackingLimiter, asyncHandler(async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -43,7 +44,7 @@ export function createAdsRouter(deps) {
     res.status(result.deduped ? 200 : 201).json({ ok: true, deduped: result.deduped });
   }));
 
-  adsRouter.post('/:id/click', asyncHandler(async (req, res) => {
+  adsRouter.post('/:id/click', adTrackingLimiter, asyncHandler(async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -79,7 +80,7 @@ export function createAdsRouter(deps) {
       resource: 'ads',
       resourceId: id,
       details: obj.campaignName || obj.title || '',
-    }).catch(() => {});
+    }).catch((err) => console.warn('Audit log failed:', err.message));
 
     invalidateCacheGroup('ads', 'ads-mutation');
 
@@ -112,7 +113,7 @@ export function createAdsRouter(deps) {
       resource: 'ads',
       resourceId: id,
       details: obj.campaignName || obj.title || '',
-    }).catch(() => {});
+    }).catch((err) => console.warn('Audit log failed:', err.message));
 
     invalidateCacheGroup('ads', 'ads-mutation');
 
@@ -133,7 +134,7 @@ export function createAdsRouter(deps) {
       resource: 'ads',
       resourceId: id,
       details: '',
-    }).catch(() => {});
+    }).catch((err) => console.warn('Audit log failed:', err.message));
 
     invalidateCacheGroup('ads', 'ads-mutation');
 

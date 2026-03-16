@@ -75,7 +75,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
         >
           <div className="tape tape-tl" />
           {/* Photo area */}
-          <div className="relative overflow-hidden" style={{ height: '200px' }}>
+          <div className="relative overflow-hidden" style={{ height: '200px', aspectRatio: '16/9' }}>
             <ResponsiveImage
               src={article.image}
               pipeline={article.imageMeta}
@@ -133,7 +133,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
         className="comic-story-card overflow-visible group cursor-pointer flex flex-col sm:flex-row"
       >
         {/* Photo with white border frame */}
-        <div className="relative sm:w-56 md:w-64 h-44 sm:h-auto shrink-0 p-2 sm:pr-0">
+        <div className="relative sm:w-56 md:w-64 h-44 sm:h-auto shrink-0 p-2 sm:pr-0" style={{ aspectRatio: '16/9' }}>
           <div className="h-full overflow-hidden relative bg-white" style={{ border: '2px solid #e0d5c5' }}>
             <ResponsiveImage
               src={article.image}

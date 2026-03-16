@@ -79,16 +79,23 @@ export function createCommentsRouter(deps) {
       query = query.skip(pagination.skip).limit(pagination.limit);
     }
 
-    const items = await query.lean();
+    if (!pagination.shouldPaginate) {
+      const items = await query.lean();
+      items.forEach((item) => {
+        delete item._id;
+        delete item.__v;
+      });
+      return res.json(items);
+    }
+
+    const [items, total] = await Promise.all([
+      query.lean(),
+      Comment.countDocuments(filter),
+    ]);
     items.forEach((item) => {
       delete item._id;
       delete item.__v;
     });
-    if (!pagination.shouldPaginate) {
-      return res.json(items);
-    }
-
-    const total = await Comment.countDocuments(filter);
     return res.json({
       items,
       page: pagination.page,
@@ -306,7 +313,7 @@ export function createCommentsRouter(deps) {
       resource: 'comments',
       resourceId: id,
       details: '',
-    }).catch(() => { });
+    }).catch((err) => console.warn('Audit log failed:', err.message));
 
     res.json(item.toJSON());
   }));
@@ -331,7 +338,7 @@ export function createCommentsRouter(deps) {
       resource: 'comments',
       resourceId: id,
       details: threadIds.length > 1 ? `cascade:${threadIds.length}` : '',
-    }).catch(() => { });
+    }).catch((err) => console.warn('Audit log failed:', err.message));
 
     res.json({ ok: true });
   }));

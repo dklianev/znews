@@ -81,7 +81,7 @@ export function createUsersRouter(deps) {
       resource: 'users',
       resourceId: id,
       details: obj.name || '',
-    }).catch(() => {});
+    }).catch((err) => console.warn('Audit log failed:', err.message));
     res.json(obj);
   }));
 
@@ -166,7 +166,7 @@ export function createUsersRouter(deps) {
       resource: 'users',
       resourceId: id,
       details: data.name || '',
-    }).catch(() => {});
+    }).catch((err) => console.warn('Audit log failed:', err.message));
 
     res.json(item.toJSON());
   }));
@@ -186,7 +186,7 @@ export function createUsersRouter(deps) {
       resource: 'users',
       resourceId: id,
       details: '',
-    }).catch(() => {});
+    }).catch((err) => console.warn('Audit log failed:', err.message));
 
     res.json({ ok: true });
   }));

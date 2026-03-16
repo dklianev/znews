@@ -274,6 +274,7 @@ jobSchema.index(
   { title: 'text', org: 'text', description: 'text', requirements: 'text' },
   { name: 'job_text', weights: { title: 8, org: 6, description: 4, requirements: 2 }, default_language: 'none' }
 );
+jobSchema.index({ active: 1, id: -1 }, { name: 'job_active_id' });
 
 // ─── Court ───
 const courtSchema = new mongoose.Schema({
@@ -293,6 +294,7 @@ courtSchema.index(
   { title: 'text', defendant: 'text', charge: 'text', details: 'text', verdict: 'text' },
   { name: 'court_text', weights: { title: 7, defendant: 6, charge: 6, details: 3, verdict: 2 }, default_language: 'none' }
 );
+courtSchema.index({ status: 1, id: -1 }, { name: 'court_status_id' });
 
 // ─── Event ───
 const eventSchema = new mongoose.Schema({
@@ -345,6 +347,7 @@ eventSchema.index(
   { title: 'text', description: 'text', location: 'text', organizer: 'text', type: 'text' },
   { name: 'event_text', weights: { title: 8, location: 6, organizer: 4, type: 3, description: 2 }, default_language: 'none' }
 );
+eventSchema.index({ type: 1, id: -1 }, { name: 'event_type_id' });
 
 // ─── Poll ───
 const pollOptionSchema = new mongoose.Schema({

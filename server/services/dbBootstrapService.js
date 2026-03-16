@@ -191,7 +191,12 @@ export function createDbBootstrapService({
       }
     }
 
-    await mongoose.connect(uri);
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 20,
+      minPoolSize: 5,
+      maxIdleTimeMS: 30000,
+    });
     logInfo('– MongoDB connected');
   }
 

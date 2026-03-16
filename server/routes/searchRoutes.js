@@ -64,7 +64,7 @@ export function registerSearchRoutes(app, deps) {
       }
       : { $or: [{ title: regex }, { excerpt: regex }, { tags: regex }, { category: regex }] };
 
-    void recordSearchQuery(trimmedQuery).catch(() => {});
+    void recordSearchQuery(trimmedQuery).catch((err) => console.warn('Search query recording failed:', err.message));
 
     const [articleMatches, jobMatches, courtMatches, eventMatches, wantedMatches] = await Promise.all([
       (async () => {

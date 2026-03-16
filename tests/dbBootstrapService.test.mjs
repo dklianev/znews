@@ -168,7 +168,12 @@ export async function runDbBootstrapServiceTests() {
   {
     const { helpers, logs, mongoose, seedCalls } = createHelpers({ mongoUri: 'mongodb://mongo/prod' });
     await helpers.connectDB();
-    assert.deepEqual(mongoose.connectCalls, [['mongodb://mongo/prod']]);
+    assert.deepEqual(mongoose.connectCalls, [['mongodb://mongo/prod', {
+      serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 20,
+      minPoolSize: 5,
+      maxIdleTimeMS: 30000,
+    }]]);
     assert.equal(logs.some((line) => line.includes('MongoDB connected')), true);
     assert.equal(seedCalls.length, 0);
   }

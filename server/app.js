@@ -693,6 +693,14 @@ const contactMessageLimiter = rateLimit({
   keyGenerator: rateLimitKeyGenerator,
 });
 
+const adTrackingLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many ad tracking requests from this IP. Please try again later.' },
+  skip: shouldSkipRateLimit,
+  keyGenerator: rateLimitKeyGenerator,
+});
+
 app.use(express.json({ limit: '1mb' }));
 
 // ─── File Uploads ───
@@ -1545,6 +1553,7 @@ const {
 const adsRouter = createAdsRouter({
   Ad,
   AuditLog,
+  adTrackingLimiter,
   buildAdAnalyticsSummary,
   buildAdCandidate,
   cacheMiddleware,
