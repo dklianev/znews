@@ -61,6 +61,9 @@ function cssColorFallbackPlugin() {
           css = css.replace(
             /([\w-]+)\s*:\s*([^;{}]*?\s+in\s+(?:oklab|oklch|lab)\b[^;{}]*)/g,
             (match, prop, value) => {
+              // Skip custom properties — handled by PostCSS @supports wrapping
+              if (prop.startsWith('--')) return match;
+
               const fallback = value
                 .replace(/\s+in\s+oklab/g, '')
                 .replace(/\s+in\s+oklch/g, '')

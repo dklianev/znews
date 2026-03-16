@@ -246,7 +246,61 @@ function supportsUnwrapPlugin() {
         parentRule.after(supportsRule);
       });
 
-      // 4. Fix empty var() fallbacks: var(--foo,) → var(--foo, )
+      // 4. Wrap custom properties with "in oklab/oklch/lab" values in @supports
+      // Tailwind v4 generates: .bg-gradient-to-b { --tw-gradient-position: to bottom in oklab }
+      // Chrome 103 stores "to bottom in oklab" as-is (custom props accept any value),
+      // then linear-gradient(to bottom in oklab, ...) fails → no gradient.
+      // Fix: replace with fallback value, move "in oklab" version into @supports.
+      // Chrome 103 → uses "to bottom" → gradient works.
+      // Modern browsers → @supports overrides → "to bottom in oklab" → smooth interpolation.
+      root.walkDecls((decl) => {
+        if (!decl.prop.startsWith('--')) return;
+        if (!decl.value) return;
+        if (!/\bin\s+(?:oklab|oklch|lab)\b/.test(decl.value)) return;
+
+        const parentRule = decl.parent;
+        if (!parentRule || parentRule.type !== 'rule') return;
+
+        const fallbackValue = decl.value
+          .replace(/\s+in\s+oklab/g, '')
+          .replace(/\s+in\s+oklch/g, '')
+          .replace(/\s+in\s+lab/g, '');
+
+        // Find if we're inside a relevant @supports block
+        let existingSupports = null;
+        let ancestor = parentRule.parent;
+        while (ancestor) {
+          if (ancestor.type === 'atrule' && ancestor.name === 'supports' &&
+              /in\s+(?:oklab|oklch|lab)/.test(ancestor.params)) {
+            existingSupports = ancestor;
+            break;
+          }
+          ancestor = ancestor.parent;
+        }
+
+        if (existingSupports) {
+          // Already inside @supports — the "in oklab" version stays here.
+          // Add a fallback rule (without "in oklab") BEFORE the @supports block.
+          const fallbackRule = postcss.rule({ selector: parentRule.selector });
+          fallbackRule.append(postcss.decl({ prop: decl.prop, value: fallbackValue }));
+          existingSupports.before(fallbackRule);
+        } else {
+          // Not inside @supports — move "in oklab" into @supports, keep fallback.
+          const supportsInner = postcss.rule({ selector: parentRule.selector });
+          supportsInner.append(postcss.decl({ prop: decl.prop, value: decl.value }));
+          const supportsRule = postcss.atRule({
+            name: 'supports',
+            params: '(background: linear-gradient(in oklab, red, red))',
+          });
+          supportsRule.append(supportsInner);
+          parentRule.after(supportsRule);
+
+          // Replace original with fallback
+          decl.value = fallbackValue;
+        }
+      });
+
+      // 5. Fix empty var() fallbacks: var(--foo,) → var(--foo, )
       // Tailwind v4 generates filter chains like:
       //   filter: var(--tw-blur,) var(--tw-brightness,) ...
       // Chrome 103 can't parse var(--foo,) → drops the entire declaration.
