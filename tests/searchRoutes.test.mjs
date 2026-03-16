@@ -213,7 +213,7 @@ export async function runSearchRoutesTests() {
     const suggestRes = createResponse();
     await runHandlers(suggestHandlers, { query: { q: '  rag ', limit: '3' } }, suggestRes);
     assert.equal(suggestRes.statusCode, 200);
-    assert.equal(suggestRes.headers['Cache-Control'], 'no-store');
+    assert.equal(suggestRes.headers['Cache-Control'], 'public, max-age=30');
     assert.deepEqual(suggestRes.body, {
       query: 'rag',
       suggestions: [{ label: 'rag-3' }],
@@ -223,7 +223,7 @@ export async function runSearchRoutesTests() {
     const trendingRes = createResponse();
     await runHandlers(trendingHandlers, { query: { limit: '4' } }, trendingRes);
     assert.equal(trendingRes.statusCode, 200);
-    assert.equal(trendingRes.headers['Cache-Control'], 'no-store');
+    assert.equal(trendingRes.headers['Cache-Control'], 'public, max-age=300');
     assert.deepEqual(trendingRes.body, { items: [{ term: 'trend', score: 4 }] });
   }
 }

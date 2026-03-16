@@ -214,7 +214,7 @@ export async function runPublicFeedRoutesTests() {
     await runHandlers(handlers, { query: { compact: '1' } }, res);
 
     assert.equal(res.statusCode, 200);
-    assert.equal(res.headers['Cache-Control'], 'no-store');
+    assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
     assert.deepEqual(adOptionsSeen, [{ compact: true }]);
     assert.ok(Array.isArray(res.body.articlePool));
     assert.equal(Object.prototype.hasOwnProperty.call(res.body, 'articles'), false);
@@ -246,7 +246,7 @@ export async function runPublicFeedRoutesTests() {
     await runHandlers(handlers, { query: { compact: '1' } }, res);
 
     assert.equal(res.statusCode, 200);
-    assert.equal(res.headers['Cache-Control'], 'no-store');
+    assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
     assert.deepEqual(adOptionsSeen, [{ compact: true }]);
     assert.ok(Array.isArray(res.body.articles));
     assert.deepEqual(res.body.ads, [{ id: 1, title: 'Ad', placements: ['home.top'] }]);
