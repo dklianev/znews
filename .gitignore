@@ -33,11 +33,16 @@ server/uploads/
 
 # Local tooling files
 .claude/
+.agent/
+.cursor/
+.mcp.json
 nul
 
 # Local scratch outputs
 test-card-aligned.mjs
 test-card-aligned.png
+generate-business-plan.mjs
+UPGRADE-PROMPT.md
 
 frontend_diff.txt
 git_log*.txt
@@ -45,6 +50,10 @@ git_show.txt
 last_commit.txt
 last3_commits.txt
 temp_*.txt
+output/
+tmp-*.log
+preview-smoke.*.log
 .codex-tmp/
 .playwright-cli/
 .smoke-safe-runtime/
+skills/
