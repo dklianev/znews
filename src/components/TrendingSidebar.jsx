@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { TrendingUp, Eye, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
@@ -12,7 +12,7 @@ const numberClasses = [
   'trending-number trending-number-default',
 ];
 
-export default function TrendingSidebar() {
+export default memo(function TrendingSidebar() {
   const { articles } = usePublicData();
   const trending = useMemo(() => {
     const safeArticles = Array.isArray(articles) ? articles : [];
@@ -94,4 +94,4 @@ export default function TrendingSidebar() {
       </div>
     </motion.div>
   );
-}
+})

@@ -90,8 +90,11 @@ export default memo(function ResponsiveImage({
     if (pipeline?.objectPosition) {
       base.objectPosition = pipeline.objectPosition;
     }
+    if (intrinsicDimensions.width && intrinsicDimensions.height) {
+      base.aspectRatio = `${intrinsicDimensions.width} / ${intrinsicDimensions.height}`;
+    }
     return Object.keys(base).length > 0 ? base : undefined;
-  }, [effectivePlaceholder, loaded, pipeline]);
+  }, [effectivePlaceholder, loaded, pipeline, intrinsicDimensions]);
 
   if (!safeSrc) return null;
 

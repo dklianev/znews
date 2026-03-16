@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Siren } from 'lucide-react';
 import { motion } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
@@ -8,7 +9,7 @@ const dangerColors = {
   low: 'text-zn-text-muted',
 };
 
-export default function MostWanted() {
+export default memo(function MostWanted() {
   const { wanted } = usePublicData();
   const safeWanted = Array.isArray(wanted) ? wanted : [];
 
@@ -76,4 +77,4 @@ export default function MostWanted() {
       </div>
     </motion.div>
   );
-}
+})

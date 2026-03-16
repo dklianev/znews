@@ -498,7 +498,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(compression());
+app.use(compression({ threshold: 1024, level: 6 }));
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' },

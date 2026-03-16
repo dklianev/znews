@@ -128,14 +128,14 @@ export function registerSearchRoutes(app, deps) {
     }
 
     const suggestions = await getSearchSuggestions(q, { limit });
-    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cache-Control', 'public, max-age=30');
     return res.json({ query: q, suggestions });
   }));
 
   app.get('/api/search/trending', cacheMiddleware, asyncHandler(async (req, res) => {
     const limit = parsePositiveInt(req.query.limit, 8, { min: 1, max: 20 });
     const items = await getTrendingSearches(limit);
-    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cache-Control', 'public, max-age=300');
     return res.json({ items });
   }));
 }

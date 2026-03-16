@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,7 +20,7 @@ const SPOTLIGHT_ICON_MAP = {
   ShieldAlert,
 };
 
-export default function Navbar() {
+export default memo(function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -116,14 +116,15 @@ export default function Navbar() {
     }));
   }, [siteSettings?.spotlightLinks]);
 
-  const handleSearch = (e) => {
+  const handleSearch = useCallback((e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    const q = searchQuery.trim();
+    if (q) {
+      navigate(`/search?q=${encodeURIComponent(q)}`);
       setSearchQuery('');
       setSearchOpen(false);
     }
-  };
+  }, [searchQuery, navigate]);
 
   const focusSearchInput = useEffectEvent((selectAll = false) => {
     if (!searchInputRef.current) return;
@@ -508,4 +509,4 @@ export default function Navbar() {
       </nav>
     </header>
   );
-}
+})

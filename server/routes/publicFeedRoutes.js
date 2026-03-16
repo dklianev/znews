@@ -160,7 +160,7 @@ export function registerPublicFeedRoutes(app, deps) {
     const articlePool = Array.isArray(homepageSections.selectedArticles) ? homepageSections.selectedArticles : [];
     const sections = buildHomepageSectionIdPayload(homepageSections);
 
-    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cache-Control', 'private, max-age=60');
     const responsePayload = {
       schemaVersion: 2,
       generatedAt: new Date().toISOString(),
@@ -269,7 +269,7 @@ export function registerPublicFeedRoutes(app, deps) {
     const articleTotal = Number.isInteger(payload.articleTotal) ? payload.articleTotal : 0;
     delete payload.articleTotal;
 
-    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cache-Control', 'private, max-age=60');
     return res.json({
       ...payload,
       ...(articlePagination.shouldPaginate ? {

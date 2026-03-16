@@ -453,6 +453,9 @@ const gallerySchema = new mongoose.Schema({
   featured: { type: Boolean, default: false },
 }, opts);
 
+gallerySchema.index({ featured: 1, date: -1 }, { name: 'gallery_featured_date' });
+gallerySchema.index({ category: 1, date: -1 }, { name: 'gallery_category_date' });
+
 // ─── Permission ───
 const permissionSchema = new mongoose.Schema({
   role: { type: String, required: true, unique: true },
@@ -634,6 +637,8 @@ const tipSchema = new mongoose.Schema({
   ipHash: { type: String, index: true },
   createdAt: { type: Date, default: Date.now, index: true },
 }, opts);
+
+tipSchema.index({ status: 1, createdAt: -1 }, { name: 'tip_status_createdAt' });
 
 // ─── Web Push Subscription ───
 const pushSubscriptionSchema = new mongoose.Schema({

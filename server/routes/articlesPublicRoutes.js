@@ -114,7 +114,7 @@ export function createArticlesPublicRouter(deps) {
     const card = await ensureArticleShareCard(article, { categoryLabel: category?.name || article.category || '' });
     if (card?.generated) {
       if (card.absolutePath) {
-        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
         return res.sendFile(card.absolutePath);
       }
       if (card.url) {
@@ -124,7 +124,7 @@ export function createArticlesPublicRouter(deps) {
 
     const fallback = await resolveShareFallbackSource(article);
     if (fallback?.type === 'file' && fallback.path) {
-      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
       return res.sendFile(fallback.path);
     }
     if (fallback?.type === 'redirect' && fallback.url) {
