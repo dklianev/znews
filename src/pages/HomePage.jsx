@@ -359,8 +359,7 @@ export default function HomePage() {
       </div>
     );
   }
-  const latestSlots = useMemo(() => {
-    const count = latestShowcase.length;
+  const getDynamicSlots = (count) => {
     if (count === 1) return [{ span: 'col-span-1 md:col-span-12', mdCols: 12, tilt: '-1.2deg', sticker: LATEST_STICKER_FALLBACKS[0] }];
     if (count === 2) return [
       { span: 'col-span-1 md:col-span-6', mdCols: 6, tilt: '-1.2deg', sticker: LATEST_STICKER_FALLBACKS[0] },
@@ -384,7 +383,8 @@ export default function HomePage() {
       { span: 'col-span-1 md:col-span-4', mdCols: 4, tilt: '0.8deg', sticker: LATEST_STICKER_FALLBACKS[3] },
       { span: 'col-span-1 md:col-span-8', mdCols: 8, tilt: '-0.8deg', sticker: LATEST_STICKER_FALLBACKS[4] },
     ];
-  }, [latestShowcase.length]);
+  };
+  const latestSlots = getDynamicSlots(latestShowcase.length);
 
   return (
     <div className="max-w-6xl mx-auto px-3 md:px-4 py-5 space-y-6">
