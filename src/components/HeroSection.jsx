@@ -69,7 +69,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                         <div className="polaroid-thick relative" style={{ '--tilt': '-2deg' }}>
                             <div className="tape tape-tl" />
                             <div className="tape tape-tr" />
-                            <div className="hero-main-photo-media relative overflow-hidden" style={{ height: '320px', aspectRatio: '16/10' }}>
+                            <div className="hero-main-photo-media relative overflow-hidden" style={{ height: '320px' }}>
                                 <ResponsiveImage
                                     src={mainPhoto.image}
                                     pipeline={mainPhoto.imageMeta}
@@ -89,7 +89,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                         <Link to={`/article/${siblingArticles[0].id}`} prefetch="intent" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
                             <div className="polaroid-thick relative" style={{ '--tilt': '2deg' }}>
                                 <div className="tape tape-tl" />
-                                <div className="relative overflow-hidden" style={{ height: '320px', aspectRatio: '16/10' }}>
+                                <div className="relative overflow-hidden" style={{ height: '320px' }}>
                                     <ResponsiveImage
                                         src={siblingArticles[0].image}
                                         pipeline={siblingArticles[0].imageMeta}
