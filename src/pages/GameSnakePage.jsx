@@ -213,6 +213,10 @@ export default function GameSnakePage() {
   // Keyboard controls
   useEffect(() => {
     function handleKey(e) {
+      // Don't intercept keys when a button/input is focused
+      const tag = e.target.tagName;
+      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
+
       if (statusRef.current === 'over' || statusRef.current === 'idle') {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startGame(); }
         return;
@@ -261,9 +265,8 @@ export default function GameSnakePage() {
   }, []);
 
   const handleShare = useCallback(() => {
-    const text = `🐍 zNews Змия\n🏆 ${formatScore(score)} точки\n📏 Дължина: ${snake.length} | ${DIFFICULTY_LABELS[difficulty]}${wrapMode ? ' (wrap)' : ''}\n🍎 ${gameState.foodEaten} храни изядени\nhttps://znews.bg/games/snake`;
-    if (navigator.share) { navigator.share({ text }).catch(() => {}); }
-    else { navigator.clipboard?.writeText(text).catch(() => {}); }
+    const text = `zNews Змия\n🏆 ${formatScore(score)} точки\n📏 Дължина: ${snake.length} | ${DIFFICULTY_LABELS[difficulty]}${wrapMode ? ' (wrap)' : ''}\n🍎 ${gameState.foodEaten} храни изядени`;
+    navigator.clipboard.writeText(text).then(() => alert('Резултатът е копиран!'));
   }, [score, snake.length, difficulty, wrapMode, gameState.foodEaten]);
 
   const isBoosted = gameState.speedBoostUntil > Date.now();
@@ -441,7 +444,9 @@ export default function GameSnakePage() {
                 </div>
               )}
 
-              <SnakeBoard snake={snake} food={food} obstacles={obstacles} wrapMode={wrapMode} floatingLabel={floatingLabel} />
+              <div style={{ position: 'relative', zIndex: 0 }}>
+                <SnakeBoard snake={snake} food={food} obstacles={obstacles} wrapMode={wrapMode} floatingLabel={floatingLabel} />
+              </div>
             </div>
 
             <div className="flex md:hidden gap-2">

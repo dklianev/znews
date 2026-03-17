@@ -271,6 +271,10 @@ export default function GameTetrisPage() {
   // Keyboard controls
   useEffect(() => {
     function handleKey(e) {
+      // Don't intercept keys when a button/input is focused
+      const tag = e.target.tagName;
+      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
+
       if (statusRef.current === 'over' || statusRef.current === 'idle') {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startGame(); }
         return;
@@ -434,9 +438,8 @@ export default function GameTetrisPage() {
   const ghostRow = piece ? getGhostPosition(board, piece) : 0;
 
   const handleShare = useCallback(() => {
-    const text = `🧱 zNews Тетрис\n🏆 ${formatScore(score)} точки\n📊 Ниво ${level + 1} | ${lines} линии\n🎯 ${stats.tetrises} Tetris-а | ${stats.tSpins} T-Spin-а\nhttps://znews.bg/games/tetris`;
-    if (navigator.share) { navigator.share({ text }).catch(() => {}); }
-    else { navigator.clipboard?.writeText(text).catch(() => {}); }
+    const text = `zNews Тетрис\n🏆 ${formatScore(score)} точки\n📊 Ниво ${level + 1} | ${lines} линии\n🎯 ${stats.tetrises} Tetris-а | ${stats.tSpins} T-Spin-а`;
+    navigator.clipboard.writeText(text).then(() => alert('Резултатът е копиран!'));
   }, [score, level, lines, stats]);
 
   return (
@@ -609,7 +612,9 @@ export default function GameTetrisPage() {
                 </div>
               )}
 
-              <TetrisBoard board={board} piece={piece} ghostRow={ghostRow} />
+              <div style={{ position: 'relative', zIndex: 0 }}>
+                <TetrisBoard board={board} piece={piece} ghostRow={ghostRow} />
+              </div>
             </div>
 
             {/* Mobile hold + pause */}
