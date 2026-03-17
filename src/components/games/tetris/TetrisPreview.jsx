@@ -1,13 +1,14 @@
 import { memo } from 'react';
-import { TETROMINOES, getTrimmedShape } from '../../../utils/tetris';
+import { TETROMINOES, getTrimmedShape, THEMES } from '../../../utils/tetris';
 
 const CELL = 16;
 const GAP = 2;
 
-function TetrisPreview({ pieceKey, label, small }) {
+function TetrisPreview({ pieceKey, label, small, themeName = 'classic' }) {
   if (!pieceKey || !TETROMINOES[pieceKey]) return null;
+  const theme = THEMES[themeName] || THEMES.classic;
   const shape = getTrimmedShape(pieceKey);
-  const { color } = TETROMINOES[pieceKey];
+  const color = theme.colors[pieceKey] || '#888';
   const rows = shape.length;
   const cols = shape[0].length;
   const cellSize = small ? 12 : CELL;
@@ -23,7 +24,7 @@ function TetrisPreview({ pieceKey, label, small }) {
         </span>
       )}
       <div
-        className="relative bg-[#0a0a0a] border-2 border-[#1C1428] dark:border-zinc-600"
+        className="relative border-2 border-[#1C1428] dark:border-zinc-600"
         style={{
           width: Math.max(width + 8, small ? 40 : 60),
           height: Math.max(height + 8, small ? 32 : 48),
@@ -31,6 +32,7 @@ function TetrisPreview({ pieceKey, label, small }) {
           alignItems: 'center',
           justifyContent: 'center',
           padding: 4,
+          backgroundColor: theme.boardBg,
         }}
       >
         <div className="relative" style={{ width, height }}>

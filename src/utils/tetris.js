@@ -1,24 +1,57 @@
 /**
  * tetris.js — Pure game logic for Tetris (no React dependencies).
  * Features: 7-bag randomizer, hold piece, combos, back-to-back Tetris,
- * T-spin detection, lock delay, wall kicks, ghost piece, level system.
+ * T-spin detection (full/mini), lock delay, SRS wall kicks, ghost piece,
+ * level system, 180° rotation, garbage lines, board themes.
  */
 
 export const BOARD_ROWS = 20;
 export const BOARD_COLS = 10;
-export const QUEUE_SIZE = 3;
+
+/* ── Piece definitions (shapes only, colors resolved via theme) ── */
 
 export const TETROMINOES = {
-  I: { shape: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]], color: '#00BCD4' },
-  O: { shape: [[1, 1], [1, 1]], color: '#FFC107' },
-  T: { shape: [[0, 1, 0], [1, 1, 1], [0, 0, 0]], color: '#9C27B0' },
-  S: { shape: [[0, 1, 1], [1, 1, 0], [0, 0, 0]], color: '#4CAF50' },
-  Z: { shape: [[1, 1, 0], [0, 1, 1], [0, 0, 0]], color: '#F44336' },
-  J: { shape: [[1, 0, 0], [1, 1, 1], [0, 0, 0]], color: '#2196F3' },
-  L: { shape: [[0, 0, 1], [1, 1, 1], [0, 0, 0]], color: '#FF9800' },
+  I: { shape: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]] },
+  O: { shape: [[1, 1], [1, 1]] },
+  T: { shape: [[0, 1, 0], [1, 1, 1], [0, 0, 0]] },
+  S: { shape: [[0, 1, 1], [1, 1, 0], [0, 0, 0]] },
+  Z: { shape: [[1, 1, 0], [0, 1, 1], [0, 0, 0]] },
+  J: { shape: [[1, 0, 0], [1, 1, 1], [0, 0, 0]] },
+  L: { shape: [[0, 0, 1], [1, 1, 1], [0, 0, 0]] },
 };
 
 const PIECE_KEYS = Object.keys(TETROMINOES);
+
+/* ── Themes ── */
+
+export const THEMES = {
+  classic: {
+    name: 'Класик',
+    colors: { I: '#00BCD4', O: '#FFC107', T: '#9C27B0', S: '#4CAF50', Z: '#F44336', J: '#2196F3', L: '#FF9800', garbage: '#666666' },
+    bg: '#1a1a2e',
+    boardBg: '#0a0a0a',
+  },
+  neon: {
+    name: 'Неон',
+    colors: { I: '#00FFFF', O: '#FFE500', T: '#FF00FF', S: '#00FF66', Z: '#FF3333', J: '#3399FF', L: '#FF8800', garbage: '#555555' },
+    bg: '#0d0d1a',
+    boardBg: '#000000',
+  },
+  mono: {
+    name: 'Моно',
+    colors: { I: '#E0E0E0', O: '#C8C8C8', T: '#A8A8A8', S: '#D8D8D8', Z: '#B8B8B8', J: '#989898', L: '#D0D0D0', garbage: '#505050' },
+    bg: '#222222',
+    boardBg: '#111111',
+  },
+  retro: {
+    name: 'Ретро',
+    colors: { I: '#9BBC0F', O: '#8BAC0F', T: '#6A8C0F', S: '#7B9C0F', Z: '#5A7C0F', J: '#4A6C0F', L: '#8BAC0F', garbage: '#3A5C0F' },
+    bg: '#0F380F',
+    boardBg: '#0F380F',
+  },
+};
+
+/* ── Level & speed ── */
 
 export const LEVEL_SPEEDS = [
   800, 720, 630, 550, 470, 380, 300, 220, 130, 100,
@@ -48,6 +81,8 @@ export const LINE_CLEAR_NAMES = {
   4: 'TETRIS!',
 };
 
+/* ── Board helpers ── */
+
 export function createEmptyBoard() {
   return Array.from({ length: BOARD_ROWS }, () => Array(BOARD_COLS).fill(null));
 }
@@ -65,11 +100,7 @@ export function createBag() {
 /** Get trimmed shape (no empty rows/cols) for preview display */
 export function getTrimmedShape(key) {
   const { shape } = TETROMINOES[key];
-  // Find non-empty bounds
-  let minR = shape.length;
-  let maxR = 0;
-  let minC = shape[0].length;
-  let maxC = 0;
+  let minR = shape.length, maxR = 0, minC = shape[0].length, maxC = 0;
   for (let r = 0; r < shape.length; r += 1) {
     for (let c = 0; c < shape[r].length; c += 1) {
       if (shape[r][c]) {
@@ -88,16 +119,17 @@ export function getTrimmedShape(key) {
 }
 
 export function pieceFromKey(key) {
-  const { shape, color } = TETROMINOES[key];
+  const { shape } = TETROMINOES[key];
   return {
     type: key,
     shape: shape.map((row) => [...row]),
-    color,
     row: key === 'I' ? -1 : 0,
     col: Math.floor((BOARD_COLS - shape[0].length) / 2),
-    rotationState: 0, // 0, 1, 2, 3
+    rotationState: 0,
   };
 }
+
+/* ── Rotation helpers ── */
 
 export function rotateCW(shape) {
   const rows = shape.length;
@@ -115,6 +147,10 @@ export function rotateCCW(shape) {
   return rotateCW(rotateCW(rotateCW(shape)));
 }
 
+export function rotate180(shape) {
+  return rotateCW(rotateCW(shape));
+}
+
 export function isValidPosition(board, shape, row, col) {
   for (let r = 0; r < shape.length; r += 1) {
     for (let c = 0; c < shape[r].length; c += 1) {
@@ -129,7 +165,8 @@ export function isValidPosition(board, shape, row, col) {
   return true;
 }
 
-/** SRS wall kick data */
+/* ── SRS wall kick data ── */
+
 const WALL_KICK_DATA = {
   normal: {
     '0>1': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
@@ -151,6 +188,12 @@ const WALL_KICK_DATA = {
     '3>0': [[0, 0], [1, 0], [-2, 0], [1, -2], [-2, 1]],
     '0>3': [[0, 0], [-1, 0], [2, 0], [-1, 2], [2, -1]],
   },
+};
+
+/** 180° kick offsets (simplified) */
+const KICK_180 = {
+  normal: [[0, 0], [0, 1], [0, -1], [1, 0], [-1, 0]],
+  I: [[0, 0], [0, 1], [0, -1], [0, 2], [0, -2]],
 };
 
 export function tryRotate(board, piece, clockwise = true) {
@@ -178,13 +221,35 @@ export function tryRotate(board, piece, clockwise = true) {
   return null;
 }
 
-/** T-spin detection: check 3 of 4 corners occupied after T rotation */
+/** 180° rotation with kick offsets */
+export function tryRotate180(board, piece) {
+  if (piece.type === 'O') return null; // O doesn't rotate
+  const newShape = rotate180(piece.shape);
+  const nextRotation = (piece.rotationState + 2) % 4;
+  const kicks = piece.type === 'I' ? KICK_180.I : KICK_180.normal;
+
+  for (const [dx, dy] of kicks) {
+    if (isValidPosition(board, newShape, piece.row - dy, piece.col + dx)) {
+      return {
+        ...piece,
+        shape: newShape,
+        col: piece.col + dx,
+        row: piece.row - dy,
+        rotationState: nextRotation,
+        lastAction: 'rotate',
+      };
+    }
+  }
+  return null;
+}
+
+/* ── T-spin detection ── */
+
 export function detectTSpin(board, piece) {
   if (piece.type !== 'T' || piece.lastAction !== 'rotate') return 'none';
 
   const centerRow = piece.row + 1;
   const centerCol = piece.col + 1;
-
   const corners = [
     [centerRow - 1, centerCol - 1],
     [centerRow - 1, centerCol + 1],
@@ -204,6 +269,9 @@ export function detectTSpin(board, piece) {
   return 'none';
 }
 
+/* ── Board operations ── */
+
+/** Lock piece onto board — stores piece TYPE (letter) for theme-based coloring */
 export function lockPiece(board, piece) {
   const newBoard = board.map((row) => [...row]);
   for (let r = 0; r < piece.shape.length; r += 1) {
@@ -212,34 +280,43 @@ export function lockPiece(board, piece) {
       const bRow = piece.row + r;
       const bCol = piece.col + c;
       if (bRow >= 0 && bRow < BOARD_ROWS && bCol >= 0 && bCol < BOARD_COLS) {
-        newBoard[bRow][bCol] = piece.color;
+        newBoard[bRow][bCol] = piece.type;
       }
     }
   }
   return newBoard;
 }
 
+/** Returns cleared board, count, and which row indices were cleared */
 export function clearLines(board) {
-  const kept = board.filter((row) => row.some((cell) => !cell));
+  const clearedIndices = [];
+  const kept = [];
+  for (let r = 0; r < board.length; r += 1) {
+    if (board[r].every((cell) => cell)) {
+      clearedIndices.push(r);
+    } else {
+      kept.push(board[r]);
+    }
+  }
   const cleared = BOARD_ROWS - kept.length;
   const empty = Array.from({ length: cleared }, () => Array(BOARD_COLS).fill(null));
-  return { board: [...empty, ...kept], linesCleared: cleared };
+  return { board: [...empty, ...kept], linesCleared: cleared, clearedIndices };
 }
 
-/** Check if the board is completely empty (perfect clear) */
 export function isPerfectClear(board) {
   return board.every((row) => row.every((cell) => !cell));
 }
 
-/**
- * Calculate points for a line clear with all bonuses.
- * @param {number} linesCleared
- * @param {number} level
- * @param {string} tSpin - 'none' | 'mini' | 'full'
- * @param {number} combo - consecutive line clear count
- * @param {boolean} backToBack - previous was Tetris or T-spin
- * @param {boolean} perfectClear - board empty after clear
- */
+/** Add a garbage line at the bottom with one random gap */
+export function addGarbageLine(board, gapCol) {
+  const gap = gapCol ?? Math.floor(Math.random() * BOARD_COLS);
+  const garbageRow = Array(BOARD_COLS).fill('garbage');
+  garbageRow[gap] = null;
+  return [...board.slice(1), garbageRow];
+}
+
+/* ── Scoring ── */
+
 export function calculateScore(linesCleared, level, tSpin, combo, backToBack, perfectClear) {
   if (linesCleared === 0) return { points: 0, isSpecial: false, label: null };
 
@@ -263,18 +340,15 @@ export function calculateScore(linesCleared, level, tSpin, combo, backToBack, pe
 
   let points = base * (level + 1);
 
-  // Back-to-back bonus (Tetris or T-spin after another Tetris or T-spin)
   if (backToBack && isSpecial) {
     points = Math.floor(points * POINTS.BACK_TO_BACK_MULTIPLIER);
     label = `B2B ${label}`;
   }
 
-  // Combo bonus
   if (combo > 0) {
     points += POINTS.COMBO_BONUS * combo * (level + 1);
   }
 
-  // Perfect clear bonus
   if (perfectClear) {
     points += POINTS.PERFECT_CLEAR * (level + 1);
     label = `${label} + PERFECT`;
@@ -305,7 +379,6 @@ export function hardDrop(board, piece) {
   return { piece: { ...piece, row: ghostRow }, cellsDropped };
 }
 
-/** Get items from the bag, refilling as needed. Returns { keys[], remainingBag[] } */
 export function drawFromBag(bag, count) {
   let b = [...bag];
   const drawn = [];
@@ -316,7 +389,8 @@ export function drawFromBag(bag, count) {
   return { keys: drawn, bag: b };
 }
 
-/** Create initial game stats */
+/* ── Stats ── */
+
 export function createStats() {
   return {
     piecesPlaced: 0,
@@ -330,7 +404,6 @@ export function createStats() {
   };
 }
 
-/** Update stats after a lock */
 export function updateStats(stats, linesCleared, tSpin, combo, perfectClear) {
   const updated = { ...stats, piecesPlaced: stats.piecesPlaced + 1 };
   if (linesCleared === 1 && tSpin === 'none') updated.singles += 1;
@@ -341,4 +414,12 @@ export function updateStats(stats, linesCleared, tSpin, combo, perfectClear) {
   if (perfectClear) updated.perfectClears += 1;
   updated.maxCombo = Math.max(updated.maxCombo, combo);
   return updated;
+}
+
+/** Garbage line interval based on level (pieces between garbage additions) */
+export function getGarbageInterval(level) {
+  if (level < 3) return 12;
+  if (level < 6) return 10;
+  if (level < 9) return 8;
+  return 6;
 }

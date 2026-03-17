@@ -4226,3 +4226,41 @@
   from { transform: translateX(-50%) translateY(100%); opacity: 0; }
   to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
 }
+
+/* ── Tetris animations (CEF 103 safe — GPU-accelerated only) ── */
+
+@keyframes tetrisFlash {
+  0%   { background: rgba(255,255,255,0.8); }
+  100% { background: rgba(255,255,255,0); }
+}
+.tetris-flash {
+  animation: tetrisFlash 300ms ease-out forwards;
+}
+
+@keyframes tetrisShake {
+  0%, 100% { transform: translateX(0); }
+  20%  { transform: translateX(-3px); }
+  40%  { transform: translateX(3px); }
+  60%  { transform: translateX(-2px); }
+  80%  { transform: translateX(1px); }
+}
+.tetris-shake {
+  animation: tetrisShake 200ms ease-out;
+}
+
+@keyframes tetrisCountdown {
+  0%   { transform: scale(0.5); opacity: 0; }
+  50%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.tetris-countdown {
+  animation: tetrisCountdown 500ms ease-out;
+}
+
+@keyframes tetrisScorePopup {
+  0%   { transform: translateY(0) translateX(-50%); opacity: 1; }
+  100% { transform: translateY(-30px) translateX(-50%); opacity: 0; }
+}
+.tetris-score-popup {
+  animation: tetrisScorePopup 800ms ease-out forwards;
+}
