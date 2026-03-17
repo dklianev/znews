@@ -1,4 +1,4 @@
-import { Gamepad2, Grid3x3, Hash, HelpCircle, Hexagon, Link, Type } from 'lucide-react';
+import { Blocks, Gamepad2, Grid3x3, Hash, HelpCircle, Hexagon, Link, Tangent, Type } from 'lucide-react';
 
 const GAME_ICON_MAP = {
   Type,
@@ -7,6 +7,8 @@ const GAME_ICON_MAP = {
   Grid3x3,
   Hash,
   Hexagon,
+  Blocks,
+  Tangent,
 };
 
 export function getGameIconComponent(iconName) {

@@ -9,6 +9,8 @@ export const DEFAULT_GAME_DEFINITIONS = Object.freeze([
   { id: 5, slug: 'hangman', title: 'Бесеница', type: 'hangman', description: 'Отгатни думата буква по буква, преди шансовете ти да свършат.', icon: 'Type', active: true, sortOrder: 5, theme: 'orange' },
   { id: 6, slug: 'spellingbee', title: 'Spelling Bee', type: 'spellingbee', description: 'Събери възможно най-много думи от седем букви, като централната е задължителна.', icon: 'Hexagon', active: true, sortOrder: 6, theme: 'orange' },
   { id: 7, slug: 'crossword', title: 'Кръстословица', type: 'crossword', description: 'Попълни мини кръстословица с думи по хоризонтала и вертикала.', icon: 'Hash', active: true, sortOrder: 7, theme: 'indigo' },
+  { id: 8, slug: 'tetris', title: 'Тетрис', type: 'tetris', description: 'Подреждай фигури, чисти линии, гони рекорд. Класиката на класиките.', icon: 'Blocks', active: true, sortOrder: 8, theme: 'purple' },
+  { id: 9, slug: 'snake', title: 'Змия', type: 'snake', description: 'Яж, расти, не се блъскай. Три трудности, безкраен режим.', icon: 'Tangent', active: true, sortOrder: 9, theme: 'green' },
 ]);
 
 const DEFAULT_GAME_SLUGS = DEFAULT_GAME_DEFINITIONS.map((game) => game.slug);
