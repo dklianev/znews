@@ -109,7 +109,7 @@ export default function GameFlappyBirdPage() {
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
     // Background
-    drawBackground(ctx);
+    drawBackground(ctx, groundOffsetRef.current);
 
     // Pipes
     for (const pipe of pipesRef.current) {
@@ -134,14 +134,22 @@ export default function GameFlappyBirdPage() {
       flashRef.current -= 1;
     }
 
-    // Idle overlay
+    // Idle — bob the bird up and down
     if (status === 'idle') {
+      const bobY = Math.sin(frameRef.current * 0.05) * 8;
+      birdRef.current = { ...birdRef.current, y: (PLAYABLE_H / 2 - 20) + bobY, wingPhase: (birdRef.current.wingPhase || 0) + 0.15, rotation: 0 };
+      frameRef.current += 1;
+      groundOffsetRef.current += PIPE_SPEED * 0.5; // slow ground scroll on idle
+
       drawScore(ctx, 0);
       ctx.save();
-      ctx.font = 'bold 18px "Oswald", sans-serif';
+      ctx.font = 'bold 16px "Oswald", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#1C1428';
-      ctx.fillText('Натисни SPACE или кликни', CANVAS_W / 2, CANVAS_H / 2 + 50);
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#1C1428';
+      ctx.lineWidth = 3;
+      ctx.strokeText('Натисни SPACE или кликни', CANVAS_W / 2, CANVAS_H / 2 + 60);
+      ctx.fillText('Натисни SPACE или кликни', CANVAS_W / 2, CANVAS_H / 2 + 60);
       ctx.restore();
     }
 
@@ -176,23 +184,26 @@ export default function GameFlappyBirdPage() {
     birdRef.current = flapBird(birdRef.current);
   }, []);
 
-  // Keyboard
+  // Keyboard — SPACE, ↑, W, Enter, click all work
   useEffect(() => {
     function handleKey(e) {
       const tag = e.target.tagName;
-      if (tag === 'INPUT' || tag === 'SELECT') return;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
-      if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+      const flapKeys = [' ', 'ArrowUp', 'w', 'W'];
+      const startKeys = [' ', 'ArrowUp', 'w', 'W', 'Enter'];
+
+      if (flapKeys.includes(e.key) || e.key === 'Enter') {
         e.preventDefault();
-        if (statusRef.current === 'idle' || statusRef.current === 'over') {
-          startGame();
-        } else {
-          flap();
+        // Blur focused button so subsequent keys work
+        if (document.activeElement && document.activeElement.tagName === 'BUTTON') {
+          document.activeElement.blur();
         }
-      }
-      if (e.key === 'Enter' && (statusRef.current === 'idle' || statusRef.current === 'over')) {
-        e.preventDefault();
-        startGame();
+        if (statusRef.current === 'idle' || statusRef.current === 'over') {
+          if (startKeys.includes(e.key)) startGame();
+        } else {
+          if (flapKeys.includes(e.key)) flap();
+        }
       }
     }
     window.addEventListener('keydown', handleKey);

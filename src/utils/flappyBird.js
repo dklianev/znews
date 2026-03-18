@@ -8,19 +8,19 @@ export const CANVAS_W = 320;
 export const CANVAS_H = 480;
 
 /* ---------- Bird ---------- */
-export const BIRD_X = 80;
-export const BIRD_W = 30;
-export const BIRD_H = 24;
-export const GRAVITY = 0.35;
-export const FLAP_VELOCITY = -6.5;
-export const MAX_FALL_SPEED = 8;
+export const BIRD_X = 70;
+export const BIRD_W = 28;
+export const BIRD_H = 22;
+export const GRAVITY = 0.22;
+export const FLAP_VELOCITY = -4.5;
+export const MAX_FALL_SPEED = 6;
 
 /* ---------- Pipes ---------- */
-export const PIPE_W = 50;
-export const PIPE_GAP = 130;
-export const PIPE_SPEED = 2.2;
-export const PIPE_SPAWN_INTERVAL = 100; // frames between pipe spawns
-export const PIPE_MIN_TOP = 50;
+export const PIPE_W = 48;
+export const PIPE_GAP = 145;
+export const PIPE_SPEED = 1.6;
+export const PIPE_SPAWN_INTERVAL = 120; // frames between pipe spawns
+export const PIPE_MIN_TOP = 60;
 
 /* ---------- Ground ---------- */
 export const GROUND_H = 60;
@@ -48,9 +48,10 @@ export const COLORS = {
 
 export function createBird() {
   return {
-    y: PLAYABLE_H / 2,
+    y: PLAYABLE_H / 2 - 20,
     velocity: 0,
     rotation: 0,
+    wingPhase: 0,
   };
 }
 
@@ -69,10 +70,21 @@ export function createPipe(frameCount) {
 export function updateBird(bird) {
   const newVel = Math.min(bird.velocity + GRAVITY, MAX_FALL_SPEED);
   const newY = bird.y + newVel;
-  // Rotation: tilt up on flap, tilt down when falling
-  const targetRot = newVel < 0 ? -25 : Math.min(newVel * 6, 70);
-  const rotation = bird.rotation + (targetRot - bird.rotation) * 0.15;
-  return { y: newY, velocity: newVel, rotation };
+  // Rotation: smooth tilt — up when rising, gradually nose-dive when falling
+  let rotation;
+  if (newVel < -1) {
+    // Rising — tilt up quickly
+    rotation = bird.rotation + (-20 - bird.rotation) * 0.3;
+  } else if (newVel > 2) {
+    // Falling fast — gradually nose-dive (like original)
+    rotation = Math.min(bird.rotation + 2, 90);
+  } else {
+    // Transitioning — gentle drift toward level
+    rotation = bird.rotation + (0 - bird.rotation) * 0.08;
+  }
+  // Wing flap cycle (for drawing)
+  const wingPhase = (bird.wingPhase || 0) + 0.15;
+  return { y: newY, velocity: newVel, rotation, wingPhase };
 }
 
 export function flapBird(bird) {
@@ -124,13 +136,35 @@ export function checkScore(bird, pipes) {
 
 /* ---------- Drawing helpers ---------- */
 
-export function drawBackground(ctx) {
+export function drawBackground(ctx, groundOffset) {
   // Sky gradient
   const grad = ctx.createLinearGradient(0, 0, 0, PLAYABLE_H);
   grad.addColorStop(0, COLORS.sky);
   grad.addColorStop(1, COLORS.skyBottom);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, CANVAS_W, PLAYABLE_H);
+
+  // Clouds (parallax — move at half pipe speed)
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  const cloudOffset = (groundOffset || 0) * 0.3;
+  const clouds = [
+    { x: 40, y: 60, w: 60, h: 20 },
+    { x: 180, y: 35, w: 50, h: 16 },
+    { x: 280, y: 80, w: 45, h: 14 },
+    { x: 120, y: 110, w: 55, h: 18 },
+  ];
+  for (const c of clouds) {
+    const cx = ((c.x - cloudOffset % 400) + 400) % 400 - 40;
+    ctx.beginPath();
+    ctx.ellipse(cx, c.y, c.w / 2, c.h / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx - c.w * 0.25, c.y + 3, c.w * 0.3, c.h * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx + c.w * 0.25, c.y + 2, c.w * 0.35, c.h * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 export function drawGround(ctx, offset) {
@@ -189,36 +223,61 @@ export function drawBird(ctx, bird) {
   ctx.translate(BIRD_X, bird.y);
   ctx.rotate((bird.rotation * Math.PI) / 180);
 
+  // Body outline (shadow)
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.beginPath();
+  ctx.ellipse(1, 2, BIRD_W / 2 + 1, BIRD_H / 2 + 1, 0, 0, Math.PI * 2);
+  ctx.fill();
+
   // Body
   ctx.fillStyle = COLORS.bird;
   ctx.beginPath();
   ctx.ellipse(0, 0, BIRD_W / 2, BIRD_H / 2, 0, 0, Math.PI * 2);
   ctx.fill();
+  // Body highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(-2, -4, BIRD_W / 3, BIRD_H / 4, -0.3, 0, Math.PI * 2);
+  ctx.fill();
 
-  // Wing
+  // Wing (animated flap)
+  const wingY = Math.sin(bird.wingPhase || 0) * 4;
   ctx.fillStyle = COLORS.birdWing;
   ctx.beginPath();
-  ctx.ellipse(-4, 3, 10, 7, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(-3, 3 + wingY, 9, 6, -0.15, 0, Math.PI * 2);
   ctx.fill();
 
   // Eye (white)
   ctx.fillStyle = COLORS.birdEye;
   ctx.beginPath();
-  ctx.arc(8, -4, 5, 0, Math.PI * 2);
+  ctx.arc(7, -4, 5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Pupil
+  // Pupil (looks forward)
   ctx.fillStyle = COLORS.birdPupil;
   ctx.beginPath();
-  ctx.arc(10, -4, 2.5, 0, Math.PI * 2);
+  ctx.arc(9, -3.5, 2.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Beak
+  // Eye glint
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(8, -5, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Beak (two-tone like original)
+  ctx.fillStyle = '#ff8f00';
+  ctx.beginPath();
+  ctx.moveTo(12, -2);
+  ctx.lineTo(20, 1);
+  ctx.lineTo(12, 2);
+  ctx.closePath();
+  ctx.fill();
   ctx.fillStyle = COLORS.birdBeak;
   ctx.beginPath();
-  ctx.moveTo(13, -1);
-  ctx.lineTo(20, 2);
-  ctx.lineTo(13, 5);
+  ctx.moveTo(12, 2);
+  ctx.lineTo(20, 1);
+  ctx.lineTo(12, 5);
   ctx.closePath();
   ctx.fill();
 

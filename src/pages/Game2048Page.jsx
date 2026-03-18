@@ -142,7 +142,7 @@ export default function Game2048Page() {
   useEffect(() => {
     function handleKey(e) {
       const tag = e.target.tagName;
-      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
       let dir = null;
       switch (e.key) {
@@ -150,10 +150,14 @@ export default function Game2048Page() {
         case 'ArrowDown': case 's': case 'S': dir = 'down'; break;
         case 'ArrowLeft': case 'a': case 'A': dir = 'left'; break;
         case 'ArrowRight': case 'd': case 'D': dir = 'right'; break;
-        case 'z': case 'Z': handleUndo(); return;
+        case 'z': case 'Z': handleUndo(); e.preventDefault(); return;
         default: return;
       }
       e.preventDefault();
+      // Blur focused button so it doesn't steal subsequent keys
+      if (document.activeElement && document.activeElement.tagName === 'BUTTON') {
+        document.activeElement.blur();
+      }
       doMove(dir);
     }
     window.addEventListener('keydown', handleKey);

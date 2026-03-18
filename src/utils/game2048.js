@@ -115,8 +115,8 @@ export function move(board, direction) {
   switch (direction) {
     case 'left': rotations = 0; break;
     case 'right': rotations = 2; break;
-    case 'up': rotations = 1; break;
-    case 'down': rotations = 3; break;
+    case 'up': rotations = 3; break;
+    case 'down': rotations = 1; break;
     default: return null;
   }
 
