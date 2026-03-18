@@ -17,7 +17,7 @@ const articleSchema = new mongoose.Schema({
   slug: String,
   title: String,
   excerpt: String,
-  content: String,
+  content: { type: String, maxlength: 100000 },
   category: { type: String, index: true },
   authorId: { type: Number, index: true },
   date: String,

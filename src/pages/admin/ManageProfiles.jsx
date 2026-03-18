@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, AlertTriangle, Search } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
 
 const BASE_ROLES = Object.freeze(['admin', 'editor', 'reporter', 'photographer', 'intern']);
 const ROLE_LABELS = Object.freeze({
@@ -87,7 +88,9 @@ export default function ManageProfiles() {
   const [savingUser, setSavingUser] = useState(false);
   const [userFormError, setUserFormError] = useState('');
   const [userFieldErrors, setUserFieldErrors] = useState(EMPTY_USER_FIELD_ERRORS);
+  const [searchQuery, setSearchQuery] = useState('');
   const toast = useToast();
+  const confirm = useConfirm();
   const nameRef = useRef(null);
   const usernameRef = useRef(null);
   const passwordRef = useRef(null);
@@ -222,7 +225,13 @@ export default function ManageProfiles() {
 
   const handleDeleteUser = async (id) => {
     if (id === 1) return toast.warning('Не можеш да изтриеш главния админ!');
-    if (!confirm('Сигурен ли сте?')) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на потребител',
+      message: 'Потребителят ще бъде изтрит безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     await deleteUser(id);
     toast.success('Потребителят е изтрит');
   };
@@ -271,10 +280,35 @@ export default function ManageProfiles() {
   };
 
   const handleDeleteAuthor = async (id) => {
-    if (!confirm('Сигурен ли сте?')) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на автор',
+      message: 'Авторът ще бъде изтрит безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     await deleteAuthor(id);
     toast.success('Авторът е изтрит');
   };
+
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+    const q = searchQuery.trim().toLowerCase();
+    return users.filter((u) =>
+      (u.name || '').toLowerCase().includes(q) ||
+      (u.username || '').toLowerCase().includes(q) ||
+      (u.role || '').toLowerCase().includes(q)
+    );
+  }, [users, searchQuery]);
+
+  const filteredAuthors = useMemo(() => {
+    if (!searchQuery.trim()) return authors;
+    const q = searchQuery.trim().toLowerCase();
+    return authors.filter((a) =>
+      (a.name || '').toLowerCase().includes(q) ||
+      (a.role || '').toLowerCase().includes(q)
+    );
+  }, [authors, searchQuery]);
 
   const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple';
   const labelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
@@ -306,6 +340,17 @@ export default function ManageProfiles() {
             {currentTab.label}
           </button>
         ))}
+      </div>
+
+      <div className="mb-5 relative">
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder={tab === 'users' ? 'Търси по име, username или роля...' : 'Търси по име или позиция...'}
+          className="pl-9 pr-3 py-1.5 text-sm font-sans bg-white border border-gray-200 outline-none focus:border-zn-purple w-64"
+        />
       </div>
 
       {tab === 'users' && (
@@ -509,7 +554,7 @@ export default function ManageProfiles() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {filteredUsers.map((user) => (
                   <tr key={user.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -636,7 +681,7 @@ export default function ManageProfiles() {
                 </tr>
               </thead>
               <tbody>
-                {authors.map((author) => (
+                {filteredAuthors.map((author) => (
                   <tr key={author.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

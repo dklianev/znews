@@ -1,7 +1,8 @@
 import { useMemo, useOptimistic, useState } from 'react';
 import { usePublicData } from '../../context/DataContext';
-import { Check, Trash2, XCircle, Eye, AlertTriangle } from 'lucide-react';
+import { Check, Trash2, XCircle, Eye, AlertTriangle, Search } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
 
 function collectCommentThreadIds(comments, rootId) {
   const list = Array.isArray(comments) ? comments : [];
@@ -29,9 +30,11 @@ function collectCommentThreadIds(comments, rootId) {
 export default function ManageComments() {
   const { comments, articles, updateComment, deleteComment } = usePublicData();
   const [filter, setFilter] = useState('all'); // all | pending | approved
+  const [searchQuery, setSearchQuery] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');
   const toast = useToast();
+  const confirm = useConfirm();
   const [optimisticComments, applyCommentMutation] = useOptimistic(
     comments,
     (currentComments, mutation) => {
@@ -66,10 +69,20 @@ export default function ManageComments() {
   );
 
   const filteredComments = useMemo(() => {
-    if (filter === 'all') return optimisticComments;
-    if (filter === 'pending') return optimisticComments.filter((comment) => !comment.approved);
-    return optimisticComments.filter((comment) => comment.approved);
-  }, [filter, optimisticComments]);
+    let result = optimisticComments;
+    if (filter === 'pending') result = result.filter((c) => !c.approved);
+    else if (filter === 'approved') result = result.filter((c) => c.approved);
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((c) =>
+        (c.author || '').toLowerCase().includes(q) ||
+        (c.text || '').toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [filter, optimisticComments, searchQuery]);
 
   const sortedComments = useMemo(
     () => [...filteredComments].sort((a, b) => new Date(b.date) - new Date(a.date)),
@@ -124,7 +137,14 @@ export default function ManageComments() {
   const runOptimisticDelete = async (id) => {
     const numericId = Number.parseInt(String(id), 10);
     if (!Number.isInteger(numericId)) return;
-    if (!confirm('Изтриване на коментара?')) return;
+
+    const confirmed = await confirm({
+      title: 'Изтриване на коментар',
+      message: 'Коментарът и всички отговори към него ще бъдат изтрити безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
 
     setBusyId(numericId);
     setError('');
@@ -178,10 +198,21 @@ export default function ManageComments() {
         </div>
       )}
 
-      <div className="flex gap-2 mb-5">
+      <div className="flex flex-wrap gap-2 mb-5 items-center">
         {filterBtn('all', 'Всички', optimisticComments.length)}
         {filterBtn('pending', 'Чакащи', pendingCount)}
         {filterBtn('approved', 'Одобрени', approvedCount)}
+
+        <div className="ml-auto relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Търси по автор или текст..."
+            className="pl-9 pr-3 py-1.5 text-sm font-sans bg-white border border-gray-200 outline-none focus:border-zn-purple w-64"
+          />
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -234,6 +265,7 @@ export default function ManageComments() {
                     disabled={busy}
                     className="p-1.5 text-gray-400 hover:text-emerald-600 transition-colors disabled:opacity-50"
                     title="Одобри"
+                    aria-label="Одобри коментар"
                   >
                     <Check className="w-4 h-4" />
                   </button>
@@ -245,11 +277,12 @@ export default function ManageComments() {
                     disabled={busy}
                     className="p-1.5 text-gray-400 hover:text-amber-600 transition-colors disabled:opacity-50"
                     title="Скрий"
+                    aria-label="Скрий коментар"
                   >
                     <XCircle className="w-4 h-4" />
                   </button>
                 )}
-                <a href={`/article/${comment.articleId}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors" title="Виж статията">
+                <a href={`/article/${comment.articleId}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors" title="Виж статията" aria-label="Виж статията">
                   <Eye className="w-4 h-4" />
                 </a>
                 <button
@@ -258,6 +291,7 @@ export default function ManageComments() {
                   disabled={busy}
                   className="p-1.5 text-gray-400 hover:text-red-600 transition-colors disabled:opacity-50"
                   title="Изтрий"
+                  aria-label="Изтрий коментар"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -266,7 +300,9 @@ export default function ManageComments() {
           );
         })}
         {sortedComments.length === 0 && (
-          <div className="text-center py-12 text-sm font-sans text-gray-400">Няма коментари в този филтър</div>
+          <div className="text-center py-12 text-sm font-sans text-gray-400">
+            {searchQuery.trim() ? 'Няма резултати за търсенето' : 'Няма коментари в този филтър'}
+          </div>
         )}
       </div>
     </div>

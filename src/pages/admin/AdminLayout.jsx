@@ -6,6 +6,7 @@ import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { makeTitle, useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { ToastProvider } from '../../components/admin/Toast';
+import { ConfirmProvider } from '../../components/admin/ConfirmDialog';
 
 const navItems = [
   { to: '/admin', label: 'Табло', icon: LayoutDashboard, exact: true },
@@ -58,6 +59,16 @@ export default function AdminLayout() {
     return makeTitle(`Админ: ${label}`);
   }, [location.pathname]);
   useDocumentTitle(adminTitle);
+
+  const breadcrumb = useMemo(() => {
+    const path = location.pathname;
+    const active = navItems.find((item) => {
+      if (!item?.to) return false;
+      if (item.exact) return path === item.to;
+      return path === item.to || path.startsWith(`${item.to}/`);
+    });
+    return active?.label || null;
+  }, [location.pathname]);
 
   if (!session) {
     return <Navigate to="/admin/login" replace />;
@@ -290,7 +301,18 @@ export default function AdminLayout() {
               </button>
             </div>
           )}
-          <Outlet />
+          <ConfirmProvider>
+            {breadcrumb && (
+              <div className="px-8 pt-5 pb-0">
+                <nav aria-label="Breadcrumb" className="text-xs font-sans text-gray-400">
+                  <span>Админ</span>
+                  <span className="mx-1.5">/</span>
+                  <span className="text-gray-700 font-medium">{breadcrumb}</span>
+                </nav>
+              </div>
+            )}
+            <Outlet />
+          </ConfirmProvider>
         </main>
       </div>
     </ToastProvider>
