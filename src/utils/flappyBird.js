@@ -1,6 +1,7 @@
 /**
  * flappyBird.js — Pure logic / constants for Flappy Bird game.
  * Physics tuned to closely match the original Flappy Bird feel.
+ * All physics use delta-time so the game runs identically on 60/144/240Hz monitors.
  * CEF 103 safe — no modern APIs, all canvas 2D compatible.
  */
 
@@ -8,7 +9,11 @@
 export const CANVAS_W = 320;
 export const CANVAS_H = 480;
 
-/* ---------- Bird ---------- */
+/* ---------- Target frame rate (physics are tuned for this) ---------- */
+export const TARGET_FPS = 60;
+export const TARGET_FRAME_MS = 1000 / TARGET_FPS; // 16.667ms
+
+/* ---------- Bird (values per 60fps frame) ---------- */
 export const BIRD_X = 70;
 export const BIRD_W = 28;
 export const BIRD_H = 22;
@@ -16,11 +21,11 @@ export const GRAVITY = 0.45;
 export const FLAP_VELOCITY = -7;
 export const MAX_FALL_SPEED = 10;
 
-/* ---------- Pipes ---------- */
+/* ---------- Pipes (values per 60fps frame) ---------- */
 export const PIPE_W = 48;
 export const PIPE_GAP = 125;
 export const PIPE_SPEED = 2;
-export const PIPE_SPAWN_INTERVAL = 95; // frames between pipe spawns
+export const PIPE_SPAWN_MS = 95 * TARGET_FRAME_MS; // ~1583ms between spawns
 export const PIPE_MIN_TOP = 55;
 
 /* ---------- Ground ---------- */
@@ -58,7 +63,7 @@ export function createBird() {
   };
 }
 
-export function createPipe(_frameCount) {
+export function createPipe() {
   const maxTop = PLAYABLE_H - PIPE_GAP - PIPE_MIN_TOP;
   const topHeight = PIPE_MIN_TOP + Math.floor(Math.random() * (maxTop - PIPE_MIN_TOP));
   return {
@@ -69,39 +74,34 @@ export function createPipe(_frameCount) {
   };
 }
 
-export function updateBird(bird) {
-  const newVel = Math.min(bird.velocity + GRAVITY, MAX_FALL_SPEED);
-  const newY = bird.y + newVel;
+/**
+ * Update bird physics. `dt` = number of 60fps frames elapsed (e.g. 1.0 at 60Hz, 0.5 at 120Hz).
+ */
+export function updateBird(bird, dt) {
+  const newVel = Math.min(bird.velocity + GRAVITY * dt, MAX_FALL_SPEED);
+  const newY = bird.y + newVel * dt;
 
-  // Rotation — snappy like original:
-  // Rising: quickly tilt to -30°
-  // Falling: slowly rotate to 90° (nose-dive)
+  // Rotation — snappy like original
   let rotation;
   if (newVel < -2) {
-    // Strong upward — snap to -30°
     rotation = -30;
   } else if (newVel < 0) {
-    // Slowing rise — interpolate toward 0
-    rotation = bird.rotation + (0 - bird.rotation) * 0.15;
+    rotation = bird.rotation + (0 - bird.rotation) * Math.min(0.15 * dt, 1);
   } else if (newVel > 1.5) {
-    // Falling — gradually nose-dive toward 90° (like original)
-    rotation = Math.min(bird.rotation + 2.5, 90);
+    rotation = Math.min(bird.rotation + 2.5 * dt, 90);
   } else {
-    // Hovering at peak — drift toward level
-    rotation = bird.rotation + (0 - bird.rotation) * 0.1;
+    rotation = bird.rotation + (0 - bird.rotation) * Math.min(0.1 * dt, 1);
   }
 
-  // Wing flap cycle
-  const wingPhase = (bird.wingPhase || 0) + 0.2;
+  const wingPhase = (bird.wingPhase || 0) + 0.2 * dt;
   return { ...bird, y: newY, velocity: newVel, rotation, wingPhase };
 }
 
 /** Death fall — bird tumbles down after dying (like original). */
-export function updateDeadBird(bird) {
-  const newVel = Math.min(bird.velocity + GRAVITY, MAX_FALL_SPEED);
-  const newY = bird.y + newVel;
-  const rotation = Math.min(bird.rotation + 4, 90);
-  // Stop at ground
+export function updateDeadBird(bird, dt) {
+  const newVel = Math.min(bird.velocity + GRAVITY * dt, MAX_FALL_SPEED);
+  const newY = bird.y + newVel * dt;
+  const rotation = Math.min(bird.rotation + 4 * dt, 90);
   if (newY >= PLAYABLE_H - BIRD_H / 2) {
     return { ...bird, y: PLAYABLE_H - BIRD_H / 2, velocity: 0, rotation: 90, alive: false };
   }
@@ -112,9 +112,10 @@ export function flapBird(bird) {
   return { ...bird, velocity: FLAP_VELOCITY, rotation: -30 };
 }
 
-export function updatePipes(pipes) {
+/** Move pipes left by `dt` frames worth of distance. */
+export function updatePipes(pipes, dt) {
   return pipes
-    .map((p) => ({ ...p, x: p.x - PIPE_SPEED }))
+    .map((p) => ({ ...p, x: p.x - PIPE_SPEED * dt }))
     .filter((p) => p.x + PIPE_W > -10);
 }
 
@@ -124,15 +125,12 @@ export function checkCollision(bird, pipes) {
   const birdLeft = BIRD_X - BIRD_W / 2;
   const birdRight = BIRD_X + BIRD_W / 2;
 
-  // Ground or ceiling
   if (birdBottom >= PLAYABLE_H || birdTop <= 0) return true;
 
-  // Pipes (slightly forgiving hitbox)
   const margin = 3;
   for (const pipe of pipes) {
     const pipeLeft = pipe.x + margin;
     const pipeRight = pipe.x + PIPE_W - margin;
-
     if (birdRight > pipeLeft && birdLeft < pipeRight) {
       if (birdTop + margin < pipe.topHeight || birdBottom - margin > pipe.bottomY) {
         return true;
@@ -158,14 +156,12 @@ export function checkScore(bird, pipes) {
 /* ---------- Drawing helpers ---------- */
 
 export function drawBackground(ctx, groundOffset) {
-  // Sky gradient
   const grad = ctx.createLinearGradient(0, 0, 0, PLAYABLE_H);
   grad.addColorStop(0, COLORS.sky);
   grad.addColorStop(1, COLORS.skyBottom);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, CANVAS_W, PLAYABLE_H);
 
-  // Clouds (parallax — move slower than pipes)
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
   const cloudOffset = (groundOffset || 0) * 0.25;
   const clouds = [
@@ -190,15 +186,10 @@ export function drawBackground(ctx, groundOffset) {
 }
 
 export function drawGround(ctx, offset) {
-  // Ground body
   ctx.fillStyle = COLORS.ground;
   ctx.fillRect(0, PLAYABLE_H, CANVAS_W, GROUND_H);
-
-  // Ground top edge
   ctx.fillStyle = COLORS.groundDark;
   ctx.fillRect(0, PLAYABLE_H, CANVAS_W, 3);
-
-  // Scrolling stripes
   ctx.fillStyle = COLORS.groundStripe;
   const stripeW = 24;
   const startX = -(offset % stripeW);
@@ -211,18 +202,13 @@ export function drawPipe(ctx, pipe) {
   const capH = 22;
   const capOverhang = 4;
 
-  // --- Top pipe ---
-  // Body
   ctx.fillStyle = COLORS.pipe;
   ctx.fillRect(pipe.x + 2, 0, PIPE_W - 4, pipe.topHeight - capH);
-  // Highlight stripe (3D effect like original)
   ctx.fillStyle = COLORS.pipeHighlight;
   ctx.fillRect(pipe.x + 5, 0, 6, pipe.topHeight - capH);
-  // Edge lines
   ctx.fillStyle = COLORS.pipeEdge;
   ctx.fillRect(pipe.x + 2, 0, 2, pipe.topHeight - capH);
   ctx.fillRect(pipe.x + PIPE_W - 4, 0, 2, pipe.topHeight - capH);
-  // Cap
   ctx.fillStyle = COLORS.pipeCap;
   ctx.fillRect(pipe.x - capOverhang, pipe.topHeight - capH, PIPE_W + capOverhang * 2, capH);
   ctx.fillStyle = COLORS.pipeHighlight;
@@ -231,18 +217,13 @@ export function drawPipe(ctx, pipe) {
   ctx.lineWidth = 2;
   ctx.strokeRect(pipe.x - capOverhang, pipe.topHeight - capH, PIPE_W + capOverhang * 2, capH);
 
-  // --- Bottom pipe ---
-  // Body
   ctx.fillStyle = COLORS.pipe;
   ctx.fillRect(pipe.x + 2, pipe.bottomY + capH, PIPE_W - 4, PLAYABLE_H - pipe.bottomY - capH);
-  // Highlight stripe
   ctx.fillStyle = COLORS.pipeHighlight;
   ctx.fillRect(pipe.x + 5, pipe.bottomY + capH, 6, PLAYABLE_H - pipe.bottomY - capH);
-  // Edge lines
   ctx.fillStyle = COLORS.pipeEdge;
   ctx.fillRect(pipe.x + 2, pipe.bottomY + capH, 2, PLAYABLE_H - pipe.bottomY - capH);
   ctx.fillRect(pipe.x + PIPE_W - 4, pipe.bottomY + capH, 2, PLAYABLE_H - pipe.bottomY - capH);
-  // Cap
   ctx.fillStyle = COLORS.pipeCap;
   ctx.fillRect(pipe.x - capOverhang, pipe.bottomY, PIPE_W + capOverhang * 2, capH);
   ctx.fillStyle = COLORS.pipeHighlight;
@@ -256,32 +237,27 @@ export function drawBird(ctx, bird) {
   ctx.translate(BIRD_X, bird.y);
   ctx.rotate((bird.rotation * Math.PI) / 180);
 
-  // Body shadow
   ctx.fillStyle = 'rgba(0,0,0,0.15)';
   ctx.beginPath();
   ctx.ellipse(1, 2, BIRD_W / 2 + 1, BIRD_H / 2 + 1, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Body
   ctx.fillStyle = COLORS.bird;
   ctx.beginPath();
   ctx.ellipse(0, 0, BIRD_W / 2, BIRD_H / 2, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Body outline
   ctx.strokeStyle = '#c8a030';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.ellipse(0, 0, BIRD_W / 2, BIRD_H / 2, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Body highlight
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.beginPath();
   ctx.ellipse(-2, -4, BIRD_W / 3, BIRD_H / 4, -0.3, 0, Math.PI * 2);
   ctx.fill();
 
-  // Wing (animated flap)
   const wingY = Math.sin(bird.wingPhase || 0) * 5;
   ctx.fillStyle = COLORS.birdWing;
   ctx.beginPath();
@@ -293,7 +269,6 @@ export function drawBird(ctx, bird) {
   ctx.ellipse(-3, 3 + wingY, 10, 6, -0.15, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Eye (white)
   ctx.fillStyle = COLORS.birdEye;
   ctx.beginPath();
   ctx.arc(7, -4, 5.5, 0, Math.PI * 2);
@@ -304,19 +279,16 @@ export function drawBird(ctx, bird) {
   ctx.arc(7, -4, 5.5, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Pupil
   ctx.fillStyle = COLORS.birdPupil;
   ctx.beginPath();
   ctx.arc(9, -3.5, 2.8, 0, Math.PI * 2);
   ctx.fill();
 
-  // Eye glint
   ctx.fillStyle = '#ffffff';
   ctx.beginPath();
   ctx.arc(8, -5.5, 1.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Beak (two-tone)
   ctx.fillStyle = '#ff8f00';
   ctx.beginPath();
   ctx.moveTo(12, -2);
@@ -347,10 +319,8 @@ export function drawScore(ctx, score) {
   ctx.restore();
 }
 
-/** Draw "Get Ready" idle screen elements. */
-export function drawGetReady(ctx, frameCount) {
+export function drawGetReady(ctx, timeMs) {
   ctx.save();
-  // Title
   ctx.font = 'bold 28px "Oswald", sans-serif';
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffffff';
@@ -360,8 +330,7 @@ export function drawGetReady(ctx, frameCount) {
   ctx.strokeText('ПРИГОТВИ СЕ!', CANVAS_W / 2, titleY);
   ctx.fillText('ПРИГОТВИ СЕ!', CANVAS_W / 2, titleY);
 
-  // Tap instruction (pulsing)
-  const alpha = 0.5 + Math.sin(frameCount * 0.08) * 0.3;
+  const alpha = 0.5 + Math.sin(timeMs * 0.005) * 0.3;
   ctx.globalAlpha = alpha;
   ctx.font = 'bold 16px "Oswald", sans-serif';
   ctx.strokeStyle = '#1C1428';

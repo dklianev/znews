@@ -15,9 +15,10 @@ import {
   drawPipe,
   drawScore,
   flapBird,
-  PIPE_SPAWN_INTERVAL,
+  PIPE_SPAWN_MS,
   PIPE_SPEED,
   PLAYABLE_H,
+  TARGET_FRAME_MS,
   updateBird,
   updateDeadBird,
   updatePipes,
@@ -41,13 +42,15 @@ export default function GameFlappyBirdPage() {
   const birdRef = useRef(createBird());
   const pipesRef = useRef([]);
   const scoreRef = useRef(0);
-  const frameRef = useRef(0);
   const statusRef = useRef('idle');
   const groundOffsetRef = useRef(0);
   const animFrameRef = useRef(null);
   const bestScoreRef = useRef(0);
   const flashRef = useRef(0);
-  const deathFrameRef = useRef(0);
+  const deathTimeRef = useRef(0);
+  const lastTimeRef = useRef(0);
+  const pipeTimerRef = useRef(0);
+  const idleTimeRef = useRef(0);
 
   statusRef.current = gameStatus;
 
@@ -68,25 +71,34 @@ export default function GameFlappyBirdPage() {
     }
   }, []);
 
-  const drawFrame = useCallback(() => {
+  const drawFrame = useCallback((timestamp) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Calculate delta-time (dt = number of 60fps frames elapsed)
+    if (lastTimeRef.current === 0) lastTimeRef.current = timestamp;
+    const rawDeltaMs = timestamp - lastTimeRef.current;
+    // Clamp to prevent spiral of death on tab switch (max 3 frames worth)
+    const deltaMs = Math.min(rawDeltaMs, TARGET_FRAME_MS * 3);
+    const dt = deltaMs / TARGET_FRAME_MS;
+    lastTimeRef.current = timestamp;
+
     const status = statusRef.current;
 
     if (status === 'playing') {
-      // Update bird
-      birdRef.current = updateBird(birdRef.current);
+      // Update bird with delta-time
+      birdRef.current = updateBird(birdRef.current, dt);
 
-      // Update pipes
-      pipesRef.current = updatePipes(pipesRef.current);
+      // Update pipes with delta-time
+      pipesRef.current = updatePipes(pipesRef.current, dt);
 
-      // Spawn new pipes
-      frameRef.current += 1;
-      if (frameRef.current % PIPE_SPAWN_INTERVAL === 0) {
-        pipesRef.current.push(createPipe(frameRef.current));
+      // Spawn new pipes based on elapsed time
+      pipeTimerRef.current += deltaMs;
+      if (pipeTimerRef.current >= PIPE_SPAWN_MS) {
+        pipeTimerRef.current -= PIPE_SPAWN_MS;
+        pipesRef.current.push(createPipe());
       }
 
       // Check score
@@ -103,21 +115,19 @@ export default function GameFlappyBirdPage() {
         setGameStatus('dying');
         saveBest(scoreRef.current);
         flashRef.current = 10;
-        deathFrameRef.current = 0;
-        // Give the bird an upward bump on death (like original)
+        deathTimeRef.current = 0;
         birdRef.current = { ...birdRef.current, velocity: -4, alive: true };
       }
 
       // Ground scroll
-      groundOffsetRef.current += PIPE_SPEED;
+      groundOffsetRef.current += PIPE_SPEED * dt;
     }
 
     if (status === 'dying') {
-      // Death animation — bird tumbles to ground
-      birdRef.current = updateDeadBird(birdRef.current);
-      deathFrameRef.current += 1;
-      // Transition to game over when bird hits ground or after timeout
-      if (!birdRef.current.alive || deathFrameRef.current > 90) {
+      // Death animation with delta-time
+      birdRef.current = updateDeadBird(birdRef.current, dt);
+      deathTimeRef.current += deltaMs;
+      if (!birdRef.current.alive || deathTimeRef.current > 1500) {
         statusRef.current = 'over';
         setGameStatus('over');
       }
@@ -125,47 +135,38 @@ export default function GameFlappyBirdPage() {
 
     // --- Draw ---
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-
-    // Background
     drawBackground(ctx, groundOffsetRef.current);
-
-    // Pipes
     for (const pipe of pipesRef.current) {
       drawPipe(ctx, pipe);
     }
-
-    // Ground
     drawGround(ctx, groundOffsetRef.current);
-
-    // Bird
     drawBird(ctx, birdRef.current);
 
-    // Score (in-game and dying)
     if (status === 'playing' || status === 'dying') {
       drawScore(ctx, scoreRef.current);
     }
 
-    // Death flash (white flash like original)
+    // Death flash
     if (flashRef.current > 0) {
       ctx.fillStyle = `rgba(255,255,255,${flashRef.current / 12})`;
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-      flashRef.current -= 1;
+      flashRef.current = Math.max(0, flashRef.current - dt);
     }
 
-    // Idle — bob the bird up and down with "Get Ready" screen
+    // Idle — bob the bird with delta-time
     if (status === 'idle') {
-      const bobY = Math.sin(frameRef.current * 0.06) * 10;
+      idleTimeRef.current += deltaMs;
+      const bobY = Math.sin(idleTimeRef.current * 0.004) * 10;
       birdRef.current = {
         ...birdRef.current,
         y: PLAYABLE_H / 2 - 30 + bobY,
-        wingPhase: (birdRef.current.wingPhase || 0) + 0.2,
+        wingPhase: (birdRef.current.wingPhase || 0) + 0.2 * dt,
         rotation: 0,
       };
-      frameRef.current += 1;
-      groundOffsetRef.current += PIPE_SPEED * 0.3;
+      groundOffsetRef.current += PIPE_SPEED * 0.3 * dt;
 
       drawScore(ctx, 0);
-      drawGetReady(ctx, frameRef.current);
+      drawGetReady(ctx, idleTimeRef.current);
     }
 
     animFrameRef.current = requestAnimationFrame(drawFrame);
@@ -189,14 +190,14 @@ export default function GameFlappyBirdPage() {
     birdRef.current = createBird();
     pipesRef.current = [];
     scoreRef.current = 0;
-    frameRef.current = 0;
     groundOffsetRef.current = 0;
     flashRef.current = 0;
-    deathFrameRef.current = 0;
+    deathTimeRef.current = 0;
+    pipeTimerRef.current = 0;
+    lastTimeRef.current = 0;
     setDisplayScore(0);
     setGameStatus('playing');
     statusRef.current = 'playing';
-    // First flap
     birdRef.current = flapBird(birdRef.current);
   }, []);
 
