@@ -546,16 +546,16 @@ export default function GameTetrisPage() {
 
   /* ── Key mapping helper ── */
 
-  const getAction = useCallback((key) => {
+  const getAction = useCallback((key, code) => {
     const keys = settingsRef.current.keys;
     const lk = key.toLowerCase();
     for (const [action, mapped] of Object.entries(keys)) {
       if (mapped === key || mapped.toLowerCase() === lk) return action;
     }
-    // WASD fallback aliases (only when those keys aren't already bound)
+    // WASD/C fallback using e.code — works regardless of keyboard layout (Cyrillic, etc.)
     const mappedValues = new Set(Object.values(keys).map((v) => v.toLowerCase()));
-    const wasdMap = { a: 'moveLeft', d: 'moveRight', s: 'softDrop', w: 'rotateCW', c: 'hold' };
-    if (wasdMap[lk] && !mappedValues.has(lk)) return wasdMap[lk];
+    const codeMap = { KeyA: 'moveLeft', KeyD: 'moveRight', KeyS: 'softDrop', KeyW: 'rotateCW', KeyC: 'hold' };
+    if (code && codeMap[code] && !mappedValues.has((code === 'KeyA' ? 'a' : code === 'KeyD' ? 'd' : code === 'KeyS' ? 's' : code === 'KeyW' ? 'w' : 'c'))) return codeMap[code];
     return null;
   }, []);
 
@@ -580,7 +580,7 @@ export default function GameTetrisPage() {
       if (st === 'countdown') { e.preventDefault(); return; }
 
       // Pause
-      const action = getAction(e.key);
+      const action = getAction(e.key, e.code);
       if (action === 'pause' || e.key === 'Escape') { e.preventDefault(); togglePause(); return; }
 
       if (st !== 'playing') return;
@@ -629,7 +629,7 @@ export default function GameTetrisPage() {
     }
 
     function handleKeyUp(e) {
-      const action = getAction(e.key);
+      const action = getAction(e.key, e.code);
       if (action === 'moveLeft' || action === 'moveRight' || action === 'softDrop') {
         stopDAS(action);
       }

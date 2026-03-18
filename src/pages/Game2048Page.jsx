@@ -144,15 +144,14 @@ export default function Game2048Page() {
       const tag = e.target.tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
+      // Use e.code for WASD so it works regardless of keyboard layout (Cyrillic, etc.)
       let dir = null;
-      switch (e.key) {
-        case 'ArrowUp': case 'w': case 'W': dir = 'up'; break;
-        case 'ArrowDown': case 's': case 'S': dir = 'down'; break;
-        case 'ArrowLeft': case 'a': case 'A': dir = 'left'; break;
-        case 'ArrowRight': case 'd': case 'D': dir = 'right'; break;
-        case 'z': case 'Z': handleUndo(); e.preventDefault(); return;
-        default: return;
-      }
+      if (e.key === 'ArrowUp' || e.code === 'KeyW') dir = 'up';
+      else if (e.key === 'ArrowDown' || e.code === 'KeyS') dir = 'down';
+      else if (e.key === 'ArrowLeft' || e.code === 'KeyA') dir = 'left';
+      else if (e.key === 'ArrowRight' || e.code === 'KeyD') dir = 'right';
+      else if (e.key === 'z' || e.key === 'Z' || e.code === 'KeyZ') { handleUndo(); e.preventDefault(); return; }
+      else return;
       e.preventDefault();
       // Blur focused button so it doesn't steal subsequent keys
       if (document.activeElement && document.activeElement.tagName === 'BUTTON') {

@@ -221,17 +221,16 @@ export default function GameSnakePage() {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startGame(); }
         return;
       }
-      if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') { e.preventDefault(); togglePause(); return; }
+      if (e.key === 'p' || e.key === 'P' || e.code === 'KeyP' || e.key === 'Escape') { e.preventDefault(); togglePause(); return; }
       if (statusRef.current !== 'playing') return;
 
+      // Use e.code for WASD so it works regardless of keyboard layout (Cyrillic, etc.)
       let newDir = null;
-      switch (e.key) {
-        case 'ArrowUp': case 'w': case 'W': newDir = 'UP'; break;
-        case 'ArrowDown': case 's': case 'S': newDir = 'DOWN'; break;
-        case 'ArrowLeft': case 'a': case 'A': newDir = 'LEFT'; break;
-        case 'ArrowRight': case 'd': case 'D': newDir = 'RIGHT'; break;
-        default: return;
-      }
+      if (e.key === 'ArrowUp' || e.code === 'KeyW') newDir = 'UP';
+      else if (e.key === 'ArrowDown' || e.code === 'KeyS') newDir = 'DOWN';
+      else if (e.key === 'ArrowLeft' || e.code === 'KeyA') newDir = 'LEFT';
+      else if (e.key === 'ArrowRight' || e.code === 'KeyD') newDir = 'RIGHT';
+      else return;
       e.preventDefault();
       if (OPPOSITE[newDir] !== dirRef.current) { nextDirRef.current = newDir; }
     }

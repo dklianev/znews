@@ -10,13 +10,16 @@ import {
   createPipe,
   drawBackground,
   drawBird,
+  drawGetReady,
   drawGround,
   drawPipe,
   drawScore,
   flapBird,
   PIPE_SPAWN_INTERVAL,
   PIPE_SPEED,
+  PLAYABLE_H,
   updateBird,
+  updateDeadBird,
   updatePipes,
 } from '../utils/flappyBird';
 import { loadScopedGameProgress, saveScopedGameProgress } from '../utils/gameStorage';
@@ -30,7 +33,7 @@ function formatScore(n) {
 
 export default function GameFlappyBirdPage() {
   const canvasRef = useRef(null);
-  const [gameStatus, setGameStatus] = useState('idle'); // idle | playing | over
+  const [gameStatus, setGameStatus] = useState('idle'); // idle | playing | dying | over
   const [displayScore, setDisplayScore] = useState(0);
   const [bestScore, setBestScore] = useState(0);
 
@@ -43,7 +46,8 @@ export default function GameFlappyBirdPage() {
   const groundOffsetRef = useRef(0);
   const animFrameRef = useRef(null);
   const bestScoreRef = useRef(0);
-  const flashRef = useRef(0); // screen flash on death
+  const flashRef = useRef(0);
+  const deathFrameRef = useRef(0);
 
   statusRef.current = gameStatus;
 
@@ -95,14 +99,28 @@ export default function GameFlappyBirdPage() {
 
       // Check collision
       if (checkCollision(birdRef.current, pipesRef.current)) {
-        statusRef.current = 'over';
-        setGameStatus('over');
+        statusRef.current = 'dying';
+        setGameStatus('dying');
         saveBest(scoreRef.current);
-        flashRef.current = 8;
+        flashRef.current = 10;
+        deathFrameRef.current = 0;
+        // Give the bird an upward bump on death (like original)
+        birdRef.current = { ...birdRef.current, velocity: -4, alive: true };
       }
 
       // Ground scroll
       groundOffsetRef.current += PIPE_SPEED;
+    }
+
+    if (status === 'dying') {
+      // Death animation — bird tumbles to ground
+      birdRef.current = updateDeadBird(birdRef.current);
+      deathFrameRef.current += 1;
+      // Transition to game over when bird hits ground or after timeout
+      if (!birdRef.current.alive || deathFrameRef.current > 90) {
+        statusRef.current = 'over';
+        setGameStatus('over');
+      }
     }
 
     // --- Draw ---
@@ -122,35 +140,32 @@ export default function GameFlappyBirdPage() {
     // Bird
     drawBird(ctx, birdRef.current);
 
-    // Score (in-game)
-    if (status === 'playing') {
+    // Score (in-game and dying)
+    if (status === 'playing' || status === 'dying') {
       drawScore(ctx, scoreRef.current);
     }
 
-    // Death flash
+    // Death flash (white flash like original)
     if (flashRef.current > 0) {
-      ctx.fillStyle = `rgba(255,255,255,${flashRef.current / 10})`;
+      ctx.fillStyle = `rgba(255,255,255,${flashRef.current / 12})`;
       ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
       flashRef.current -= 1;
     }
 
-    // Idle — bob the bird up and down
+    // Idle — bob the bird up and down with "Get Ready" screen
     if (status === 'idle') {
-      const bobY = Math.sin(frameRef.current * 0.05) * 8;
-      birdRef.current = { ...birdRef.current, y: (PLAYABLE_H / 2 - 20) + bobY, wingPhase: (birdRef.current.wingPhase || 0) + 0.15, rotation: 0 };
+      const bobY = Math.sin(frameRef.current * 0.06) * 10;
+      birdRef.current = {
+        ...birdRef.current,
+        y: PLAYABLE_H / 2 - 30 + bobY,
+        wingPhase: (birdRef.current.wingPhase || 0) + 0.2,
+        rotation: 0,
+      };
       frameRef.current += 1;
-      groundOffsetRef.current += PIPE_SPEED * 0.5; // slow ground scroll on idle
+      groundOffsetRef.current += PIPE_SPEED * 0.3;
 
       drawScore(ctx, 0);
-      ctx.save();
-      ctx.font = 'bold 16px "Oswald", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#1C1428';
-      ctx.lineWidth = 3;
-      ctx.strokeText('Натисни SPACE или кликни', CANVAS_W / 2, CANVAS_H / 2 + 60);
-      ctx.fillText('Натисни SPACE или кликни', CANVAS_W / 2, CANVAS_H / 2 + 60);
-      ctx.restore();
+      drawGetReady(ctx, frameRef.current);
     }
 
     animFrameRef.current = requestAnimationFrame(drawFrame);
@@ -177,6 +192,7 @@ export default function GameFlappyBirdPage() {
     frameRef.current = 0;
     groundOffsetRef.current = 0;
     flashRef.current = 0;
+    deathFrameRef.current = 0;
     setDisplayScore(0);
     setGameStatus('playing');
     statusRef.current = 'playing';
@@ -184,26 +200,24 @@ export default function GameFlappyBirdPage() {
     birdRef.current = flapBird(birdRef.current);
   }, []);
 
-  // Keyboard — SPACE, ↑, W, Enter, click all work
+  // Keyboard — use e.code for layout-independent WASD support
   useEffect(() => {
     function handleKey(e) {
       const tag = e.target.tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
-      const flapKeys = [' ', 'ArrowUp', 'w', 'W'];
-      const startKeys = [' ', 'ArrowUp', 'w', 'W', 'Enter'];
+      const isFlapKey = e.key === ' ' || e.key === 'ArrowUp' || e.code === 'KeyW' || e.key === 'Enter';
+      if (!isFlapKey) return;
 
-      if (flapKeys.includes(e.key) || e.key === 'Enter') {
-        e.preventDefault();
-        // Blur focused button so subsequent keys work
-        if (document.activeElement && document.activeElement.tagName === 'BUTTON') {
-          document.activeElement.blur();
-        }
-        if (statusRef.current === 'idle' || statusRef.current === 'over') {
-          if (startKeys.includes(e.key)) startGame();
-        } else {
-          if (flapKeys.includes(e.key)) flap();
-        }
+      e.preventDefault();
+      if (document.activeElement && document.activeElement.tagName === 'BUTTON') {
+        document.activeElement.blur();
+      }
+
+      if (statusRef.current === 'idle' || statusRef.current === 'over') {
+        startGame();
+      } else if (statusRef.current === 'playing') {
+        flap();
       }
     }
     window.addEventListener('keydown', handleKey);
@@ -214,7 +228,7 @@ export default function GameFlappyBirdPage() {
   const handleCanvasInteract = useCallback(() => {
     if (statusRef.current === 'idle' || statusRef.current === 'over') {
       startGame();
-    } else {
+    } else if (statusRef.current === 'playing') {
       flap();
     }
   }, [startGame, flap]);
@@ -235,6 +249,8 @@ export default function GameFlappyBirdPage() {
       alert('Резултатът е копиран!');
     }
   }, [displayScore, bestScore]);
+
+  const isOver = gameStatus === 'over';
 
   return (
     <div className="min-h-screen bg-zn-paper comic-dots dark:bg-zinc-950 pb-20">
@@ -269,7 +285,7 @@ export default function GameFlappyBirdPage() {
               <p className="text-lg font-black font-display text-zn-hot">{formatScore(bestScore)}</p>
             </div>
 
-            {gameStatus === 'over' && (
+            {isOver && (
               <>
                 <button type="button" onClick={startGame}
                   className="comic-panel bg-sky-600 text-white p-3 text-center font-display uppercase text-xs tracking-widest hover:bg-sky-700 transition-colors">
@@ -305,8 +321,8 @@ export default function GameFlappyBirdPage() {
             </div>
 
             <div className="comic-panel bg-[#0d0d1a] p-2 relative">
-              {/* Game over overlay on canvas */}
-              {gameStatus === 'over' && (
+              {/* Game over overlay */}
+              {isOver && (
                 <div className="absolute inset-0 z-20 bg-black/60 flex items-center justify-center" style={{ margin: 8 }}>
                   <div className="text-center px-4">
                     <p className="text-zn-hot font-display text-3xl uppercase tracking-widest mb-1 font-black">Край!</p>
@@ -341,7 +357,7 @@ export default function GameFlappyBirdPage() {
 
             {/* Mobile buttons */}
             <div className="flex md:hidden gap-2 flex-wrap justify-center">
-              {gameStatus === 'over' && (
+              {isOver && (
                 <>
                   <button type="button" onClick={startGame}
                     className="px-3 py-1 text-xs font-display uppercase tracking-widest border-2 border-sky-600 bg-sky-600/20 text-sky-700 dark:text-sky-400">
@@ -362,7 +378,7 @@ export default function GameFlappyBirdPage() {
             </div>
 
             <p className="text-[11px] text-zn-text/40 dark:text-zinc-500 text-center max-w-xs">
-              SPACE / ↑ / W / клик — маха крилца. Не удряй тръбите и земята!
+              SPACE / ↑ / W / клик — махай крилца. Не удряй тръбите и земята!
             </p>
           </div>
 
@@ -372,7 +388,7 @@ export default function GameFlappyBirdPage() {
               <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-text/50 dark:text-zinc-400 block mb-2 text-center">Как се играе</span>
               <div className="text-[10px] text-zn-text/60 dark:text-zinc-400 space-y-1.5">
                 <p>Натисни <strong>SPACE</strong>, <strong>↑</strong>, <strong>W</strong> или <strong>кликни</strong>.</p>
-                <p>Птичката <strong>маха крилца</strong> и се издига.</p>
+                <p>Птичката <strong>махай крилца</strong> и се издига.</p>
                 <p>Прелети между <strong>тръбите</strong>.</p>
                 <p>Всяка тръба = <strong>+1 точка</strong>.</p>
               </div>
