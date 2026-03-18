@@ -32,6 +32,8 @@ const GameSpellingBeePage = lazy(() => import('./pages/GameSpellingBeePage'));
 const GameSudokuPage = lazy(() => import('./pages/GameSudokuPage'));
 const GameTetrisPage = lazy(() => import('./pages/GameTetrisPage'));
 const GameSnakePage = lazy(() => import('./pages/GameSnakePage'));
+const Game2048Page = lazy(() => import('./pages/Game2048Page'));
+const GameFlappyBirdPage = lazy(() => import('./pages/GameFlappyBirdPage'));
 
 // Admin (lazy — heavy, rarely visited)
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
@@ -341,6 +343,8 @@ function AppContent() {
           <Route path="/games/sudoku" element={<PublicGameRoute slug="sudoku"><GameSudokuPage /></PublicGameRoute>} />
           <Route path="/games/tetris" element={<PublicGameRoute slug="tetris"><GameTetrisPage /></PublicGameRoute>} />
           <Route path="/games/snake" element={<PublicGameRoute slug="snake"><GameSnakePage /></PublicGameRoute>} />
+          <Route path="/games/2048" element={<PublicGameRoute slug="2048"><Game2048Page /></PublicGameRoute>} />
+          <Route path="/games/flappybird" element={<PublicGameRoute slug="flappybird"><GameFlappyBirdPage /></PublicGameRoute>} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
