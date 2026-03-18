@@ -9,6 +9,7 @@ const GAME_ICON_MAP = {
   Hexagon,
   Blocks,
   Tangent,
+  Gamepad2,
 };
 
 export function getGameIconComponent(iconName) {

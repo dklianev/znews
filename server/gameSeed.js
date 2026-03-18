@@ -11,6 +11,8 @@ export const DEFAULT_GAME_DEFINITIONS = Object.freeze([
   { id: 7, slug: 'crossword', title: 'Кръстословица', type: 'crossword', description: 'Попълни мини кръстословица с думи по хоризонтала и вертикала.', icon: 'Hash', active: true, sortOrder: 7, theme: 'indigo' },
   { id: 8, slug: 'tetris', title: 'Тетрис', type: 'tetris', description: 'Подреждай фигури, чисти линии, гони рекорд. Класиката на класиките.', icon: 'Blocks', active: true, sortOrder: 8, theme: 'purple' },
   { id: 9, slug: 'snake', title: 'Змия', type: 'snake', description: 'Яж, расти, не се блъскай. Три трудности, безкраен режим.', icon: 'Tangent', active: true, sortOrder: 9, theme: 'green' },
+  { id: 10, slug: '2048', title: '2048', type: '2048', description: 'Плъзгай плочки, сливай числа, достигни 2048. Пристрастяващ пъзел!', icon: 'Grid3x3', active: true, sortOrder: 10, theme: 'orange' },
+  { id: 11, slug: 'flappybird', title: 'Flappy Bird', type: 'flappybird', description: 'Маха крилца, прелитай тръби, гони рекорд. Класическа аркада!', icon: 'Gamepad2', active: true, sortOrder: 11, theme: 'green' },
 ]);
 
 const DEFAULT_GAME_SLUGS = DEFAULT_GAME_DEFINITIONS.map((game) => game.slug);
