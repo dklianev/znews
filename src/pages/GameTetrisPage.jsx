@@ -552,8 +552,10 @@ export default function GameTetrisPage() {
     for (const [action, mapped] of Object.entries(keys)) {
       if (mapped === key || mapped.toLowerCase() === lk) return action;
     }
-    // Also check Shift for hold
-    if (key === 'Shift' && keys.hold.toLowerCase() === 'c') return 'hold';
+    // WASD fallback aliases (only when those keys aren't already bound)
+    const mappedValues = new Set(Object.values(keys).map((v) => v.toLowerCase()));
+    const wasdMap = { a: 'moveLeft', d: 'moveRight', s: 'softDrop', w: 'rotateCW', c: 'hold' };
+    if (wasdMap[lk] && !mappedValues.has(lk)) return wasdMap[lk];
     return null;
   }, []);
 
