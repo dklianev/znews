@@ -232,23 +232,14 @@ export default function ArticlePage() {
     }
   }, [article?.id, incrementArticleView, articleId]);
 
-  if ((loading || hydratingArticle) && !article) {
-    return <ArticlePageSkeleton />;
-  }
+  // ── All remaining hooks MUST be declared before early returns ──
 
-  if (!article) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <h1 className="font-display text-3xl font-bold text-zn-text mb-4 tracking-wider">Статията не е намерена</h1>
-        <Link to="/" className="text-zn-hot hover:underline font-sans">Обратно към началната страница</Link>
-      </div>
-    );
-  }
-
-  const author = authors.find(a => a.id === article.authorId);
-  const category = categories.find(c => c.id === article.category);
+  const author = article ? authors.find(a => a.id === article.authorId) : null;
+  const category = article ? categories.find(c => c.id === article.category) : null;
   const showBodySkeleton = Boolean(hydratingArticle && !directArticle?.content && !contextArticle?.content);
+
   const relatedArticles = useMemo(() => {
+    if (!article) return [];
     const sourceTags = Array.isArray(article.tags)
       ? article.tags.map(tag => String(tag).toLowerCase())
       : [];
@@ -301,6 +292,7 @@ export default function ArticlePage() {
   }, [articles, article.category, article.date, article.id, article.tags]);
 
   const nextArticle = useMemo(() => {
+    if (!article) return null;
     const ordered = [...articles]
       .filter((item) => item.status !== 'draft')
       .sort((a, b) => {
@@ -311,9 +303,10 @@ export default function ArticlePage() {
     const index = ordered.findIndex((item) => item.id === article.id);
     if (index === -1) return null;
     return ordered[index + 1] || null;
-  }, [article.id, articles]);
+  }, [article?.id, articles]);
 
   const articlePresentation = useMemo(() => {
+    if (!article) return { html: '', headings: [], pullQuote: '', bodySegments: [] };
     const fallbackHtml = article.content || `<p>${article.excerpt || ''}</p>`;
     const fallback = {
       html: fallbackHtml,
@@ -376,7 +369,7 @@ export default function ArticlePage() {
     } catch {
       return fallback;
     }
-  }, [article.content, article.excerpt]);
+  }, [article?.content, article?.excerpt]);
 
   // JSON-LD structured data for search engines
   const jsonLd = useMemo(() => {
@@ -413,6 +406,112 @@ export default function ArticlePage() {
   const [yapperCopied, setYapperCopied] = useState(false);
   const yapperRef = useRef(null);
   const yapperInputRef = useRef(null);
+
+  const handleYapperOutsideDismiss = useEffectEvent((event) => {
+    if (yapperRef.current && !yapperRef.current.contains(event.target)) {
+      setYapperOpen(false);
+    }
+  });
+
+  const handleYapperEscapeDismiss = useEffectEvent((event) => {
+    if (event.key === 'Escape') setYapperOpen(false);
+  });
+
+  // Close yapper popup on outside click or Esc
+  useEffect(() => {
+    if (!yapperOpen) return undefined;
+
+    const handleClick = (event) => {
+      handleYapperOutsideDismiss(event);
+    };
+    const handleKey = (event) => {
+      handleYapperEscapeDismiss(event);
+    };
+
+    document.addEventListener('pointerdown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('pointerdown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [yapperOpen]);
+
+  // Autofocus the link input when opening the yapper popup.
+  useEffect(() => {
+    if (!yapperOpen) return;
+    const t = window.requestAnimationFrame(() => {
+      try {
+        yapperInputRef.current?.focus();
+        yapperInputRef.current?.select();
+      } catch { }
+    });
+    return () => window.cancelAnimationFrame(t);
+  }, [yapperOpen]);
+
+  useEffect(() => {
+    if (!nextArticle?.image || typeof Image === 'undefined') return undefined;
+
+    let preloadImage = null;
+    const t = window.setTimeout(() => {
+      preloadImage = new Image();
+      preloadImage.decoding = 'async';
+      preloadImage.src = nextArticle.image;
+    }, 800);
+
+    return () => {
+      window.clearTimeout(t);
+      if (preloadImage) {
+        try { preloadImage.src = ''; } catch { }
+      }
+      preloadImage = null;
+    };
+  }, [nextArticle?.image]);
+
+  // Reading progress bar
+  const [readProgress, setReadProgress] = useState(0);
+  const articleBodyRef = useRef(null);
+  const updateReadProgress = useEffectEvent(() => {
+    const el = articleBodyRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const total = el.scrollHeight;
+    const visible = window.innerHeight;
+    const scrolled = Math.max(0, -rect.top);
+    const pct = Math.min(100, Math.max(0, (scrolled / (total - visible)) * 100));
+    setReadProgress(pct);
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleViewportChange = () => {
+      updateReadProgress();
+    };
+
+    updateReadProgress();
+    window.addEventListener('scroll', handleViewportChange, { passive: true });
+    window.addEventListener('resize', handleViewportChange);
+    return () => {
+      window.removeEventListener('scroll', handleViewportChange);
+      window.removeEventListener('resize', handleViewportChange);
+    };
+  }, [article?.id]);
+
+  // ── Early returns AFTER all hooks ──
+
+  if ((loading || hydratingArticle) && !article) {
+    return <ArticlePageSkeleton />;
+  }
+
+  if (!article) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-20 text-center">
+        <h1 className="font-display text-3xl font-bold text-zn-text mb-4 tracking-wider">Статията не е намерена</h1>
+        <Link to="/" className="text-zn-hot hover:underline font-sans">Обратно към началната страница</Link>
+      </div>
+    );
+  }
+
   const sharePublicUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/share/article/${article.id}`
     : `/share/article/${article.id}`;
@@ -472,106 +571,12 @@ export default function ArticlePage() {
     }
   };
 
-  const handleYapperOutsideDismiss = useEffectEvent((event) => {
-    if (yapperRef.current && !yapperRef.current.contains(event.target)) {
-      setYapperOpen(false);
-    }
-  });
-
-  const handleYapperEscapeDismiss = useEffectEvent((event) => {
-    if (event.key === 'Escape') setYapperOpen(false);
-  });
-
-  // Close yapper popup on outside click or Esc
-  useEffect(() => {
-    if (!yapperOpen) return undefined;
-
-    const handleClick = (event) => {
-      handleYapperOutsideDismiss(event);
-    };
-    const handleKey = (event) => {
-      handleYapperEscapeDismiss(event);
-    };
-
-    document.addEventListener('pointerdown', handleClick);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('pointerdown', handleClick);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [yapperOpen]);
-
-  // Autofocus the link input when opening the yapper popup.
-  useEffect(() => {
-    if (!yapperOpen) return;
-    const t = window.requestAnimationFrame(() => {
-      try {
-        yapperInputRef.current?.focus();
-        yapperInputRef.current?.select();
-      } catch { }
-    });
-    return () => window.cancelAnimationFrame(t);
-  }, [yapperOpen]);
-
   const scrollToSection = (sectionId) => {
     const target = document.getElementById(sectionId);
     if (!target) return;
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     window.history.replaceState(null, '', `#${sectionId}`);
   };
-
-  useEffect(() => {
-    if (!nextArticle?.image || typeof Image === 'undefined') return undefined;
-
-    // Prefetching the SPA route itself is not useful (it usually re-downloads index.html).
-    // Instead we lightly prefetch the next article's image, with a delay to avoid spamming
-    // downloads when users navigate quickly.
-    let preloadImage = null;
-    const t = window.setTimeout(() => {
-      preloadImage = new Image();
-      preloadImage.decoding = 'async';
-      preloadImage.src = nextArticle.image;
-    }, 800);
-
-    return () => {
-      window.clearTimeout(t);
-      if (preloadImage) {
-        // Best-effort cancel.
-        try { preloadImage.src = ''; } catch { }
-      }
-      preloadImage = null;
-    };
-  }, [nextArticle?.image]);
-
-  // Reading progress bar
-  const [readProgress, setReadProgress] = useState(0);
-  const articleBodyRef = useRef(null);
-  const updateReadProgress = useEffectEvent(() => {
-    const el = articleBodyRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const total = el.scrollHeight;
-    const visible = window.innerHeight;
-    const scrolled = Math.max(0, -rect.top);
-    const pct = Math.min(100, Math.max(0, (scrolled / (total - visible)) * 100));
-    setReadProgress(pct);
-  });
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-
-    const handleViewportChange = () => {
-      updateReadProgress();
-    };
-
-    updateReadProgress();
-    window.addEventListener('scroll', handleViewportChange, { passive: true });
-    window.addEventListener('resize', handleViewportChange);
-    return () => {
-      window.removeEventListener('scroll', handleViewportChange);
-      window.removeEventListener('resize', handleViewportChange);
-    };
-  }, [article?.id]);
 
   return (
     <motion.div
