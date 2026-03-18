@@ -525,7 +525,11 @@ app.use(cors({
   origin(origin, cb) {
     // Non-browser clients don't send Origin.
     if (!origin) return cb(null, true);
-    if (!isProd) return cb(null, true);
+    if (!isProd) {
+      // Allow known dev origins only (Vite defaults).
+      const devOrigins = ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://127.0.0.1:5173'];
+      return cb(null, devOrigins.includes(origin));
+    }
     return cb(null, allowedOrigins.includes(origin));
   },
   credentials: true,

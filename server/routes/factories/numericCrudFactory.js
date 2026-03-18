@@ -70,7 +70,7 @@ export function createNumericCrudFactory({
         resource: resourceName,
         resourceId: id,
         details: obj.title || obj.name || obj.question || '',
-      }).catch((err) => console.warn('Audit log failed:', err.message));
+      }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
       invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 
@@ -93,7 +93,7 @@ export function createNumericCrudFactory({
         resource: resourceName,
         resourceId: id,
         details: data.title || data.name || '',
-      }).catch((err) => console.warn('Audit log failed:', err.message));
+      }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
       invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 
@@ -112,7 +112,7 @@ export function createNumericCrudFactory({
         resource: resourceName,
         resourceId: id,
         details: '',
-      }).catch((err) => console.warn('Audit log failed:', err.message));
+      }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
       invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 

@@ -62,7 +62,7 @@ export function registerSettingsRoutes(app, deps) {
       resource: 'hero-settings',
       resourceId: 1,
       details: 'save',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('hero', 'hero-settings-mutation');
 
@@ -100,7 +100,7 @@ export function registerSettingsRoutes(app, deps) {
       resource: 'hero-settings',
       resourceId: 1,
       details: `restore:${revisionId}`,
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('hero', 'hero-settings-mutation');
 
@@ -138,7 +138,7 @@ export function registerSettingsRoutes(app, deps) {
       resource: 'site-settings',
       resourceId: 1,
       details: `restore:${revisionId}`,
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('settings', 'site-settings-mutation');
 
@@ -167,7 +167,7 @@ export function registerSettingsRoutes(app, deps) {
       resource: 'site-settings',
       resourceId: 1,
       details: 'save',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('settings', 'site-settings-mutation');
 
@@ -186,7 +186,7 @@ export function registerSettingsRoutes(app, deps) {
       resource: 'site-settings',
       resourceId: 1,
       details: `refresh-homepage-cache:${totalCleared}`,
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     return res.json({
       ok: true,

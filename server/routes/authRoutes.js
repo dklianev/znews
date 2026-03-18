@@ -39,17 +39,11 @@ export function registerAuthRoutes(app, deps) {
     const user = await findUserByNormalizedUsername(User, normalizeText, username);
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
-    const isBcryptHash = user.password && user.password.startsWith('$2');
-    let isMatch = false;
-    if (isBcryptHash) {
-      isMatch = await bcrypt.compare(password, user.password);
-    } else {
-      isMatch = (password === user.password);
-      if (isMatch) {
-        const hashed = await bcrypt.hash(password, 10);
-        await User.updateOne({ id: user.id }, { $set: { password: hashed } });
-      }
+    // Reject accounts with unhashed passwords — they must be migrated first.
+    if (!user.password || !user.password.startsWith('$2')) {
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 
     const { accessToken, refreshToken } = await rotateTokensForUser(req, user);

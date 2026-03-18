@@ -46,7 +46,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       resource: 'articles',
       resourceId: id,
       details: obj.title || '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
     await createArticleRevision(id, obj, { source: 'create', user: req.user });
 
     if (obj.breaking && obj.status === 'published' && (!obj.publishAt || new Date(obj.publishAt) <= new Date())) {
@@ -82,7 +82,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       resource: 'articles',
       resourceId: id,
       details: data.title || '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     const updated = item.toJSON();
     await createArticleRevision(id, updated, { source: 'update', user: req.user });
@@ -200,7 +200,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       resource: 'articles',
       resourceId: id,
       details: `restore:${revisionId}`,
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('articles', 'article-mutation');
 
@@ -222,7 +222,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       resource: 'articles',
       resourceId: id,
       details: '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('articles', 'article-mutation');
 

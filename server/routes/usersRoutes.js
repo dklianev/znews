@@ -20,12 +20,7 @@ export function createUsersRouter(deps) {
   const usersRouter = express.Router();
 
   usersRouter.get('/', requireAuth, requirePermission('profiles'), asyncHandler(async (_req, res) => {
-    const items = await User.find().sort({ id: -1 }).lean();
-    items.forEach((item) => {
-      delete item._id;
-      delete item.__v;
-      delete item.password;
-    });
+    const items = await User.find().select('-password -_id -__v').sort({ id: -1 }).lean();
     res.json(items);
   }));
 
@@ -81,7 +76,7 @@ export function createUsersRouter(deps) {
       resource: 'users',
       resourceId: id,
       details: obj.name || '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
     res.json(obj);
   }));
 
@@ -166,7 +161,7 @@ export function createUsersRouter(deps) {
       resource: 'users',
       resourceId: id,
       details: data.name || '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     res.json(item.toJSON());
   }));
@@ -186,7 +181,7 @@ export function createUsersRouter(deps) {
       resource: 'users',
       resourceId: id,
       details: '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     res.json({ ok: true });
   }));

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useOptimistic, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useOptimistic, useState } from 'react';
 import { MessageCircle, Send, User, ThumbsUp, ThumbsDown, CornerDownRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
@@ -189,7 +189,7 @@ function applyOptimisticReaction(items, mutation) {
   });
 }
 
-function CommentItem({
+const CommentItem = memo(function CommentItem({
   comment,
   level,
   reactingId,
@@ -441,7 +441,7 @@ function CommentItem({
       )}
     </div>
   );
-}
+});
 
 export default function CommentsSection({ articleId }) {
   const { comments, addComment, reactToComment, loadCommentsForArticle } = usePublicData();

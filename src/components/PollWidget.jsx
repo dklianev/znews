@@ -17,7 +17,7 @@ export default function PollWidget() {
   const { polls, votePoll } = usePublicData();
   const safePolls = Array.isArray(polls) ? polls : [];
   const activePoll = safePolls.find(p => p.active);
-  const [votedPolls, setVotedPolls] = useState(getVotedPolls);
+  const [votedPolls, setVotedPolls] = useState(() => getVotedPolls());
 
   if (!activePoll) return null;
 

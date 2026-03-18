@@ -198,9 +198,9 @@ export async function runAuthRoutesTests() {
     assert.equal(res.body?.userId, 8);
   }
 
+  // Plaintext (non-bcrypt) passwords must be rejected — no auto-upgrade.
   {
     const app = createMockApp();
-    const updates = [];
 
     registerAuthRoutes(app, {
       accessTokenMaxAgeMs: 10_000,
@@ -210,8 +210,8 @@ export async function runAuthRoutesTests() {
         async compare() {
           throw new Error('compare should not be called for plain-text users');
         },
-        async hash(password) {
-          return `hashed:${password}`;
+        async hash() {
+          throw new Error('hash should not be called');
         },
       },
       clearRefreshCookie() {},
@@ -228,11 +228,8 @@ export async function runAuthRoutesTests() {
         return error.message;
       },
       REFRESH_COOKIE_NAME: 'refresh_token',
-      async rotateTokensForUser(_req, user) {
-        return {
-          accessToken: `access-${user.id}`,
-          refreshToken: `refresh-${user.id}`,
-        };
+      async rotateTokensForUser() {
+        throw new Error('should not rotate tokens');
       },
       setRefreshCookie() {},
       User: {
@@ -243,9 +240,6 @@ export async function runAuthRoutesTests() {
           name: 'Editor',
           password: 'legacy-pass',
         }),
-        async updateOne(query, update) {
-          updates.push({ query, update });
-        },
       },
     });
 
@@ -253,11 +247,7 @@ export async function runAuthRoutesTests() {
     const res = createResponse();
     await runHandlers(handlers, { body: { username: 'editor', password: 'legacy-pass' } }, res);
 
-    assert.equal(res.statusCode, 200);
-    assert.deepEqual(updates, [{
-      query: { id: 3 },
-      update: { $set: { password: 'hashed:legacy-pass' } },
-    }]);
+    assert.equal(res.statusCode, 401);
   }
 
   {

@@ -313,7 +313,7 @@ export function createCommentsRouter(deps) {
       resource: 'comments',
       resourceId: id,
       details: '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     res.json(item.toJSON());
   }));
@@ -338,7 +338,7 @@ export function createCommentsRouter(deps) {
       resource: 'comments',
       resourceId: id,
       details: threadIds.length > 1 ? `cascade:${threadIds.length}` : '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     res.json({ ok: true });
   }));

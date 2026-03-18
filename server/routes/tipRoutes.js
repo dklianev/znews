@@ -125,8 +125,10 @@ export function registerTipRoutes(app, deps) {
     if (!['new', 'processed', 'rejected'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
     const tip = await Tip.findOneAndUpdate(
-      { id: Number(req.params.id) },
+      { id },
       { status },
       { new: true }
     );
@@ -135,7 +137,9 @@ export function registerTipRoutes(app, deps) {
   }));
 
   app.delete('/api/tips/:id', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), asyncHandler(async (req, res) => {
-    const tip = await Tip.findOneAndDelete({ id: Number(req.params.id) });
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    const tip = await Tip.findOneAndDelete({ id });
     if (!tip) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
   }));

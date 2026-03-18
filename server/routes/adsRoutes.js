@@ -80,7 +80,7 @@ export function createAdsRouter(deps) {
       resource: 'ads',
       resourceId: id,
       details: obj.campaignName || obj.title || '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('ads', 'ads-mutation');
 
@@ -113,7 +113,7 @@ export function createAdsRouter(deps) {
       resource: 'ads',
       resourceId: id,
       details: obj.campaignName || obj.title || '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('ads', 'ads-mutation');
 
@@ -134,7 +134,7 @@ export function createAdsRouter(deps) {
       resource: 'ads',
       resourceId: id,
       details: '',
-    }).catch((err) => console.warn('Audit log failed:', err.message));
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('ads', 'ads-mutation');
 
