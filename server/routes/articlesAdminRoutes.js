@@ -207,12 +207,65 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     res.json(restoredObj);
   }));
 
+  // Soft delete — moves article to archived status
   articlesRouter.delete('/:id', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
-    const result = await Article.deleteOne({ id });
-    if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
+    const article = await Article.findOneAndUpdate(
+      { id, status: { $ne: 'archived' } },
+      { $set: { status: 'archived', deletedAt: new Date(), deletedBy: req.user.name } },
+      { new: true },
+    );
+    if (!article) return res.status(404).json({ error: 'Not found' });
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'delete',
+      resource: 'articles',
+      resourceId: id,
+      details: 'soft-delete',
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
+
+    invalidateCacheGroup('articles', 'article-mutation');
+
+    res.json({ ok: true });
+  }));
+
+  // Restore archived article back to draft
+  articlesRouter.post('/:id/restore', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const article = await Article.findOneAndUpdate(
+      { id, status: 'archived' },
+      { $set: { status: 'draft', deletedAt: null, deletedBy: null } },
+      { new: true },
+    );
+    if (!article) return res.status(404).json({ error: 'Not found or not archived' });
+
+    AuditLog.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'articles',
+      resourceId: id,
+      details: 'restore-from-archive',
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
+
+    invalidateCacheGroup('articles', 'article-mutation');
+
+    res.json(article.toObject());
+  }));
+
+  // Permanent delete — only for archived articles
+  articlesRouter.delete('/:id/permanent', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const result = await Article.deleteOne({ id, status: 'archived' });
+    if (!result.deletedCount) return res.status(404).json({ error: 'Not found or not archived' });
     await ArticleRevision.deleteMany({ articleId: id });
 
     AuditLog.create({
@@ -221,7 +274,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       action: 'delete',
       resource: 'articles',
       resourceId: id,
-      details: '',
+      details: 'permanent-delete',
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('articles', 'article-mutation');

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import DataTable from '../../components/admin/DataTable';
 
 const ICONS = ['📰', '🚨', '🏛️', '💰', '🎭', '🏎️', '🎯', '⚖️', '🏥', '🔥', '🌆', '🎤', '🎬', '🕵️', '📡', '🌃', '📸', '🧨'];
 const EMPTY_FIELD_ERRORS = Object.freeze({ id: '', name: '' });
@@ -245,33 +246,24 @@ export default function ManageCategories() {
         </div>
       ) : null}
 
-      <div className="bg-white border border-gray-200 overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-left px-4 py-3 text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500">Икона</th>
-              <th className="text-left px-4 py-3 text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500">Slug</th>
-              <th className="text-left px-4 py-3 text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500">Име</th>
-              <th className="text-right px-4 py-3 text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500">Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {categories.map((category) => (
-              <tr key={category.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                <td className="px-4 py-3 text-lg">{category.icon}</td>
-                <td className="px-4 py-3 text-sm font-mono text-gray-500">{category.id}</td>
-                <td className="px-4 py-3 text-sm font-sans font-medium text-gray-900">{category.name}</td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <button onClick={() => openEdit(category)} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
-                    {category.id !== 'all' ? <button onClick={() => handleDelete(category.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button> : null}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        columns={[
+          { key: 'icon', label: 'Икона', render: (v) => <span className="text-lg">{v}</span> },
+          { key: 'id', label: 'Slug', cellClassName: 'font-mono !text-gray-500' },
+          { key: 'name', label: 'Име', render: (v) => <span className="font-medium text-gray-900">{v}</span> },
+          {
+            key: 'actions', label: 'Действия', align: 'right',
+            render: (_v, row) => (
+              <div className="flex items-center justify-end gap-1">
+                <button onClick={() => openEdit(row)} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
+                {row.id !== 'all' ? <button onClick={() => handleDelete(row.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button> : null}
+              </div>
+            ),
+          },
+        ]}
+        data={categories}
+        emptyMessage="Няма категории"
+      />
     </div>
   );
 }

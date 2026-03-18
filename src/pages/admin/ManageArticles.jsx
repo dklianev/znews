@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useAdminData, usePublicData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2, Search, Copy, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, CheckSquare, Square, ArrowUp } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2, Search, Copy, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, CheckSquare, Square, ArrowUp, Archive, ArchiveRestore } from 'lucide-react';
 import RichTextEditor from '../../components/admin/RichTextEditor';
 import AdminImageField from '../../components/admin/AdminImageField';
 import LivePreviewModal from '../../components/admin/LivePreviewModal';
 import { estimateReadTimeFromHtml, normalizeRichTextHtml } from '../../utils/richText';
 import { api } from '../../utils/api';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
 
 const ARTICLE_DRAFT_KEY = 'zn_manage_articles_draft_v1';
 const ARTICLE_HISTORY_KEY = 'zn_manage_articles_history_v1';
@@ -171,7 +172,11 @@ export default function ManageArticles() {
   const initialFormRef = useRef(emptyForm);
   const fieldRefs = useRef({});
   const [selectedIds, setSelectedIds] = useState([]);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedArticles, setArchivedArticles] = useState([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const registerFieldRef = useCallback((field) => (node) => {
     if (node) {
@@ -763,10 +768,16 @@ export default function ManageArticles() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Изтрий статията?')) return;
+    const confirmed = await confirm({
+      title: 'Архивиране на статия',
+      message: 'Статията ще бъде преместена в архива. Може да бъде възстановена по-късно.',
+      confirmLabel: 'Архивирай',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
     await deleteArticle(id);
     setSelectedIds(prev => prev.filter(sid => sid !== id));
-    toast.success('Статията е изтрита');
+    toast.success('Статията е архивирана');
   };
 
   // Bulk actions
@@ -778,10 +789,56 @@ export default function ManageArticles() {
   };
 
   const handleBulkDelete = async () => {
-    if (!selectedIds.length || !confirm(`Изтрий ${selectedIds.length} статии?`)) return;
+    if (!selectedIds.length) return;
+    const confirmed = await confirm({
+      title: 'Архивиране на статии',
+      message: `${selectedIds.length} статии ще бъдат преместени в архива.`,
+      confirmLabel: 'Архивирай',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
     for (const id of selectedIds) await deleteArticle(id);
-    toast.success(`${selectedIds.length} статии изтрити`);
+    toast.success(`${selectedIds.length} статии архивирани`);
     setSelectedIds([]);
+  };
+
+  const loadArchivedArticles = useCallback(async () => {
+    setLoadingArchived(true);
+    try {
+      const data = await api.articles.listArchived();
+      setArchivedArticles(Array.isArray(data) ? data : data?.items || []);
+    } catch {
+      toast.error('Грешка при зареждане на архива');
+    } finally {
+      setLoadingArchived(false);
+    }
+  }, [toast]);
+
+  const handleRestoreArticle = async (id) => {
+    try {
+      await api.articles.restore(id);
+      setArchivedArticles(prev => prev.filter(a => a.id !== id));
+      toast.success('Статията е възстановена като чернова');
+    } catch {
+      toast.error('Грешка при възстановяване');
+    }
+  };
+
+  const handlePermanentDelete = async (id) => {
+    const confirmed = await confirm({
+      title: 'Окончателно изтриване',
+      message: 'Статията и всички ревизии ще бъдат изтрити безвъзвратно!',
+      confirmLabel: 'Изтрий завинаги',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+    try {
+      await api.articles.permanentDelete(id);
+      setArchivedArticles(prev => prev.filter(a => a.id !== id));
+      toast.success('Статията е изтрита окончателно');
+    } catch {
+      toast.error('Грешка при изтриване');
+    }
   };
 
   const handleBulkStatusChange = async (newStatus) => {
@@ -992,14 +1049,77 @@ export default function ManageArticles() {
           <h1 className="text-2xl font-display font-bold text-gray-900">Статии</h1>
           <p className="text-sm font-sans text-gray-500 mt-1">Управление на новини и репортажи</p>
         </div>
-        <button
-          onClick={startNewArticle}
-          className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
-        >
-          <Plus className="w-4 h-4" />
-          Нова статия
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const next = !showArchived;
+              setShowArchived(next);
+              if (next) loadArchivedArticles();
+            }}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-sans font-semibold border transition-colors ${showArchived ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'}`}
+          >
+            <Archive className="w-4 h-4" />
+            Архив
+          </button>
+          {!showArchived && (
+            <button
+              onClick={startNewArticle}
+              className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+            >
+              <Plus className="w-4 h-4" />
+              Нова статия
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Archived articles view */}
+      {showArchived && (
+        <div className="bg-white border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-sans font-semibold text-gray-900 flex items-center gap-2">
+              <Archive className="w-5 h-5 text-amber-600" />
+              Архивирани статии ({archivedArticles.length})
+            </h3>
+            <button onClick={loadArchivedArticles} disabled={loadingArchived} className="text-xs font-sans text-gray-500 hover:text-gray-700 flex items-center gap-1 disabled:opacity-50">
+              <RefreshCw className={`w-3 h-3 ${loadingArchived ? 'animate-spin' : ''}`} />
+              Обнови
+            </button>
+          </div>
+          {loadingArchived && <p className="text-sm font-sans text-gray-400 py-4 text-center">Зареждане...</p>}
+          {!loadingArchived && archivedArticles.length === 0 && (
+            <p className="text-sm font-sans text-gray-400 py-8 text-center">Няма архивирани статии</p>
+          )}
+          {!loadingArchived && archivedArticles.map((article) => (
+            <div key={article.id} className="flex items-center gap-4 py-3 border-b border-gray-100 last:border-0">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-sans font-medium text-gray-900 truncate">{article.title || `Статия #${article.id}`}</p>
+                <p className="text-[10px] font-sans text-gray-400 mt-0.5">
+                  {article.deletedBy && <span>Архивирана от {article.deletedBy}</span>}
+                  {article.deletedAt && <span> • {new Date(article.deletedAt).toLocaleDateString('bg-BG')}</span>}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => handleRestoreArticle(article.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-sans font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                  title="Възстанови като чернова"
+                >
+                  <ArchiveRestore className="w-3.5 h-3.5" />
+                  Възстанови
+                </button>
+                <button
+                  onClick={() => handlePermanentDelete(article.id)}
+                  className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                  title="Изтрий завинаги"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Editor */}
       {editing && (
@@ -1699,7 +1819,7 @@ export default function ManageArticles() {
           <span className="text-xs font-sans font-semibold text-zn-purple">{selectedIds.length} избрани</span>
           <button onClick={() => handleBulkStatusChange('published')} className="px-3 py-1 text-xs font-sans font-semibold text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 transition-colors">Публикувай</button>
           <button onClick={() => handleBulkStatusChange('draft')} className="px-3 py-1 text-xs font-sans font-semibold text-gray-700 bg-gray-100 border border-gray-200 hover:bg-gray-200 transition-colors">Чернова</button>
-          <button onClick={handleBulkDelete} className="px-3 py-1 text-xs font-sans font-semibold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 transition-colors">Изтрий</button>
+          <button onClick={handleBulkDelete} className="px-3 py-1 text-xs font-sans font-semibold text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 transition-colors">Архивирай</button>
           <button onClick={() => setSelectedIds([])} className="ml-auto text-xs font-sans text-gray-500 hover:text-gray-700 transition-colors">Отмени</button>
         </div>
       )}
@@ -1758,8 +1878,8 @@ export default function ManageArticles() {
                 <button onClick={() => startEdit(article)} className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors">
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button onClick={() => handleDelete(article.id)} className="p-1.5 text-gray-400 hover:text-red-600 transition-colors">
-                  <Trash2 className="w-4 h-4" />
+                <button onClick={() => handleDelete(article.id)} className="p-1.5 text-gray-400 hover:text-amber-600 transition-colors" title="Архивирай">
+                  <Archive className="w-4 h-4" />
                 </button>
               </div>
             </div>

@@ -18,6 +18,7 @@ export async function runCoreHelpersTests() {
 
   assert.deepEqual(devHelpers.getPublishedFilter(now), {
     $and: [
+      { status: { $ne: 'archived' } },
       { $or: [{ status: 'published' }, { status: { $exists: false } }] },
       { $or: [{ publishAt: { $exists: false } }, { publishAt: null }, { publishAt: { $lte: now } }] },
     ],

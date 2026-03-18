@@ -28,6 +28,7 @@ export function createCoreHelpers({ isProd }) {
   function getPublishedFilter(now = new Date()) {
     return {
       $and: [
+        { status: { $ne: 'archived' } },
         { $or: [{ status: 'published' }, { status: { $exists: false } }] },
         { $or: [{ publishAt: { $exists: false } }, { publishAt: null }, { publishAt: { $lte: now } }] },
       ],

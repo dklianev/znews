@@ -29,7 +29,10 @@ export function createArticlesPublicRouter(deps) {
   articlesRouter.get('/', cacheMiddleware, asyncHandler(async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
-    const filter = canSeeDrafts ? {} : getPublishedFilter();
+    const includeArchived = canSeeDrafts && req.query.status === 'archived';
+    const filter = canSeeDrafts
+      ? (includeArchived ? { status: 'archived' } : { status: { $ne: 'archived' } })
+      : getPublishedFilter();
     const category = normalizeText(req.query.category, 64);
     const q = normalizeText(req.query.q, 160);
     const sectionFilter = getArticleSectionFilter(req.query.section);
