@@ -4,6 +4,48 @@ import { BOARD_ROWS, BOARD_COLS, THEMES } from '../../../utils/tetris';
 const CELL_SIZE = 28;
 const GAP = 1;
 
+const TetrisRow = memo(function TetrisRow({ row, rIdx, theme, showGrid, lockFlashSet, isGravityDrop }) {
+  return row.map((cell, cIdx) => {
+    const isGhost = typeof cell === 'string' && cell.startsWith('ghost:');
+    const typeKey = isGhost ? cell.slice(6) : cell;
+    const color = typeKey ? (theme.colors[typeKey] || '#666') : null;
+    const x = GAP + cIdx * (CELL_SIZE + GAP);
+    const y = GAP + rIdx * (CELL_SIZE + GAP);
+    const cellKey = `${rIdx}-${cIdx}`;
+    const isLockFlash = lockFlashSet.has(cellKey);
+
+    let className = 'absolute';
+    if (isGhost) className += ' tetris-ghost-pulse';
+    if (isLockFlash) className += ' tetris-lock-flash';
+    if (isGravityDrop && color && !isGhost) className += ' tetris-gravity-drop';
+
+    return (
+      <div
+        key={cellKey}
+        className={className}
+        style={{
+          left: x,
+          top: y,
+          width: CELL_SIZE,
+          height: CELL_SIZE,
+          backgroundColor: color || theme.bg,
+          opacity: isGhost ? undefined : 1,
+          border: color && !isGhost
+            ? '2px solid rgba(255,255,255,0.2)'
+            : showGrid
+              ? '1px solid rgba(255,255,255,0.06)'
+              : 'none',
+          borderRadius: 2,
+          boxShadow: color && !isGhost && !isLockFlash
+            ? 'inset 0 -2px 4px rgba(0,0,0,0.3), inset 0 2px 2px rgba(255,255,255,0.15)'
+            : 'none',
+          '--drop-from': isGravityDrop ? '-29px' : '0px',
+        }}
+      />
+    );
+  });
+});
+
 function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid = false, flashRows, shake, tilt, lockFlashCells, gravityRows }) {
   const theme = THEMES[themeName] || THEMES.classic;
 
@@ -57,48 +99,17 @@ function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid =
       className={wrapperClass}
       style={{ width: boardWidth, height: boardHeight, backgroundColor: theme.boardBg }}
     >
-      {display.map((row, rIdx) =>
-        row.map((cell, cIdx) => {
-          const isGhost = typeof cell === 'string' && cell.startsWith('ghost:');
-          const typeKey = isGhost ? cell.slice(6) : cell;
-          const color = typeKey ? (theme.colors[typeKey] || '#666') : null;
-          const x = GAP + cIdx * (CELL_SIZE + GAP);
-          const y = GAP + rIdx * (CELL_SIZE + GAP);
-          const cellKey = `${rIdx}-${cIdx}`;
-          const isLockFlash = lockFlashSet.has(cellKey);
-          const isGravityDrop = gravitySet.has(rIdx);
-
-          let className = 'absolute';
-          if (isGhost) className += ' tetris-ghost-pulse';
-          if (isLockFlash) className += ' tetris-lock-flash';
-          if (isGravityDrop && color && !isGhost) className += ' tetris-gravity-drop';
-
-          return (
-            <div
-              key={cellKey}
-              className={className}
-              style={{
-                left: x,
-                top: y,
-                width: CELL_SIZE,
-                height: CELL_SIZE,
-                backgroundColor: color || theme.bg,
-                opacity: isGhost ? undefined : 1,
-                border: color && !isGhost
-                  ? '2px solid rgba(255,255,255,0.2)'
-                  : showGrid
-                    ? '1px solid rgba(255,255,255,0.06)'
-                    : 'none',
-                borderRadius: 2,
-                boxShadow: color && !isGhost && !isLockFlash
-                  ? 'inset 0 -2px 4px rgba(0,0,0,0.3), inset 0 2px 2px rgba(255,255,255,0.15)'
-                  : 'none',
-                '--drop-from': isGravityDrop ? '-29px' : '0px',
-              }}
-            />
-          );
-        })
-      )}
+      {display.map((row, rIdx) => (
+        <TetrisRow
+          key={rIdx}
+          row={row}
+          rIdx={rIdx}
+          theme={theme}
+          showGrid={showGrid}
+          lockFlashSet={lockFlashSet}
+          isGravityDrop={gravitySet.has(rIdx)}
+        />
+      ))}
 
       {/* Line clear flash overlays */}
       {flashRows && flashRows.map((rowIdx) => (

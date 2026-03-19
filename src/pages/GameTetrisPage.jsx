@@ -41,12 +41,17 @@ const MAX_LOCK_RESETS = 15;
 const START_LEVELS = [1, 5, 10, 15];
 const COUNTDOWN_STEPS = [3, 2, 1, 'GO'];
 
-/* ── Handling defaults (tetr.io-style) ── */
+/* ── Handling defaults (casual) ── */
 const DEFAULT_HANDLING = {
-  das: 133,   // Delayed Auto Shift (ms) — колко задържаш преди автоповторение
-  arr: 0,     // Auto Repeat Rate (ms) — 0 = мигновен teleport до стената
-  sdf: 41,    // Soft Drop Factor — множител на gravity; 41 = мигновен
+  das: 167,   // Delayed Auto Shift (ms) — колко задържаш преди автоповторение
+  arr: 33,    // Auto Repeat Rate (ms) — 0 = мигновен teleport до стената
+  sdf: 20,    // Soft Drop Factor — множител на gravity; 41 = мигновен
   dcd: 0,     // DAS Cut Delay (ms) — пауза на DAS след заключване на фигура
+};
+
+const HANDLING_PRESETS = {
+  casual: { name: 'Casual', das: 167, arr: 33, sdf: 20, dcd: 0 },
+  competitive: { name: 'Competitive', das: 133, arr: 0, sdf: 41, dcd: 0 },
 };
 
 const HANDLING_LABELS = {
@@ -130,7 +135,7 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
 }
 
-const SETTINGS_VERSION = 2; // Bump when defaults change to force migration
+const SETTINGS_VERSION = 3; // Bump when defaults change to force migration
 
 function loadSettings() {
   const defaults = { theme: 'classic', showGrid: false, queueSize: 3, keys: { ...DEFAULT_KEYS }, handling: { ...DEFAULT_HANDLING }, _v: SETTINGS_VERSION };
@@ -156,7 +161,10 @@ export default function GameTetrisPage() {
   const [settings, setSettings] = useState(loadSettings);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
-  useEffect(() => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) { /* noop */ } }, [settings]);
+  useEffect(() => {
+    const id = setTimeout(() => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (_) { /* noop */ } }, 300);
+    return () => clearTimeout(id);
+  }, [settings]);
 
   /* Game state */
   const [board, setBoard] = useState(createEmptyBoard);
@@ -181,9 +189,15 @@ export default function GameTetrisPage() {
   const [lockFlashCells, setLockFlashCells] = useState(null);
   const [gravityRows, setGravityRows] = useState(null);
   const [countdown, setCountdown] = useState(null);
+  const [comboBanner, setComboBanner] = useState(null); // { count, key }
+  const [clearBanner, setClearBanner] = useState(null); // { text, special, key }
+  const [boardGlow, setBoardGlow] = useState(null); // color string
+  const [dropTrail, setDropTrail] = useState(null); // { col, fromRow, toRow, width, key }
   const [mode, setMode] = useState('marathon');
   const [elapsed, setElapsed] = useState(0); // ms for sprint timer
   const [remaining, setRemaining] = useState(120000); // ms for ultra timer
+  const [keyCount, setKeyCount] = useState(0); // total key presses for KPP
+  const [gameStartTime, setGameStartTime] = useState(null);
 
   /* UI state */
   const [showSettings, setShowSettings] = useState(false);
@@ -216,6 +230,10 @@ export default function GameTetrisPage() {
   const tiltTimerRef = useRef(null);
   const lockFlashTimerRef = useRef(null);
   const gravityTimerRef = useRef(null);
+  const comboBannerTimerRef = useRef(null);
+  const clearBannerTimerRef = useRef(null);
+  const boardGlowTimerRef = useRef(null);
+  const dropTrailTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
   const modeTimerRef = useRef(null);
   const garbageCounterRef = useRef(0);
@@ -321,6 +339,37 @@ export default function GameTetrisPage() {
     gravityTimerRef.current = setTimeout(() => setGravityRows(null), 200);
   }, []);
 
+  const triggerComboBanner = useCallback((count) => {
+    if (comboBannerTimerRef.current) clearTimeout(comboBannerTimerRef.current);
+    setComboBanner({ count, key: Date.now() });
+    comboBannerTimerRef.current = setTimeout(() => setComboBanner(null), 1200);
+  }, []);
+
+  const triggerClearBanner = useCallback((text, special) => {
+    if (clearBannerTimerRef.current) clearTimeout(clearBannerTimerRef.current);
+    setClearBanner({ text, special, key: Date.now() });
+    clearBannerTimerRef.current = setTimeout(() => setClearBanner(null), 1500);
+  }, []);
+
+  const triggerBoardGlow = useCallback((color) => {
+    if (boardGlowTimerRef.current) clearTimeout(boardGlowTimerRef.current);
+    setBoardGlow(color);
+    boardGlowTimerRef.current = setTimeout(() => setBoardGlow(null), 600);
+  }, []);
+
+  const triggerDropTrail = useCallback((p, fromRow) => {
+    if (dropTrailTimerRef.current) clearTimeout(dropTrailTimerRef.current);
+    // Find leftmost and rightmost occupied columns
+    let minC = 99, maxC = 0;
+    for (let r = 0; r < p.shape.length; r += 1) {
+      for (let c = 0; c < p.shape[r].length; c += 1) {
+        if (p.shape[r][c]) { minC = Math.min(minC, c); maxC = Math.max(maxC, c); }
+      }
+    }
+    setDropTrail({ col: p.col + minC, fromRow, toRow: p.row, width: maxC - minC + 1, key: Date.now() });
+    dropTrailTimerRef.current = setTimeout(() => setDropTrail(null), 300);
+  }, []);
+
   /* ── Core game logic ── */
 
   const spawnPiece = useCallback(() => {
@@ -397,7 +446,12 @@ export default function GameTetrisPage() {
       if (linesCleared >= 4 || tSpin !== 'none') {
         triggerShake();
         triggerTilt();
+        triggerClearBanner(label, true);
+        triggerBoardGlow(linesCleared >= 4 ? '#FFD700' : '#FF00FF');
+      } else if (label) {
+        triggerClearBanner(label, false);
       }
+      if (newCombo > 1) triggerComboBanner(newCombo);
     }
 
     setBoard(cleared);
@@ -441,7 +495,7 @@ export default function GameTetrisPage() {
     }
 
     spawnPiece();
-  }, [spawnPiece, showClearLabel, showScorePopup, triggerFlash, triggerShake, triggerTilt, triggerLockFlash, triggerGravityDrop, saveHighScore]);
+  }, [spawnPiece, showClearLabel, showScorePopup, triggerFlash, triggerShake, triggerTilt, triggerLockFlash, triggerGravityDrop, triggerComboBanner, triggerClearBanner, triggerBoardGlow, saveHighScore]);
 
   const lockAndSpawn = useCallback(() => {
     cancelLockTimer();
@@ -674,9 +728,15 @@ export default function GameTetrisPage() {
     setHoldKey(null);
     setHoldUsed(false);
     setStats(createStats());
+    setKeyCount(0);
+    setGameStartTime(Date.now());
     setClearLabel(null);
     setScorePopup(null);
     setFlashRows(null);
+    setComboBanner(null);
+    setClearBanner(null);
+    setBoardGlow(null);
+    setDropTrail(null);
     setShake(false);
     setTilt(false);
     setLockFlashCells(null);
@@ -780,6 +840,7 @@ export default function GameTetrisPage() {
       if (!p) return;
 
       e.preventDefault();
+      setKeyCount((k) => k + 1);
 
       // DAS actions
       if (action === 'moveLeft' || action === 'moveRight' || action === 'softDrop') {
@@ -809,7 +870,9 @@ export default function GameTetrisPage() {
         case 'hardDrop': {
           cancelLockTimer();
           stopAllDAS();
+          const fromRow = p.row;
           const { piece: dropped, cellsDropped } = hardDrop(b, p);
+          if (cellsDropped > 2) triggerDropTrail(dropped, fromRow);
           setScore((s) => s + cellsDropped * POINTS.HARD_DROP);
           processLock(dropped, b);
           break;
@@ -1125,13 +1188,22 @@ export default function GameTetrisPage() {
                         <Trophy className="w-4 h-4" /> Нов рекорд!
                       </p>
                     )}
-                    <div className="grid grid-cols-2 gap-1 text-[10px] text-white/50 mb-3 max-w-[200px] mx-auto">
-                      <span>Фигури: {stats.piecesPlaced}</span>
-                      <span>Tetris: {stats.tetrises}</span>
-                      <span>T-Spin: {stats.tSpins}</span>
-                      <span>Max Combo: {stats.maxCombo}</span>
-                      {stats.perfectClears > 0 && <span className="col-span-2 text-yellow-400">Perfect Clears: {stats.perfectClears}</span>}
-                    </div>
+                    {(() => {
+                      const gameSecs = gameStartTime ? (Date.now() - gameStartTime) / 1000 : 0;
+                      const pps = gameSecs > 0 ? (stats.piecesPlaced / gameSecs).toFixed(2) : '—';
+                      const kpp = stats.piecesPlaced > 0 ? (keyCount / stats.piecesPlaced).toFixed(1) : '—';
+                      return (
+                        <div className="grid grid-cols-2 gap-1 text-[10px] text-white/50 mb-3 max-w-[200px] mx-auto">
+                          <span>Фигури: {stats.piecesPlaced}</span>
+                          <span>Tetris: {stats.tetrises}</span>
+                          <span>T-Spin: {stats.tSpins}</span>
+                          <span>Max Combo: {stats.maxCombo}</span>
+                          <span>PPS: {pps}</span>
+                          <span>KPP: {kpp}</span>
+                          {stats.perfectClears > 0 && <span className="col-span-2 text-yellow-400">Perfect Clears: {stats.perfectClears}</span>}
+                        </div>
+                      );
+                    })()}
                     <div className="flex gap-3 justify-center">
                       <button type="button" onClick={startGame} className="bg-zn-hot text-white font-display uppercase tracking-widest px-5 py-2.5 border-3 border-[#1C1428] shadow-comic hover:-translate-y-0.5 transition-transform text-sm">
                         <RotateCcw className="w-4 h-4 inline mr-1" />Пак
@@ -1269,7 +1341,10 @@ export default function GameTetrisPage() {
                 </div>
               )}
 
-              <div style={{ position: 'relative', zIndex: 0 }}>
+              <div
+                style={{ position: 'relative', zIndex: 0, '--glow-color': boardGlow || 'transparent' }}
+                className={boardGlow ? 'tetris-board-glow' : ''}
+              >
                 <TetrisBoard
                   board={board}
                   piece={piece}
@@ -1282,6 +1357,64 @@ export default function GameTetrisPage() {
                   lockFlashCells={lockFlashCells}
                   gravityRows={gravityRows}
                 />
+
+                {/* Hard drop trail */}
+                {dropTrail && (
+                  <div
+                    key={dropTrail.key}
+                    className="tetris-drop-trail absolute pointer-events-none"
+                    style={{
+                      left: 1 + dropTrail.col * 29,
+                      top: 1 + dropTrail.fromRow * 29,
+                      width: dropTrail.width * 29 - 1,
+                      height: (dropTrail.toRow - dropTrail.fromRow) * 29,
+                      background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.3))',
+                      borderRadius: 2,
+                    }}
+                  />
+                )}
+
+                {/* Clear banner overlay */}
+                {clearBanner && (
+                  <div
+                    key={clearBanner.key}
+                    className="tetris-clear-banner absolute inset-0 flex items-center justify-center pointer-events-none"
+                    style={{ zIndex: 30 }}
+                  >
+                    <span
+                      className="font-display uppercase tracking-widest px-3 py-1"
+                      style={{
+                        fontSize: clearBanner.special ? 22 : 16,
+                        color: clearBanner.special ? '#FFD700' : '#FFFFFF',
+                        textShadow: '0 0 10px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)',
+                        fontWeight: 900,
+                      }}
+                    >
+                      {clearBanner.text}
+                    </span>
+                  </div>
+                )}
+
+                {/* Combo banner */}
+                {comboBanner && (
+                  <div
+                    key={comboBanner.key}
+                    className="tetris-combo-banner absolute pointer-events-none"
+                    style={{ top: '40%', right: -8, zIndex: 30 }}
+                  >
+                    <span
+                      className="font-display uppercase tracking-widest"
+                      style={{
+                        fontSize: Math.min(14 + comboBanner.count * 2, 26),
+                        color: comboBanner.count >= 5 ? '#FF4444' : comboBanner.count >= 3 ? '#FF9F43' : '#4ECDC4',
+                        textShadow: '0 0 8px rgba(0,0,0,0.7)',
+                        fontWeight: 900,
+                      }}
+                    >
+                      {comboBanner.count}x
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1305,7 +1438,9 @@ export default function GameTetrisPage() {
             <div className="comic-panel bg-white dark:bg-zinc-900 p-3 flex flex-col items-center gap-2">
               <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-text/50 dark:text-zinc-400">Следващи</span>
               {queue.slice(0, settings.queueSize).map((key, idx) => (
-                <TetrisPreview key={`${key}-${idx}`} pieceKey={key} small={idx > 0} themeName={settings.theme} />
+                <div key={`${key}-${idx}`} className={idx === 0 ? 'tetris-next-pulse' : ''}>
+                  <TetrisPreview pieceKey={key} small={idx > 0} themeName={settings.theme} />
+                </div>
               ))}
             </div>
             {gameStatus === 'playing' && (
@@ -1379,6 +1514,22 @@ export default function GameTetrisPage() {
                   );
                 })}
               </div>
+            </div>
+
+            <div className="mt-2 flex gap-2">
+              {Object.entries(HANDLING_PRESETS).map(([key, preset]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setSettings((s) => ({
+                    ...s,
+                    handling: { das: preset.das, arr: preset.arr, sdf: preset.sdf, dcd: preset.dcd },
+                  }))}
+                  className="flex-1 text-[10px] font-display uppercase tracking-widest py-1 px-2 rounded border border-zn-text/15 dark:border-zinc-600 text-zn-text/60 dark:text-zinc-400 hover:border-zn-purple hover:text-zn-purple transition-colors"
+                >
+                  {preset.name}
+                </button>
+              ))}
             </div>
 
             <div className="mt-3 pt-3 border-t border-zn-text/10 dark:border-zinc-700 flex gap-2">
