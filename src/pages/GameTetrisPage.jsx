@@ -794,6 +794,12 @@ export default function GameTetrisPage() {
     });
   }, [stopAllDAS]);
 
+  const returnToMenu = useCallback(() => {
+    stopAllDAS();
+    cancelLockTimer();
+    setGameStatus('idle');
+  }, [stopAllDAS, cancelLockTimer]);
+
   /* ── Key mapping helper ── */
 
   const getAction = useCallback((key, code) => {
@@ -1186,7 +1192,7 @@ export default function GameTetrisPage() {
                       <button type="button" onClick={togglePause} className="bg-zn-hot text-white font-display uppercase tracking-widest px-6 py-3 border-3 border-[#1C1428] shadow-comic hover:-translate-y-0.5 transition-transform w-44">
                         <Play className="w-5 h-5 inline mr-2" />Продължи
                       </button>
-                      <button type="button" onClick={() => { stopAllDAS(); setGameStatus('idle'); }} className="bg-white/10 text-white font-display uppercase tracking-widest px-6 py-3 border-2 border-white/20 hover:border-white/40 transition-colors w-44 text-sm">
+                      <button type="button" onClick={returnToMenu} className="bg-white/10 text-white font-display uppercase tracking-widest px-6 py-3 border-2 border-white/20 hover:border-white/40 transition-colors w-44 text-sm">
                         <ArrowLeft className="w-4 h-4 inline mr-2" />Меню
                       </button>
                     </div>
