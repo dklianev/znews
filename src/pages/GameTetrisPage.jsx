@@ -336,27 +336,28 @@ export default function GameTetrisPage() {
     const held = heldKeysRef.current;
     const keys = settingsRef.current.keys;
     const holdKeyHeld = held.has(keys.hold) || held.has(keys.hold?.toLowerCase?.());
+    let ihsUsed = false;
     if (holdKeyHeld && !holdUsedRef.current) {
       if (holdKeyRef.current) {
         // Swap with existing hold piece
         const fromHold = pieceFromKey(holdKeyRef.current);
         if (isValidPosition(boardRef.current, fromHold.shape, fromHold.row, fromHold.col)) {
           setHoldKey(newPiece.type);
-          setHoldUsed(true);
+          ihsUsed = true;
           newPiece = fromHold;
         }
       } else {
         // First hold on fresh game — stash current piece, spawn next from queue
         setHoldKey(newPiece.type);
-        setHoldUsed(true);
+        ihsUsed = true;
         const nextFromQueue = queueRef.current[0];
         if (nextFromQueue) {
           newPiece = pieceFromKey(nextFromQueue);
           const updated = [...queueRef.current];
           updated.shift();
-          const { piece: fill, remaining } = pullFromBag(bagRef.current);
+          const { keys: [fill], bag: newBag } = drawFromBag(bagRef.current, 1);
           updated.push(fill);
-          setBag(remaining);
+          setBag(newBag);
           setQueue(updated);
         }
       }
@@ -384,7 +385,7 @@ export default function GameTetrisPage() {
     }
 
     setPiece(newPiece);
-    setHoldUsed(holdKeyHeld && !holdUsedRef.current && holdKeyRef.current ? true : false);
+    setHoldUsed(ihsUsed);
     lockResetsRef.current = 0;
   }, [saveHighScore]);
 
