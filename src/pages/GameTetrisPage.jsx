@@ -317,18 +317,19 @@ export default function GameTetrisPage() {
 
   const spawnPiece = useCallback(() => {
     const q = queueRef.current;
-    const b = bagRef.current;
+    let currentBag = bagRef.current;
     const nextKey = q[0];
     const queueSize = settingsRef.current.queueSize;
     const newQueue = q.slice(1);
 
     const needed = queueSize - newQueue.length;
     if (needed > 0) {
-      const { keys, bag: rem } = drawFromBag(b, needed);
+      const { keys, bag: rem } = drawFromBag(currentBag, needed);
       newQueue.push(...keys);
-      setBag(rem);
+      currentBag = rem;
     }
     setQueue(newQueue);
+    setBag(currentBag);
 
     let newPiece = pieceFromKey(nextKey);
 
@@ -354,9 +355,10 @@ export default function GameTetrisPage() {
         if (nextFromQueue) {
           newPiece = pieceFromKey(nextFromQueue);
           const updated = newQueue.slice(1);
-          const { keys: [fill], bag: newBag } = drawFromBag(bagRef.current, 1);
+          const { keys: [fill], bag: updatedBag } = drawFromBag(currentBag, 1);
           updated.push(fill);
-          setBag(newBag);
+          currentBag = updatedBag;
+          setBag(currentBag);
           setQueue(updated);
         }
       }
