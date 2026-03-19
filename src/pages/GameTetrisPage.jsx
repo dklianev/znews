@@ -350,11 +350,10 @@ export default function GameTetrisPage() {
         // First hold on fresh game — stash current piece, spawn next from queue
         setHoldKey(newPiece.type);
         ihsUsed = true;
-        const nextFromQueue = queueRef.current[0];
+        const nextFromQueue = newQueue[0];
         if (nextFromQueue) {
           newPiece = pieceFromKey(nextFromQueue);
-          const updated = [...queueRef.current];
-          updated.shift();
+          const updated = newQueue.slice(1);
           const { keys: [fill], bag: newBag } = drawFromBag(bagRef.current, 1);
           updated.push(fill);
           setBag(newBag);
