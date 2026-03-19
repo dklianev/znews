@@ -73,6 +73,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     });
     const items = await Article.aggregate(pipeline);
 
+    res.setHeader('Cache-Control', 'no-store');
     return res.json({
       items,
       page: safePage,
@@ -137,6 +138,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       }))
       .filter((item) => item.tag);
 
+    res.setHeader('Cache-Control', 'no-store');
     return res.json({
       total,
       byCategory,
@@ -176,6 +178,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     });
     const items = await Article.aggregate(pipeline);
 
+    res.setHeader('Cache-Control', 'no-store');
     return res.json({ items });
   }));
 

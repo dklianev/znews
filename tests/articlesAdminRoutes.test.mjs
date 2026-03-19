@@ -23,7 +23,11 @@ function createMockRouter() {
 function createResponse() {
   return {
     body: undefined,
+    headers: {},
     statusCode: 200,
+    setHeader(name, value) {
+      this.headers[name] = value;
+    },
     status(code) {
       this.statusCode = code;
       return this;
