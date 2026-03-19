@@ -15,6 +15,7 @@ import {
   drawFromBag,
   getDropSpeed,
   getGarbageInterval,
+  getTetrisBindingKey,
   getGhostPosition,
   getLevel,
   hardDrop,
@@ -24,6 +25,7 @@ import {
   pieceFromKey,
   POINTS,
   resolveSpawn,
+  shouldCountTetrisKeypress,
   tryRotate,
   tryRotate180,
   updateStats,
@@ -765,35 +767,19 @@ export default function GameTetrisPage() {
 
   /* ── Key mapping helper ── */
 
-  // Map physical key codes to the Latin character they produce on QWERTY
-  const CODE_TO_LATIN = {
-    KeyA: 'a', KeyB: 'b', KeyC: 'c', KeyD: 'd', KeyE: 'e', KeyF: 'f', KeyG: 'g',
-    KeyH: 'h', KeyI: 'i', KeyJ: 'j', KeyK: 'k', KeyL: 'l', KeyM: 'm', KeyN: 'n',
-    KeyO: 'o', KeyP: 'p', KeyQ: 'q', KeyR: 'r', KeyS: 's', KeyT: 't', KeyU: 'u',
-    KeyV: 'v', KeyW: 'w', KeyX: 'x', KeyY: 'y', KeyZ: 'z',
-    Space: ' ', Slash: '/', Comma: ',', Period: '.', Semicolon: ';',
-  };
-
   const getAction = useCallback((key, code) => {
     const keys = settingsRef.current.keys;
     const lk = key.toLowerCase();
+    const bindingKey = getTetrisBindingKey(key, code);
+    const normalizedBindingKey = typeof bindingKey === 'string' ? bindingKey.toLowerCase() : '';
     // Check e.key directly (works on matching layout)
     for (const [action, mapped] of Object.entries(keys)) {
-      if (mapped === key || mapped.toLowerCase() === lk) return action;
+      if (mapped === key || mapped.toLowerCase() === lk || mapped.toLowerCase() === normalizedBindingKey) return action;
     }
-    // Check physical key code → Latin character (works on Bulgarian/Cyrillic layout)
-    if (code) {
-      const latin = CODE_TO_LATIN[code];
-      if (latin) {
-        for (const [action, mapped] of Object.entries(keys)) {
-          if (mapped.toLowerCase() === latin) return action;
-        }
-      }
-    }
-    // WASD/C fallback — only if not already bound to something else
+    // WASD/C fallback - only if not already bound to something else
     const mappedLower = new Set(Object.values(keys).map((v) => v.toLowerCase()));
     const wasdMap = { KeyA: 'moveLeft', KeyD: 'moveRight', KeyS: 'softDrop', KeyW: 'rotateCW', KeyC: 'hold' };
-    if (code && wasdMap[code] && !mappedLower.has(CODE_TO_LATIN[code])) return wasdMap[code];
+    if (code && wasdMap[code] && !mappedLower.has(getTetrisBindingKey('', code))) return wasdMap[code];
     return null;
   }, []);
 
@@ -803,8 +789,8 @@ export default function GameTetrisPage() {
     function handleKeyDown(e) {
       // Track held keys for IRS/IHS — store both e.key and Latin equivalent for Cyrillic layouts
       heldKeysRef.current.add(e.key);
-      const latin = e.code && CODE_TO_LATIN[e.code];
-      if (latin) heldKeysRef.current.add(latin);
+      const bindingKey = getTetrisBindingKey(e.key, e.code);
+      if (bindingKey && bindingKey !== e.key) heldKeysRef.current.add(bindingKey);
 
       // Key rebinding mode
       if (rebindAction) return; // handled in separate effect
@@ -840,7 +826,9 @@ export default function GameTetrisPage() {
       if (!p) return;
 
       e.preventDefault();
-      setKeyCount((k) => k + 1);
+      if (shouldCountTetrisKeypress(action, e.repeat)) {
+        setKeyCount((k) => k + 1);
+      }
 
       // DAS actions
       if (action === 'moveLeft' || action === 'moveRight' || action === 'softDrop') {
@@ -883,8 +871,8 @@ export default function GameTetrisPage() {
 
     function handleKeyUp(e) {
       heldKeysRef.current.delete(e.key);
-      const latin = e.code && CODE_TO_LATIN[e.code];
-      if (latin) heldKeysRef.current.delete(latin);
+      const bindingKey = getTetrisBindingKey(e.key, e.code);
+      if (bindingKey && bindingKey !== e.key) heldKeysRef.current.delete(bindingKey);
       const action = getAction(e.key, e.code);
       if (action === 'moveLeft' || action === 'moveRight' || action === 'softDrop') {
         stopDAS(action);
@@ -907,7 +895,8 @@ export default function GameTetrisPage() {
       e.preventDefault();
       e.stopPropagation();
       if (e.key === 'Escape') { setRebindAction(null); return; }
-      setSettings((prev) => ({ ...prev, keys: { ...prev.keys, [rebindAction]: e.key } }));
+      const bindingKey = getTetrisBindingKey(e.key, e.code);
+      setSettings((prev) => ({ ...prev, keys: { ...prev.keys, [rebindAction]: bindingKey } }));
       setRebindAction(null);
     }
     window.addEventListener('keydown', handleRebind, true);

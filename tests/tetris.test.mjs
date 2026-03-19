@@ -28,8 +28,10 @@ import {
   createStats,
   updateStats,
   getGarbageInterval,
+  getTetrisBindingKey,
   getTrimmedShape,
   resolveSpawn,
+  shouldCountTetrisKeypress,
   POINTS,
 } from '../src/utils/tetris.js';
 
@@ -383,6 +385,21 @@ export async function runTetrisTests() {
     const trimmed = getTrimmedShape('I');
     assert.equal(trimmed.length, 1);
     assert.deepEqual(trimmed[0], [1, 1, 1, 1]);
+  }
+
+  // ── Keyboard binding helpers ──
+  {
+    assert.equal(getTetrisBindingKey('ф', 'KeyA'), 'a', 'maps Cyrillic layout physical KeyA to latin a');
+    assert.equal(getTetrisBindingKey('ArrowLeft', 'ArrowLeft'), 'ArrowLeft', 'keeps non-mapped control keys');
+    assert.equal(getTetrisBindingKey(' ', 'Space'), ' ', 'normalizes Space via code');
+  }
+
+  {
+    assert.equal(shouldCountTetrisKeypress('moveLeft', false), true);
+    assert.equal(shouldCountTetrisKeypress('hardDrop', false), true);
+    assert.equal(shouldCountTetrisKeypress('pause', false), false, 'pause should not affect KPP');
+    assert.equal(shouldCountTetrisKeypress(null, false), false, 'unknown keys should not affect KPP');
+    assert.equal(shouldCountTetrisKeypress('rotateCW', true), false, 'repeated keydown should not inflate KPP');
   }
 
   // ── resolveSpawn — normal spawn (no IHS) ──
