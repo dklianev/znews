@@ -6,8 +6,8 @@ import dotenv from 'dotenv';
 import { Article } from '../models.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
-dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true });
+dotenv.config({ path: path.join(__dirname, '..', '..', '.env'), quiet: true });
+dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true, quiet: true });
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 

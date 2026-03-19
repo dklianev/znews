@@ -133,8 +133,8 @@ applyMongoDnsServers({
 });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
-dotenv.config({ path: path.join(__dirname, '.env'), override: true });
+dotenv.config({ path: path.join(__dirname, '..', '.env'), quiet: true });
+dotenv.config({ path: path.join(__dirname, '.env'), override: true, quiet: true });
 
 // Web Push Configuration
 configureWebPush({

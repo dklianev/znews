@@ -5,8 +5,8 @@ import dotenv from 'dotenv';
 import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
-dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true });
+dotenv.config({ path: path.join(__dirname, '..', '..', '.env'), quiet: true });
+dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true, quiet: true });
 
 const storageDriver = String(process.env.STORAGE_DRIVER || 'disk').trim().toLowerCase();
 const spacesBucket = String(process.env.SPACES_BUCKET || '').trim();

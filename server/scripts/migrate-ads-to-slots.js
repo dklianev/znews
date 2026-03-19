@@ -7,8 +7,8 @@ import { Ad } from '../models.js';
 import { buildAdMigrationPlan } from '../../shared/adMigration.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
-dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true });
+dotenv.config({ path: path.join(__dirname, '..', '..', '.env'), quiet: true });
+dotenv.config({ path: path.join(__dirname, '..', '.env'), override: true, quiet: true });
 
 function parseArgs(argv = []) {
   const args = new Set((Array.isArray(argv) ? argv : []).map((item) => String(item || '').trim()));

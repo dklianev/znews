@@ -25,7 +25,7 @@ import bcrypt from 'bcryptjs';
 import { DEFAULT_GAME_DEFINITIONS, getSofiaDateString } from './gameSeed.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__dirname, '.env'), quiet: true });
 
 // ─── Default RP Data ───
 const defaultAdminPassword = process.env.DEFAULT_ADMIN_PASSWORD
