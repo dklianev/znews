@@ -44,8 +44,8 @@ const COUNTDOWN_STEPS = [3, 2, 1, 'GO'];
 /* ── Handling defaults (casual-friendly) ── */
 const DEFAULT_HANDLING = {
   das: 167,   // Delayed Auto Shift (ms) — колко задържаш преди автоповторение
-  arr: 33,    // Auto Repeat Rate (ms) — 0 = мигновен teleport до стената
-  sdf: 20,    // Soft Drop Factor — множител на gravity; 41 = мигновен
+  arr: 50,    // Auto Repeat Rate (ms) — 0 = мигновен teleport до стената
+  sdf: 5,     // Soft Drop Factor — множител на gravity; 41 = мигновен
   dcd: 0,     // DAS Cut Delay (ms) — пауза на DAS след заключване на фигура
 };
 
@@ -130,13 +130,20 @@ function fallbackCopy(text) {
   document.body.removeChild(ta);
 }
 
+const SETTINGS_VERSION = 2; // Bump when defaults change to force migration
+
 function loadSettings() {
-  const defaults = { theme: 'classic', showGrid: false, queueSize: 3, keys: { ...DEFAULT_KEYS }, handling: { ...DEFAULT_HANDLING } };
+  const defaults = { theme: 'classic', showGrid: false, queueSize: 3, keys: { ...DEFAULT_KEYS }, handling: { ...DEFAULT_HANDLING }, _v: SETTINGS_VERSION };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...defaults, ...parsed, keys: { ...DEFAULT_KEYS, ...parsed.keys }, handling: { ...DEFAULT_HANDLING, ...parsed.handling } };
+      // If saved version is older, reset handling to new defaults (user can re-customize)
+      const savedVersion = parsed._v || 1;
+      const handling = savedVersion < SETTINGS_VERSION
+        ? { ...DEFAULT_HANDLING }
+        : { ...DEFAULT_HANDLING, ...parsed.handling };
+      return { ...defaults, ...parsed, keys: { ...DEFAULT_KEYS, ...parsed.keys }, handling, _v: SETTINGS_VERSION };
     }
   } catch (_) { /* noop */ }
   return defaults;
