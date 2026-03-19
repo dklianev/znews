@@ -1121,7 +1121,7 @@ export default function GameTetrisPage() {
               )}
             </div>
 
-            <div className="comic-panel p-2 relative" style={{ backgroundColor: (THEMES[settings.theme] || THEMES.classic).boardBg }}>
+            <div className="p-0 relative" style={{ background: currentTheme.boardSurface || currentTheme.boardBg }}>
               {/* Clear label overlay */}
               {clearLabel && gameStatus === 'playing' && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
