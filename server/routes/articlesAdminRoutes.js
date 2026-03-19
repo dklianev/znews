@@ -33,8 +33,22 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     status: 1,
     publishAt: 1,
   };
+  const ADMIN_RELATED_PROJECTION = {
+    id: 1,
+    title: 1,
+    image: 1,
+    category: 1,
+    authorId: 1,
+    date: 1,
+    status: 1,
+  };
 
   const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parseIdList = (value, maxItems = 30) => String(value || '')
+    .split(',')
+    .map((item) => Number.parseInt(item, 10))
+    .filter((item, index, list) => Number.isInteger(item) && item > 0 && list.indexOf(item) === index)
+    .slice(0, maxItems);
 
   articlesRouter.get('/admin/list', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
     const page = parsePositiveInt(req.query.page, 1, { min: 1, max: 5000 });
@@ -66,6 +80,103 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       total,
       totalPages,
     });
+  }));
+
+  articlesRouter.get('/admin/meta', requireAuth, requirePermission('articles'), asyncHandler(async (_req, res) => {
+    const filter = { status: { $ne: 'archived' } };
+    const [total, categoryCounts, popularTagsRaw] = await Promise.all([
+      Article.countDocuments(filter),
+      Article.aggregate([
+        { $match: filter },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+        { $project: { _id: 0, category: '$_id', count: 1 } },
+      ]),
+      Article.aggregate([
+        { $match: filter },
+        {
+          $project: {
+            tags: {
+              $cond: [
+                { $isArray: '$tags' },
+                {
+                  $map: {
+                    input: '$tags',
+                    as: 'tag',
+                    in: { $trim: { input: { $toLower: { $toString: '$$tag' } } } },
+                  },
+                },
+                {
+                  $map: {
+                    input: { $split: [{ $toString: { $ifNull: ['$tags', ''] } }, ','] },
+                    as: 'tag',
+                    in: { $trim: { input: { $toLower: '$$tag' } } },
+                  },
+                },
+              ],
+            },
+          },
+        },
+        { $unwind: '$tags' },
+        { $match: { tags: { $ne: '' } } },
+        { $group: { _id: '$tags', count: { $sum: 1 } } },
+        { $sort: { count: -1, _id: 1 } },
+        { $limit: 30 },
+        { $project: { _id: 0, tag: '$_id', count: 1 } },
+      ]),
+    ]);
+
+    const byCategory = Object.fromEntries(
+      (Array.isArray(categoryCounts) ? categoryCounts : [])
+        .filter((item) => item?.category)
+        .map((item) => [item.category, Number(item.count) || 0]),
+    );
+    const popularTags = (Array.isArray(popularTagsRaw) ? popularTagsRaw : [])
+      .map((item) => ({
+        tag: item?.tag || '',
+        count: Number(item?.count) || 0,
+      }))
+      .filter((item) => item.tag);
+
+    return res.json({
+      total,
+      byCategory,
+      popularTags,
+    });
+  }));
+
+  articlesRouter.get('/admin/related', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+    const limit = parsePositiveInt(req.query.limit, 20, { min: 1, max: 50 });
+    const q = normalizeText(req.query.q, 160);
+    const requestedIds = parseIdList(req.query.ids, 50);
+    const parsedExcludeId = Number.parseInt(req.query.excludeId, 10);
+    const excludeId = Number.isInteger(parsedExcludeId) ? parsedExcludeId : null;
+
+    let ids = requestedIds;
+    if (Number.isInteger(excludeId)) {
+      ids = ids.filter((id) => id !== excludeId);
+    }
+
+    if (requestedIds.length > 0 && ids.length === 0) {
+      return res.json({ items: [] });
+    }
+
+    const filter = { status: { $ne: 'archived' } };
+    if (ids.length > 0) {
+      filter.id = { $in: ids };
+    } else if (Number.isInteger(excludeId)) {
+      filter.id = { $ne: excludeId };
+    }
+
+    if (q) {
+      filter.title = new RegExp(escapeRegex(q), 'i');
+    }
+
+    const pipeline = buildArticleRecencyPipeline(filter, ADMIN_RELATED_PROJECTION, {
+      limit: ids.length > 0 ? Math.max(limit, ids.length) : limit,
+    });
+    const items = await Article.aggregate(pipeline);
+
+    return res.json({ items });
   }));
 
   articlesRouter.post('/', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {

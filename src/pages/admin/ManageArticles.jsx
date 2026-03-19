@@ -135,7 +135,6 @@ const emptyForm = {
 
 export default function ManageArticles() {
   const {
-    articles,
     authors,
     categories,
     addArticle,
@@ -183,7 +182,14 @@ export default function ManageArticles() {
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState('');
   const [listReloadNonce, setListReloadNonce] = useState(0);
+  const [adminMeta, setAdminMeta] = useState({ total: 0, byCategory: {}, popularTags: [] });
+  const [relatedSearchQuery, setRelatedSearchQuery] = useState('');
+  const deferredRelatedSearchQuery = useDeferredValue(relatedSearchQuery);
+  const [relatedOptions, setRelatedOptions] = useState([]);
+  const [relatedOptionsLoading, setRelatedOptionsLoading] = useState(false);
+  const [relatedArticleMap, setRelatedArticleMap] = useState({});
   const listRequestRef = useRef(0);
+  const relatedRequestRef = useRef(0);
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -258,17 +264,15 @@ export default function ManageArticles() {
     setValidationErrors(Object.fromEntries(normalizedEntries));
   }, [validationErrors]);
 
-  const allExistingTags = useMemo(() => {
-    const set = new Set();
-    articles.forEach(a => {
-      if (Array.isArray(a.tags)) {
-        a.tags.forEach(t => set.add(t.trim().toLowerCase()));
-      } else if (typeof a.tags === 'string') {
-        a.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean).forEach(t => set.add(t));
-      }
-    });
-    return Array.from(set).sort();
-  }, [articles]);
+  const allExistingTags = useMemo(
+    () => (Array.isArray(adminMeta.popularTags) ? adminMeta.popularTags.map((item) => item?.tag).filter(Boolean) : []),
+    [adminMeta.popularTags],
+  );
+  const relatedArticleIdMap = useMemo(() => new Map(
+    Object.values(relatedArticleMap || {})
+      .filter((item) => Number.isInteger(Number(item?.id)))
+      .map((item) => [Number(item.id), item]),
+  ), [relatedArticleMap]);
 
   const handleAddTag = useCallback((tag) => {
     const currentTags = typeof form.tags === 'string'
@@ -281,6 +285,31 @@ export default function ManageArticles() {
 
   const refreshList = useCallback(() => {
     setListReloadNonce((prev) => prev + 1);
+  }, []);
+
+  const mergeRelatedArticles = useCallback((items) => {
+    setRelatedArticleMap((prev) => {
+      const next = { ...prev };
+      (Array.isArray(items) ? items : []).forEach((item) => {
+        const id = Number(item?.id);
+        if (!Number.isInteger(id)) return;
+        next[id] = item;
+      });
+      return next;
+    });
+  }, []);
+
+  const loadAdminMeta = useCallback(async () => {
+    try {
+      const payload = await api.articles.getAdminMeta();
+      setAdminMeta({
+        total: Number.isInteger(payload?.total) ? payload.total : 0,
+        byCategory: payload?.byCategory && typeof payload.byCategory === 'object' ? payload.byCategory : {},
+        popularTags: Array.isArray(payload?.popularTags) ? payload.popularTags : [],
+      });
+    } catch (error) {
+      console.error('Failed to load article admin meta:', error);
+    }
   }, []);
 
   const loadArticlePage = useCallback(async () => {
@@ -324,6 +353,20 @@ export default function ManageArticles() {
       }
     }
   }, [ARTICLES_PER_PAGE, currentPage, deferredSearchQuery, filterCat]);
+
+  const resolveArticleForMutation = useCallback(async (id) => {
+    const normalizedId = Number(id);
+    const fromList = listArticles.find((item) => Number(item?.id) === normalizedId);
+    if (fromList) return fromList;
+    const fromMap = relatedArticleIdMap.get(normalizedId);
+    if (fromMap) return fromMap;
+    try {
+      const detailed = await api.articles.getById(normalizedId);
+      return detailed && typeof detailed === 'object' ? detailed : null;
+    } catch {
+      return null;
+    }
+  }, [listArticles, relatedArticleIdMap]);
 
   const hasDraftUnsavedChanges = useMemo(() => {
     if (editing === 'new') return form.title !== '' || form.content !== '<p></p>';
@@ -682,6 +725,7 @@ export default function ManageArticles() {
     setLastServerVersion(null);
     setConcurrentWarning(null);
     setContentMode('write');
+    setRelatedSearchQuery('');
     setAutosavedAt(null);
     setValidationErrors({});
     loadHistoryForScope('new');
@@ -792,6 +836,7 @@ export default function ManageArticles() {
       setEditing(null);
       setForm(emptyForm);
       setContentMode('write');
+      setRelatedSearchQuery('');
       setDraftSavedAt(null);
       setAutosavedAt(null);
       setHistoryItems([]);
@@ -887,7 +932,7 @@ export default function ManageArticles() {
     if (!selectedIds.length) return;
     const label = newStatus === 'published' ? 'публикувани' : 'върнати в чернова';
     for (const id of selectedIds) {
-      const article = articles.find(a => a.id === id);
+      const article = await resolveArticleForMutation(id);
       if (article) await updateArticle(id, { ...article, status: newStatus });
     }
     refreshList();
@@ -911,6 +956,7 @@ export default function ManageArticles() {
     setEditing(article.id);
     setActiveTab('content');
     setContentMode('write');
+    setRelatedSearchQuery('');
     setDraftSavedAt(null);
     setAutosavedAt(null);
     loadHistoryForScope(getHistoryScope(article.id));
@@ -945,6 +991,7 @@ export default function ManageArticles() {
     setActiveTab('content');
     setForm(emptyForm);
     setContentMode('write');
+    setRelatedSearchQuery('');
     setHistoryItems([]);
     setAutosavedAt(null);
     setDraftSavedAt(null);
@@ -1072,6 +1119,69 @@ export default function ManageArticles() {
     loadArticlePage();
     return undefined;
   }, [loadArticlePage, listReloadNonce, showArchived]);
+
+  useEffect(() => {
+    loadAdminMeta();
+  }, [loadAdminMeta, listReloadNonce]);
+
+  useEffect(() => {
+    if (!editing) {
+      setRelatedSearchQuery('');
+      setRelatedOptions([]);
+      setRelatedOptionsLoading(false);
+      return undefined;
+    }
+
+    const requestId = relatedRequestRef.current + 1;
+    relatedRequestRef.current = requestId;
+    setRelatedOptionsLoading(true);
+
+    const params = {
+      limit: 20,
+      excludeId: editing !== 'new' ? Number(editing) : undefined,
+    };
+    const query = deferredRelatedSearchQuery.trim();
+    if (query) params.q = query;
+
+    api.articles.searchRelatedAdmin(params)
+      .then((payload) => {
+        if (relatedRequestRef.current !== requestId) return;
+        const items = Array.isArray(payload?.items) ? payload.items : [];
+        setRelatedOptions(items);
+        mergeRelatedArticles(items);
+      })
+      .catch(() => {
+        if (relatedRequestRef.current !== requestId) return;
+        setRelatedOptions([]);
+      })
+      .finally(() => {
+        if (relatedRequestRef.current === requestId) {
+          setRelatedOptionsLoading(false);
+        }
+      });
+
+    return undefined;
+  }, [deferredRelatedSearchQuery, editing, mergeRelatedArticles]);
+
+  useEffect(() => {
+    if (!editing) return undefined;
+    const ids = Array.isArray(form.relatedArticles)
+      ? form.relatedArticles.map((value) => Number(value)).filter((value) => Number.isInteger(value) && value > 0)
+      : [];
+    if (ids.length === 0) return undefined;
+
+    api.articles.searchRelatedAdmin({
+      ids: ids.join(','),
+      limit: ids.length,
+      excludeId: editing !== 'new' ? Number(editing) : undefined,
+    })
+      .then((payload) => {
+        mergeRelatedArticles(Array.isArray(payload?.items) ? payload.items : []);
+      })
+      .catch(() => {});
+
+    return undefined;
+  }, [editing, form.relatedArticles, mergeRelatedArticles]);
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white";
   const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
@@ -1643,13 +1753,17 @@ export default function ManageArticles() {
                   <p className="text-xs text-gray-500 font-sans mb-3">Избери статии, които да се показват под текущата като препоръчано съдържание.</p>
                   <div className="flex flex-col gap-2">
                     {form.relatedArticles?.map(id => {
-                      const article = articles.find(a => a.id === id);
-                      if (!article) return null;
+                      const article = relatedArticleIdMap.get(Number(id));
                       return (
                         <div key={id} className="flex items-center justify-between p-2 bg-white border border-gray-200 shadow-sm">
                           <div className="flex items-center gap-3 min-w-0">
-                            {article.image && <img src={article.image} alt="" className="w-12 h-8 object-cover rounded-sm border border-gray-100" />}
-                            <span className="text-sm font-sans font-semibold text-gray-700 truncate">{article.title}</span>
+                            {article?.image && <img src={article.image} alt="" className="w-12 h-8 object-cover rounded-sm border border-gray-100" />}
+                            <div className="min-w-0">
+                              <span className="block text-sm font-sans font-semibold text-gray-700 truncate">{article?.title || `Статия #${id}`}</span>
+                              {!article && (
+                                <span className="block text-[11px] font-sans text-gray-400">Зареждане на детайли...</span>
+                              )}
+                            </div>
                           </div>
                           <button type="button" onClick={() => setForm(prev => ({ ...prev, relatedArticles: prev.relatedArticles.filter(r => r !== id) }))} className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-1.5 transition-colors rounded flex-shrink-0">
                             <X className="w-4 h-4" />
@@ -1657,6 +1771,14 @@ export default function ManageArticles() {
                         </div>
                       );
                     })}
+                    <div className="mt-2">
+                      <input
+                        className={inputCls}
+                        value={relatedSearchQuery}
+                        onChange={(e) => setRelatedSearchQuery(e.target.value)}
+                        placeholder="Търси заглавие за свързана статия"
+                      />
+                    </div>
                     <div className="relative mt-2">
                       <select
                         className={inputCls + ' cursor-pointer'}
@@ -1669,10 +1791,15 @@ export default function ManageArticles() {
                         }}
                       >
                         <option value="">-- Търси и добави свързана статия --</option>
-                        {articles.filter(a => a.id !== (editing !== 'new' ? Number(editing) : -1)).map(a => (
-                          <option key={a.id} value={a.id}>{a.title}</option>
-                        ))}
+                        {relatedOptions
+                          .filter((article) => !form.relatedArticles?.includes(article.id))
+                          .map((article) => (
+                            <option key={article.id} value={article.id}>{article.title}</option>
+                          ))}
                       </select>
+                      {relatedOptionsLoading && (
+                        <div className="mt-2 text-[11px] font-sans text-gray-500">Зареждане на предложения...</div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1848,10 +1975,10 @@ export default function ManageArticles() {
             onClick={() => setFilterCat('all')}
             className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filterCat === 'all' ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'}`}
           >
-            Всички ({articles.length})
+            Всички ({adminMeta.total})
           </button>
           {categories.filter(c => c.id !== 'all').map(c => {
-            const count = articles.filter(a => a.category === c.id).length;
+            const count = Number(adminMeta.byCategory?.[c.id]) || 0;
             return (
               <button
                 key={c.id}

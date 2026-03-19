@@ -349,6 +349,8 @@ export const api = {
   articles: {
     ...crudEndpoints('articles'),
     listAdmin: (params) => request(`/articles/admin/list${toQuery(params)}`),
+    getAdminMeta: () => request('/articles/admin/meta'),
+    searchRelatedAdmin: (params) => request(`/articles/admin/related${toQuery(params)}`),
     getById: (id, params) => request(`/articles/${id}${toQuery(params)}`),
     incrementView: (id) => request(`/articles/${id}/view`, { method: 'POST' }),
     getRevisions: (id) => request(`/articles/${id}/revisions`),
