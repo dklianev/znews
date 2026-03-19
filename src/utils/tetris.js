@@ -402,6 +402,58 @@ export function drawFromBag(bag, count) {
   return { keys: drawn, bag: b };
 }
 
+/**
+ * Pure-logic spawn resolver — mirrors GameTetrisPage.spawnPiece() for testability.
+ * Given current state, returns next state after spawn + optional IHS.
+ *
+ * @param {Object} state - { queue, bag, board, holdKey, holdUsed, queueSize, ihsHeld }
+ * @returns {Object} - { piece, queue, bag, holdKey, holdUsed }
+ */
+export function resolveSpawn({ queue, bag, board, holdKey, holdUsed, queueSize, ihsHeld }) {
+  let currentBag = bag;
+  const nextKey = queue[0];
+  const newQueue = queue.slice(1);
+
+  // Refill queue
+  const needed = queueSize - newQueue.length;
+  if (needed > 0) {
+    const { keys, bag: rem } = drawFromBag(currentBag, needed);
+    newQueue.push(...keys);
+    currentBag = rem;
+  }
+
+  let piece = pieceFromKey(nextKey);
+  let newHoldKey = holdKey;
+  let ihsUsed = false;
+  let finalQueue = newQueue;
+
+  if (ihsHeld && !holdUsed) {
+    if (holdKey) {
+      // Swap with existing hold
+      const fromHold = pieceFromKey(holdKey);
+      if (isValidPosition(board, fromHold.shape, fromHold.row, fromHold.col)) {
+        newHoldKey = piece.type;
+        ihsUsed = true;
+        piece = fromHold;
+      }
+    } else {
+      // Fresh-game IHS — stash current, spawn next from queue
+      newHoldKey = piece.type;
+      ihsUsed = true;
+      const nextFromQueue = newQueue[0];
+      if (nextFromQueue) {
+        piece = pieceFromKey(nextFromQueue);
+        finalQueue = newQueue.slice(1);
+        const { keys: [fill], bag: updatedBag } = drawFromBag(currentBag, 1);
+        finalQueue.push(fill);
+        currentBag = updatedBag;
+      }
+    }
+  }
+
+  return { piece, queue: finalQueue, bag: currentBag, holdKey: newHoldKey, holdUsed: ihsUsed };
+}
+
 /* ── Stats ── */
 
 export function createStats() {

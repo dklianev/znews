@@ -23,6 +23,7 @@ import {
   lockPiece,
   pieceFromKey,
   POINTS,
+  resolveSpawn,
   tryRotate,
   tryRotate180,
   updateStats,
@@ -316,53 +317,26 @@ export default function GameTetrisPage() {
   /* ── Core game logic ── */
 
   const spawnPiece = useCallback(() => {
-    const q = queueRef.current;
-    let currentBag = bagRef.current;
-    const nextKey = q[0];
-    const queueSize = settingsRef.current.queueSize;
-    const newQueue = q.slice(1);
-
-    const needed = queueSize - newQueue.length;
-    if (needed > 0) {
-      const { keys, bag: rem } = drawFromBag(currentBag, needed);
-      newQueue.push(...keys);
-      currentBag = rem;
-    }
-    setQueue(newQueue);
-    setBag(currentBag);
-
-    let newPiece = pieceFromKey(nextKey);
-
-    // IHS — Initial Hold System: if hold key is held, swap immediately
     const held = heldKeysRef.current;
     const keys = settingsRef.current.keys;
     const holdKeyHeld = held.has(keys.hold) || held.has(keys.hold?.toLowerCase?.());
-    let ihsUsed = false;
-    if (holdKeyHeld && !holdUsedRef.current) {
-      if (holdKeyRef.current) {
-        // Swap with existing hold piece
-        const fromHold = pieceFromKey(holdKeyRef.current);
-        if (isValidPosition(boardRef.current, fromHold.shape, fromHold.row, fromHold.col)) {
-          setHoldKey(newPiece.type);
-          ihsUsed = true;
-          newPiece = fromHold;
-        }
-      } else {
-        // First hold on fresh game — stash current piece, spawn next from queue
-        setHoldKey(newPiece.type);
-        ihsUsed = true;
-        const nextFromQueue = newQueue[0];
-        if (nextFromQueue) {
-          newPiece = pieceFromKey(nextFromQueue);
-          const updated = newQueue.slice(1);
-          const { keys: [fill], bag: updatedBag } = drawFromBag(currentBag, 1);
-          updated.push(fill);
-          currentBag = updatedBag;
-          setBag(currentBag);
-          setQueue(updated);
-        }
-      }
-    }
+
+    const result = resolveSpawn({
+      queue: queueRef.current,
+      bag: bagRef.current,
+      board: boardRef.current,
+      holdKey: holdKeyRef.current,
+      holdUsed: holdUsedRef.current,
+      queueSize: settingsRef.current.queueSize,
+      ihsHeld: holdKeyHeld,
+    });
+
+    setQueue(result.queue);
+    setBag(result.bag);
+    setHoldKey(result.holdKey);
+
+    let newPiece = result.piece;
+    const ihsUsed = result.holdUsed;
 
     if (!isValidPosition(boardRef.current, newPiece.shape, newPiece.row, newPiece.col)) {
       setGameStatus('over');

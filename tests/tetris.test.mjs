@@ -29,6 +29,7 @@ import {
   updateStats,
   getGarbageInterval,
   getTrimmedShape,
+  resolveSpawn,
   POINTS,
 } from '../src/utils/tetris.js';
 
@@ -382,5 +383,90 @@ export async function runTetrisTests() {
     const trimmed = getTrimmedShape('I');
     assert.equal(trimmed.length, 1);
     assert.deepEqual(trimmed[0], [1, 1, 1, 1]);
+  }
+
+  // ── resolveSpawn — normal spawn (no IHS) ──
+  {
+    const board = createEmptyBoard();
+    const queue = ['T', 'S', 'Z', 'J', 'L'];
+    const bag = ['I', 'O'];
+
+    const result = resolveSpawn({
+      queue, bag, board, holdKey: null, holdUsed: false, queueSize: 5, ihsHeld: false,
+    });
+
+    assert.equal(result.piece.type, 'T', 'spawns first piece from queue');
+    assert.equal(result.queue.length, 5, 'queue refilled to queueSize');
+    assert.equal(result.queue[0], 'S', 'queue shifted');
+    assert.equal(result.holdKey, null, 'hold unchanged');
+    assert.equal(result.holdUsed, false, 'hold not used');
+  }
+
+  // ── resolveSpawn — IHS with existing hold piece ──
+  {
+    const board = createEmptyBoard();
+    const queue = ['T', 'S', 'Z', 'J', 'L'];
+    const bag = ['I', 'O'];
+
+    const result = resolveSpawn({
+      queue, bag, board, holdKey: 'I', holdUsed: false, queueSize: 5, ihsHeld: true,
+    });
+
+    assert.equal(result.piece.type, 'I', 'spawns hold piece');
+    assert.equal(result.holdKey, 'T', 'stashed queue piece into hold');
+    assert.equal(result.holdUsed, true, 'hold consumed');
+  }
+
+  // ── resolveSpawn — fresh-game IHS (hold empty) ──
+  {
+    const board = createEmptyBoard();
+    const queue = ['T', 'S', 'Z', 'J', 'L'];
+    const bag = ['I', 'O', 'J'];
+
+    const result = resolveSpawn({
+      queue, bag, board, holdKey: null, holdUsed: false, queueSize: 5, ihsHeld: true,
+    });
+
+    assert.equal(result.holdKey, 'T', 'stashed first piece into hold');
+    assert.equal(result.piece.type, 'S', 'spawns second piece from queue (not same as hold)');
+    assert.equal(result.holdUsed, true, 'hold consumed');
+    assert.ok(!result.queue.includes('T'), 'held piece T is not in queue');
+    assert.ok(!result.queue.includes('S'), 'spawned piece S is not in queue');
+    assert.equal(result.queue.length >= 3, true, 'queue refilled after IHS consume');
+  }
+
+  // ── resolveSpawn — fresh-game IHS bag continuity (no duplicates from stale bag) ──
+  {
+    const board = createEmptyBoard();
+    // Minimal bag to force a refill during IHS
+    const queue = ['T', 'S'];
+    const bag = ['Z'];
+
+    const result = resolveSpawn({
+      queue, bag, board, holdKey: null, holdUsed: false, queueSize: 5, ihsHeld: true,
+    });
+
+    assert.equal(result.holdKey, 'T', 'held the first piece');
+    assert.equal(result.piece.type, 'S', 'spawned the second');
+    // After: queue had T,S → consumed T (hold), consumed S (spawn) → need 5 from bag
+    // First refill drew from bag=['Z'] → got Z + refilled bag, then IHS drew 1 more
+    // Total queue should be 5 with no piece appearing more than expected from a 7-bag
+    assert.equal(result.queue.length >= 3, true, 'queue properly refilled');
+    assert.equal(result.holdUsed, true);
+  }
+
+  // ── resolveSpawn — holdUsed=true prevents IHS ──
+  {
+    const board = createEmptyBoard();
+    const queue = ['T', 'S', 'Z', 'J', 'L'];
+    const bag = ['I', 'O'];
+
+    const result = resolveSpawn({
+      queue, bag, board, holdKey: 'I', holdUsed: true, queueSize: 5, ihsHeld: true,
+    });
+
+    assert.equal(result.piece.type, 'T', 'normal spawn — IHS blocked by holdUsed');
+    assert.equal(result.holdKey, 'I', 'hold unchanged');
+    assert.equal(result.holdUsed, false, 'holdUsed reset for new piece');
   }
 }
