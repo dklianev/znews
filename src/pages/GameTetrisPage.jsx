@@ -267,7 +267,8 @@ export default function GameTetrisPage() {
   modeRef.current = mode;
 
   const level = useMemo(() => mode === 'zen' ? 0 : getLevel(lines, startLevel - 1), [lines, startLevel, mode]);
-  const themeColors = useMemo(() => (THEMES[settings.theme] || THEMES.classic).colors, [settings.theme]);
+  const currentTheme = useMemo(() => (THEMES[settings.theme] || THEMES.classic), [settings.theme]);
+  const themeColors = useMemo(() => currentTheme.colors, [currentTheme]);
 
   /* Load high scores */
   useEffect(() => {
@@ -1193,7 +1194,7 @@ export default function GameTetrisPage() {
                         </div>
                       );
                     })()}
-                    <div className="flex gap-3 justify-center">
+                    <div className="flex gap-3 justify-center flex-wrap">
                       <button type="button" onClick={startGame} className="bg-zn-hot text-white font-display uppercase tracking-widest px-5 py-2.5 border-3 border-[#1C1428] shadow-comic hover:-translate-y-0.5 transition-transform text-sm">
                         <RotateCcw className="w-4 h-4 inline mr-1" />Пак
                       </button>
@@ -1257,22 +1258,31 @@ export default function GameTetrisPage() {
                     {/* Theme selector */}
                     <div className="mb-4">
                       <p className="text-white/50 text-[10px] font-display uppercase tracking-widest mb-2">Тема</p>
-                      <div className="flex gap-1.5 justify-center">
+                      <div className="flex gap-1.5 justify-center flex-wrap">
                         {Object.entries(THEMES).map(([key, t]) => (
                           <button
                             key={key}
                             type="button"
                             onClick={() => setSettings((s) => ({ ...s, theme: key }))}
-                            className={`px-3 py-1.5 font-display text-[10px] uppercase tracking-widest border-2 transition-colors ${
+                            className={`flex items-center gap-2 px-3 py-1.5 font-display text-[10px] uppercase tracking-widest border-2 transition-colors ${
                               settings.theme === key
                                 ? 'border-yellow-400 bg-yellow-400/20 text-yellow-400'
                                 : 'border-white/20 text-white/40 hover:border-white/40'
                             }`}
                           >
+                            <span
+                              className="block h-2.5 w-2.5 rounded-full border border-white/30"
+                              style={{ background: t.colors.I }}
+                            />
                             {t.name}
                           </button>
                         ))}
                       </div>
+                      {settings.theme === 'lagoon' && (
+                        <p className="mt-2 text-[9px] font-display uppercase tracking-[0.18em] text-[#7ff8ec]">
+                          Bio-electric lagoon skin active
+                        </p>
+                      )}
                     </div>
 
                     {/* Quick settings row */}
@@ -1325,6 +1335,9 @@ export default function GameTetrisPage() {
                       <button type="button" onClick={() => setShowSettings(!showSettings)} className="bg-white/10 text-white font-display uppercase tracking-widest px-4 py-3 border-2 border-white/20 hover:border-white/40 transition-colors">
                         <Settings className="w-5 h-5" />
                       </button>
+                      <Link to="/games" className="bg-[#7ff8ec]/10 text-[#9ffcf4] font-display uppercase tracking-widest px-5 py-3 border-2 border-[#7ff8ec]/45 hover:border-[#7ff8ec] hover:bg-[#7ff8ec]/16 transition-colors">
+                        <ArrowLeft className="w-5 h-5 inline mr-2" />?????
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -1357,7 +1370,7 @@ export default function GameTetrisPage() {
                       top: 1 + dropTrail.fromRow * 29,
                       width: dropTrail.width * 29 - 1,
                       height: (dropTrail.toRow - dropTrail.fromRow) * 29,
-                      background: 'linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.3))',
+                      background: `linear-gradient(to bottom, rgba(255,255,255,0), ${currentTheme.frameColor || themeColors.I}66)`,
                       borderRadius: 2,
                     }}
                   />
@@ -1408,7 +1421,7 @@ export default function GameTetrisPage() {
             </div>
 
             {/* Mobile hold + pause */}
-            <div className="flex md:hidden gap-2">
+            <div className="flex md:hidden gap-2 flex-wrap justify-center">
               {gameStatus === 'playing' && (
                 <>
                   <button type="button" onClick={holdPieceFn} className={`comic-panel px-3 py-2 font-display uppercase text-[10px] tracking-widest ${holdUsed ? 'bg-zinc-200 dark:bg-zinc-800 text-zn-text/30' : 'bg-white dark:bg-zinc-900'}`} disabled={holdUsed}>
@@ -1419,6 +1432,12 @@ export default function GameTetrisPage() {
                   </button>
                 </>
               )}
+              <Link
+                to="/games"
+                className="comic-panel bg-[#7ff8ec]/12 text-[#065f67] dark:text-[#98fff4] dark:bg-[#7ff8ec]/10 px-4 py-2 font-display uppercase text-xs tracking-widest border-[#56e6d7]"
+              >
+                <ArrowLeft className="w-4 h-4 inline mr-1" /> ??????
+              </Link>
             </div>
           </div>
 

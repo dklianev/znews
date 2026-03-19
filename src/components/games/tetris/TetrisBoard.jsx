@@ -97,7 +97,13 @@ function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid =
   return (
     <div
       className={wrapperClass}
-      style={{ width: boardWidth, height: boardHeight, backgroundColor: theme.boardBg }}
+      style={{
+        width: boardWidth,
+        height: boardHeight,
+        background: theme.boardSurface || theme.boardBg,
+        borderColor: theme.frameColor || '#1C1428',
+        boxShadow: theme.frameColor ? `0 0 0 1px ${theme.frameColor}22, 0 0 24px ${theme.frameColor}18` : undefined,
+      }}
     >
       {display.map((row, rIdx) => (
         <TetrisRow

@@ -32,7 +32,9 @@ function TetrisPreview({ pieceKey, label, small, themeName = 'classic' }) {
           alignItems: 'center',
           justifyContent: 'center',
           padding: 4,
-          backgroundColor: theme.boardBg,
+          background: theme.boardSurface || theme.boardBg,
+          borderColor: theme.previewBorder || theme.frameColor || '#1C1428',
+          boxShadow: theme.previewBorder ? `0 0 18px ${theme.previewBorder}14` : undefined,
         }}
       >
         <div className="relative" style={{ width, height }}>
