@@ -41,11 +41,11 @@ const MAX_LOCK_RESETS = 15;
 const START_LEVELS = [1, 5, 10, 15];
 const COUNTDOWN_STEPS = [3, 2, 1, 'GO'];
 
-/* ── Handling defaults (casual-friendly) ── */
+/* ── Handling defaults (tetr.io-style) ── */
 const DEFAULT_HANDLING = {
-  das: 167,   // Delayed Auto Shift (ms) — колко задържаш преди автоповторение
-  arr: 50,    // Auto Repeat Rate (ms) — 0 = мигновен teleport до стената
-  sdf: 5,     // Soft Drop Factor — множител на gravity; 41 = мигновен
+  das: 133,   // Delayed Auto Shift (ms) — колко задържаш преди автоповторение
+  arr: 0,     // Auto Repeat Rate (ms) — 0 = мигновен teleport до стената
+  sdf: 41,    // Soft Drop Factor — множител на gravity; 41 = мигновен
   dcd: 0,     // DAS Cut Delay (ms) — пауза на DAS след заключване на фигура
 };
 
@@ -705,16 +705,35 @@ export default function GameTetrisPage() {
 
   /* ── Key mapping helper ── */
 
+  // Map physical key codes to the Latin character they produce on QWERTY
+  const CODE_TO_LATIN = {
+    KeyA: 'a', KeyB: 'b', KeyC: 'c', KeyD: 'd', KeyE: 'e', KeyF: 'f', KeyG: 'g',
+    KeyH: 'h', KeyI: 'i', KeyJ: 'j', KeyK: 'k', KeyL: 'l', KeyM: 'm', KeyN: 'n',
+    KeyO: 'o', KeyP: 'p', KeyQ: 'q', KeyR: 'r', KeyS: 's', KeyT: 't', KeyU: 'u',
+    KeyV: 'v', KeyW: 'w', KeyX: 'x', KeyY: 'y', KeyZ: 'z',
+    Space: ' ', Slash: '/', Comma: ',', Period: '.', Semicolon: ';',
+  };
+
   const getAction = useCallback((key, code) => {
     const keys = settingsRef.current.keys;
     const lk = key.toLowerCase();
+    // Check e.key directly (works on matching layout)
     for (const [action, mapped] of Object.entries(keys)) {
       if (mapped === key || mapped.toLowerCase() === lk) return action;
     }
-    // WASD/C fallback using e.code — works regardless of keyboard layout (Cyrillic, etc.)
-    const mappedValues = new Set(Object.values(keys).map((v) => v.toLowerCase()));
-    const codeMap = { KeyA: 'moveLeft', KeyD: 'moveRight', KeyS: 'softDrop', KeyW: 'rotateCW', KeyC: 'hold' };
-    if (code && codeMap[code] && !mappedValues.has((code === 'KeyA' ? 'a' : code === 'KeyD' ? 'd' : code === 'KeyS' ? 's' : code === 'KeyW' ? 'w' : 'c'))) return codeMap[code];
+    // Check physical key code → Latin character (works on Bulgarian/Cyrillic layout)
+    if (code) {
+      const latin = CODE_TO_LATIN[code];
+      if (latin) {
+        for (const [action, mapped] of Object.entries(keys)) {
+          if (mapped.toLowerCase() === latin) return action;
+        }
+      }
+    }
+    // WASD/C fallback — only if not already bound to something else
+    const mappedLower = new Set(Object.values(keys).map((v) => v.toLowerCase()));
+    const wasdMap = { KeyA: 'moveLeft', KeyD: 'moveRight', KeyS: 'softDrop', KeyW: 'rotateCW', KeyC: 'hold' };
+    if (code && wasdMap[code] && !mappedLower.has(CODE_TO_LATIN[code])) return wasdMap[code];
     return null;
   }, []);
 
@@ -722,8 +741,10 @@ export default function GameTetrisPage() {
 
   useEffect(() => {
     function handleKeyDown(e) {
-      // Track held keys for IRS/IHS
+      // Track held keys for IRS/IHS — store both e.key and Latin equivalent for Cyrillic layouts
       heldKeysRef.current.add(e.key);
+      const latin = e.code && CODE_TO_LATIN[e.code];
+      if (latin) heldKeysRef.current.add(latin);
 
       // Key rebinding mode
       if (rebindAction) return; // handled in separate effect
@@ -734,8 +755,8 @@ export default function GameTetrisPage() {
 
       const st = statusRef.current;
 
-      // Instant restart with R (any state except countdown)
-      if ((e.key === 'r' || e.key === 'R') && st !== 'countdown' && st !== 'idle') {
+      // Instant restart with R (any state except countdown) — works on any keyboard layout
+      if ((e.key === 'r' || e.key === 'R' || e.code === 'KeyR') && st !== 'countdown' && st !== 'idle') {
         e.preventDefault();
         startGame();
         return;
@@ -799,6 +820,8 @@ export default function GameTetrisPage() {
 
     function handleKeyUp(e) {
       heldKeysRef.current.delete(e.key);
+      const latin = e.code && CODE_TO_LATIN[e.code];
+      if (latin) heldKeysRef.current.delete(latin);
       const action = getAction(e.key, e.code);
       if (action === 'moveLeft' || action === 'moveRight' || action === 'softDrop') {
         stopDAS(action);
