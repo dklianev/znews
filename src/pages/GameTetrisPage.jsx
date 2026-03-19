@@ -195,6 +195,8 @@ export default function GameTetrisPage() {
   const [clearBanner, setClearBanner] = useState(null); // { text, special, key }
   const [boardGlow, setBoardGlow] = useState(null); // color string
   const [dropTrail, setDropTrail] = useState(null); // { col, fromRow, toRow, width, key }
+  const [levelUpFlash, setLevelUpFlash] = useState(false);
+  const [holdSwapKey, setHoldSwapKey] = useState(null);
   const [mode, setMode] = useState('marathon');
   const [elapsed, setElapsed] = useState(0); // ms for sprint timer
   const [remaining, setRemaining] = useState(120000); // ms for ultra timer
@@ -267,8 +269,30 @@ export default function GameTetrisPage() {
   modeRef.current = mode;
 
   const level = useMemo(() => mode === 'zen' ? 0 : getLevel(lines, startLevel - 1), [lines, startLevel, mode]);
+  const prevLevelRef = useRef(level);
   const currentTheme = useMemo(() => (THEMES[settings.theme] || THEMES.classic), [settings.theme]);
   const themeColors = useMemo(() => currentTheme.colors, [currentTheme]);
+
+  // Level-up detection
+  useEffect(() => {
+    if (level > prevLevelRef.current && gameStatus === 'playing') {
+      setLevelUpFlash(true);
+      const t = setTimeout(() => setLevelUpFlash(false), 500);
+      return () => clearTimeout(t);
+    }
+    prevLevelRef.current = level;
+  }, [level, gameStatus]);
+
+  // Danger zone — any filled cell in top 4 rows
+  const inDanger = useMemo(() => {
+    if (gameStatus !== 'playing') return false;
+    for (let r = 0; r < 4; r += 1) {
+      for (let c = 0; c < BOARD_COLS; c += 1) {
+        if (board[r][c]) return true;
+      }
+    }
+    return false;
+  }, [board, gameStatus]);
 
   /* Load high scores */
   useEffect(() => {
@@ -540,6 +564,7 @@ export default function GameTetrisPage() {
     const prevHold = holdKeyRef.current;
     setHoldKey(p.type);
     setHoldUsed(true);
+    setHoldSwapKey(Date.now());
     if (prevHold) {
       const newPiece = pieceFromKey(prevHold);
       if (isValidPosition(boardRef.current, newPiece.shape, newPiece.row, newPiece.col)) {
@@ -744,6 +769,9 @@ export default function GameTetrisPage() {
     setTilt(false);
     setLockFlashCells(null);
     setGravityRows(null);
+    setLevelUpFlash(false);
+    setHoldSwapKey(null);
+    prevLevelRef.current = startLevel - 1;
     setBag(rem);
     setQueue(initialQueue.slice(1));
     setElapsed(0);
@@ -1039,7 +1067,7 @@ export default function GameTetrisPage() {
         <div className="flex flex-col md:flex-row gap-4 items-start justify-center">
           {/* Left panel — hold + stats */}
           <div className="hidden md:flex flex-col gap-3 w-32">
-            <div className="comic-panel bg-white dark:bg-zinc-900 p-3 flex flex-col items-center">
+            <div className={`comic-panel bg-white dark:bg-zinc-900 p-3 flex flex-col items-center ${holdSwapKey ? 'tetris-hold-swap' : ''}`} key={holdSwapKey || 'hold'}>
               <TetrisPreview pieceKey={holdKey} label="Hold (C)" themeName={settings.theme} />
               {holdUsed && <span className="text-[9px] text-zn-text/40 dark:text-zinc-500 mt-1 font-display uppercase">Използван</span>}
             </div>
@@ -1350,7 +1378,7 @@ export default function GameTetrisPage() {
 
               <div
                 style={{ position: 'relative', zIndex: 0, '--glow-color': boardGlow || 'transparent' }}
-                className={boardGlow ? 'tetris-board-glow' : ''}
+                className={`${boardGlow ? 'tetris-board-glow' : ''} ${levelUpFlash ? 'tetris-level-up' : ''}`}
               >
                 <TetrisBoard
                   board={board}
@@ -1363,7 +1391,13 @@ export default function GameTetrisPage() {
                   tilt={tilt}
                   lockFlashCells={lockFlashCells}
                   gravityRows={gravityRows}
+                  activeGlow
                 />
+
+                {/* Danger zone overlay */}
+                {inDanger && (
+                  <div className="tetris-danger-zone absolute left-0 right-0 top-0 pointer-events-none" style={{ height: 4 * 29 + 1, zIndex: 5 }} />
+                )}
 
                 {/* Hard drop trail */}
                 {dropTrail && (

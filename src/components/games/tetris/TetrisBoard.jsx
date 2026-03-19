@@ -4,7 +4,7 @@ import { BOARD_ROWS, BOARD_COLS, THEMES } from '../../../utils/tetris';
 const CELL_SIZE = 28;
 const GAP = 1;
 
-const TetrisRow = memo(function TetrisRow({ row, rIdx, theme, showGrid, lockFlashSet, isGravityDrop }) {
+const TetrisRow = memo(function TetrisRow({ row, rIdx, theme, showGrid, lockFlashSet, isGravityDrop, activeCells, activeGlow }) {
   return row.map((cell, cIdx) => {
     const isGhost = typeof cell === 'string' && cell.startsWith('ghost:');
     const typeKey = isGhost ? cell.slice(6) : cell;
@@ -13,11 +13,24 @@ const TetrisRow = memo(function TetrisRow({ row, rIdx, theme, showGrid, lockFlas
     const y = GAP + rIdx * (CELL_SIZE + GAP);
     const cellKey = `${rIdx}-${cIdx}`;
     const isLockFlash = lockFlashSet.has(cellKey);
+    const isActive = activeGlow && activeCells && activeCells.has(cellKey);
 
     let className = 'absolute';
     if (isGhost) className += ' tetris-ghost-pulse';
     if (isLockFlash) className += ' tetris-lock-flash';
     if (isGravityDrop && color && !isGhost) className += ' tetris-gravity-drop';
+
+    // Cell shadow: active piece glow, lock flash, or standard bevel
+    let shadow = 'none';
+    if (color && !isGhost) {
+      if (isLockFlash) {
+        // handled by animation
+      } else if (isActive) {
+        shadow = `inset 0 -2px 4px rgba(0,0,0,0.3), inset 0 2px 2px rgba(255,255,255,0.2), 0 0 8px ${color}88`;
+      } else {
+        shadow = `inset 0 -3px 4px rgba(0,0,0,0.35), inset 0 2px 1px rgba(255,255,255,0.25), inset 2px 0 1px rgba(255,255,255,0.08), inset -2px 0 1px rgba(0,0,0,0.12)`;
+      }
+    }
 
     return (
       <div
@@ -31,14 +44,12 @@ const TetrisRow = memo(function TetrisRow({ row, rIdx, theme, showGrid, lockFlas
           backgroundColor: color || theme.bg,
           opacity: isGhost ? undefined : 1,
           border: color && !isGhost
-            ? '2px solid rgba(255,255,255,0.2)'
+            ? '2px solid rgba(255,255,255,0.18)'
             : showGrid
               ? '1px solid rgba(255,255,255,0.06)'
               : 'none',
           borderRadius: 2,
-          boxShadow: color && !isGhost && !isLockFlash
-            ? 'inset 0 -2px 4px rgba(0,0,0,0.3), inset 0 2px 2px rgba(255,255,255,0.15)'
-            : 'none',
+          boxShadow: shadow,
           '--drop-from': isGravityDrop ? '-29px' : '0px',
         }}
       />
@@ -46,8 +57,25 @@ const TetrisRow = memo(function TetrisRow({ row, rIdx, theme, showGrid, lockFlas
   });
 });
 
-function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid = false, flashRows, shake, tilt, lockFlashCells, gravityRows }) {
+function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid = false, flashRows, shake, tilt, lockFlashCells, gravityRows, activeGlow = false }) {
   const theme = THEMES[themeName] || THEMES.classic;
+
+  // Compute active piece cell positions for glow effect
+  const activeCells = useMemo(() => {
+    if (!piece || !activeGlow) return null;
+    const set = new Set();
+    for (let r = 0; r < piece.shape.length; r += 1) {
+      for (let c = 0; c < piece.shape[r].length; c += 1) {
+        if (!piece.shape[r][c]) continue;
+        const pr = piece.row + r;
+        const pc = piece.col + c;
+        if (pr >= 0 && pr < BOARD_ROWS && pc >= 0 && pc < BOARD_COLS) {
+          set.add(`${pr}-${pc}`);
+        }
+      }
+    }
+    return set;
+  }, [piece, activeGlow]);
 
   const display = useMemo(() => {
     const grid = board.map((row) => [...row]);
@@ -114,6 +142,8 @@ function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid =
           showGrid={showGrid}
           lockFlashSet={lockFlashSet}
           isGravityDrop={gravitySet.has(rIdx)}
+          activeCells={activeCells}
+          activeGlow={activeGlow}
         />
       ))}
 
