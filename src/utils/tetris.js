@@ -53,6 +53,19 @@ export const THEMES = {
 
 /* ── Level & speed ── */
 
+/**
+ * Tetris Guideline gravity formula (from Tetris Worlds).
+ * Returns milliseconds per row drop for a given level (0-based).
+ * Formula: seconds = (0.8 - (level * 0.007)) ^ level
+ * Caps at 20G (≈0.83ms) which is effectively instant.
+ */
+export function getGuidelineGravityMs(level) {
+  if (level >= 20) return 1; // 20G cap — instant
+  const seconds = Math.pow(0.8 - (level * 0.007), level);
+  return Math.max(1, Math.round(seconds * 1000));
+}
+
+/** Legacy speed table (kept for reference, no longer used in gameplay) */
 export const LEVEL_SPEEDS = [
   800, 720, 630, 550, 470, 380, 300, 220, 130, 100,
   80, 80, 80, 70, 70, 70, 50, 50, 50, 30,
@@ -362,7 +375,7 @@ export function getLevel(totalLines, startLevel = 0) {
 }
 
 export function getDropSpeed(level) {
-  return LEVEL_SPEEDS[Math.min(level, LEVEL_SPEEDS.length - 1)];
+  return getGuidelineGravityMs(level);
 }
 
 export function getGhostPosition(board, piece) {

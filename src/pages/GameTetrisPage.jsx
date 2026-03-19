@@ -38,9 +38,22 @@ const STORAGE_SCOPE = 'session';
 const LOCK_DELAY = 500;
 const MAX_LOCK_RESETS = 15;
 const START_LEVELS = [1, 5, 10, 15];
-const DAS_DELAY = 170;
-const ARR_DELAY = 50;
 const COUNTDOWN_STEPS = [3, 2, 1, 'GO'];
+
+/* ── Handling defaults (tetr.io-style) ── */
+const DEFAULT_HANDLING = {
+  das: 133,   // Delayed Auto Shift (ms) — колко задържаш преди автоповторение
+  arr: 0,     // Auto Repeat Rate (ms) — 0 = мигновен teleport до стената
+  sdf: 41,    // Soft Drop Factor — множител на gravity; Infinity = мигновен
+  dcd: 0,     // DAS Cut Delay (ms) — пауза на DAS след заключване на фигура
+};
+
+const HANDLING_LABELS = {
+  das: { name: 'DAS', desc: 'Забавяне преди автоповторение', min: 0, max: 300, step: 1, unit: 'ms' },
+  arr: { name: 'ARR', desc: 'Скорост на автоповторение (0 = мигновен)', min: 0, max: 100, step: 1, unit: 'ms' },
+  sdf: { name: 'SDF', desc: 'Множител на soft drop (41 = мигновен)', min: 1, max: 41, step: 1, unit: 'x' },
+  dcd: { name: 'DCD', desc: 'Пауза на DAS след заключване', min: 0, max: 50, step: 1, unit: 'ms' },
+};
 
 const MODES = {
   marathon: { name: 'Маратон', desc: 'Безкраен режим', icon: '∞' },
@@ -116,11 +129,15 @@ function fallbackCopy(text) {
 }
 
 function loadSettings() {
+  const defaults = { theme: 'classic', showGrid: false, queueSize: 3, keys: { ...DEFAULT_KEYS }, handling: { ...DEFAULT_HANDLING } };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { theme: 'classic', showGrid: false, queueSize: 3, keys: { ...DEFAULT_KEYS }, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { ...defaults, ...parsed, keys: { ...DEFAULT_KEYS, ...parsed.keys }, handling: { ...DEFAULT_HANDLING, ...parsed.handling } };
+    }
   } catch (_) { /* noop */ }
-  return { theme: 'classic', showGrid: false, queueSize: 3, keys: { ...DEFAULT_KEYS } };
+  return defaults;
 }
 
 /* ── Component ── */
@@ -192,6 +209,11 @@ export default function GameTetrisPage() {
   const heldActionsRef = useRef(new Set());
   const dasTimersRef = useRef({});
   const arrTimersRef = useRef({});
+  const dcdActiveRef = useRef(false);
+  const dcdTimerRef = useRef(null);
+
+  // IRS/IHS — track held keys for Initial Rotation/Hold on spawn
+  const heldKeysRef = useRef(new Set());
 
   /* Sync refs */
   boardRef.current = board;
@@ -273,15 +295,44 @@ export default function GameTetrisPage() {
     }
     setQueue(newQueue);
 
-    const newPiece = pieceFromKey(nextKey);
+    let newPiece = pieceFromKey(nextKey);
+
+    // IHS — Initial Hold System: if hold key is held, swap immediately
+    const held = heldKeysRef.current;
+    const keys = settingsRef.current.keys;
+    const holdKeyHeld = held.has(keys.hold) || held.has(keys.hold?.toLowerCase?.());
+    if (holdKeyHeld && !holdUsedRef.current && holdKeyRef.current) {
+      const fromHold = pieceFromKey(holdKeyRef.current);
+      if (isValidPosition(boardRef.current, fromHold.shape, fromHold.row, fromHold.col)) {
+        setHoldKey(newPiece.type);
+        setHoldUsed(true);
+        newPiece = fromHold;
+      }
+    }
+
     if (!isValidPosition(boardRef.current, newPiece.shape, newPiece.row, newPiece.col)) {
       setGameStatus('over');
       saveHighScore(scoreRef.current, modeRef.current);
       return;
     }
 
+    // IRS — Initial Rotation System: if rotation key is held, pre-rotate
+    const cwHeld = held.has(keys.rotateCW) || held.has(keys.rotateCW?.toLowerCase?.());
+    const ccwHeld = held.has(keys.rotateCCW) || held.has(keys.rotateCCW?.toLowerCase?.());
+    const r180Held = held.has(keys.rotate180) || held.has(keys.rotate180?.toLowerCase?.());
+    if (cwHeld) {
+      const rotated = tryRotate(boardRef.current, newPiece, true);
+      if (rotated) newPiece = rotated;
+    } else if (ccwHeld) {
+      const rotated = tryRotate(boardRef.current, newPiece, false);
+      if (rotated) newPiece = rotated;
+    } else if (r180Held) {
+      const rotated = tryRotate180(boardRef.current, newPiece);
+      if (rotated) newPiece = rotated;
+    }
+
     setPiece(newPiece);
-    setHoldUsed(false);
+    setHoldUsed(holdKeyHeld && !holdUsedRef.current && holdKeyRef.current ? true : false);
     lockResetsRef.current = 0;
   }, [saveHighScore]);
 
@@ -338,8 +389,18 @@ export default function GameTetrisPage() {
       return;
     }
 
+    // Zero ARE — spawn next piece immediately (tetr.io style)
     setPiece(null);
-    setTimeout(() => spawnPiece(), 50);
+
+    // DCD — DAS Cut Delay: pause DAS briefly after lock to prevent unintended carry-over
+    const dcd = settingsRef.current.handling?.dcd || 0;
+    if (dcd > 0) {
+      dcdActiveRef.current = true;
+      if (dcdTimerRef.current) clearTimeout(dcdTimerRef.current);
+      dcdTimerRef.current = setTimeout(() => { dcdActiveRef.current = false; }, dcd);
+    }
+
+    spawnPiece();
   }, [spawnPiece, showClearLabel, showScorePopup, triggerFlash, triggerShake, saveHighScore]);
 
   const lockAndSpawn = useCallback(() => {
@@ -389,32 +450,63 @@ export default function GameTetrisPage() {
       }
     } else {
       setPiece(null);
-      setTimeout(() => spawnPiece(), 50);
+      spawnPiece();
     }
   }, [spawnPiece, cancelLockTimer]);
 
   /* ── Movement actions (for DAS/ARR) ── */
 
-  const executeMovement = useCallback((action) => {
+  /** Move piece one cell or teleport to wall (ARR=0) */
+  const executeMovement = useCallback((action, teleport = false) => {
     const p = pieceRef.current;
     const b = boardRef.current;
     if (!p || statusRef.current !== 'playing') return;
+    if (dcdActiveRef.current && (action === 'moveLeft' || action === 'moveRight')) return;
 
     if (action === 'moveLeft') {
-      if (isValidPosition(b, p.shape, p.row, p.col - 1)) {
+      if (teleport) {
+        // ARR=0: teleport to leftmost valid position
+        let newCol = p.col;
+        while (isValidPosition(b, p.shape, p.row, newCol - 1)) newCol -= 1;
+        if (newCol !== p.col) {
+          setPiece((prev) => prev ? { ...prev, col: newCol, lastAction: 'move' } : prev);
+          resetLockDelay();
+        }
+      } else if (isValidPosition(b, p.shape, p.row, p.col - 1)) {
         setPiece((prev) => prev ? { ...prev, col: prev.col - 1, lastAction: 'move' } : prev);
         resetLockDelay();
       }
     } else if (action === 'moveRight') {
-      if (isValidPosition(b, p.shape, p.row, p.col + 1)) {
+      if (teleport) {
+        let newCol = p.col;
+        while (isValidPosition(b, p.shape, p.row, newCol + 1)) newCol += 1;
+        if (newCol !== p.col) {
+          setPiece((prev) => prev ? { ...prev, col: newCol, lastAction: 'move' } : prev);
+          resetLockDelay();
+        }
+      } else if (isValidPosition(b, p.shape, p.row, p.col + 1)) {
         setPiece((prev) => prev ? { ...prev, col: prev.col + 1, lastAction: 'move' } : prev);
         resetLockDelay();
       }
     } else if (action === 'softDrop') {
-      if (isValidPosition(b, p.shape, p.row + 1, p.col)) {
-        setPiece((prev) => prev ? { ...prev, row: prev.row + 1, lastAction: 'move' } : prev);
-        setScore((s) => s + POINTS.SOFT_DROP);
-        cancelLockTimer();
+      const sdf = settingsRef.current.handling?.sdf ?? 41;
+      if (sdf >= 41) {
+        // SDF=Infinity: instant soft drop to bottom (without locking)
+        let newRow = p.row;
+        let dropped = 0;
+        while (isValidPosition(b, p.shape, newRow + 1, p.col)) { newRow += 1; dropped += 1; }
+        if (dropped > 0) {
+          setPiece((prev) => prev ? { ...prev, row: newRow, lastAction: 'move' } : prev);
+          setScore((s) => s + dropped * POINTS.SOFT_DROP);
+          cancelLockTimer();
+        }
+      } else {
+        // Regular soft drop: one cell
+        if (isValidPosition(b, p.shape, p.row + 1, p.col)) {
+          setPiece((prev) => prev ? { ...prev, row: prev.row + 1, lastAction: 'move' } : prev);
+          setScore((s) => s + POINTS.SOFT_DROP);
+          cancelLockTimer();
+        }
       }
     }
   }, [resetLockDelay, cancelLockTimer]);
@@ -422,10 +514,33 @@ export default function GameTetrisPage() {
   const startDAS = useCallback((action) => {
     if (heldActionsRef.current.has(action)) return;
     heldActionsRef.current.add(action);
+
+    const handling = settingsRef.current.handling || DEFAULT_HANDLING;
+    const das = handling.das ?? 133;
+    const arr = handling.arr ?? 0;
+    const sdf = handling.sdf ?? 41;
+
+    // Soft drop with SDF > 1: use faster repeat
+    if (action === 'softDrop') {
+      executeMovement(action);
+      if (sdf >= 41) return; // Instant — no repeat needed
+      const softInterval = Math.max(1, Math.round(getDropSpeed(getLevel(linesRef.current, startLevelRef.current - 1)) / sdf));
+      arrTimersRef.current[action] = setInterval(() => executeMovement(action), softInterval);
+      return;
+    }
+
+    // First press: immediate move
     executeMovement(action);
+
+    // DAS delay, then ARR
     dasTimersRef.current[action] = setTimeout(() => {
-      arrTimersRef.current[action] = setInterval(() => executeMovement(action), ARR_DELAY);
-    }, DAS_DELAY);
+      if (arr === 0) {
+        // ARR=0: teleport to wall instantly after DAS
+        executeMovement(action, true);
+      } else {
+        arrTimersRef.current[action] = setInterval(() => executeMovement(action), arr);
+      }
+    }, das);
   }, [executeMovement]);
 
   const stopDAS = useCallback((action) => {
@@ -563,12 +678,15 @@ export default function GameTetrisPage() {
 
   useEffect(() => {
     function handleKeyDown(e) {
+      // Track held keys for IRS/IHS
+      heldKeysRef.current.add(e.key);
+
       // Key rebinding mode
       if (rebindAction) return; // handled in separate effect
 
       // Don't intercept when button/input focused
       const tag = e.target.tagName;
-      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
+      if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
       const st = statusRef.current;
 
@@ -629,6 +747,7 @@ export default function GameTetrisPage() {
     }
 
     function handleKeyUp(e) {
+      heldKeysRef.current.delete(e.key);
       const action = getAction(e.key, e.code);
       if (action === 'moveLeft' || action === 'moveRight' || action === 'softDrop') {
         stopDAS(action);
@@ -753,6 +872,7 @@ export default function GameTetrisPage() {
       clearTimeout(shakeTimerRef.current);
       clearInterval(countdownTimerRef.current);
       clearInterval(modeTimerRef.current);
+      clearTimeout(dcdTimerRef.current);
     };
   }, [stopAllDAS]);
 
@@ -773,7 +893,7 @@ export default function GameTetrisPage() {
             Тетрис
           </h1>
           <p className="text-white/60 text-sm font-semibold max-w-md">
-            DAS/ARR, T-Spin, B2B, 180°, Combo — пълната механика.
+            DAS/ARR/SDF, IRS/IHS, T-Spin, B2B, Combo — tetr.io механика.
           </p>
         </div>
       </div>
@@ -1139,10 +1259,44 @@ export default function GameTetrisPage() {
               ))}
             </div>
             <p className="text-[10px] text-zn-text/40 dark:text-zinc-500 mt-3">Натисни бутона, след което натисни нов клавиш. Esc за отказ.</p>
+
+            {/* Handling settings */}
+            <div className="mt-4 pt-4 border-t border-zn-text/10 dark:border-zinc-700">
+              <h4 className="font-display text-sm uppercase tracking-widest text-zn-text dark:text-white mb-3">Handling (физика)</h4>
+              <div className="space-y-3">
+                {Object.entries(HANDLING_LABELS).map(([key, meta]) => {
+                  const val = settings.handling?.[key] ?? DEFAULT_HANDLING[key];
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-sm text-zn-text/80 dark:text-zinc-300 font-display">{meta.name}</span>
+                        <span className="font-mono text-sm text-zn-text dark:text-white font-bold min-w-[50px] text-right">
+                          {key === 'sdf' && val >= 41 ? '∞' : val}{key !== 'sdf' || val < 41 ? meta.unit : ''}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={meta.min}
+                        max={meta.max}
+                        step={meta.step}
+                        value={val}
+                        onChange={(e) => setSettings((s) => ({
+                          ...s,
+                          handling: { ...s.handling, [key]: Number(e.target.value) },
+                        }))}
+                        className="w-full h-1.5 bg-zn-text/10 dark:bg-zinc-700 rounded appearance-none cursor-pointer accent-zn-purple"
+                      />
+                      <p className="text-[9px] text-zn-text/35 dark:text-zinc-500 mt-0.5">{meta.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="mt-3 pt-3 border-t border-zn-text/10 dark:border-zinc-700 flex gap-2">
               <button
                 type="button"
-                onClick={() => setSettings((s) => ({ ...s, keys: { ...DEFAULT_KEYS } }))}
+                onClick={() => setSettings((s) => ({ ...s, keys: { ...DEFAULT_KEYS }, handling: { ...DEFAULT_HANDLING } }))}
                 className="text-xs font-display uppercase tracking-widest text-zn-text/50 dark:text-zinc-400 hover:text-zn-hot transition-colors"
               >
                 По подразбиране
