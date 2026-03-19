@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useAdminData, usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2, Search, Copy, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, CheckSquare, Square, ArrowUp, Archive, ArchiveRestore } from 'lucide-react';
 import RichTextEditor from '../../components/admin/RichTextEditor';
@@ -170,12 +170,20 @@ export default function ManageArticles() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const ARTICLES_PER_PAGE = 15;
+  const deferredSearchQuery = useDeferredValue(searchQuery);
   const initialFormRef = useRef(emptyForm);
   const fieldRefs = useRef({});
   const [selectedIds, setSelectedIds] = useState([]);
   const [showArchived, setShowArchived] = useState(false);
   const [archivedArticles, setArchivedArticles] = useState([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
+  const [listArticles, setListArticles] = useState([]);
+  const [listTotal, setListTotal] = useState(0);
+  const [listTotalPages, setListTotalPages] = useState(1);
+  const [listLoading, setListLoading] = useState(false);
+  const [listError, setListError] = useState('');
+  const [listReloadNonce, setListReloadNonce] = useState(0);
+  const listRequestRef = useRef(0);
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -250,20 +258,6 @@ export default function ManageArticles() {
     setValidationErrors(Object.fromEntries(normalizedEntries));
   }, [validationErrors]);
 
-  const filtered = useMemo(() => {
-    let result = filterCat === 'all' ? articles : articles.filter(a => a.category === filterCat);
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
-      result = result.filter(a => a.title?.toLowerCase().includes(q));
-    }
-    return result;
-  }, [articles, filterCat, searchQuery]);
-
-  const sorted = useMemo(
-    () => [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [filtered]
-  );
-
   const allExistingTags = useMemo(() => {
     const set = new Set();
     articles.forEach(a => {
@@ -285,12 +279,51 @@ export default function ManageArticles() {
     }
   }, [form.tags]);
 
+  const refreshList = useCallback(() => {
+    setListReloadNonce((prev) => prev + 1);
+  }, []);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / ARTICLES_PER_PAGE));
-  const paginatedArticles = useMemo(
-    () => sorted.slice((currentPage - 1) * ARTICLES_PER_PAGE, currentPage * ARTICLES_PER_PAGE),
-    [sorted, currentPage]
-  );
+  const loadArticlePage = useCallback(async () => {
+    const requestId = listRequestRef.current + 1;
+    listRequestRef.current = requestId;
+    setListLoading(true);
+    setListError('');
+
+    try {
+      const payload = await api.articles.listAdmin({
+        page: currentPage,
+        limit: ARTICLES_PER_PAGE,
+        category: filterCat,
+        q: deferredSearchQuery.trim(),
+      });
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      const total = Number.isInteger(payload?.total) ? payload.total : items.length;
+      const totalPages = Number.isInteger(payload?.totalPages)
+        ? Math.max(1, payload.totalPages)
+        : Math.max(1, Math.ceil(total / ARTICLES_PER_PAGE));
+      const safePage = Number.isInteger(payload?.page) ? payload.page : currentPage;
+
+      if (listRequestRef.current !== requestId) return;
+
+      setListArticles(items);
+      setListTotal(total);
+      setListTotalPages(totalPages);
+
+      if (safePage !== currentPage) {
+        setCurrentPage(safePage);
+      }
+    } catch (error) {
+      if (listRequestRef.current !== requestId) return;
+      setListError(error?.message || 'Грешка при зареждане на статии');
+      setListArticles([]);
+      setListTotal(0);
+      setListTotalPages(1);
+    } finally {
+      if (listRequestRef.current === requestId) {
+        setListLoading(false);
+      }
+    }
+  }, [ARTICLES_PER_PAGE, currentPage, deferredSearchQuery, filterCat]);
 
   const hasDraftUnsavedChanges = useMemo(() => {
     if (editing === 'new') return form.title !== '' || form.content !== '<p></p>';
@@ -746,12 +779,15 @@ export default function ManageArticles() {
       if (editing === 'new') {
         await addArticle(data);
         clearDraft();
+        setCurrentPage(1);
         toast.success('Статията е създадена успешно');
       } else {
         await updateArticle(editing, data);
         await loadArticleRevisions(editing);
         toast.success('Промените са запазени');
       }
+
+      refreshList();
 
       setEditing(null);
       setForm(emptyForm);
@@ -778,13 +814,14 @@ export default function ManageArticles() {
     if (!confirmed) return;
     await deleteArticle(id);
     setSelectedIds(prev => prev.filter(sid => sid !== id));
+    refreshList();
     toast.success('Статията е архивирана');
   };
 
   // Bulk actions
   const toggleSelectId = (id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const selectAllOnPage = () => {
-    const pageIds = paginatedArticles.map(a => a.id);
+    const pageIds = listArticles.map(a => a.id);
     const allSelected = pageIds.every(id => selectedIds.includes(id));
     setSelectedIds(allSelected ? selectedIds.filter(id => !pageIds.includes(id)) : [...new Set([...selectedIds, ...pageIds])]);
   };
@@ -799,6 +836,7 @@ export default function ManageArticles() {
     });
     if (!confirmed) return;
     for (const id of selectedIds) await deleteArticle(id);
+    refreshList();
     toast.success(`${selectedIds.length} статии архивирани`);
     setSelectedIds([]);
   };
@@ -820,6 +858,7 @@ export default function ManageArticles() {
       await api.articles.restore(id);
       setArchivedArticles(prev => prev.filter(a => a.id !== id));
       await refresh();
+      refreshList();
       toast.success('Статията е възстановена като чернова');
     } catch {
       toast.error('Грешка при възстановяване');
@@ -837,6 +876,7 @@ export default function ManageArticles() {
     try {
       await api.articles.permanentDelete(id);
       setArchivedArticles(prev => prev.filter(a => a.id !== id));
+      refreshList();
       toast.success('Статията е изтрита окончателно');
     } catch {
       toast.error('Грешка при изтриване');
@@ -850,6 +890,7 @@ export default function ManageArticles() {
       const article = articles.find(a => a.id === id);
       if (article) await updateArticle(id, { ...article, status: newStatus });
     }
+    refreshList();
     toast.success(`${selectedIds.length} статии ${label}`);
     setSelectedIds([]);
   };
@@ -970,6 +1011,7 @@ export default function ManageArticles() {
   const handleQuickStatusToggle = async (article) => {
     const newStatus = article.status === 'draft' ? 'published' : 'draft';
     await updateArticle(article.id, { ...article, status: newStatus });
+    refreshList();
     toast.success(newStatus === 'published' ? 'Статията е публикувана' : 'Статията е в чернова');
   };
 
@@ -996,6 +1038,8 @@ export default function ManageArticles() {
     };
     delete dup.id;
     await addArticle(dup);
+    setCurrentPage(1);
+    refreshList();
     toast.success('Статията е дублирана като чернова');
   };
 
@@ -1022,6 +1066,12 @@ export default function ManageArticles() {
 
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [filterCat, searchQuery]);
+
+  useEffect(() => {
+    if (showArchived) return undefined;
+    loadArticlePage();
+    return undefined;
+  }, [loadArticlePage, listReloadNonce, showArchived]);
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-white";
   const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
@@ -1828,16 +1878,27 @@ export default function ManageArticles() {
 
       {/* Articles list */}
       <div className="space-y-2">
+        {listError && (
+          <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm font-sans text-red-700">
+            {listError}
+          </div>
+        )}
+        {listLoading && (
+          <div className="flex items-center gap-2 px-4 py-2 text-sm font-sans text-gray-500">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Зареждане на статии...
+          </div>
+        )}
         {/* Select all row */}
-        {paginatedArticles.length > 0 && (
+        {listArticles.length > 0 && (
           <div className="flex items-center gap-3 px-4 py-1.5">
             <button onClick={selectAllOnPage} className="text-gray-400 hover:text-zn-purple transition-colors">
-              {paginatedArticles.every(a => selectedIds.includes(a.id)) ? <CheckSquare className="w-4 h-4 text-zn-purple" /> : <Square className="w-4 h-4" />}
+              {listArticles.every(a => selectedIds.includes(a.id)) ? <CheckSquare className="w-4 h-4 text-zn-purple" /> : <Square className="w-4 h-4" />}
             </button>
             <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-gray-400">Избери всички на страницата</span>
           </div>
         )}
-        {paginatedArticles.map(article => {
+        {listArticles.map(article => {
           const publishAtDate = article.publishAt ? new Date(article.publishAt) : null;
           const isScheduled = article.status === 'published' && publishAtDate && publishAtDate > new Date();
           const publishAtLabel = publishAtDate && !Number.isNaN(publishAtDate.getTime())
@@ -1887,13 +1948,13 @@ export default function ManageArticles() {
             </div>
           );
         })}
-        {sorted.length === 0 && (
+        {!listLoading && listArticles.length === 0 && (
           <div className="text-center py-12 text-sm font-sans text-gray-400">Няма статии {searchQuery ? 'със съвпадащо заглавие' : 'в тази категория'}</div>
         )}
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
+      {listTotalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-6">
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -1903,16 +1964,16 @@ export default function ManageArticles() {
             <ChevronLeft className="w-4 h-4" />
           </button>
           <span className="text-sm font-sans text-gray-600">
-            {currentPage} / {totalPages}
+            {currentPage} / {listTotalPages}
           </span>
           <button
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage(p => Math.min(listTotalPages, p + 1))}
+            disabled={currentPage >= listTotalPages}
             className="p-2 text-gray-500 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
-          <span className="text-xs font-sans text-gray-400 ml-2">({sorted.length} статии)</span>
+          <span className="text-xs font-sans text-gray-400 ml-2">({listTotal} статии)</span>
         </div>
       )}
 

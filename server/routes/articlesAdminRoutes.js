@@ -5,6 +5,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     Article,
     ArticleRevision,
     AuditLog,
+    buildArticleRecencyPipeline,
     buildArticleSnapshot,
     createArticleRevision,
     enrichArticlePayloadWithImageMeta,
@@ -12,11 +13,60 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     isImmediateBreakingArticle,
     nextNumericId,
     normalizeText,
+    parsePositiveInt,
     requireAuth,
     requirePermission,
     sanitizeArticlePayload,
     sendPushNotificationForArticle,
   } = deps;
+
+  const ADMIN_ARTICLE_LIST_PROJECTION = {
+    id: 1,
+    title: 1,
+    category: 1,
+    authorId: 1,
+    date: 1,
+    readTime: 1,
+    image: 1,
+    featured: 1,
+    breaking: 1,
+    status: 1,
+    publishAt: 1,
+  };
+
+  const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  articlesRouter.get('/admin/list', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+    const page = parsePositiveInt(req.query.page, 1, { min: 1, max: 5000 });
+    const limit = parsePositiveInt(req.query.limit, 15, { min: 1, max: 100 });
+    const category = normalizeText(req.query.category, 64);
+    const q = normalizeText(req.query.q, 160);
+
+    const filter = { status: { $ne: 'archived' } };
+    if (category && category !== 'all') {
+      filter.category = category;
+    }
+    if (q) {
+      filter.title = new RegExp(escapeRegex(q), 'i');
+    }
+
+    const total = await Article.countDocuments(filter);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(page, totalPages);
+    const pipeline = buildArticleRecencyPipeline(filter, ADMIN_ARTICLE_LIST_PROJECTION, {
+      skip: (safePage - 1) * limit,
+      limit,
+    });
+    const items = await Article.aggregate(pipeline);
+
+    return res.json({
+      items,
+      page: safePage,
+      limit,
+      total,
+      totalPages,
+    });
+  }));
 
   articlesRouter.post('/', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
     const data = sanitizeArticlePayload(req.body, { partial: false });
