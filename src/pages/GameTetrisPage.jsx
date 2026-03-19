@@ -40,11 +40,11 @@ const MAX_LOCK_RESETS = 15;
 const START_LEVELS = [1, 5, 10, 15];
 const COUNTDOWN_STEPS = [3, 2, 1, 'GO'];
 
-/* ── Handling defaults (tetr.io-style) ── */
+/* ── Handling defaults (casual-friendly) ── */
 const DEFAULT_HANDLING = {
-  das: 133,   // Delayed Auto Shift (ms) — колко задържаш преди автоповторение
-  arr: 0,     // Auto Repeat Rate (ms) — 0 = мигновен teleport до стената
-  sdf: 41,    // Soft Drop Factor — множител на gravity; Infinity = мигновен
+  das: 167,   // Delayed Auto Shift (ms) — колко задържаш преди автоповторение
+  arr: 33,    // Auto Repeat Rate (ms) — 0 = мигновен teleport до стената
+  sdf: 20,    // Soft Drop Factor — множител на gravity; 41 = мигновен
   dcd: 0,     // DAS Cut Delay (ms) — пауза на DAS след заключване на фигура
 };
 
@@ -336,12 +336,29 @@ export default function GameTetrisPage() {
     const held = heldKeysRef.current;
     const keys = settingsRef.current.keys;
     const holdKeyHeld = held.has(keys.hold) || held.has(keys.hold?.toLowerCase?.());
-    if (holdKeyHeld && !holdUsedRef.current && holdKeyRef.current) {
-      const fromHold = pieceFromKey(holdKeyRef.current);
-      if (isValidPosition(boardRef.current, fromHold.shape, fromHold.row, fromHold.col)) {
+    if (holdKeyHeld && !holdUsedRef.current) {
+      if (holdKeyRef.current) {
+        // Swap with existing hold piece
+        const fromHold = pieceFromKey(holdKeyRef.current);
+        if (isValidPosition(boardRef.current, fromHold.shape, fromHold.row, fromHold.col)) {
+          setHoldKey(newPiece.type);
+          setHoldUsed(true);
+          newPiece = fromHold;
+        }
+      } else {
+        // First hold on fresh game — stash current piece, spawn next from queue
         setHoldKey(newPiece.type);
         setHoldUsed(true);
-        newPiece = fromHold;
+        const nextFromQueue = queueRef.current[0];
+        if (nextFromQueue) {
+          newPiece = pieceFromKey(nextFromQueue);
+          const updated = [...queueRef.current];
+          updated.shift();
+          const { piece: fill, remaining } = pullFromBag(bagRef.current);
+          updated.push(fill);
+          setBag(remaining);
+          setQueue(updated);
+        }
       }
     }
 
@@ -564,7 +581,8 @@ export default function GameTetrisPage() {
     if (action === 'softDrop') {
       executeMovement(action);
       if (sdf >= 41) return; // Instant — no repeat needed
-      const softInterval = Math.max(1, Math.round(getDropSpeed(getLevel(linesRef.current, startLevelRef.current - 1)) / sdf));
+      const softLevel = modeRef.current === 'zen' ? 0 : getLevel(linesRef.current, startLevelRef.current - 1);
+      const softInterval = Math.max(1, Math.round(getDropSpeed(softLevel) / sdf));
       arrTimersRef.current[action] = setInterval(() => executeMovement(action), softInterval);
       return;
     }
