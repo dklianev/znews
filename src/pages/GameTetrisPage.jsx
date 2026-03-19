@@ -1280,7 +1280,7 @@ export default function GameTetrisPage() {
                       </div>
                       {settings.theme === 'lagoon' && (
                         <p className="mt-2 text-[9px] font-display uppercase tracking-[0.18em] text-[#7ff8ec]">
-                          Bio-electric lagoon skin active
+                          Lagoon тема активна
                         </p>
                       )}
                     </div>
@@ -1335,8 +1335,8 @@ export default function GameTetrisPage() {
                       <button type="button" onClick={() => setShowSettings(!showSettings)} className="bg-white/10 text-white font-display uppercase tracking-widest px-4 py-3 border-2 border-white/20 hover:border-white/40 transition-colors">
                         <Settings className="w-5 h-5" />
                       </button>
-                      <Link to="/games" className="bg-[#7ff8ec]/10 text-[#9ffcf4] font-display uppercase tracking-widest px-5 py-3 border-2 border-[#7ff8ec]/45 hover:border-[#7ff8ec] hover:bg-[#7ff8ec]/16 transition-colors">
-                        <ArrowLeft className="w-5 h-5 inline mr-2" />?????
+                      <Link to="/games" className="bg-white/10 text-white font-display uppercase tracking-widest px-5 py-3 border-2 border-white/20 hover:border-white/40 transition-colors">
+                        <ArrowLeft className="w-5 h-5 inline mr-2" />Назад
                       </Link>
                     </div>
                   </div>
@@ -1434,9 +1434,9 @@ export default function GameTetrisPage() {
               )}
               <Link
                 to="/games"
-                className="comic-panel bg-[#7ff8ec]/12 text-[#065f67] dark:text-[#98fff4] dark:bg-[#7ff8ec]/10 px-4 py-2 font-display uppercase text-xs tracking-widest border-[#56e6d7]"
+                className="comic-panel bg-white dark:bg-zinc-900 px-4 py-2 font-display uppercase text-xs tracking-widest"
               >
-                <ArrowLeft className="w-4 h-4 inline mr-1" /> ??????
+                <ArrowLeft className="w-4 h-4 inline mr-1" /> Назад
               </Link>
             </div>
           </div>
