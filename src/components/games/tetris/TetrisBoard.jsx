@@ -4,7 +4,7 @@ import { BOARD_ROWS, BOARD_COLS, THEMES } from '../../../utils/tetris';
 const CELL_SIZE = 28;
 const GAP = 1;
 
-function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid = false, flashRows, shake }) {
+function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid = false, flashRows, shake, tilt, lockFlashCells, gravityRows }) {
   const theme = THEMES[themeName] || THEMES.classic;
 
   const display = useMemo(() => {
@@ -44,11 +44,17 @@ function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid =
   const boardWidth = BOARD_COLS * (CELL_SIZE + GAP) + GAP;
   const boardHeight = BOARD_ROWS * (CELL_SIZE + GAP) + GAP;
 
-  const flashSet = useMemo(() => new Set(flashRows || []), [flashRows]);
+  const lockFlashSet = useMemo(() => new Set((lockFlashCells || []).map(([r, c]) => `${r}-${c}`)), [lockFlashCells]);
+  const gravitySet = useMemo(() => new Set(gravityRows || []), [gravityRows]);
+
+  // Combine classes for board wrapper
+  let wrapperClass = 'relative border-3 border-[#1C1428] dark:border-zinc-600';
+  if (shake) wrapperClass += ' tetris-shake';
+  if (tilt) wrapperClass += ' tetris-tilt';
 
   return (
     <div
-      className={`relative border-3 border-[#1C1428] dark:border-zinc-600${shake ? ' tetris-shake' : ''}`}
+      className={wrapperClass}
       style={{ width: boardWidth, height: boardHeight, backgroundColor: theme.boardBg }}
     >
       {display.map((row, rIdx) =>
@@ -58,27 +64,36 @@ function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid =
           const color = typeKey ? (theme.colors[typeKey] || '#666') : null;
           const x = GAP + cIdx * (CELL_SIZE + GAP);
           const y = GAP + rIdx * (CELL_SIZE + GAP);
+          const cellKey = `${rIdx}-${cIdx}`;
+          const isLockFlash = lockFlashSet.has(cellKey);
+          const isGravityDrop = gravitySet.has(rIdx);
+
+          let className = 'absolute';
+          if (isGhost) className += ' tetris-ghost-pulse';
+          if (isLockFlash) className += ' tetris-lock-flash';
+          if (isGravityDrop && color && !isGhost) className += ' tetris-gravity-drop';
 
           return (
             <div
-              key={`${rIdx}-${cIdx}`}
-              className="absolute"
+              key={cellKey}
+              className={className}
               style={{
                 left: x,
                 top: y,
                 width: CELL_SIZE,
                 height: CELL_SIZE,
                 backgroundColor: color || theme.bg,
-                opacity: isGhost ? 0.25 : 1,
+                opacity: isGhost ? undefined : 1,
                 border: color && !isGhost
                   ? '2px solid rgba(255,255,255,0.2)'
                   : showGrid
                     ? '1px solid rgba(255,255,255,0.06)'
                     : 'none',
                 borderRadius: 2,
-                boxShadow: color && !isGhost
+                boxShadow: color && !isGhost && !isLockFlash
                   ? 'inset 0 -2px 4px rgba(0,0,0,0.3), inset 0 2px 2px rgba(255,255,255,0.15)'
                   : 'none',
+                '--drop-from': isGravityDrop ? '-29px' : '0px',
               }}
             />
           );
@@ -96,6 +111,35 @@ function TetrisBoard({ board, piece, ghostRow, themeName = 'classic', showGrid =
           }}
         />
       ))}
+
+      {/* Particle effects on line clear */}
+      {flashRows && flashRows.map((rowIdx) => {
+        const particles = [];
+        for (let i = 0; i < 8; i += 1) {
+          const tx = (Math.random() - 0.5) * 120;
+          const ty = -20 - Math.random() * 50;
+          const dur = 400 + Math.random() * 300;
+          const left = GAP + Math.random() * (boardWidth - GAP * 2);
+          const topPos = GAP + rowIdx * (CELL_SIZE + GAP) + CELL_SIZE / 2;
+          const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#FFFFFF', '#FF9F43'];
+          const bg = colors[Math.floor(Math.random() * colors.length)];
+          particles.push(
+            <div
+              key={`p-${rowIdx}-${i}`}
+              className="tetris-particle"
+              style={{
+                left,
+                top: topPos,
+                backgroundColor: bg,
+                '--tx': `${tx}px`,
+                '--ty': `${ty}px`,
+                '--dur': `${dur}ms`,
+              }}
+            />
+          );
+        }
+        return particles;
+      })}
     </div>
   );
 }

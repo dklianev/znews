@@ -60,6 +60,7 @@ const MODES = {
   sprint: { name: 'Спринт', desc: '40 линии', icon: '⚡' },
   ultra: { name: 'Ултра', desc: '2 минути', icon: '⏱️' },
   challenge: { name: 'Предизв.', desc: '+ garbage', icon: '💀' },
+  zen: { name: 'Зен', desc: 'Без нива, релакс', icon: '🧘' },
 };
 
 const DEFAULT_KEYS = {
@@ -168,6 +169,9 @@ export default function GameTetrisPage() {
   const [scorePopup, setScorePopup] = useState(null);
   const [flashRows, setFlashRows] = useState(null);
   const [shake, setShake] = useState(false);
+  const [tilt, setTilt] = useState(false);
+  const [lockFlashCells, setLockFlashCells] = useState(null);
+  const [gravityRows, setGravityRows] = useState(null);
   const [countdown, setCountdown] = useState(null);
   const [mode, setMode] = useState('marathon');
   const [elapsed, setElapsed] = useState(0); // ms for sprint timer
@@ -201,6 +205,9 @@ export default function GameTetrisPage() {
   const scorePopupTimerRef = useRef(null);
   const flashTimerRef = useRef(null);
   const shakeTimerRef = useRef(null);
+  const tiltTimerRef = useRef(null);
+  const lockFlashTimerRef = useRef(null);
+  const gravityTimerRef = useRef(null);
   const countdownTimerRef = useRef(null);
   const modeTimerRef = useRef(null);
   const garbageCounterRef = useRef(0);
@@ -231,7 +238,7 @@ export default function GameTetrisPage() {
   statsRef.current = stats;
   modeRef.current = mode;
 
-  const level = useMemo(() => getLevel(lines, startLevel - 1), [lines, startLevel]);
+  const level = useMemo(() => mode === 'zen' ? 0 : getLevel(lines, startLevel - 1), [lines, startLevel, mode]);
   const themeColors = useMemo(() => (THEMES[settings.theme] || THEMES.classic).colors, [settings.theme]);
 
   /* Load high scores */
@@ -276,6 +283,34 @@ export default function GameTetrisPage() {
     if (shakeTimerRef.current) clearTimeout(shakeTimerRef.current);
     setShake(true);
     shakeTimerRef.current = setTimeout(() => setShake(false), 200);
+  }, []);
+
+  const triggerTilt = useCallback(() => {
+    if (tiltTimerRef.current) clearTimeout(tiltTimerRef.current);
+    setTilt(true);
+    tiltTimerRef.current = setTimeout(() => setTilt(false), 250);
+  }, []);
+
+  const triggerLockFlash = useCallback((piece) => {
+    const cells = [];
+    for (let r = 0; r < piece.shape.length; r += 1) {
+      for (let c = 0; c < piece.shape[r].length; c += 1) {
+        if (piece.shape[r][c]) cells.push([piece.row + r, piece.col + c]);
+      }
+    }
+    if (lockFlashTimerRef.current) clearTimeout(lockFlashTimerRef.current);
+    setLockFlashCells(cells);
+    lockFlashTimerRef.current = setTimeout(() => setLockFlashCells(null), 200);
+  }, []);
+
+  const triggerGravityDrop = useCallback((clearedIndices) => {
+    // Rows above the lowest cleared row get the gravity animation
+    const minCleared = Math.min(...clearedIndices);
+    const rows = [];
+    for (let r = 0; r < minCleared; r += 1) rows.push(r);
+    if (gravityTimerRef.current) clearTimeout(gravityTimerRef.current);
+    setGravityRows(rows);
+    gravityTimerRef.current = setTimeout(() => setGravityRows(null), 200);
   }, []);
 
   /* ── Core game logic ── */
@@ -342,12 +377,13 @@ export default function GameTetrisPage() {
 
   const processLock = useCallback((p, b) => {
     const tSpin = detectTSpin(b, p);
+    triggerLockFlash(p);
     const locked = lockPiece(b, p);
     const { board: cleared, linesCleared, clearedIndices } = clearLines(locked);
     const perfect = linesCleared > 0 && isPerfectClear(cleared);
 
+    const lvl = modeRef.current === 'zen' ? 0 : getLevel(linesRef.current, startLevelRef.current - 1);
     const newCombo = linesCleared > 0 ? comboRef.current + 1 : -1;
-    const lvl = getLevel(linesRef.current, startLevelRef.current - 1);
     const { points, isSpecial, label } = calculateScore(
       linesCleared, lvl, tSpin, Math.max(0, newCombo), backToBackRef.current, perfect,
     );
@@ -356,8 +392,12 @@ export default function GameTetrisPage() {
     // Visual feedback
     if (linesCleared > 0) {
       triggerFlash(clearedIndices);
+      triggerGravityDrop(clearedIndices);
       if (points > 0) showScorePopup(points);
-      if (linesCleared >= 4 || tSpin !== 'none') triggerShake();
+      if (linesCleared >= 4 || tSpin !== 'none') {
+        triggerShake();
+        triggerTilt();
+      }
     }
 
     setBoard(cleared);
@@ -401,7 +441,7 @@ export default function GameTetrisPage() {
     }
 
     spawnPiece();
-  }, [spawnPiece, showClearLabel, showScorePopup, triggerFlash, triggerShake, saveHighScore]);
+  }, [spawnPiece, showClearLabel, showScorePopup, triggerFlash, triggerShake, triggerTilt, triggerLockFlash, triggerGravityDrop, saveHighScore]);
 
   const lockAndSpawn = useCallback(() => {
     cancelLockTimer();
@@ -637,6 +677,9 @@ export default function GameTetrisPage() {
     setScorePopup(null);
     setFlashRows(null);
     setShake(false);
+    setTilt(false);
+    setLockFlashCells(null);
+    setGravityRows(null);
     setBag(rem);
     setQueue(initialQueue.slice(1));
     setElapsed(0);
@@ -689,6 +732,13 @@ export default function GameTetrisPage() {
       if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
       const st = statusRef.current;
+
+      // Instant restart with R (any state except countdown)
+      if ((e.key === 'r' || e.key === 'R') && st !== 'countdown' && st !== 'idle') {
+        e.preventDefault();
+        startGame();
+        return;
+      }
 
       if (st === 'over' || st === 'won' || st === 'idle') {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startGame(); }
@@ -870,6 +920,9 @@ export default function GameTetrisPage() {
       clearTimeout(scorePopupTimerRef.current);
       clearTimeout(flashTimerRef.current);
       clearTimeout(shakeTimerRef.current);
+      clearTimeout(tiltTimerRef.current);
+      clearTimeout(lockFlashTimerRef.current);
+      clearTimeout(gravityTimerRef.current);
       clearInterval(countdownTimerRef.current);
       clearInterval(modeTimerRef.current);
       clearTimeout(dcdTimerRef.current);
@@ -881,7 +934,14 @@ export default function GameTetrisPage() {
   return (
     <div className="min-h-screen bg-zn-paper comic-dots dark:bg-zinc-950 pb-20">
       {/* Hero */}
-      <div className="bg-gradient-to-b from-zn-purple-deep via-zn-purple to-zn-purple-light dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-800 pt-6 pb-10 mb-8 border-b-4 border-[#1C1428] dark:border-zinc-700 relative overflow-hidden">
+      <div
+        className={`pt-6 pb-10 mb-8 border-b-4 border-[#1C1428] dark:border-zinc-700 relative overflow-hidden transition-all duration-700 ${
+          gameStatus !== 'playing' ? 'bg-gradient-to-b from-zn-purple-deep via-zn-purple to-zn-purple-light dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-800' : ''
+        }`}
+        style={gameStatus === 'playing' ? {
+          background: `linear-gradient(to bottom, hsl(${270 - level * 8}, ${60 + level * 2}%, ${15 + level}%) 0%, hsl(${260 - level * 6}, ${50 + level * 2}%, ${20 + level}%) 50%, hsl(${250 - level * 5}, ${40 + level}%, ${25 + level}%) 100%)`,
+        } : undefined}
+      >
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:20px_20px]" />
         <div className="max-w-5xl mx-auto px-4 relative z-10">
           <Link to="/games" className="inline-flex items-center gap-2 text-white/70 hover:text-white mb-4 font-display text-sm uppercase tracking-widest transition-colors">
@@ -1169,7 +1229,8 @@ export default function GameTetrisPage() {
                       {' '}{keyLabel(settings.keys.rotateCCW)} ↺ •
                       {' '}{keyLabel(settings.keys.rotate180)} 180° •
                       {' '}{keyLabel(settings.keys.hardDrop)} хвърляне •
-                      {' '}{keyLabel(settings.keys.hold)} hold
+                      {' '}{keyLabel(settings.keys.hold)} hold •
+                      {' '}R рестарт
                     </p>
 
                     <div className="flex gap-3 justify-center">
@@ -1193,6 +1254,9 @@ export default function GameTetrisPage() {
                   showGrid={settings.showGrid}
                   flashRows={flashRows}
                   shake={shake}
+                  tilt={tilt}
+                  lockFlashCells={lockFlashCells}
+                  gravityRows={gravityRows}
                 />
               </div>
             </div>
