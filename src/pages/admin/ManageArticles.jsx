@@ -141,6 +141,7 @@ export default function ManageArticles() {
     addArticle,
     updateArticle,
     deleteArticle,
+    refresh,
   } = usePublicData();
   const {
     articleRevisions,
@@ -818,6 +819,7 @@ export default function ManageArticles() {
     try {
       await api.articles.restore(id);
       setArchivedArticles(prev => prev.filter(a => a.id !== id));
+      await refresh();
       toast.success('Статията е възстановена като чернова');
     } catch {
       toast.error('Грешка при възстановяване');

@@ -47,7 +47,7 @@ export function registerSearchRoutes(app, deps) {
 
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
-    const articleBaseFilter = canSeeDrafts ? {} : getPublishedFilter();
+    const articleBaseFilter = canSeeDrafts ? { status: { $ne: 'archived' } } : getPublishedFilter();
     const articleLimit = parsePositiveInt(req.query.articleLimit, 24, { min: 1, max: 80 });
     const sectionLimit = parsePositiveInt(req.query.sectionLimit, 12, { min: 1, max: 40 });
     const articleFieldsProjection = buildArticleProjection(req.query.fields) || HOMEPAGE_DEFAULT_ARTICLE_PROJECTION;

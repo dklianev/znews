@@ -62,7 +62,7 @@ export function registerPublicFeedRoutes(app, deps) {
   app.get('/api/homepage', cacheMiddleware, asyncHandler(async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
-    const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
+    const articleFilter = canSeeDrafts ? { status: { $ne: 'archived' } } : getPublishedFilter();
     const latestShowcaseLimit = parsePositiveInt(req.query.latestShowcaseLimit, 5, { min: 1, max: 12 });
     const latestWireLimit = parsePositiveInt(req.query.latestWireLimit, 16, { min: 0, max: 48 });
     const compactPayload = isCompactPayloadRequested(req.query.compact);
@@ -185,7 +185,7 @@ export function registerPublicFeedRoutes(app, deps) {
   app.get('/api/bootstrap', cacheMiddleware, asyncHandler(async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
-    const articleFilter = canSeeDrafts ? {} : getPublishedFilter();
+    const articleFilter = canSeeDrafts ? { status: { $ne: 'archived' } } : getPublishedFilter();
     const fieldsProjection = buildArticleProjection(req.query.fields);
     const compactPayload = isCompactPayloadRequested(req.query.compact);
     const includeSections = parseBootstrapInclude(req.query.include);
