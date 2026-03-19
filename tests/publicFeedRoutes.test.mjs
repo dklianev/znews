@@ -251,4 +251,51 @@ export async function runPublicFeedRoutesTests() {
     assert.ok(Array.isArray(res.body.articles));
     assert.deepEqual(res.body.ads, [{ id: 1, title: 'Ad', placements: ['home.top'] }]);
   }
+
+  // Authenticated user with article permissions should still exclude archived articles
+  {
+    const app = createMockApp();
+    const adOptionsSeen = [];
+    const capturedFilters = [];
+    const deps = createDeps(adOptionsSeen);
+    deps.decodeTokenFromRequest = () => ({ userId: 1, name: 'Editor' });
+    deps.hasPermissionForSection = async () => true;
+    deps.fetchHomepageArticleCandidates = async ({ articleFilter }) => {
+      capturedFilters.push(articleFilter);
+      return [{ id: 11, title: 'Lead', excerpt: 'Deck', category: 'crime', publishAt: '2026-03-12T00:00:00.000Z' }];
+    };
+    registerPublicFeedRoutes(app, deps);
+
+    const handlers = app.routes.get('GET /api/homepage');
+    const res = createResponse();
+    await runHandlers(handlers, { query: {} }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(capturedFilters.length, 1);
+    assert.deepEqual(capturedFilters[0], { status: { $ne: 'archived' } },
+      'authenticated homepage must exclude archived articles');
+  }
+
+  {
+    const app = createMockApp();
+    const adOptionsSeen = [];
+    const capturedFilters = [];
+    const deps = createDeps(adOptionsSeen);
+    deps.decodeTokenFromRequest = () => ({ userId: 1, name: 'Editor' });
+    deps.hasPermissionForSection = async () => true;
+    deps.findArticlesByRecency = async (filter) => {
+      capturedFilters.push(filter);
+      return [{ id: 22, title: 'Story' }];
+    };
+    registerPublicFeedRoutes(app, deps);
+
+    const handlers = app.routes.get('GET /api/bootstrap');
+    const res = createResponse();
+    await runHandlers(handlers, { query: {} }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(capturedFilters.length, 1);
+    assert.deepEqual(capturedFilters[0], { status: { $ne: 'archived' } },
+      'authenticated bootstrap must exclude archived articles');
+  }
 }

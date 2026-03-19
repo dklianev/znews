@@ -226,4 +226,50 @@ export async function runSearchRoutesTests() {
     assert.equal(trendingRes.headers['Cache-Control'], 'public, max-age=300');
     assert.deepEqual(trendingRes.body, { items: [{ term: 'trend', score: 4 }] });
   }
+
+  // Authenticated user with article permissions should exclude archived from search
+  {
+    const app = createMockApp();
+    const capturedFilters = [];
+
+    registerSearchRoutes(app, {
+      Article: { modelName: 'Article' },
+      Court: { modelName: 'Court' },
+      Event: { modelName: 'Event' },
+      Job: { modelName: 'Job' },
+      Wanted: { modelName: 'Wanted' },
+      HOMEPAGE_DEFAULT_ARTICLE_PROJECTION: { id: 1, title: 1 },
+      buildArticleProjection() { return null; },
+      buildSearchRegex(term) { return new RegExp(term, 'i'); },
+      cacheMiddleware: (_req, _res, next) => next(),
+      decodeTokenFromRequest() { return { userId: 1, name: 'Editor' }; },
+      escapeRegexForSearch(value) { return value; },
+      filterSearchResultsByType,
+      getPublishedFilter() { return { status: 'published' }; },
+      async getSearchSuggestions() { return []; },
+      async getTrendingSearches() { return []; },
+      async hasPermissionForSection() { return true; },
+      normalizeSearchType,
+      normalizeText(value) { return typeof value === 'string' ? value : ''; },
+      parsePositiveInt(value, fallback) { return value == null ? fallback : Number.parseInt(value, 10); },
+      publicError(error) { return error.message; },
+      async recordSearchQuery() {},
+      async searchCollectionByTextAndRegex(Model, options) {
+        if (Model.modelName === 'Article') capturedFilters.push(options.regexFilter);
+        return [];
+      },
+      sortArticlesByRecency(items) { return items; },
+      stripDocumentList(items) { return items; },
+    });
+
+    const handlers = app.routes.get('GET /api/search');
+    const res = createResponse();
+    await runHandlers(handlers, { query: { q: 'test' } }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(capturedFilters.length, 1);
+    const baseFilter = capturedFilters[0].$and[0];
+    assert.deepEqual(baseFilter, { status: { $ne: 'archived' } },
+      'authenticated search must exclude archived articles');
+  }
 }
