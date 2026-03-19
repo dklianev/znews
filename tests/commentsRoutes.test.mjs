@@ -307,7 +307,7 @@ export async function runCommentsRoutesTests() {
     assert.deepEqual(updatedComments, [{
       query: { id: 12 },
       update: { $set: { text: 'Updated moderator copy' } },
-      options: { new: true },
+      options: { returnDocument: 'after' },
     }]);
     assert.equal(res.body?.text, 'Updated moderator copy');
   }

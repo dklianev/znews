@@ -169,7 +169,7 @@ export function createArticlesPublicRouter(deps) {
 
     const item = deduped
       ? await Article.findOne(filter).lean()
-      : await Article.findOneAndUpdate(filter, { $inc: { views: 1 } }, { new: true }).lean();
+      : await Article.findOneAndUpdate(filter, { $inc: { views: 1 } }, { returnDocument: 'after' }).lean();
 
     if (!item) return res.status(404).json({ error: 'Not found' });
     delete item._id;

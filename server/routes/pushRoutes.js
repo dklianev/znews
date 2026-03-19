@@ -19,7 +19,7 @@ export function registerPushRoutes(app, deps) {
     await PushSubscription.findOneAndUpdate(
       { endpoint: subscription.endpoint },
       subscription,
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     res.status(201).json({ success: true });

@@ -44,7 +44,7 @@ export function registerPollVoteRoutes(app, deps) {
     const updated = await Poll.findOneAndUpdate(
       { id, [`options.${optionIndex}`]: { $exists: true } },
       { $inc: { [optionPath]: 1 } },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
 
     if (!updated) return res.status(404).json({ error: 'Not found' });

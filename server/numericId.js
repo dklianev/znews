@@ -11,7 +11,7 @@ export async function allocateNumericId(Model, CounterModel, counterKey = '') {
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: 'after',
         setDefaultsOnInsert: true,
       }
     ).lean();
@@ -34,7 +34,7 @@ export async function allocateNumericId(Model, CounterModel, counterKey = '') {
           updatedAt: new Date(),
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
 
     const next = Number.parseInt(synced?.seq, 10);

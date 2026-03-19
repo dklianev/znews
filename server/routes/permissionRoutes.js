@@ -71,7 +71,7 @@ export function registerPermissionRoutes(app, deps) {
     const perm = await Permission.findOneAndUpdate(
       { role },
       { $set: { permissions } },
-      { new: true, upsert: true }
+      { returnDocument: 'after', upsert: true }
     );
     return res.json(perm.toJSON());
   }));

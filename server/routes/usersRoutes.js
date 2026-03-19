@@ -147,7 +147,7 @@ export function createUsersRouter(deps) {
 
     if (Object.keys(data).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
-    const item = await User.findOneAndUpdate({ id }, { $set: data }, { new: true, runValidators: true });
+    const item = await User.findOneAndUpdate({ id }, { $set: data }, { returnDocument: 'after', runValidators: true });
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     if (passwordChanged) {

@@ -185,7 +185,7 @@ export async function runTipRoutesTests() {
     assert.deepEqual(updatedTips, [{
       query: { id: 55 },
       update: { status: 'processed' },
-      options: { new: true },
+      options: { returnDocument: 'after' },
     }]);
     assert.deepEqual(res.body, { id: 55, status: 'processed' });
   }

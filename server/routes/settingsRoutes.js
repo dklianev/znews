@@ -50,7 +50,7 @@ export function registerSettingsRoutes(app, deps) {
     const updated = await HeroSettings.findOneAndUpdate(
       { key: 'main' },
       { $set: { key: 'main', ...settings } },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     ).lean();
 
     const serialized = serializeHeroSettings(updated);
@@ -88,7 +88,7 @@ export function registerSettingsRoutes(app, deps) {
     const updated = await HeroSettings.findOneAndUpdate(
       { key: 'main' },
       { $set: { key: 'main', ...snapshot } },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     ).lean();
 
     const serialized = serializeHeroSettings(updated);
@@ -126,7 +126,7 @@ export function registerSettingsRoutes(app, deps) {
     const updated = await SiteSettings.findOneAndUpdate(
       { key: 'main' },
       { $set: { key: 'main', ...snapshot } },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     ).lean();
 
     const serialized = serializeSiteSettings(updated);
@@ -155,7 +155,7 @@ export function registerSettingsRoutes(app, deps) {
     const updated = await SiteSettings.findOneAndUpdate(
       { key: 'main' },
       { $set: { key: 'main', ...settings } },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     ).lean();
 
     const serialized = serializeSiteSettings(updated);

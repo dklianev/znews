@@ -62,7 +62,7 @@ export function createAdminGamesRouter(deps) {
       if (!existingGame) return res.status(404).json({ error: 'Not found' });
       const update = sanitizeGameDefinitionInput(req.body, existingGame);
 
-      const game = await GameDefinition.findOneAndUpdate({ id }, { $set: update }, { new: true });
+      const game = await GameDefinition.findOneAndUpdate({ id }, { $set: update }, { returnDocument: 'after' });
       clearGameDefinitionCache();
       return res.json(game.toJSON());
     } catch (error) {
@@ -115,7 +115,7 @@ export function createAdminGamesRouter(deps) {
       if (!existingPuzzle) return res.status(404).json({ error: 'Not found' });
       const update = sanitizeGamePuzzleInput(game, req.body, existingPuzzle);
 
-      const puzzle = await GamePuzzle.findOneAndUpdate({ id, gameSlug: slug }, { $set: update }, { new: true });
+      const puzzle = await GamePuzzle.findOneAndUpdate({ id, gameSlug: slug }, { $set: update }, { returnDocument: 'after' });
       return res.json(puzzle.toJSON());
     } catch (error) {
       return res.status(error.status || 500).json({ error: statusAwarePublicError(error) });
@@ -151,7 +151,7 @@ export function createAdminGamesRouter(deps) {
       const puzzle = await GamePuzzle.findOneAndUpdate(
         { id, gameSlug: slug },
         { $set: { status: 'published', publishAt: new Date(), updatedAt: new Date() } },
-        { new: true }
+        { returnDocument: 'after' }
       );
       if (!puzzle) return res.status(404).json({ error: 'Not found' });
       return res.json(puzzle.toJSON());
@@ -166,7 +166,7 @@ export function createAdminGamesRouter(deps) {
     const puzzle = await GamePuzzle.findOneAndUpdate(
       { id, gameSlug: slug },
       { $set: { status: 'archived', updatedAt: new Date() } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!puzzle) return res.status(404).json({ error: 'Not found' });
     return res.json(puzzle.toJSON());

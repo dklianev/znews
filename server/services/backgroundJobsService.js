@@ -26,7 +26,7 @@ export function createBackgroundJobsService(deps) {
     const state = await BackgroundJobState.findOneAndUpdate(
       { name: definition.name, enabled: { $ne: false }, $or: [{ lockUntil: null }, { lockUntil: { $lte: now } }] },
       { $set: { running: true, lockUntil, lastStartedAt: now, updatedAt: now } },
-      { new: true }
+      { returnDocument: 'after' }
     ).lean();
     if (!state) return false;
 

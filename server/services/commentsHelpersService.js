@@ -24,7 +24,7 @@ export function createCommentsHelpers({
     return Comment.findOneAndUpdate(
       { id: commentId },
       { $set: { likes, dislikes } },
-      { new: true }
+      { returnDocument: 'after' }
     );
   }
 

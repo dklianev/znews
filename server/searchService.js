@@ -20,7 +20,7 @@ export async function recordSearchQuery(query) {
       $set: { displayQuery: String(query || '').trim() || normalizedQuery, lastSearchedAt: new Date() },
       $inc: { count: 1 },
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
   );
 }
 

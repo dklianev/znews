@@ -292,7 +292,7 @@ export function createCommentsRouter(deps) {
       return res.status(400).json({ error: COMMENT_COPY.noValidUpdate });
     }
 
-    const item = await Comment.findOneAndUpdate({ id }, { $set: updates }, { new: true });
+    const item = await Comment.findOneAndUpdate({ id }, { $set: updates }, { returnDocument: 'after' });
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     if (updates.approved === false) {

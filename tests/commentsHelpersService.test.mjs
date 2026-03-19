@@ -50,7 +50,7 @@ export async function runCommentsHelpersTests() {
   assert.deepEqual(updateCalls, [{
     filter: { id: 17 },
     update: { $set: { likes: 5, dislikes: 2 } },
-    options: { new: true },
+    options: { returnDocument: 'after' },
   }]);
   assert.deepEqual(updated.toJSON(), { id: 17, likes: 5, dislikes: 2 });
 

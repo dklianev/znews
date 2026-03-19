@@ -130,7 +130,7 @@ export function registerTipRoutes(app, deps) {
     const tip = await Tip.findOneAndUpdate(
       { id },
       { status },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!tip) return res.status(404).json({ error: 'Not found' });
     res.json(tip);

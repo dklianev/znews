@@ -102,7 +102,7 @@ export function createAdsRouter(deps) {
     if (errors.length > 0) return res.status(400).json({ error: errors[0], errors });
 
     const { id: _ignoredId, ...updateDoc } = candidate;
-    const item = await Ad.findOneAndUpdate({ id }, { $set: updateDoc }, { new: true, runValidators: true });
+    const item = await Ad.findOneAndUpdate({ id }, { $set: updateDoc }, { returnDocument: 'after', runValidators: true });
     if (!item) return res.status(404).json({ error: 'Not found' });
 
     const obj = normalizeAdRecord(stripDocumentMetadata(item.toJSON()));

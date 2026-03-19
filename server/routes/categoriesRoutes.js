@@ -58,7 +58,7 @@ export function createCategoriesRouter(deps) {
     const item = await Category.findOneAndUpdate(
       { id: req.params.id },
       { $set: updates },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (!item) return res.status(404).json({ error: 'Not found' });
 

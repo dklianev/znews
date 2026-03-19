@@ -233,7 +233,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     const previous = await Article.findOne({ id }).lean();
     if (!previous) return res.status(404).json({ error: 'Not found' });
 
-    const item = await Article.findOneAndUpdate({ id }, { $set: data }, { new: true });
+    const item = await Article.findOneAndUpdate({ id }, { $set: data }, { returnDocument: 'after' });
     if (!item) return res.status(404).json({ error: 'Not found' });
     if (item.hero) {
       await Article.updateMany({ id: { $ne: id }, hero: true }, { $set: { hero: false } });
@@ -347,7 +347,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
 
     const snapshot = buildArticleSnapshot(revision.snapshot);
     await enrichArticlePayloadWithImageMeta(snapshot, { partial: false });
-    const restored = await Article.findOneAndUpdate({ id }, { $set: snapshot }, { new: true });
+    const restored = await Article.findOneAndUpdate({ id }, { $set: snapshot }, { returnDocument: 'after' });
     if (!restored) return res.status(404).json({ error: 'Article not found' });
 
     if (restored.hero) {
@@ -379,7 +379,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     const article = await Article.findOneAndUpdate(
       { id, status: { $ne: 'archived' } },
       { $set: { status: 'archived', deletedAt: new Date(), deletedBy: req.user.name } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!article) return res.status(404).json({ error: 'Not found' });
 
@@ -405,7 +405,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     const article = await Article.findOneAndUpdate(
       { id, status: 'archived' },
       { $set: { status: 'draft', deletedAt: null, deletedBy: null } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!article) return res.status(404).json({ error: 'Not found or not archived' });
 

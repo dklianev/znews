@@ -98,7 +98,7 @@ export function createContactMessagesRouter(deps) {
 
     if (Object.keys(data).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
-    const updated = await ContactMessage.findOneAndUpdate({ id }, { $set: data }, { new: true }).lean();
+    const updated = await ContactMessage.findOneAndUpdate({ id }, { $set: data }, { returnDocument: 'after' }).lean();
     if (!updated) return res.status(404).json({ error: 'Not found' });
     delete updated._id;
     delete updated.__v;
