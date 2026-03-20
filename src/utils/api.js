@@ -6,9 +6,11 @@
 
 const BASE = '/api';
 const SESSION_KEY = 'zn_session';
+const CLIENT_ID_KEY = 'zn_client_id';
 
 let refreshInFlight = null;
 let inMemorySession = null;
+let inMemoryClientId = null;
 
 function getWebStorage(type) {
   if (typeof window === 'undefined') return null;
@@ -46,6 +48,51 @@ function removeSessionFromStorage(storage) {
   } catch {
     // ignore quota/privacy mode errors
   }
+}
+
+function generateClientId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `zn-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
+}
+
+function readClientIdFromStorage(storage) {
+  if (!storage) return null;
+  try {
+    const value = storage.getItem(CLIENT_ID_KEY);
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeClientIdToStorage(storage, clientId) {
+  if (!storage || !clientId) return false;
+  try {
+    storage.setItem(CLIENT_ID_KEY, clientId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getClientId() {
+  if (inMemoryClientId) return inMemoryClientId;
+
+  const localStorage = getWebStorage('localStorage');
+  const sessionStorage = getWebStorage('sessionStorage');
+  const existing = readClientIdFromStorage(localStorage) || readClientIdFromStorage(sessionStorage);
+  if (existing) {
+    inMemoryClientId = existing;
+    writeClientIdToStorage(localStorage, existing);
+    return existing;
+  }
+
+  const created = generateClientId();
+  inMemoryClientId = created;
+  writeClientIdToStorage(localStorage, created);
+  return created;
 }
 
 function emitSessionUpdated(session) {
@@ -198,6 +245,10 @@ async function request(path, options = {}, internal = {}) {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers || {}),
   };
+  const clientId = getClientId();
+  if (clientId && !headers['X-ZN-Client-Id'] && !headers['x-zn-client-id']) {
+    headers['X-ZN-Client-Id'] = clientId;
+  }
 
   if (session?.token) {
     headers.Authorization = `Bearer ${session.token}`;

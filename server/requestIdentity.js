@@ -81,10 +81,23 @@ export function getClientUserAgent(req) {
   return ua.trim().slice(0, 300) || 'unknown';
 }
 
+export function getTrustedClientId(req) {
+  const value = typeof req.headers?.['x-zn-client-id'] === 'string'
+    ? req.headers['x-zn-client-id']
+    : '';
+  const normalized = value.trim().slice(0, 120);
+  if (!normalized) return '';
+  return /^[a-zA-Z0-9._:-]{8,120}$/.test(normalized) ? normalized : '';
+}
+
 export function hashTrustedClientFingerprint(req, scope = '') {
   const ip = getTrustedClientIp(req);
   const ua = getClientUserAgent(req);
+  const clientId = getTrustedClientId(req);
+  const payload = clientId
+    ? `${scope}|cid:${clientId}|${ip}|${ua}`
+    : `${scope}|${ip}|${ua}`;
   return createHash('sha256')
-    .update(`${scope}|${ip}|${ua}`)
+    .update(payload)
     .digest('hex');
 }
