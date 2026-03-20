@@ -1439,6 +1439,7 @@ const {
   migrateBreakingCategoryLabels,
   sanitizePermissionMap,
 } = createDbBootstrapService({
+  ArticleReaction,
   BREAKING_CATEGORY_LABEL,
   Category,
   DEFAULT_PERMISSION_DOCS,
@@ -1470,6 +1471,7 @@ const {
     ArticleRevision,
     SettingsRevision,
     ArticleView,
+    ArticleReaction,
     PollVote,
     AuthSession,
     AuditLog,

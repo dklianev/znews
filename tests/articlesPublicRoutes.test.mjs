@@ -100,7 +100,7 @@ function createDeps(overrides = {}) {
       ArticleReaction: {
         find(filter) {
           findFilters.push(filter);
-          return chainableLean([{ _id: 'r1', emoji: 'fire', active: true }]);
+          return chainableLean([{ emoji: 'fire' }, { emoji: 'clap' }]);
         },
         findOne(filter) {
           findOneFilters.push(filter);
@@ -109,10 +109,6 @@ function createDeps(overrides = {}) {
         async create(payload) {
           creates.push(payload);
           return payload;
-        },
-        async updateOne(filter, update) {
-          updates.push({ filter, update });
-          return { matchedCount: 1, modifiedCount: 1 };
         },
       },
       ArticleView: {
@@ -171,9 +167,8 @@ export async function runArticlesPublicRoutesTests() {
         shock: false,
         laugh: false,
         skull: false,
-        clap: false,
+        clap: true,
       },
-      activeReaction: 'fire',
       hasReacted: true,
     });
   }
@@ -202,26 +197,72 @@ export async function runArticlesPublicRoutesTests() {
     const handlers = getRouteHandlers(router, 'post', '/:id/react');
     const res = createResponse();
 
-    await runHandlers(handlers, { params: { id: '7' }, body: { emoji: 'fire' }, headers: {} }, res);
+    await runHandlers(handlers, { params: { id: '7' }, body: { emoji: 'shock' }, headers: {} }, res);
 
     assert.equal(res.statusCode, 200);
     assert.equal(findOneFilters.length, 1);
     assert.deepEqual(findOneFilters[0], {
       articleId: 7,
+      emoji: 'shock',
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:fire', 'hash:react:7:shock', 'hash:react:7:laugh', 'hash:react:7:skull', 'hash:react:7:clap'] },
+      voterHash: { $in: ['hash:react:7', 'hash:react:7:shock'] },
     });
     assert.deepEqual(creates, [{
       articleId: 7,
-      emoji: 'fire',
-      voterHash: 'hash:react:7',
+      emoji: 'shock',
+      voterHash: 'hash:react:7:shock',
       windowKey: 42,
-      active: true,
       expiresAt: creates[0].expiresAt,
     }]);
     assert.deepEqual(res.body, {
-      reactions: { fire: 4, shock: 1, laugh: 0, skull: 0, clap: 2 },
-      activeReaction: 'fire',
+      reactions: { fire: 3, shock: 2, laugh: 0, skull: 0, clap: 2 },
+      emoji: 'shock',
+      hasReacted: true,
+    });
+  }
+
+  {
+    const findOneCalls = [];
+    const creates = [];
+    const { deps } = createDeps({
+      ArticleReaction: {
+        find(filter) {
+          return chainableLean([{ emoji: 'fire' }]);
+        },
+        findOne(filter) {
+          findOneCalls.push(filter);
+          if (filter.emoji === 'fire') return chainableLean({ emoji: 'fire' });
+          return chainableLean(null);
+        },
+        async create(payload) {
+          creates.push(payload);
+          return payload;
+        },
+      },
+    });
+    const router = createArticlesPublicRouter(deps);
+    const handlers = getRouteHandlers(router, 'post', '/:id/react');
+    const res = createResponse();
+
+    await runHandlers(handlers, { params: { id: '7' }, body: { emoji: 'clap' }, headers: {} }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(findOneCalls, [{
+      articleId: 7,
+      emoji: 'clap',
+      windowKey: 42,
+      voterHash: { $in: ['hash:react:7', 'hash:react:7:clap'] },
+    }]);
+    assert.deepEqual(creates, [{
+      articleId: 7,
+      emoji: 'clap',
+      voterHash: 'hash:react:7:clap',
+      windowKey: 42,
+      expiresAt: creates[0].expiresAt,
+    }]);
+    assert.deepEqual(res.body, {
+      reactions: { fire: 3, shock: 1, laugh: 0, skull: 0, clap: 3 },
+      emoji: 'clap',
       hasReacted: true,
     });
   }
@@ -231,16 +272,13 @@ export async function runArticlesPublicRoutesTests() {
     const { deps } = createDeps({
       ArticleReaction: {
         find(filter) {
-          return chainableLean([{ _id: 'r1', emoji: 'fire', active: false }]);
+          return chainableLean([{ emoji: 'fire' }]);
         },
-        findOne() {
-          return chainableLean({ emoji: 'fire', active: false });
+        findOne(filter) {
+          return chainableLean({ emoji: 'shock' });
         },
         async create() {
           throw duplicateError;
-        },
-        async updateOne() {
-          return { matchedCount: 1, modifiedCount: 1 };
         },
       },
     });
@@ -253,32 +291,7 @@ export async function runArticlesPublicRoutesTests() {
     assert.equal(res.statusCode, 429);
     assert.deepEqual(res.body, {
       error: 'Already reacted',
-      emoji: 'fire',
-      activeReaction: null,
-      hasReacted: true,
-    });
-  }
-
-  {
-    const { deps, updates } = createDeps();
-    const router = createArticlesPublicRouter(deps);
-    const handlers = getRouteHandlers(router, 'delete', '/:id/react');
-    const res = createResponse();
-
-    await runHandlers(handlers, { params: { id: '7' }, headers: {} }, res);
-
-    assert.equal(res.statusCode, 200);
-    assert.deepEqual(updates[0], {
-      filter: { _id: 'r1' },
-      update: { $set: { active: false, removedAt: updates[0].update.$set.removedAt } },
-    });
-    assert.deepEqual(updates[1], {
-      filter: { id: 7, status: 'published' },
-      update: { $inc: { 'reactions.fire': -1 } },
-    });
-    assert.deepEqual(res.body, {
-      reactions: { fire: 2, shock: 1, laugh: 0, skull: 0, clap: 2 },
-      activeReaction: null,
+      emoji: 'shock',
       hasReacted: true,
     });
   }

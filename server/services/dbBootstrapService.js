@@ -1,4 +1,5 @@
 export function createDbBootstrapService({
+  ArticleReaction,
   BREAKING_CATEGORY_LABEL,
   Category,
   DEFAULT_PERMISSION_DOCS,
@@ -203,7 +204,20 @@ export function createDbBootstrapService({
   async function ensureDbIndexes() {
     try {
       await Promise.all(modelsWithIndexes.map((Model) => Model.init()));
-      logInfo('– MongoDB indexes ensured');
+      if (ArticleReaction?.collection?.dropIndex) {
+        try {
+          await ArticleReaction.collection.dropIndex('article_reaction_article_voter_window');
+          logInfo('- Dropped obsolete ArticleReaction index: article_reaction_article_voter_window');
+        } catch (error) {
+          const message = String(error?.message || '');
+          const ignorable = Number(error?.code) === 27
+            || Number(error?.code) === 26
+            || /index not found/i.test(message)
+            || /ns not found/i.test(message);
+          if (!ignorable) throw error;
+        }
+      }
+      logInfo('- MongoDB indexes ensured');
     } catch (error) {
       logBootstrapWarning('? MongoDB index init failed:', error);
     }

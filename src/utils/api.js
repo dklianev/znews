@@ -355,7 +355,6 @@ export const api = {
     incrementView: (id) => request(`/articles/${id}/view`, { method: 'POST' }),
     getReactionState: (id) => request(`/articles/${id}/reactions/me`),
     react: (id, emoji) => request(`/articles/${id}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
-    removeReaction: (id) => request(`/articles/${id}/react`, { method: 'DELETE' }),
     getRevisions: (id) => request(`/articles/${id}/revisions`),
     getRevision: (id, revisionId) => request(`/articles/${id}/revisions/${encodeURIComponent(revisionId)}`),
     autosaveRevision: (id, data) => request(`/articles/${id}/revisions/autosave`, { method: 'POST', body: JSON.stringify(data) }),

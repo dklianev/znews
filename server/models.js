@@ -629,13 +629,10 @@ const articleReactionSchema = new mongoose.Schema({
   emoji: { type: String, required: true },
   voterHash: { type: String, required: true, index: true },
   windowKey: { type: Number, required: true, index: true },
-  active: { type: Boolean, default: true, index: true },
   createdAt: { type: Date, default: Date.now, index: true },
-  removedAt: { type: Date, default: null },
   expiresAt: { type: Date, required: true },
 }, opts);
 articleReactionSchema.index({ articleId: 1, emoji: 1, voterHash: 1, windowKey: 1 }, { unique: true });
-articleReactionSchema.index({ articleId: 1, voterHash: 1, windowKey: 1 }, { unique: true, name: 'article_reaction_article_voter_window' });
 articleReactionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 // ─── Auth Sessions (refresh-token rotation) ───
