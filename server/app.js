@@ -1419,11 +1419,16 @@ const articlesRouter = createArticlesPublicRouter({
   hasPermissionForSection,
   hashBrowserClientFingerprint,
   hashClientFingerprint,
+  invalidateCacheTags,
   isMongoDuplicateKeyError,
+  isProd,
   normalizeText,
+  parseCookies,
   parsePositiveInt,
+  randomUUID,
   publicError,
   resolveShareFallbackSource,
+  serializeCookie,
   transparentPng1x1,
 });
 

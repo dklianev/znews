@@ -6,6 +6,9 @@ function createResponse() {
     statusCode: 200,
     body: undefined,
     headers: {},
+    getHeader(name) {
+      return this.headers[name];
+    },
     setHeader(name, value) {
       this.headers[name] = value;
     },
@@ -62,13 +65,18 @@ function chainableLean(value) {
 function createDeps(overrides = {}) {
   const findFilters = [];
   const findOneFilters = [];
+  const findOneDeleteFilters = [];
+  const invalidations = [];
   const updates = [];
   const creates = [];
+  const reactionDocs = [{ emoji: 'fire' }, { emoji: 'clap' }];
 
   return {
     creates,
     findFilters,
     findOneFilters,
+    findOneDeleteFilters,
+    invalidations,
     updates,
     deps: {
       Article: {
@@ -100,14 +108,24 @@ function createDeps(overrides = {}) {
       ArticleReaction: {
         find(filter) {
           findFilters.push(filter);
-          return chainableLean([{ emoji: 'fire' }, { emoji: 'clap' }]);
+          return chainableLean(reactionDocs.map((doc) => ({ ...doc })));
         },
         findOne(filter) {
           findOneFilters.push(filter);
-          return chainableLean(null);
+          return chainableLean(reactionDocs.find((doc) => doc.emoji === filter?.emoji) || null);
+        },
+        findOneAndDelete(filter) {
+          findOneDeleteFilters.push(filter);
+          const matchIndex = reactionDocs.findIndex((doc) => doc.emoji === filter?.emoji);
+          if (matchIndex >= 0) {
+            const [removed] = reactionDocs.splice(matchIndex, 1);
+            return chainableLean(removed);
+          }
+          return chainableLean({ emoji: filter.emoji });
         },
         async create(payload) {
           creates.push(payload);
+          reactionDocs.push({ emoji: payload.emoji, voterHash: payload.voterHash });
           return payload;
         },
       },
@@ -131,15 +149,38 @@ function createDeps(overrides = {}) {
       getWindowKey() { return 42; },
       hasOwn(target, key) { return Object.prototype.hasOwnProperty.call(target || {}, key); },
       async hasPermissionForSection() { return false; },
-      hashBrowserClientFingerprint(_req, scope) { return `browser:${scope}`; },
+      hashBrowserClientFingerprint(req, scope) {
+        return req?.headers?.['x-zn-client-id'] ? `browser:${scope}` : `hash:${scope}`;
+      },
       hashClientFingerprint(_req, scope) { return `hash:${scope}`; },
+      invalidateCacheTags(tags, options) {
+        invalidations.push({ tags, options });
+        return 1;
+      },
+      isProd: false,
       isMongoDuplicateKeyError(error) { return Number(error?.code) === 11000; },
       normalizeText(value, maxLength = 200) { return String(value || '').trim().slice(0, maxLength); },
+      parseCookies(req) {
+        const raw = typeof req?.headers?.cookie === 'string' ? req.headers.cookie : '';
+        if (!raw) return {};
+        return raw.split(';').reduce((acc, part) => {
+          const [key, ...rest] = part.trim().split('=');
+          if (!key || rest.length === 0) return acc;
+          acc[key] = rest.join('=');
+          return acc;
+        }, {});
+      },
       parsePositiveInt(value, fallback) {
         const parsed = Number.parseInt(value, 10);
         return Number.isInteger(parsed) ? parsed : fallback;
       },
+      randomUUID() {
+        return 'server-uuid-123456';
+      },
       async resolveShareFallbackSource() { return null; },
+      serializeCookie(name, value) {
+        return `${name}=${value}`;
+      },
       transparentPng1x1: Buffer.from(''),
       ...overrides,
     },
@@ -160,9 +201,10 @@ export async function runArticlesPublicRoutesTests() {
     assert.deepEqual(findFilters[0], {
       articleId: 7,
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:fire', 'hash:react:7:shock', 'hash:react:7:laugh', 'hash:react:7:skull', 'hash:react:7:clap'] },
+      voterHash: { $in: ['browser:react:7', 'browser:react:7:fire', 'browser:react:7:shock', 'browser:react:7:laugh', 'browser:react:7:skull', 'browser:react:7:clap'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
+    assert.equal(res.headers['Set-Cookie'], 'zn_react_id=zn-browser-server-uuid-123456');
     assert.deepEqual(res.body, {
       reacted: {
         fire: true,
@@ -238,7 +280,7 @@ export async function runArticlesPublicRoutesTests() {
     assert.deepEqual(findFilters[0], {
       articleId: 7,
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:fire', 'hash:react:7:shock', 'hash:react:7:laugh', 'hash:react:7:skull', 'hash:react:7:clap'] },
+      voterHash: { $in: ['browser:react:7', 'browser:react:7:fire', 'browser:react:7:shock', 'browser:react:7:laugh', 'browser:react:7:skull', 'browser:react:7:clap'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(res.body, {
@@ -254,7 +296,7 @@ export async function runArticlesPublicRoutesTests() {
   }
 
   {
-    const { deps, creates, findOneFilters } = createDeps();
+    const { deps, creates, findOneFilters, invalidations } = createDeps();
     const router = createArticlesPublicRouter(deps);
     const handlers = getRouteHandlers(router, 'post', '/:id/react');
     const res = createResponse();
@@ -267,7 +309,7 @@ export async function runArticlesPublicRoutesTests() {
       articleId: 7,
       emoji: 'shock',
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:shock'] },
+      voterHash: { $in: ['browser:react:7', 'browser:react:7:shock'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(creates, [{
@@ -280,7 +322,18 @@ export async function runArticlesPublicRoutesTests() {
     assert.deepEqual(res.body, {
       reactions: { fire: 3, shock: 2, laugh: 0, skull: 0, clap: 2 },
       emoji: 'shock',
+      reacted: {
+        fire: true,
+        shock: true,
+        laugh: false,
+        skull: false,
+        clap: true,
+      },
       hasReacted: true,
+    });
+    assert.deepEqual(invalidations[0], {
+      tags: ['articles', 'breaking', 'bootstrap', 'homepage', 'search'],
+      options: { reason: 'article-reaction:7:shock' },
     });
   }
 
@@ -343,7 +396,7 @@ export async function runArticlesPublicRoutesTests() {
       articleId: 7,
       emoji: 'clap',
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:clap'] },
+      voterHash: { $in: ['browser:react:7', 'browser:react:7:clap'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     }]);
     assert.deepEqual(creates, [{
@@ -356,6 +409,13 @@ export async function runArticlesPublicRoutesTests() {
     assert.deepEqual(res.body, {
       reactions: { fire: 3, shock: 1, laugh: 0, skull: 0, clap: 3 },
       emoji: 'clap',
+      reacted: {
+        fire: true,
+        shock: false,
+        laugh: false,
+        skull: false,
+        clap: false,
+      },
       hasReacted: true,
     });
   }
@@ -385,6 +445,13 @@ export async function runArticlesPublicRoutesTests() {
     assert.deepEqual(res.body, {
       error: 'Already reacted',
       emoji: 'shock',
+      reacted: {
+        fire: true,
+        shock: false,
+        laugh: false,
+        skull: false,
+        clap: false,
+      },
       hasReacted: true,
     });
   }
@@ -416,7 +483,7 @@ export async function runArticlesPublicRoutesTests() {
       articleId: 7,
       emoji: 'shock',
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:shock'] },
+      voterHash: { $in: ['browser:react:7', 'browser:react:7:shock'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(creates, [{
@@ -429,7 +496,109 @@ export async function runArticlesPublicRoutesTests() {
     assert.deepEqual(res.body, {
       reactions: { fire: 3, shock: 2, laugh: 0, skull: 0, clap: 2 },
       emoji: 'shock',
+      reacted: {
+        fire: false,
+        shock: false,
+        laugh: false,
+        skull: false,
+        clap: false,
+      },
+      hasReacted: false,
+    });
+  }
+
+  {
+    const { deps, findOneDeleteFilters, invalidations } = createDeps();
+    const router = createArticlesPublicRouter(deps);
+    const handlers = getRouteHandlers(router, 'delete', '/:id/react');
+    const res = createResponse();
+
+    await runHandlers(handlers, { params: { id: '7' }, body: { emoji: 'shock' }, headers: {} }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(findOneDeleteFilters[0], {
+      articleId: 7,
+      emoji: 'shock',
+      windowKey: 42,
+      voterHash: { $in: ['browser:react:7', 'browser:react:7:shock'] },
+      $or: [{ active: { $exists: false } }, { active: true }],
+    });
+    assert.deepEqual(res.body, {
+      reactions: { fire: 3, shock: 0, laugh: 0, skull: 0, clap: 2 },
+      emoji: 'shock',
+      removed: true,
+      reacted: {
+        fire: true,
+        shock: false,
+        laugh: false,
+        skull: false,
+        clap: true,
+      },
       hasReacted: true,
+    });
+    assert.deepEqual(invalidations[0], {
+      tags: ['articles', 'breaking', 'bootstrap', 'homepage', 'search'],
+      options: { reason: 'article-reaction:7:shock' },
+    });
+  }
+
+  {
+    const { deps, findOneDeleteFilters } = createDeps();
+    const router = createArticlesPublicRouter(deps);
+    const handlers = getRouteHandlers(router, 'delete', '/:id/react');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      params: { id: '7' },
+      body: { emoji: 'shock' },
+      headers: { 'x-zn-client-id': 'zn-browser-123456' },
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(findOneDeleteFilters[0], {
+      articleId: 7,
+      emoji: 'shock',
+      windowKey: 42,
+      voterHash: { $in: ['browser:react:7', 'browser:react:7:shock'] },
+      $or: [{ active: { $exists: false } }, { active: true }],
+    });
+  }
+
+  {
+    const { deps } = createDeps({
+      ArticleReaction: {
+        find() {
+          return chainableLean([]);
+        },
+        findOne() {
+          return chainableLean(null);
+        },
+        findOneAndDelete() {
+          return chainableLean(null);
+        },
+        async create(payload) {
+          return payload;
+        },
+      },
+    });
+    const router = createArticlesPublicRouter(deps);
+    const handlers = getRouteHandlers(router, 'delete', '/:id/react');
+    const res = createResponse();
+
+    await runHandlers(handlers, { params: { id: '7' }, body: { emoji: 'shock' }, headers: {} }, res);
+
+    assert.equal(res.statusCode, 404);
+    assert.deepEqual(res.body, {
+      error: 'Reaction not found',
+      emoji: 'shock',
+      reacted: {
+        fire: false,
+        shock: false,
+        laugh: false,
+        skull: false,
+        clap: false,
+      },
+      hasReacted: false,
     });
   }
 }

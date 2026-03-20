@@ -10,7 +10,6 @@ const CLIENT_ID_KEY = 'zn_client_id';
 
 let refreshInFlight = null;
 let inMemorySession = null;
-let inMemoryClientId = null;
 
 function getWebStorage(type) {
   if (typeof window === 'undefined') return null;
@@ -50,13 +49,6 @@ function removeSessionFromStorage(storage) {
   }
 }
 
-function generateClientId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-  return `zn-${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
-}
-
 function readClientIdFromStorage(storage) {
   if (!storage) return null;
   try {
@@ -67,40 +59,14 @@ function readClientIdFromStorage(storage) {
   }
 }
 
-function writeClientIdToStorage(storage, clientId) {
-  if (!storage || !clientId) return false;
-  try {
-    storage.setItem(CLIENT_ID_KEY, clientId);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function getClientId() {
-  if (inMemoryClientId) return inMemoryClientId;
-
+function getLegacyClientId() {
   const localStorage = getWebStorage('localStorage');
   const sessionStorage = getWebStorage('sessionStorage');
-  const existing = readClientIdFromStorage(localStorage) || readClientIdFromStorage(sessionStorage);
-  if (existing) {
-    inMemoryClientId = existing;
-    if (!writeClientIdToStorage(localStorage, existing)) {
-      writeClientIdToStorage(sessionStorage, existing);
-    }
-    return existing;
-  }
-
-  const created = generateClientId();
-  inMemoryClientId = created;
-  if (!writeClientIdToStorage(localStorage, created)) {
-    writeClientIdToStorage(sessionStorage, created);
-  }
-  return created;
+  return readClientIdFromStorage(localStorage) || readClientIdFromStorage(sessionStorage);
 }
 
 function getClientIdHeaders() {
-  const clientId = getClientId();
+  const clientId = getLegacyClientId();
   return clientId ? { 'X-ZN-Client-Id': clientId } : {};
 }
 
@@ -412,6 +378,11 @@ export const api = {
     getReactionState: (id) => request(`/articles/${id}/reactions/me`, { headers: getClientIdHeaders() }),
     react: (id, emoji) => request(`/articles/${id}/react`, {
       method: 'POST',
+      headers: getClientIdHeaders(),
+      body: JSON.stringify({ emoji }),
+    }),
+    removeReaction: (id, emoji) => request(`/articles/${id}/react`, {
+      method: 'DELETE',
       headers: getClientIdHeaders(),
       body: JSON.stringify({ emoji }),
     }),

@@ -21,15 +21,23 @@ export function createArticlesPublicRouter(deps) {
     hasPermissionForSection,
     hashBrowserClientFingerprint,
     hashClientFingerprint,
+    invalidateCacheTags,
     isMongoDuplicateKeyError,
+    isProd = false,
     normalizeText,
+    parseCookies = () => ({}),
     parsePositiveInt,
+    randomUUID = () => String(Date.now()),
     resolveShareFallbackSource,
+    serializeCookie = (_name, value) => String(value),
     transparentPng1x1,
   } = deps;
 
   const articlesRouter = express.Router();
   const VALID_REACTIONS = ['fire', 'shock', 'laugh', 'skull', 'clap'];
+  const REACTION_CACHE_TAGS = ['articles', 'breaking', 'bootstrap', 'homepage', 'search'];
+  const REACTION_CLIENT_COOKIE_NAME = 'zn_react_id';
+  const REACTION_CLIENT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
   const ACTIVE_REACTION_FILTER = {
     $or: [
       { active: { $exists: false } },
@@ -38,27 +46,126 @@ export function createArticlesPublicRouter(deps) {
   };
   const CLIENT_ID_PATTERN = /^[a-zA-Z0-9._:-]{8,120}$/;
 
-  function hasBrowserClientId(req) {
+  function appendSetCookie(res, cookie) {
+    if (!cookie) return;
+    const current = res.getHeader?.('Set-Cookie');
+    if (!current) {
+      res.setHeader('Set-Cookie', cookie);
+      return;
+    }
+    const next = Array.isArray(current) ? [...current, cookie] : [current, cookie];
+    res.setHeader('Set-Cookie', next);
+  }
+
+  function readReactionClientIdFromHeader(req) {
     const value = typeof req.headers?.['x-zn-client-id'] === 'string'
       ? req.headers['x-zn-client-id'].trim()
       : '';
-    return CLIENT_ID_PATTERN.test(value);
+    return CLIENT_ID_PATTERN.test(value) ? value : '';
+  }
+
+  function readReactionClientIdFromCookie(req) {
+    const cookies = typeof parseCookies === 'function' ? parseCookies(req) : {};
+    const raw = typeof cookies?.[REACTION_CLIENT_COOKIE_NAME] === 'string'
+      ? cookies[REACTION_CLIENT_COOKIE_NAME].trim()
+      : '';
+    return CLIENT_ID_PATTERN.test(raw) ? raw : '';
+  }
+
+  function getReactionClientId(req) {
+    const headerValue = readReactionClientIdFromHeader(req);
+    if (headerValue) return headerValue;
+    const cookieValue = readReactionClientIdFromCookie(req);
+    if (!cookieValue) return '';
+    req.headers = req.headers || {};
+    req.headers['x-zn-client-id'] = cookieValue;
+    return cookieValue;
+  }
+
+  function ensureReactionClientId(req, res) {
+    const cookieValue = readReactionClientIdFromCookie(req);
+    const existing = getReactionClientId(req);
+    if (existing) {
+      if (!cookieValue) {
+        appendSetCookie(res, serializeCookie(REACTION_CLIENT_COOKIE_NAME, existing, {
+          path: '/',
+          maxAge: REACTION_CLIENT_COOKIE_MAX_AGE_SECONDS,
+          httpOnly: true,
+          secure: isProd,
+          sameSite: 'Lax',
+        }));
+      }
+      return existing;
+    }
+
+    const created = `zn-browser-${randomUUID()}`;
+    req.headers = req.headers || {};
+    req.headers['x-zn-client-id'] = created;
+    appendSetCookie(res, serializeCookie(REACTION_CLIENT_COOKIE_NAME, created, {
+      path: '/',
+      maxAge: REACTION_CLIENT_COOKIE_MAX_AGE_SECONDS,
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'Lax',
+    }));
+    return created;
+  }
+
+  function hasBrowserClientId(req) {
+    return Boolean(getReactionClientId(req));
+  }
+
+  function hashReactionFingerprint(req, scope) {
+    return hasBrowserClientId(req)
+      ? hashBrowserClientFingerprint(req, scope)
+      : hashClientFingerprint(req, scope);
+  }
+
+  function buildReactionState(docs) {
+    const reacted = {
+      fire: false,
+      shock: false,
+      laugh: false,
+      skull: false,
+      clap: false,
+    };
+    for (const doc of docs) {
+      if (!VALID_REACTIONS.includes(doc?.emoji)) continue;
+      reacted[doc.emoji] = true;
+    }
+    return {
+      reacted,
+      hasReacted: Object.values(reacted).some(Boolean),
+    };
+  }
+
+  async function loadReactionState(req, articleId, windowKey) {
+    const docs = await ArticleReaction.find({
+      articleId,
+      windowKey,
+      voterHash: { $in: getReactionHashCandidates(req, articleId) },
+      ...ACTIVE_REACTION_FILTER,
+    })
+      .select({ _id: 0, emoji: 1 })
+      .lean();
+    return buildReactionState(Array.isArray(docs) ? docs : []);
+  }
+
+  function invalidateReactionCache(articleId, emoji) {
+    if (typeof invalidateCacheTags !== 'function') return;
+    invalidateCacheTags(REACTION_CACHE_TAGS, {
+      reason: `article-reaction:${articleId}:${emoji || 'state'}`,
+    });
   }
 
   function getReactionHashCandidates(req, articleId, emoji = null) {
-    const useBrowserScopedHashes = hasBrowserClientId(req);
-    const hashForScope = (scope) => (
-      useBrowserScopedHashes
-        ? hashBrowserClientFingerprint(req, scope)
-        : hashClientFingerprint(req, scope)
-    );
-    const hashes = new Set([hashForScope(`react:${articleId}`)]);
+    const hashes = new Set([hashReactionFingerprint(req, `react:${articleId}`)]);
     if (emoji && VALID_REACTIONS.includes(emoji)) {
-      hashes.add(hashForScope(`react:${articleId}:${emoji}`));
+      hashes.add(hashReactionFingerprint(req, `react:${articleId}:${emoji}`));
       return [...hashes];
     }
     VALID_REACTIONS.forEach((item) => {
-      hashes.add(hashForScope(`react:${articleId}:${item}`));
+      hashes.add(hashReactionFingerprint(req, `react:${articleId}:${item}`));
     });
     return [...hashes];
   }
@@ -156,33 +263,9 @@ export function createArticlesPublicRouter(deps) {
     const exists = await Article.exists(filter);
     if (!exists) return res.status(404).json({ error: 'Not found' });
 
+    ensureReactionClientId(req, res);
     const windowKey = getWindowKey(articleReactionWindowMs);
-    const voterHashes = getReactionHashCandidates(req, id);
-    const docs = await ArticleReaction.find({
-      articleId: id,
-      windowKey,
-      voterHash: { $in: voterHashes },
-      ...ACTIVE_REACTION_FILTER,
-    })
-      .select({ _id: 0, emoji: 1, active: 1 })
-      .lean();
-
-    const reacted = {
-      fire: false,
-      shock: false,
-      laugh: false,
-      skull: false,
-      clap: false,
-    };
-    for (const doc of docs) {
-      if (!VALID_REACTIONS.includes(doc?.emoji)) continue;
-      reacted[doc.emoji] = true;
-    }
-
-    return res.json({
-      reacted,
-      hasReacted: docs.length > 0,
-    });
+    return res.json(await loadReactionState(req, id, windowKey));
   }));
 
   articlesRouter.get('/:id/share.png', asyncHandler(async (req, res) => {
@@ -268,6 +351,7 @@ export function createArticlesPublicRouter(deps) {
     const exists = await Article.exists(filter);
     if (!exists) return res.status(404).json({ error: 'Not found' });
 
+    ensureReactionClientId(req, res);
     const windowKey = getWindowKey(articleReactionWindowMs);
     const existingReaction = await ArticleReaction.findOne({
       articleId: id,
@@ -279,21 +363,23 @@ export function createArticlesPublicRouter(deps) {
       .select({ _id: 0, emoji: 1, active: 1 })
       .lean();
     if (existingReaction) {
+      const reactionState = await loadReactionState(req, id, windowKey);
       return res.status(429).json({
         error: 'Already reacted',
         emoji: existingReaction.emoji || null,
-        hasReacted: true,
+        ...reactionState,
       });
     }
 
-    const voterHash = hashBrowserClientFingerprint(req, `react:${id}:${emoji}`);
+    const voterHash = hashReactionFingerprint(req, `react:${id}:${emoji}`);
     const expiresAt = new Date(Date.now() + articleReactionWindowMs + (15 * 60 * 1000));
 
     try {
       await ArticleReaction.create({ articleId: id, emoji, voterHash, windowKey, expiresAt });
     } catch (error) {
       if (isMongoDuplicateKeyError(error)) {
-        return res.status(429).json({ error: 'Already reacted', emoji, hasReacted: true });
+        const reactionState = await loadReactionState(req, id, windowKey);
+        return res.status(429).json({ error: 'Already reacted', emoji, ...reactionState });
       }
       throw error;
     }
@@ -304,10 +390,62 @@ export function createArticlesPublicRouter(deps) {
       { returnDocument: 'after' },
     ).lean();
 
-    if (!item) return res.status(404).json({ error: 'Not found' });
+    if (!item) {
+      await ArticleReaction.deleteOne({ articleId: id, emoji, voterHash, windowKey }).catch(() => {});
+      return res.status(404).json({ error: 'Not found' });
+    }
     delete item._id;
     delete item.__v;
-    return res.json({ reactions: item.reactions, emoji, hasReacted: true });
+    const reactionState = await loadReactionState(req, id, windowKey);
+    invalidateReactionCache(id, emoji);
+    return res.json({ reactions: item.reactions, emoji, ...reactionState });
+  }));
+
+  articlesRouter.delete('/:id/react', asyncHandler(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const emoji = String(req.body?.emoji || '').trim();
+    if (!VALID_REACTIONS.includes(emoji)) {
+      return res.status(400).json({ error: 'Invalid reaction' });
+    }
+
+    const filter = { id, ...getPublishedFilter() };
+    const exists = await Article.exists(filter);
+    if (!exists) return res.status(404).json({ error: 'Not found' });
+
+    ensureReactionClientId(req, res);
+    const windowKey = getWindowKey(articleReactionWindowMs);
+    const reaction = await ArticleReaction.findOneAndDelete({
+      articleId: id,
+      emoji,
+      windowKey,
+      voterHash: { $in: getReactionHashCandidates(req, id, emoji) },
+      ...ACTIVE_REACTION_FILTER,
+    })
+      .select({ _id: 0, articleId: 1, emoji: 1, voterHash: 1, windowKey: 1, expiresAt: 1, createdAt: 1 })
+      .lean();
+
+    if (!reaction) {
+      const reactionState = await loadReactionState(req, id, windowKey);
+      return res.status(404).json({ error: 'Reaction not found', emoji, ...reactionState });
+    }
+
+    const item = await Article.findOneAndUpdate(
+      filter,
+      { $inc: { [`reactions.${emoji}`]: -1 } },
+      { returnDocument: 'after' },
+    ).lean();
+
+    if (!item) {
+      await ArticleReaction.create(reaction).catch(() => {});
+      return res.status(404).json({ error: 'Not found' });
+    }
+    delete item._id;
+    delete item.__v;
+    const reactionState = await loadReactionState(req, id, windowKey);
+    invalidateReactionCache(id, emoji);
+    return res.json({ reactions: item.reactions, emoji, removed: true, ...reactionState });
   }));
 
   return articlesRouter;

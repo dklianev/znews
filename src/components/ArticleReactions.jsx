@@ -98,26 +98,53 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
   }, [articleId]);
 
   const handleReact = useCallback(async (key) => {
-    if (stateLoading || busyRef.current || reacted[key]) return;
+    if (stateLoading || busyRef.current) return;
 
+    const removing = reacted[key];
     busyRef.current = true;
     setBusyKey(key);
-    setPopping(key);
-    setReacted((prev) => ({ ...prev, [key]: true }));
-    setCounts((prev) => ({ ...prev, [key]: prev[key] + 1 }));
-    window.setTimeout(() => setPopping(null), 600);
+    if (removing) {
+      setReacted((prev) => ({ ...prev, [key]: false }));
+      setCounts((prev) => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }));
+    } else {
+      setPopping(key);
+      setReacted((prev) => ({ ...prev, [key]: true }));
+      setCounts((prev) => ({ ...prev, [key]: prev[key] + 1 }));
+      window.setTimeout(() => setPopping(null), 600);
+    }
 
     try {
-      const res = await api.articles.react(articleId, key);
+      const res = removing
+        ? await api.articles.removeReaction(articleId, key)
+        : await api.articles.react(articleId, key);
       if (res?.reactions) setCounts(buildCounts(res.reactions));
+      if (res?.reacted) setReacted(buildReacted(res.reacted));
     } catch (err) {
-      const status = err?.status || err?.response?.status;
-      const isDuplicate = status === 429 && err?.payload?.error === 'Already reacted';
-      setCounts((prev) => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }));
-      if (isDuplicate) {
-        setReacted((prev) => ({ ...prev, [key]: true }));
+      if (removing) {
+        if (err?.payload?.reactions) {
+          setCounts(buildCounts(err.payload.reactions));
+        } else {
+          setCounts((prev) => ({ ...prev, [key]: prev[key] + 1 }));
+        }
+        if (err?.payload?.reacted) {
+          setReacted(buildReacted(err.payload.reacted));
+        } else {
+          setReacted((prev) => ({ ...prev, [key]: true }));
+        }
       } else {
-        setReacted((prev) => ({ ...prev, [key]: false }));
+        const status = err?.status || err?.response?.status;
+        const isDuplicate = status === 429 && err?.payload?.error === 'Already reacted';
+        setCounts((prev) => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }));
+        if (err?.payload?.reactions) {
+          setCounts(buildCounts(err.payload.reactions));
+        }
+        if (err?.payload?.reacted) {
+          setReacted(buildReacted(err.payload.reacted));
+        } else if (isDuplicate) {
+          setReacted((prev) => ({ ...prev, [key]: true }));
+        } else {
+          setReacted((prev) => ({ ...prev, [key]: false }));
+        }
       }
     } finally {
       busyRef.current = false;
@@ -148,7 +175,7 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
           const isReacted = reacted[reaction.key];
           const isBusy = busyKey === reaction.key;
           const isPop = popping === reaction.key;
-          const isDisabled = stateLoading || isReacted || Boolean(busyKey);
+          const isDisabled = stateLoading || Boolean(busyKey);
 
           return (
             <motion.button
@@ -163,7 +190,7 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
                 border-2 transition-all duration-200 select-none
                 font-display font-black text-xs uppercase tracking-wider
                 ${isReacted
-                  ? `border-current ${reaction.activeBg} cursor-default`
+                  ? `border-current ${reaction.activeBg} ${isDisabled ? 'cursor-default' : 'cursor-pointer'}`
                   : `border-[#1C1428] ${reaction.bg} ${isDisabled ? 'opacity-70 cursor-default' : 'hover:border-current comic-panel-hover cursor-pointer'}`
                 }
               `}
