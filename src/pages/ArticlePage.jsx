@@ -469,30 +469,47 @@ export default function ArticlePage() {
   }, [nextArticle?.image]);
 
   // Reading progress bar
-  const [readProgress, setReadProgress] = useState(0);
   const articleBodyRef = useRef(null);
+  const progressBarRef = useRef(null);
+  const readProgressRef = useRef(0);
+  const progressFrameRef = useRef(0);
   const updateReadProgress = useEffectEvent(() => {
     const el = articleBodyRef.current;
-    if (!el) return;
+    const progressEl = progressBarRef.current;
+    if (!el || !progressEl) return;
     const rect = el.getBoundingClientRect();
     const total = el.scrollHeight;
     const visible = window.innerHeight;
+    const maxScrollable = Math.max(1, total - visible);
     const scrolled = Math.max(0, -rect.top);
-    const pct = Math.min(100, Math.max(0, (scrolled / (total - visible)) * 100));
-    setReadProgress(pct);
+    const pct = Math.min(100, Math.max(0, (scrolled / maxScrollable) * 100));
+
+    if (Math.abs(readProgressRef.current - pct) < 0.1) return;
+
+    readProgressRef.current = pct;
+    progressEl.style.transform = `scaleX(${pct / 100})`;
+    progressEl.setAttribute('aria-valuenow', String(Math.round(pct)));
   });
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
     const handleViewportChange = () => {
-      updateReadProgress();
+      if (progressFrameRef.current) return;
+      progressFrameRef.current = window.requestAnimationFrame(() => {
+        progressFrameRef.current = 0;
+        updateReadProgress();
+      });
     };
 
     updateReadProgress();
     window.addEventListener('scroll', handleViewportChange, { passive: true });
     window.addEventListener('resize', handleViewportChange);
     return () => {
+      if (progressFrameRef.current) {
+        window.cancelAnimationFrame(progressFrameRef.current);
+        progressFrameRef.current = 0;
+      }
       window.removeEventListener('scroll', handleViewportChange);
       window.removeEventListener('resize', handleViewportChange);
     };
@@ -595,10 +612,11 @@ export default function ArticlePage() {
 
       {/* Reading progress bar */}
       <div
-        className="fixed top-0 left-0 h-1 bg-gradient-to-r from-zn-hot to-zn-orange z-[100] transition-[width] duration-150 ease-out"
-        style={{ width: `${readProgress}%` }}
+        ref={progressBarRef}
+        className="fixed top-0 left-0 h-1 w-full bg-gradient-to-r from-zn-hot to-zn-orange z-[100] transition-transform duration-150 ease-out"
+        style={{ transform: 'scaleX(0)', transformOrigin: 'left center', willChange: 'transform' }}
         role="progressbar"
-        aria-valuenow={Math.round(readProgress)}
+        aria-valuenow={0}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label="Прогрес на четене"
