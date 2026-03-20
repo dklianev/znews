@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { api } from '../utils/api';
 
 const REACTIONS = [
@@ -183,8 +183,9 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
               type="button"
               onClick={() => handleReact(reaction.key)}
               disabled={isDisabled}
-              whileHover={!isDisabled ? { scale: 1.08, y: -2 } : undefined}
-              whileTap={!isDisabled ? { scale: 0.92 } : undefined}
+              whileHover={!isDisabled ? { y: -1, scale: 1.015 } : undefined}
+              whileTap={!isDisabled ? { y: 1, scale: 0.985 } : undefined}
+              transition={{ type: 'spring', stiffness: 420, damping: 26, mass: 0.6 }}
               className={`
                 relative flex min-w-0 min-h-[48px] items-center justify-center gap-1 px-2 py-2
                 border-2 transition-all duration-200 select-none
@@ -200,17 +201,23 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
                 boxShadow: isReacted ? `2px 2px 0 ${reaction.color}40` : '2px 2px 0 #1C1428',
               }}
             >
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={isPop ? 'pop' : 'idle'}
-                  initial={isPop ? { scale: 1.8, rotate: -15 } : false}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 15 }}
-                  className="text-base leading-none"
-                >
-                  {reaction.emoji}
-                </motion.span>
-              </AnimatePresence>
+              <motion.span
+                animate={isPop
+                  ? {
+                    scale: [1, 1.16, 1],
+                    rotate: [0, -6, 4, 0],
+                    y: [0, -1, 0],
+                  }
+                  : {
+                    scale: 1,
+                    rotate: 0,
+                    y: 0,
+                  }}
+                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                className="text-base leading-none"
+              >
+                {reaction.emoji}
+              </motion.span>
 
               <span className="hidden min-w-0 sm:inline">
                 {reaction.label}
