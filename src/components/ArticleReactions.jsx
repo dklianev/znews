@@ -4,7 +4,7 @@ import { api } from '../utils/api';
 
 const REACTIONS = [
   { key: 'fire', emoji: '🔥', label: 'ГОРЕЩО!', color: '#CC0A1A', bg: 'bg-red-500/10', activeBg: 'bg-red-500/20' },
-  { key: 'shock', emoji: '😵‍💫', label: 'ШОК!', color: '#5B1A8C', bg: 'bg-purple-500/10', activeBg: 'bg-purple-500/20' },
+  { key: 'shock', emoji: '😱', label: 'ШОК!', color: '#5B1A8C', bg: 'bg-purple-500/10', activeBg: 'bg-purple-500/20' },
   { key: 'laugh', emoji: '😂', label: 'ХА-ХА', color: '#E65100', bg: 'bg-orange-500/10', activeBg: 'bg-orange-500/20' },
   { key: 'skull', emoji: '💀', label: 'БРУТАЛНО', color: '#1C1428', bg: 'bg-zinc-500/10', activeBg: 'bg-zinc-500/20' },
   { key: 'clap', emoji: '👏', label: 'БРАВО!', color: '#2E7D32', bg: 'bg-green-500/10', activeBg: 'bg-green-500/20' },
@@ -41,6 +41,7 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
   const [reacted, setReacted] = useState(() => buildReacted({}));
   const [popping, setPopping] = useState(null);
   const [busyKey, setBusyKey] = useState(null);
+  const [stateLoading, setStateLoading] = useState(Boolean(articleId));
   const busyRef = useRef(false);
   const prevReactionsRef = useRef(reactions);
 
@@ -49,6 +50,7 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
     setReacted(buildReacted({}));
     setPopping(null);
     setBusyKey(null);
+    setStateLoading(Boolean(articleId));
     busyRef.current = false;
     prevReactionsRef.current = reactions;
   }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -64,9 +66,11 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
 
     if (!articleId) {
       setReacted(buildReacted({}));
+      setStateLoading(false);
       return undefined;
     }
 
+    setStateLoading(true);
     api.articles.getReactionState(articleId)
       .then((payload) => {
         if (cancelled || busyRef.current) return;
@@ -83,6 +87,9 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
       })
       .catch(() => {
         if (!cancelled) setReacted((prev) => prev);
+      })
+      .finally(() => {
+        if (!cancelled) setStateLoading(false);
       });
 
     return () => {
@@ -91,7 +98,7 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
   }, [articleId]);
 
   const handleReact = useCallback(async (key) => {
-    if (busyRef.current || reacted[key]) return;
+    if (stateLoading || busyRef.current || reacted[key]) return;
 
     busyRef.current = true;
     setBusyKey(key);
@@ -116,7 +123,7 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
       busyRef.current = false;
       setBusyKey(null);
     }
-  }, [articleId, reacted]);
+  }, [articleId, reacted, stateLoading]);
 
   const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
 
@@ -141,22 +148,23 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
           const isReacted = reacted[reaction.key];
           const isBusy = busyKey === reaction.key;
           const isPop = popping === reaction.key;
+          const isDisabled = stateLoading || isReacted || Boolean(busyKey);
 
           return (
             <motion.button
               key={reaction.key}
               type="button"
               onClick={() => handleReact(reaction.key)}
-              disabled={isReacted || Boolean(busyKey)}
-              whileHover={!isReacted && !busyKey ? { scale: 1.08, y: -2 } : undefined}
-              whileTap={!isReacted && !busyKey ? { scale: 0.92 } : undefined}
+              disabled={isDisabled}
+              whileHover={!isDisabled ? { scale: 1.08, y: -2 } : undefined}
+              whileTap={!isDisabled ? { scale: 0.92 } : undefined}
               className={`
                 relative flex items-center gap-1.5 px-3 py-2
                 border-2 transition-all duration-200 select-none
                 font-display font-black text-xs uppercase tracking-wider
                 ${isReacted
                   ? `border-current ${reaction.activeBg} cursor-default`
-                  : `border-[#1C1428] ${reaction.bg} ${busyKey ? 'opacity-70 cursor-wait' : 'hover:border-current comic-panel-hover cursor-pointer'}`
+                  : `border-[#1C1428] ${reaction.bg} ${isDisabled ? 'opacity-70 cursor-default' : 'hover:border-current comic-panel-hover cursor-pointer'}`
                 }
               `}
               style={{
@@ -185,26 +193,6 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
 
               {isBusy && (
                 <span className="sr-only">Зареждане...</span>
-              )}
-
-              {isPop && (
-                <div className="absolute inset-0 pointer-events-none overflow-visible">
-                  {[...Array(6)].map((_, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 1, scale: 0.5, x: 0, y: 0 }}
-                      animate={{
-                        opacity: 0,
-                        scale: 0,
-                        x: (Math.random() - 0.5) * 50,
-                        y: (Math.random() - 0.5) * 40 - 10,
-                      }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                      className="absolute left-1/2 top-1/2 w-1.5 h-1.5 rounded-full"
-                      style={{ backgroundColor: reaction.color }}
-                    />
-                  ))}
-                </div>
               )}
             </motion.button>
           );

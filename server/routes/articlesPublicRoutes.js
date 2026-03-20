@@ -29,6 +29,12 @@ export function createArticlesPublicRouter(deps) {
 
   const articlesRouter = express.Router();
   const VALID_REACTIONS = ['fire', 'shock', 'laugh', 'skull', 'clap'];
+  const ACTIVE_REACTION_FILTER = {
+    $or: [
+      { active: { $exists: false } },
+      { active: true },
+    ],
+  };
 
   function getReactionHashCandidates(req, articleId, emoji = null) {
     const hashes = new Set([hashClientFingerprint(req, `react:${articleId}`)]);
@@ -141,8 +147,9 @@ export function createArticlesPublicRouter(deps) {
       articleId: id,
       windowKey,
       voterHash: { $in: voterHashes },
+      ...ACTIVE_REACTION_FILTER,
     })
-      .select({ _id: 0, emoji: 1 })
+      .select({ _id: 0, emoji: 1, active: 1 })
       .lean();
 
     const reacted = {
@@ -252,8 +259,9 @@ export function createArticlesPublicRouter(deps) {
       emoji,
       windowKey,
       voterHash: { $in: getReactionHashCandidates(req, id, emoji) },
+      ...ACTIVE_REACTION_FILTER,
     })
-      .select({ _id: 0, emoji: 1 })
+      .select({ _id: 0, emoji: 1, active: 1 })
       .lean();
     if (existingReaction) {
       return res.status(429).json({
