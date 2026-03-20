@@ -215,7 +215,9 @@ export default function GameTetrisPage() {
     const BOARD_BORDER = 6; // border-3 × 2
     const fullWidth = BOARD_PX_WIDTH + BOARD_BORDER;
     function measure() {
-      const available = el.clientWidth;
+      const parent = el.parentElement;
+      if (!parent) return;
+      const available = parent.clientWidth;
       setBoardScale(available >= fullWidth ? 1 : available / fullWidth);
     }
     measure();
@@ -1221,11 +1223,18 @@ export default function GameTetrisPage() {
               )}
             </div>
 
-            <div ref={boardContainerRef} style={{ width: '100%', maxWidth: BOARD_PX_WIDTH + 6 }}>
+            <div
+              ref={boardContainerRef}
+              style={boardScale < 1 ? {
+                width: (BOARD_PX_WIDTH + 6) * boardScale,
+                height: (BOARD_PX_HEIGHT + 6) * boardScale,
+                overflow: 'hidden',
+              } : undefined}
+            >
             <div className="p-0 relative" style={boardScale < 1 ? {
+              width: BOARD_PX_WIDTH + 6,
               transform: `scale(${boardScale})`,
-              transformOrigin: 'top center',
-              height: (BOARD_PX_HEIGHT + 6) * boardScale,
+              transformOrigin: 'top left',
             } : undefined}>
               {/* Clear label overlay */}
               {clearLabel && gameStatus === 'playing' && (
