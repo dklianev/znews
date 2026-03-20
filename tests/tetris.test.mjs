@@ -23,7 +23,9 @@ import {
   getDropSpeed,
   getGuidelineGravityMs,
   getGhostPosition,
+  getTetrisRecordValue,
   hardDrop,
+  isBetterTetrisRecord,
   drawFromBag,
   createStats,
   updateStats,
@@ -400,6 +402,21 @@ export async function runTetrisTests() {
     assert.equal(shouldCountTetrisKeypress('pause', false), false, 'pause should not affect KPP');
     assert.equal(shouldCountTetrisKeypress(null, false), false, 'unknown keys should not affect KPP');
     assert.equal(shouldCountTetrisKeypress('rotateCW', true), false, 'repeated keydown should not inflate KPP');
+  }
+
+  {
+    assert.equal(getTetrisRecordValue('marathon', { score: 1200, elapsed: 45000, won: false }), 1200);
+    assert.equal(getTetrisRecordValue('ultra', { score: 9000, elapsed: 30000, won: false }), 9000);
+    assert.equal(getTetrisRecordValue('sprint', { score: 1200, elapsed: 45200, won: true }), 45200);
+    assert.equal(getTetrisRecordValue('sprint', { score: 1200, elapsed: 45200, won: false }), null);
+  }
+
+  {
+    assert.equal(isBetterTetrisRecord('marathon', 2000, 1500), true);
+    assert.equal(isBetterTetrisRecord('marathon', 1500, 1500), false);
+    assert.equal(isBetterTetrisRecord('sprint', 45200, 50000), true, 'lower sprint time is better');
+    assert.equal(isBetterTetrisRecord('sprint', 52000, 50000), false);
+    assert.equal(isBetterTetrisRecord('sprint', null, 50000), false);
   }
 
   // ── resolveSpawn — normal spawn (no IHS) ──

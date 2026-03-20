@@ -16,9 +16,11 @@ import {
   getDropSpeed,
   getGarbageInterval,
   getTetrisBindingKey,
+  getTetrisRecordValue,
   getGhostPosition,
   getLevel,
   hardDrop,
+  isBetterTetrisRecord,
   isValidPosition,
   isPerfectClear,
   lockPiece,
@@ -223,6 +225,7 @@ export default function GameTetrisPage() {
   const startLevelRef = useRef(startLevel);
   const statsRef = useRef(stats);
   const modeRef = useRef(mode);
+  const elapsedRef = useRef(elapsed);
 
   const dropTimerRef = useRef(null);
   const lockTimerRef = useRef(null);
@@ -267,6 +270,7 @@ export default function GameTetrisPage() {
   startLevelRef.current = startLevel;
   statsRef.current = stats;
   modeRef.current = mode;
+  elapsedRef.current = elapsed;
 
   const level = useMemo(() => mode === 'zen' ? 0 : getLevel(lines, startLevel - 1), [lines, startLevel, mode]);
   const prevLevelRef = useRef(level);
@@ -301,16 +305,36 @@ export default function GameTetrisPage() {
     else if (saved?.highScore) setHighScores({ marathon: saved.highScore });
   }, []);
 
-  const currentHighScore = highScores[mode] || 0;
+  const currentHighScore = highScores[mode] ?? null;
 
-  const saveHighScore = useCallback((newScore, gameMode) => {
+  const saveHighScore = useCallback((candidate, gameMode) => {
+    if (!isBetterTetrisRecord(gameMode, candidate, highScores[gameMode])) return;
     const saved = loadScopedGameProgress(GAME_SLUG, STORAGE_SCOPE) || {};
     const prev = saved.highScores || {};
-    const best = Math.max(newScore, prev[gameMode] || 0);
-    const updated = { ...prev, [gameMode]: best };
+    if (!isBetterTetrisRecord(gameMode, candidate, prev[gameMode])) return;
+    const updated = { ...prev, [gameMode]: candidate };
     saveScopedGameProgress(GAME_SLUG, STORAGE_SCOPE, { highScores: updated });
     setHighScores(updated);
-  }, []);
+  }, [highScores]);
+
+  const currentHighScoreLabel = useMemo(() => {
+    if (currentHighScore == null || currentHighScore <= 0) return '-';
+    return mode === 'sprint' ? formatTime(currentHighScore) : formatScore(currentHighScore);
+  }, [currentHighScore, mode]);
+
+  const isCurrentRunRecord = useMemo(() => {
+    const candidate = getTetrisRecordValue(mode, { score, elapsed, won: gameStatus === 'won' });
+    if (candidate == null || candidate <= 0) return false;
+    return currentHighScore != null && currentHighScore === candidate;
+  }, [currentHighScore, elapsed, gameStatus, mode, score]);
+
+  const getRecordCandidate = useCallback((gameMode, won = false) => (
+    getTetrisRecordValue(gameMode, {
+      score: scoreRef.current,
+      elapsed: elapsedRef.current,
+      won,
+    })
+  ), []);
 
   /* ── Visual feedback helpers ── */
 
@@ -399,17 +423,22 @@ export default function GameTetrisPage() {
 
   /* ── Core game logic ── */
 
-  const spawnPiece = useCallback(() => {
+  const spawnPiece = useCallback((overrides = {}) => {
     const held = heldKeysRef.current;
     const keys = settingsRef.current.keys;
     const holdKeyHeld = held.has(keys.hold) || held.has(keys.hold?.toLowerCase?.());
+    const nextBoard = overrides.board ?? boardRef.current;
+    const nextQueue = overrides.queue ?? queueRef.current;
+    const nextBag = overrides.bag ?? bagRef.current;
+    const nextHoldKey = overrides.holdKey ?? holdKeyRef.current;
+    const nextHoldUsed = overrides.holdUsed ?? holdUsedRef.current;
 
     const result = resolveSpawn({
-      queue: queueRef.current,
-      bag: bagRef.current,
-      board: boardRef.current,
-      holdKey: holdKeyRef.current,
-      holdUsed: holdUsedRef.current,
+      queue: nextQueue,
+      bag: nextBag,
+      board: nextBoard,
+      holdKey: nextHoldKey,
+      holdUsed: nextHoldUsed,
       queueSize: settingsRef.current.queueSize,
       ihsHeld: holdKeyHeld,
     });
@@ -421,9 +450,9 @@ export default function GameTetrisPage() {
     let newPiece = result.piece;
     const ihsUsed = result.holdUsed;
 
-    if (!isValidPosition(boardRef.current, newPiece.shape, newPiece.row, newPiece.col)) {
+    if (!isValidPosition(nextBoard, newPiece.shape, newPiece.row, newPiece.col)) {
       setGameStatus('over');
-      saveHighScore(scoreRef.current, modeRef.current);
+      saveHighScore(getRecordCandidate(modeRef.current, false), modeRef.current);
       return;
     }
 
@@ -432,20 +461,20 @@ export default function GameTetrisPage() {
     const ccwHeld = held.has(keys.rotateCCW) || held.has(keys.rotateCCW?.toLowerCase?.());
     const r180Held = held.has(keys.rotate180) || held.has(keys.rotate180?.toLowerCase?.());
     if (cwHeld) {
-      const rotated = tryRotate(boardRef.current, newPiece, true);
+      const rotated = tryRotate(nextBoard, newPiece, true);
       if (rotated) newPiece = rotated;
     } else if (ccwHeld) {
-      const rotated = tryRotate(boardRef.current, newPiece, false);
+      const rotated = tryRotate(nextBoard, newPiece, false);
       if (rotated) newPiece = rotated;
     } else if (r180Held) {
-      const rotated = tryRotate180(boardRef.current, newPiece);
+      const rotated = tryRotate180(nextBoard, newPiece);
       if (rotated) newPiece = rotated;
     }
 
     setPiece(newPiece);
     setHoldUsed(ihsUsed);
     lockResetsRef.current = 0;
-  }, [saveHighScore]);
+  }, [getRecordCandidate, saveHighScore]);
 
   const cancelLockTimer = useCallback(() => {
     if (lockTimerRef.current) { clearTimeout(lockTimerRef.current); lockTimerRef.current = null; }
@@ -481,7 +510,7 @@ export default function GameTetrisPage() {
       if (newCombo > 1) triggerComboBanner(newCombo);
     }
 
-    setBoard(cleared);
+    let nextBoard = cleared;
     setScore((s) => s + points);
     setLines((l) => l + linesCleared);
     setCombo(newCombo);
@@ -498,15 +527,18 @@ export default function GameTetrisPage() {
       const interval = getGarbageInterval(lvl);
       if (garbageCounterRef.current >= interval) {
         garbageCounterRef.current = 0;
-        setBoard((prev) => addGarbageLine(prev));
+        nextBoard = addGarbageLine(nextBoard);
       }
     }
+
+    setBoard(nextBoard);
+    boardRef.current = nextBoard;
 
     // Sprint mode: check win condition
     const totalLines = linesRef.current + linesCleared;
     if (modeRef.current === 'sprint' && totalLines >= 40) {
       setGameStatus('won');
-      saveHighScore(scoreRef.current, 'sprint');
+      saveHighScore(getRecordCandidate('sprint', true), 'sprint');
       return;
     }
 
@@ -521,8 +553,8 @@ export default function GameTetrisPage() {
       dcdTimerRef.current = setTimeout(() => { dcdActiveRef.current = false; }, dcd);
     }
 
-    spawnPiece();
-  }, [spawnPiece, showClearLabel, showScorePopup, triggerFlash, triggerShake, triggerTilt, triggerLockFlash, triggerGravityDrop, triggerComboBanner, triggerClearBanner, triggerBoardGlow, saveHighScore]);
+    spawnPiece({ board: nextBoard });
+  }, [getRecordCandidate, saveHighScore, showClearLabel, showScorePopup, spawnPiece, triggerBoardGlow, triggerClearBanner, triggerComboBanner, triggerFlash, triggerGravityDrop, triggerLockFlash, triggerShake, triggerTilt]);
 
   const lockAndSpawn = useCallback(() => {
     cancelLockTimer();
@@ -560,17 +592,20 @@ export default function GameTetrisPage() {
     if (holdUsedRef.current || statusRef.current !== 'playing') return;
     const p = pieceRef.current;
     if (!p) return;
-    cancelLockTimer();
     const prevHold = holdKeyRef.current;
-    setHoldKey(p.type);
-    setHoldUsed(true);
-    setHoldSwapKey(Date.now());
     if (prevHold) {
       const newPiece = pieceFromKey(prevHold);
-      if (isValidPosition(boardRef.current, newPiece.shape, newPiece.row, newPiece.col)) {
-        setPiece(newPiece);
-      }
+      if (!isValidPosition(boardRef.current, newPiece.shape, newPiece.row, newPiece.col)) return;
+      cancelLockTimer();
+      setHoldKey(p.type);
+      setHoldUsed(true);
+      setHoldSwapKey(Date.now());
+      setPiece(newPiece);
     } else {
+      cancelLockTimer();
+      setHoldKey(p.type);
+      setHoldUsed(true);
+      setHoldSwapKey(Date.now());
       setPiece(null);
       spawnPiece();
     }
@@ -709,7 +744,7 @@ export default function GameTetrisPage() {
           const next = prev - 100;
           if (next <= 0) {
             setGameStatus('over');
-            saveHighScore(scoreRef.current, 'ultra');
+            saveHighScore(getRecordCandidate('ultra', false), 'ultra');
             return 0;
           }
           return next;
@@ -718,7 +753,7 @@ export default function GameTetrisPage() {
     }
 
     return () => { if (modeTimerRef.current) clearInterval(modeTimerRef.current); };
-  }, [gameStatus, mode, elapsed, saveHighScore]);
+  }, [gameStatus, getRecordCandidate, mode, elapsed, saveHighScore]);
 
   /* ── Countdown ── */
 
@@ -744,11 +779,24 @@ export default function GameTetrisPage() {
 
   const startGame = useCallback(() => {
     stopAllDAS();
+    cancelLockTimer();
+    if (dropTimerRef.current) clearInterval(dropTimerRef.current);
+    if (modeTimerRef.current) clearInterval(modeTimerRef.current);
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    if (dcdTimerRef.current) {
+      clearTimeout(dcdTimerRef.current);
+      dcdTimerRef.current = null;
+    }
+    dcdActiveRef.current = false;
     const qs = settingsRef.current.queueSize;
     const newBag = createBag();
     const { keys: initialQueue, bag: rem } = drawFromBag(newBag, qs + 1);
 
     setBoard(createEmptyBoard());
+    setPiece(null);
     setScore(0);
     setLines(0);
     setCombo(-1);
@@ -784,7 +832,7 @@ export default function GameTetrisPage() {
       setPiece(firstPiece);
       setGameStatus('playing');
     });
-  }, [runCountdown, stopAllDAS]);
+  }, [cancelLockTimer, runCountdown, stopAllDAS]);
 
   const togglePause = useCallback(() => {
     setGameStatus((s) => {
@@ -1121,7 +1169,7 @@ export default function GameTetrisPage() {
             )}
             <div className="comic-panel bg-white dark:bg-zinc-900 p-3 text-center">
               <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-text/50 dark:text-zinc-400">Рекорд</span>
-              <p className="text-lg font-black font-display text-zn-hot">{formatScore(currentHighScore)}</p>
+              <p className="text-lg font-black font-display text-zn-hot">{currentHighScoreLabel}</p>
             </div>
           </div>
 
@@ -1212,7 +1260,7 @@ export default function GameTetrisPage() {
                     {mode === 'sprint' && gameStatus === 'won' && (
                       <p className="text-green-300 font-display text-sm mb-1">⏱️ {formatTime(elapsed)}</p>
                     )}
-                    {score >= currentHighScore && score > 0 && (
+                    {isCurrentRunRecord && (
                       <p className="text-yellow-400 font-display uppercase tracking-widest text-sm mb-2 flex items-center justify-center gap-2">
                         <Trophy className="w-4 h-4" /> Нов рекорд!
                       </p>

@@ -459,6 +459,19 @@ export function shouldCountTetrisKeypress(action, repeat = false) {
   ].includes(action);
 }
 
+export function getTetrisRecordValue(mode, { score = 0, elapsed = 0, won = false } = {}) {
+  if (mode === 'sprint') return won ? elapsed : null;
+  return score;
+}
+
+export function isBetterTetrisRecord(mode, candidate, current) {
+  if (candidate == null || candidate <= 0) return false;
+  if (mode === 'sprint') {
+    return current == null || current <= 0 || candidate < current;
+  }
+  return candidate > (current || 0);
+}
+
 /**
  * Pure-logic spawn resolver — mirrors GameTetrisPage.spawnPiece() for testability.
  * Given current state, returns next state after spawn + optional IHS.
