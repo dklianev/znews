@@ -40,6 +40,22 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
     cooldownRef.current = {};
   }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sync counts from props when article data hydrates (same id, new reactions data)
+  const prevReactionsRef = useRef(reactions);
+  useEffect(() => {
+    if (prevReactionsRef.current === reactions) return;
+    prevReactionsRef.current = reactions;
+    const incoming = buildCounts(reactions);
+    setCounts((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        // Only update keys the user hasn't locally reacted to
+        if (!reacted[key]) next[key] = incoming[key];
+      }
+      return next;
+    });
+  }, [reactions, reacted]);
+
   const handleReact = useCallback(async (key) => {
     if (reacted[key] || cooldownRef.current[key]) return;
 
