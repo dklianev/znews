@@ -50,7 +50,7 @@ function CurrentRow({ guess, wordLength }) {
                     key={i}
                     initial={{ scale: 0.8 }}
                     animate={{ scale: 1 }}
-                    className="w-12 h-12 border-[3px] border-emerald-300 dark:border-zinc-500 flex items-center justify-center text-2xl font-black uppercase text-slate-900 dark:text-white rounded bg-emerald-50 dark:bg-zinc-800 shadow-[0_0_10px_rgba(255,255,255,0.08)]"
+                    className="w-12 h-12 border-[3px] border-slate-400 dark:border-zinc-500 flex items-center justify-center text-2xl font-black uppercase text-slate-900 dark:text-white rounded bg-white dark:bg-zinc-800 shadow-[0_0_10px_rgba(255,255,255,0.08)]"
                 >
                     {letter}
                 </motion.div>
