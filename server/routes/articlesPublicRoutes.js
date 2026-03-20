@@ -4,8 +4,11 @@ import { asyncHandler } from '../services/expressAsyncService.js';
 export function createArticlesPublicRouter(deps) {
   const {
     Article,
+    ArticleReaction,
     ArticleView,
     Category,
+    articleReactionLimiter,
+    articleReactionWindowMs,
     articleViewWindowMs,
     buildArticleProjection,
     cacheMiddleware,
@@ -177,6 +180,43 @@ export function createArticlesPublicRouter(deps) {
     delete item._id;
     delete item.__v;
     return res.json({ ...item, deduped });
+  }));
+
+  const VALID_REACTIONS = ['fire', 'shock', 'laugh', 'skull', 'clap'];
+
+  articlesRouter.post('/:id/react', articleReactionLimiter, asyncHandler(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const emoji = String(req.body.emoji || '').trim();
+    if (!VALID_REACTIONS.includes(emoji)) {
+      return res.status(400).json({ error: 'Invalid reaction' });
+    }
+
+    const filter = { id, ...getPublishedFilter() };
+    const voterHash = hashClientFingerprint(req, `react:${id}:${emoji}`);
+    const windowKey = getWindowKey(articleReactionWindowMs);
+    const expiresAt = new Date(Date.now() + articleReactionWindowMs + (15 * 60 * 1000));
+
+    try {
+      await ArticleReaction.create({ articleId: id, emoji, voterHash, windowKey, expiresAt });
+    } catch (error) {
+      if (isMongoDuplicateKeyError(error)) {
+        return res.status(429).json({ error: 'Already reacted', emoji });
+      }
+      throw error;
+    }
+
+    const item = await Article.findOneAndUpdate(
+      filter,
+      { $inc: { [`reactions.${emoji}`]: 1 } },
+      { returnDocument: 'after' },
+    ).lean();
+
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    delete item._id;
+    delete item.__v;
+    return res.json({ reactions: item.reactions });
   }));
 
   return articlesRouter;

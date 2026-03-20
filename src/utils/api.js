@@ -353,6 +353,7 @@ export const api = {
     searchRelatedAdmin: (params) => request(`/articles/admin/related${toQuery(params)}`),
     getById: (id, params) => request(`/articles/${id}${toQuery(params)}`),
     incrementView: (id) => request(`/articles/${id}/view`, { method: 'POST' }),
+    react: (id, emoji) => request(`/articles/${id}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
     getRevisions: (id) => request(`/articles/${id}/revisions`),
     getRevision: (id, revisionId) => request(`/articles/${id}/revisions/${encodeURIComponent(revisionId)}`),
     autosaveRevision: (id, data) => request(`/articles/${id}/revisions/autosave`, { method: 'POST', body: JSON.stringify(data) }),

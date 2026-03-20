@@ -14,6 +14,7 @@ import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
 import YouTubeEmbed from '../components/YouTubeEmbed';
 import ErrorBoundary from '../components/ErrorBoundary';
+import ArticleReactions from '../components/ArticleReactions';
 import { formatNewsDate } from '../utils/newsDate';
 
 const categoryColors = {
@@ -807,6 +808,9 @@ export default function ArticlePage() {
               ))}
             </div>
           )}
+
+          {/* Reactions */}
+          <ArticleReactions articleId={article.id} reactions={article.reactions} />
 
           {/* Comments */}
           <CommentsSection articleId={article.id} />

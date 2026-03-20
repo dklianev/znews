@@ -29,6 +29,13 @@ const articleSchema = new mongoose.Schema({
   sponsored: { type: Boolean, default: false, index: true },
   hero: { type: Boolean, default: false, index: true },
   views: { type: Number, default: 0 },
+  reactions: {
+    fire: { type: Number, default: 0 },
+    shock: { type: Number, default: 0 },
+    laugh: { type: Number, default: 0 },
+    skull: { type: Number, default: 0 },
+    clap: { type: Number, default: 0 },
+  },
   tags: [String],
   relatedArticles: [{ type: Number }],
   status: { type: String, default: 'published', enum: ['published', 'draft', 'archived'] },
@@ -617,6 +624,17 @@ const pollVoteSchema = new mongoose.Schema({
 pollVoteSchema.index({ pollId: 1, voterHash: 1, windowKey: 1 }, { unique: true });
 pollVoteSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
+const articleReactionSchema = new mongoose.Schema({
+  articleId: { type: Number, required: true, index: true },
+  emoji: { type: String, required: true },
+  voterHash: { type: String, required: true, index: true },
+  windowKey: { type: Number, required: true, index: true },
+  createdAt: { type: Date, default: Date.now, index: true },
+  expiresAt: { type: Date, required: true },
+}, opts);
+articleReactionSchema.index({ articleId: 1, emoji: 1, voterHash: 1, windowKey: 1 }, { unique: true });
+articleReactionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 // ─── Auth Sessions (refresh-token rotation) ───
 const authSessionSchema = new mongoose.Schema({
   jti: { type: String, required: true, unique: true, index: true },
@@ -785,6 +803,7 @@ export const ArticleRevision = mongoose.model('ArticleRevision', articleRevision
 export const SettingsRevision = mongoose.model('SettingsRevision', settingsRevisionSchema);
 export const ArticleView = mongoose.model('ArticleView', articleViewSchema);
 export const PollVote = mongoose.model('PollVote', pollVoteSchema);
+export const ArticleReaction = mongoose.model('ArticleReaction', articleReactionSchema);
 export const AuthSession = mongoose.model('AuthSession', authSessionSchema);
 export const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 export const Tip = mongoose.model('Tip', tipSchema);

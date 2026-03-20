@@ -30,7 +30,7 @@ import { randomUUID, createHash } from 'crypto';
 
 import {
   Article, Author, Category, Ad, AdEvent, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle, Counter, SystemEvent, BackgroundJobState, AdAnalyticsAggregate, SearchQueryStat
+  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, ArticleReaction, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle, Counter, SystemEvent, BackgroundJobState, AdAnalyticsAggregate, SearchQueryStat
 } from './models.js';
 import { ensureGameDefinitions, seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
@@ -405,6 +405,10 @@ const articleViewWindowMs = Math.max(
   60 * 1000,
   Number.parseInt(process.env.ARTICLE_VIEW_WINDOW_MS || '', 10) || (6 * 60 * 60 * 1000)
 );
+const articleReactionWindowMs = Math.max(
+  60 * 1000,
+  Number.parseInt(process.env.ARTICLE_REACTION_WINDOW_MS || '', 10) || (24 * 60 * 60 * 1000)
+);
 const adImpressionWindowMs = AD_IMPRESSION_WINDOW_MS;
 const adAnalyticsRetentionMs = AD_ANALYTICS_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 const storageDriverInput = String(process.env.STORAGE_DRIVER || 'disk').trim().toLowerCase();
@@ -685,6 +689,14 @@ const commentReactionLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 60,
   message: { error: 'Too many comment reactions from this IP. Please try again later.' },
+  skip: shouldSkipRateLimit,
+  keyGenerator: rateLimitKeyGenerator,
+});
+
+const articleReactionLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  message: { error: 'Too many article reactions from this IP. Please try again later.' },
   skip: shouldSkipRateLimit,
   keyGenerator: rateLimitKeyGenerator,
 });
@@ -1388,8 +1400,11 @@ const numericCrud = createNumericCrudFactory({
 
 const articlesRouter = createArticlesPublicRouter({
   Article,
+  ArticleReaction,
   ArticleView,
   Category,
+  articleReactionLimiter,
+  articleReactionWindowMs,
   articleViewWindowMs,
   buildArticleProjection,
   cacheMiddleware,
