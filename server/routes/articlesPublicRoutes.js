@@ -19,6 +19,7 @@ export function createArticlesPublicRouter(deps) {
     getWindowKey,
     hasOwn,
     hasPermissionForSection,
+    hashBrowserClientFingerprint,
     hashClientFingerprint,
     isMongoDuplicateKeyError,
     normalizeText,
@@ -37,13 +38,18 @@ export function createArticlesPublicRouter(deps) {
   };
 
   function getReactionHashCandidates(req, articleId, emoji = null) {
-    const hashes = new Set([hashClientFingerprint(req, `react:${articleId}`)]);
+    const hashes = new Set([
+      hashClientFingerprint(req, `react:${articleId}`),
+      hashBrowserClientFingerprint(req, `react:${articleId}`),
+    ]);
     if (emoji && VALID_REACTIONS.includes(emoji)) {
       hashes.add(hashClientFingerprint(req, `react:${articleId}:${emoji}`));
+      hashes.add(hashBrowserClientFingerprint(req, `react:${articleId}:${emoji}`));
       return [...hashes];
     }
     VALID_REACTIONS.forEach((item) => {
       hashes.add(hashClientFingerprint(req, `react:${articleId}:${item}`));
+      hashes.add(hashBrowserClientFingerprint(req, `react:${articleId}:${item}`));
     });
     return [...hashes];
   }
@@ -271,7 +277,7 @@ export function createArticlesPublicRouter(deps) {
       });
     }
 
-    const voterHash = hashClientFingerprint(req, `react:${id}:${emoji}`);
+    const voterHash = hashBrowserClientFingerprint(req, `react:${id}:${emoji}`);
     const expiresAt = new Date(Date.now() + articleReactionWindowMs + (15 * 60 * 1000));
 
     try {

@@ -85,14 +85,23 @@ function getClientId() {
   const existing = readClientIdFromStorage(localStorage) || readClientIdFromStorage(sessionStorage);
   if (existing) {
     inMemoryClientId = existing;
-    writeClientIdToStorage(localStorage, existing);
+    if (!writeClientIdToStorage(localStorage, existing)) {
+      writeClientIdToStorage(sessionStorage, existing);
+    }
     return existing;
   }
 
   const created = generateClientId();
   inMemoryClientId = created;
-  writeClientIdToStorage(localStorage, created);
+  if (!writeClientIdToStorage(localStorage, created)) {
+    writeClientIdToStorage(sessionStorage, created);
+  }
   return created;
+}
+
+function getClientIdHeaders() {
+  const clientId = getClientId();
+  return clientId ? { 'X-ZN-Client-Id': clientId } : {};
 }
 
 function emitSessionUpdated(session) {
@@ -245,10 +254,6 @@ async function request(path, options = {}, internal = {}) {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers || {}),
   };
-  const clientId = getClientId();
-  if (clientId && !headers['X-ZN-Client-Id'] && !headers['x-zn-client-id']) {
-    headers['X-ZN-Client-Id'] = clientId;
-  }
 
   if (session?.token) {
     headers.Authorization = `Bearer ${session.token}`;
@@ -404,8 +409,12 @@ export const api = {
     searchRelatedAdmin: (params) => request(`/articles/admin/related${toQuery(params)}`),
     getById: (id, params) => request(`/articles/${id}${toQuery(params)}`),
     incrementView: (id) => request(`/articles/${id}/view`, { method: 'POST' }),
-    getReactionState: (id) => request(`/articles/${id}/reactions/me`),
-    react: (id, emoji) => request(`/articles/${id}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }),
+    getReactionState: (id) => request(`/articles/${id}/reactions/me`, { headers: getClientIdHeaders() }),
+    react: (id, emoji) => request(`/articles/${id}/react`, {
+      method: 'POST',
+      headers: getClientIdHeaders(),
+      body: JSON.stringify({ emoji }),
+    }),
     getRevisions: (id) => request(`/articles/${id}/revisions`),
     getRevision: (id, revisionId) => request(`/articles/${id}/revisions/${encodeURIComponent(revisionId)}`),
     autosaveRevision: (id, data) => request(`/articles/${id}/revisions/autosave`, { method: 'POST', body: JSON.stringify(data) }),

@@ -131,6 +131,7 @@ function createDeps(overrides = {}) {
       getWindowKey() { return 42; },
       hasOwn(target, key) { return Object.prototype.hasOwnProperty.call(target || {}, key); },
       async hasPermissionForSection() { return false; },
+      hashBrowserClientFingerprint(_req, scope) { return `browser:${scope}`; },
       hashClientFingerprint(_req, scope) { return `hash:${scope}`; },
       isMongoDuplicateKeyError(error) { return Number(error?.code) === 11000; },
       normalizeText(value, maxLength = 200) { return String(value || '').trim().slice(0, maxLength); },
@@ -159,7 +160,7 @@ export async function runArticlesPublicRoutesTests() {
     assert.deepEqual(findFilters[0], {
       articleId: 7,
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:fire', 'hash:react:7:shock', 'hash:react:7:laugh', 'hash:react:7:skull', 'hash:react:7:clap'] },
+      voterHash: { $in: ['hash:react:7', 'browser:react:7', 'hash:react:7:fire', 'browser:react:7:fire', 'hash:react:7:shock', 'browser:react:7:shock', 'hash:react:7:laugh', 'browser:react:7:laugh', 'hash:react:7:skull', 'browser:react:7:skull', 'hash:react:7:clap', 'browser:react:7:clap'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(res.body, {
@@ -217,7 +218,7 @@ export async function runArticlesPublicRoutesTests() {
     assert.deepEqual(findFilters[0], {
       articleId: 7,
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:fire', 'hash:react:7:shock', 'hash:react:7:laugh', 'hash:react:7:skull', 'hash:react:7:clap'] },
+      voterHash: { $in: ['hash:react:7', 'browser:react:7', 'hash:react:7:fire', 'browser:react:7:fire', 'hash:react:7:shock', 'browser:react:7:shock', 'hash:react:7:laugh', 'browser:react:7:laugh', 'hash:react:7:skull', 'browser:react:7:skull', 'hash:react:7:clap', 'browser:react:7:clap'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(res.body, {
@@ -246,13 +247,13 @@ export async function runArticlesPublicRoutesTests() {
       articleId: 7,
       emoji: 'shock',
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:shock'] },
+      voterHash: { $in: ['hash:react:7', 'browser:react:7', 'hash:react:7:shock', 'browser:react:7:shock'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(creates, [{
       articleId: 7,
       emoji: 'shock',
-      voterHash: 'hash:react:7:shock',
+      voterHash: 'browser:react:7:shock',
       windowKey: 42,
       expiresAt: creates[0].expiresAt,
     }]);
@@ -293,13 +294,13 @@ export async function runArticlesPublicRoutesTests() {
       articleId: 7,
       emoji: 'clap',
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:clap'] },
+      voterHash: { $in: ['hash:react:7', 'browser:react:7', 'hash:react:7:clap', 'browser:react:7:clap'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     }]);
     assert.deepEqual(creates, [{
       articleId: 7,
       emoji: 'clap',
-      voterHash: 'hash:react:7:clap',
+      voterHash: 'browser:react:7:clap',
       windowKey: 42,
       expiresAt: creates[0].expiresAt,
     }]);
@@ -366,13 +367,13 @@ export async function runArticlesPublicRoutesTests() {
       articleId: 7,
       emoji: 'shock',
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'hash:react:7:shock'] },
+      voterHash: { $in: ['hash:react:7', 'browser:react:7', 'hash:react:7:shock', 'browser:react:7:shock'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(creates, [{
       articleId: 7,
       emoji: 'shock',
-      voterHash: 'hash:react:7:shock',
+      voterHash: 'browser:react:7:shock',
       windowKey: 42,
       expiresAt: creates[0].expiresAt,
     }]);

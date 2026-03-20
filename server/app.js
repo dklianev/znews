@@ -17,7 +17,7 @@ import webpush from 'web-push';
 import { isIP } from 'node:net';
 import { allocateNumericId } from './numericId.js';
 import { streamJsonArray, writeJsonChunk } from './jsonExport.js';
-import { getClientUserAgent, getTrustedClientIp, hashTrustedClientFingerprint } from './requestIdentity.js';
+import { getClientUserAgent, getTrustedClientIp, hashTrustedBrowserClientFingerprint, hashTrustedClientFingerprint } from './requestIdentity.js';
 import {
   S3Client,
   PutObjectCommand,
@@ -883,10 +883,12 @@ const {
   getClientIp,
   getWindowKey,
   hasOwn,
+  hashBrowserClientFingerprint,
   hashClientFingerprint,
   isMongoDuplicateKeyError,
 } = createRequestHelpers({
   getTrustedClientIp,
+  hashTrustedBrowserClientFingerprint,
   hashTrustedClientFingerprint,
 });
 
@@ -1415,6 +1417,7 @@ const articlesRouter = createArticlesPublicRouter({
   getWindowKey,
   hasOwn,
   hasPermissionForSection,
+  hashBrowserClientFingerprint,
   hashClientFingerprint,
   isMongoDuplicateKeyError,
   normalizeText,

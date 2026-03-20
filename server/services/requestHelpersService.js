@@ -1,5 +1,6 @@
 export function createRequestHelpers({
   getTrustedClientIp,
+  hashTrustedBrowserClientFingerprint,
   hashTrustedClientFingerprint,
   now = () => Date.now(),
 }) {
@@ -15,6 +16,13 @@ export function createRequestHelpers({
     return hashTrustedClientFingerprint(req, scope);
   }
 
+  function hashBrowserClientFingerprint(req, scope = '') {
+    if (typeof hashTrustedBrowserClientFingerprint === 'function') {
+      return hashTrustedBrowserClientFingerprint(req, scope);
+    }
+    return hashTrustedClientFingerprint(req, scope);
+  }
+
   function getWindowKey(windowMs) {
     return Math.floor(now() / windowMs);
   }
@@ -27,6 +35,7 @@ export function createRequestHelpers({
     getClientIp,
     getWindowKey,
     hasOwn,
+    hashBrowserClientFingerprint,
     hashClientFingerprint,
     isMongoDuplicateKeyError,
   };

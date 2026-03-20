@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 
-import { getTrustedClientId, getTrustedClientIp, hashTrustedClientFingerprint, stripPortFromIpMaybe } from '../server/requestIdentity.js';
+import {
+  getTrustedClientId,
+  getTrustedClientIp,
+  hashTrustedBrowserClientFingerprint,
+  hashTrustedClientFingerprint,
+  stripPortFromIpMaybe,
+} from '../server/requestIdentity.js';
 
 export function runRequestIdentityTests() {
   assert.equal(stripPortFromIpMaybe('198.51.100.10:443'), '198.51.100.10');
@@ -44,10 +50,20 @@ export function runRequestIdentityTests() {
   const fingerprintC = hashTrustedClientFingerprint(headerPreferredReq, 'poll:15');
   assert.equal(fingerprintA, fingerprintB);
   assert.notEqual(fingerprintA, fingerprintC);
+  assert.equal(
+    hashTrustedClientFingerprint(clientIdReq, 'react:15'),
+    hashTrustedClientFingerprint({
+      ...clientIdReq,
+      headers: {
+        ...clientIdReq.headers,
+        'x-zn-client-id': 'zn-browser-999999',
+      },
+    }, 'react:15'),
+  );
 
-  const fingerprintWithClientA = hashTrustedClientFingerprint(clientIdReq, 'react:15');
-  const fingerprintWithClientB = hashTrustedClientFingerprint(clientIdReq, 'react:15');
-  const fingerprintWithOtherClient = hashTrustedClientFingerprint({
+  const fingerprintWithClientA = hashTrustedBrowserClientFingerprint(clientIdReq, 'react:15');
+  const fingerprintWithClientB = hashTrustedBrowserClientFingerprint(clientIdReq, 'react:15');
+  const fingerprintWithOtherClient = hashTrustedBrowserClientFingerprint({
     ...clientIdReq,
     headers: {
       ...clientIdReq.headers,

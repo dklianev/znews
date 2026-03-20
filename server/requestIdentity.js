@@ -93,6 +93,14 @@ export function getTrustedClientId(req) {
 export function hashTrustedClientFingerprint(req, scope = '') {
   const ip = getTrustedClientIp(req);
   const ua = getClientUserAgent(req);
+  return createHash('sha256')
+    .update(`${scope}|${ip}|${ua}`)
+    .digest('hex');
+}
+
+export function hashTrustedBrowserClientFingerprint(req, scope = '') {
+  const ip = getTrustedClientIp(req);
+  const ua = getClientUserAgent(req);
   const clientId = getTrustedClientId(req);
   const payload = clientId
     ? `${scope}|cid:${clientId}|${ip}|${ua}`
