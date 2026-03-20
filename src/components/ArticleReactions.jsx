@@ -155,7 +155,7 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
   const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
 
   return (
-    <div className="border-t-3 border-b-3 border-[#1C1428] py-4 my-6 relative">
+    <div className="border-t-3 border-b-3 border-[#1C1428] py-4 my-6 relative [overflow-anchor:none]">
       <div className="flex items-center gap-2 mb-3">
         <div className="h-1 w-6 bg-zn-hot" />
         <span className="font-display font-black text-xs uppercase tracking-[0.2em] text-zn-text-dim">
@@ -169,7 +169,7 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-5 gap-2">
         {REACTIONS.map((reaction) => {
           const count = counts[reaction.key] || 0;
           const isReacted = reacted[reaction.key];
@@ -186,13 +186,14 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
               whileHover={!isDisabled ? { scale: 1.08, y: -2 } : undefined}
               whileTap={!isDisabled ? { scale: 0.92 } : undefined}
               className={`
-                relative flex items-center gap-1.5 px-3 py-2
+                relative flex min-w-0 min-h-[48px] items-center justify-center gap-1 px-2 py-2
                 border-2 transition-all duration-200 select-none
                 font-display font-black text-xs uppercase tracking-wider
                 ${isReacted
                   ? `border-current ${reaction.activeBg} ${isDisabled ? 'cursor-default' : 'cursor-pointer'}`
                   : `border-[#1C1428] ${reaction.bg} ${isDisabled ? 'opacity-70 cursor-default' : 'hover:border-current comic-panel-hover cursor-pointer'}`
                 }
+                sm:justify-start sm:gap-1.5 sm:px-3
               `}
               style={{
                 color: isReacted ? reaction.color : undefined,
@@ -211,10 +212,10 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
                 </motion.span>
               </AnimatePresence>
 
-              <span className="hidden sm:inline">
-                {count > 0 ? `${reaction.label} ${formatCount(count)}` : reaction.label}
+              <span className="hidden min-w-0 sm:inline">
+                {reaction.label}
               </span>
-              <span className="sm:hidden">
+              <span className="min-w-[2ch] text-center font-mono tabular-nums sm:min-w-[3ch]">
                 {count > 0 ? formatCount(count) : ''}
               </span>
 
