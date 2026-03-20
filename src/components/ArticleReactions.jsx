@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { api } from '../utils/api';
 
 const REACTIONS = [
-  { key: 'fire',  emoji: '🔥', label: 'ГОРЕЩО!',  color: '#CC0A1A', bg: 'bg-red-500/10',    activeBg: 'bg-red-500/20' },
-  { key: 'shock', emoji: '😱', label: 'ШОК!',     color: '#5B1A8C', bg: 'bg-purple-500/10', activeBg: 'bg-purple-500/20' },
-  { key: 'laugh', emoji: '😂', label: 'ХА-ХА',    color: '#E65100', bg: 'bg-orange-500/10', activeBg: 'bg-orange-500/20' },
-  { key: 'skull', emoji: '💀', label: 'БРУTAL',    color: '#1C1428', bg: 'bg-zinc-500/10',   activeBg: 'bg-zinc-500/20' },
-  { key: 'clap',  emoji: '👏', label: 'БРАВО!',    color: '#2E7D32', bg: 'bg-green-500/10',  activeBg: 'bg-green-500/20' },
+  { key: 'fire', emoji: '🔥', label: 'ГОРЕЩО!', color: '#CC0A1A', bg: 'bg-red-500/10', activeBg: 'bg-red-500/20' },
+  { key: 'shock', emoji: '😱', label: 'ШОК!', color: '#5B1A8C', bg: 'bg-purple-500/10', activeBg: 'bg-purple-500/20' },
+  { key: 'laugh', emoji: '😂', label: 'ХА-ХА', color: '#E65100', bg: 'bg-orange-500/10', activeBg: 'bg-orange-500/20' },
+  { key: 'skull', emoji: '💀', label: 'БРУТАЛНО', color: '#1C1428', bg: 'bg-zinc-500/10', activeBg: 'bg-zinc-500/20' },
+  { key: 'clap', emoji: '👏', label: 'БРАВО!', color: '#2E7D32', bg: 'bg-green-500/10', activeBg: 'bg-green-500/20' },
 ];
 
 function formatCount(n) {
@@ -28,67 +28,122 @@ function buildCounts(reactions) {
 
 export default function ArticleReactions({ articleId, reactions = {} }) {
   const [counts, setCounts] = useState(() => buildCounts(reactions));
-  const [reacted, setReacted] = useState({});
+  const [activeReaction, setActiveReaction] = useState(null);
+  const [hasReacted, setHasReacted] = useState(false);
   const [popping, setPopping] = useState(null);
-  const cooldownRef = useRef({});
+  const [busyAction, setBusyAction] = useState(null);
+  const busyRef = useRef(false);
+  const prevReactionsRef = useRef(reactions);
 
-  // Reset state when navigating to a different article
   useEffect(() => {
     setCounts(buildCounts(reactions));
-    setReacted({});
+    setActiveReaction(null);
+    setHasReacted(false);
     setPopping(null);
-    cooldownRef.current = {};
+    setBusyAction(null);
+    busyRef.current = false;
+    prevReactionsRef.current = reactions;
   }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync counts from props when article data hydrates (same id, new reactions data)
-  const prevReactionsRef = useRef(reactions);
   useEffect(() => {
-    if (prevReactionsRef.current === reactions) return;
+    if (prevReactionsRef.current === reactions || busyRef.current) return;
     prevReactionsRef.current = reactions;
-    const incoming = buildCounts(reactions);
-    setCounts((prev) => {
-      const next = { ...prev };
-      for (const key of Object.keys(next)) {
-        // Only update keys the user hasn't locally reacted to
-        if (!reacted[key]) next[key] = incoming[key];
-      }
-      return next;
-    });
-  }, [reactions, reacted]);
+    setCounts(buildCounts(reactions));
+  }, [reactions]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!articleId) {
+      setActiveReaction(null);
+      setHasReacted(false);
+      return undefined;
+    }
+
+    api.articles.getReactionState(articleId)
+      .then((payload) => {
+        if (cancelled || busyRef.current) return;
+        setActiveReaction(typeof payload?.activeReaction === 'string' ? payload.activeReaction : null);
+        setHasReacted(Boolean(payload?.hasReacted));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setActiveReaction(null);
+          setHasReacted(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [articleId]);
+
+  const clearBurstLater = () => {
+    window.setTimeout(() => setPopping(null), 600);
+  };
 
   const handleReact = useCallback(async (key) => {
-    if (reacted[key] || cooldownRef.current[key]) return;
+    if (busyRef.current || hasReacted) return;
 
-    cooldownRef.current[key] = true;
+    busyRef.current = true;
+    setBusyAction(`react:${key}`);
     setPopping(key);
-    setReacted((prev) => ({ ...prev, [key]: true }));
+    setActiveReaction(key);
+    setHasReacted(true);
     setCounts((prev) => ({ ...prev, [key]: prev[key] + 1 }));
-
-    setTimeout(() => setPopping(null), 600);
+    clearBurstLater();
 
     try {
       const res = await api.articles.react(articleId, key);
-      if (res.reactions) {
-        setCounts(res.reactions);
-      }
+      if (res?.reactions) setCounts(buildCounts(res.reactions));
+      setActiveReaction(typeof res?.activeReaction === 'string' ? res.activeReaction : key);
+      setHasReacted(Boolean(res?.hasReacted ?? true));
     } catch (err) {
-      // 429 = already reacted — keep optimistic state
-      // Any other error = rollback
       const status = err?.status || err?.response?.status;
-      if (status !== 429) {
-        setReacted((prev) => ({ ...prev, [key]: false }));
+      if (status === 429) {
+        setActiveReaction(typeof err?.payload?.activeReaction === 'string' ? err.payload.activeReaction : null);
+        setHasReacted(true);
+      } else {
+        setActiveReaction(null);
+        setHasReacted(false);
         setCounts((prev) => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }));
       }
+    } finally {
+      busyRef.current = false;
+      setBusyAction(null);
     }
+  }, [articleId, hasReacted]);
 
-    setTimeout(() => { cooldownRef.current[key] = false; }, 2000);
-  }, [articleId, reacted]);
+  const handleRemove = useCallback(async () => {
+    if (busyRef.current || !activeReaction) return;
 
-  const total = Object.values(counts).reduce((s, v) => s + v, 0);
+    const key = activeReaction;
+    busyRef.current = true;
+    setBusyAction(`remove:${key}`);
+    setActiveReaction(null);
+    setHasReacted(true);
+    setCounts((prev) => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }));
+
+    try {
+      const res = await api.articles.removeReaction(articleId);
+      if (res?.reactions) setCounts(buildCounts(res.reactions));
+      setActiveReaction(typeof res?.activeReaction === 'string' ? res.activeReaction : null);
+      setHasReacted(Boolean(res?.hasReacted ?? true));
+    } catch {
+      setActiveReaction(key);
+      setHasReacted(true);
+      setCounts((prev) => ({ ...prev, [key]: prev[key] + 1 }));
+    } finally {
+      busyRef.current = false;
+      setBusyAction(null);
+    }
+  }, [activeReaction, articleId]);
+
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+  const lockedAfterRemoval = hasReacted && !activeReaction;
 
   return (
     <div className="border-t-3 border-b-3 border-[#1C1428] py-4 my-6 relative">
-      {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <div className="h-1 w-6 bg-zn-hot" />
         <span className="font-display font-black text-xs uppercase tracking-[0.2em] text-zn-text-dim">
@@ -102,36 +157,38 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
         )}
       </div>
 
-      {/* Reaction buttons */}
       <div className="flex flex-wrap gap-2">
-        {REACTIONS.map((r) => {
-          const count = counts[r.key] || 0;
-          const isReacted = reacted[r.key];
-          const isPop = popping === r.key;
+        {REACTIONS.map((reaction) => {
+          const count = counts[reaction.key] || 0;
+          const isActive = activeReaction === reaction.key;
+          const isPop = popping === reaction.key;
+          const isBusy = Boolean(busyAction);
+          const canRemove = isActive && !isBusy;
+          const canAdd = !hasReacted && !isBusy;
+          const disabled = !canRemove && !canAdd;
 
           return (
             <motion.button
-              key={r.key}
+              key={reaction.key}
               type="button"
-              onClick={() => handleReact(r.key)}
-              disabled={isReacted}
-              whileHover={!isReacted ? { scale: 1.08, y: -2 } : undefined}
-              whileTap={!isReacted ? { scale: 0.92 } : undefined}
+              onClick={() => (isActive ? handleRemove() : handleReact(reaction.key))}
+              disabled={disabled}
+              whileHover={!disabled ? { scale: 1.08, y: -2 } : undefined}
+              whileTap={!disabled ? { scale: 0.92 } : undefined}
               className={`
                 relative flex items-center gap-1.5 px-3 py-2
                 border-2 transition-all duration-200 select-none
                 font-display font-black text-xs uppercase tracking-wider
-                ${isReacted
-                  ? `border-current ${r.activeBg} cursor-default`
-                  : `border-[#1C1428] ${r.bg} hover:border-current comic-panel-hover cursor-pointer`
+                ${isActive
+                  ? `border-current ${reaction.activeBg} cursor-pointer`
+                  : `border-[#1C1428] ${reaction.bg} ${disabled ? 'opacity-60 cursor-default' : 'hover:border-current comic-panel-hover cursor-pointer'}`
                 }
               `}
               style={{
-                color: isReacted ? r.color : undefined,
-                boxShadow: isReacted ? `2px 2px 0 ${r.color}40` : '2px 2px 0 #1C1428',
+                color: isActive ? reaction.color : undefined,
+                boxShadow: isActive ? `2px 2px 0 ${reaction.color}40` : '2px 2px 0 #1C1428',
               }}
             >
-              {/* Emoji with pop animation */}
               <AnimatePresence mode="wait">
                 <motion.span
                   key={isPop ? 'pop' : 'idle'}
@@ -140,24 +197,22 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
                   transition={{ type: 'spring', stiffness: 500, damping: 15 }}
                   className="text-base leading-none"
                 >
-                  {r.emoji}
+                  {reaction.emoji}
                 </motion.span>
               </AnimatePresence>
 
-              {/* Label or count */}
               <span className="hidden sm:inline">
-                {count > 0 ? `${r.label} ${formatCount(count)}` : r.label}
+                {count > 0 ? `${reaction.label} ${formatCount(count)}` : reaction.label}
               </span>
               <span className="sm:hidden">
                 {count > 0 ? formatCount(count) : ''}
               </span>
 
-              {/* Reaction burst particles */}
               {isPop && (
                 <div className="absolute inset-0 pointer-events-none overflow-visible">
-                  {[...Array(6)].map((_, i) => (
+                  {[...Array(6)].map((_, index) => (
                     <motion.div
-                      key={i}
+                      key={index}
                       initial={{ opacity: 1, scale: 0.5, x: 0, y: 0 }}
                       animate={{
                         opacity: 0,
@@ -167,7 +222,7 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
                       }}
                       transition={{ duration: 0.5, ease: 'easeOut' }}
                       className="absolute left-1/2 top-1/2 w-1.5 h-1.5 rounded-full"
-                      style={{ backgroundColor: r.color }}
+                      style={{ backgroundColor: reaction.color }}
                     />
                   ))}
                 </div>
@@ -176,6 +231,17 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
           );
         })}
       </div>
+
+      {activeReaction && (
+        <p className="mt-3 text-[11px] font-sans text-zn-text-dim">
+          Натисни активната реакция, за да я махнеш.
+        </p>
+      )}
+      {lockedAfterRemoval && (
+        <p className="mt-3 text-[11px] font-sans text-zn-text-dim">
+          Реакцията е премахната. Нов избор ще е възможен след изтичане на текущия прозорец.
+        </p>
+      )}
     </div>
   );
 }

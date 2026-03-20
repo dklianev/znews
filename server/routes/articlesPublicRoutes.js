@@ -28,6 +28,15 @@ export function createArticlesPublicRouter(deps) {
   } = deps;
 
   const articlesRouter = express.Router();
+  const VALID_REACTIONS = ['fire', 'shock', 'laugh', 'skull', 'clap'];
+
+  function getReactionHashCandidates(req, articleId) {
+    const hashes = new Set([hashClientFingerprint(req, `react:${articleId}`)]);
+    VALID_REACTIONS.forEach((emoji) => {
+      hashes.add(hashClientFingerprint(req, `react:${articleId}:${emoji}`));
+    });
+    return [...hashes];
+  }
 
   articlesRouter.get('/', cacheMiddleware, asyncHandler(async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
@@ -114,6 +123,47 @@ export function createArticlesPublicRouter(deps) {
     return res.json(item);
   }));
 
+  articlesRouter.get('/:id/reactions/me', asyncHandler(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const filter = { id, ...getPublishedFilter() };
+    const exists = await Article.exists(filter);
+    if (!exists) return res.status(404).json({ error: 'Not found' });
+
+    const windowKey = getWindowKey(articleReactionWindowMs);
+    const voterHashes = getReactionHashCandidates(req, id);
+    const docs = await ArticleReaction.find({
+      articleId: id,
+      windowKey,
+      voterHash: { $in: voterHashes },
+    })
+      .select({ _id: 0, emoji: 1, active: 1 })
+      .lean();
+
+    const reacted = {
+      fire: false,
+      shock: false,
+      laugh: false,
+      skull: false,
+      clap: false,
+    };
+    let activeReaction = null;
+    for (const doc of docs) {
+      if (!VALID_REACTIONS.includes(doc?.emoji)) continue;
+      if (doc.active !== false && !activeReaction) {
+        activeReaction = doc.emoji;
+        reacted[doc.emoji] = true;
+      }
+    }
+
+    return res.json({
+      reacted,
+      activeReaction,
+      hasReacted: docs.length > 0,
+    });
+  }));
+
   articlesRouter.get('/:id/share.png', asyncHandler(async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
@@ -182,8 +232,6 @@ export function createArticlesPublicRouter(deps) {
     return res.json({ ...item, deduped });
   }));
 
-  const VALID_REACTIONS = ['fire', 'shock', 'laugh', 'skull', 'clap'];
-
   articlesRouter.post('/:id/react', articleReactionLimiter, asyncHandler(async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
@@ -199,15 +247,31 @@ export function createArticlesPublicRouter(deps) {
     const exists = await Article.exists(filter);
     if (!exists) return res.status(404).json({ error: 'Not found' });
 
-    const voterHash = hashClientFingerprint(req, `react:${id}:${emoji}`);
     const windowKey = getWindowKey(articleReactionWindowMs);
+    const existingReaction = await ArticleReaction.findOne({
+      articleId: id,
+      windowKey,
+      voterHash: { $in: getReactionHashCandidates(req, id) },
+    })
+      .select({ _id: 0, emoji: 1, active: 1 })
+      .lean();
+    if (existingReaction) {
+      return res.status(429).json({
+        error: 'Already reacted',
+        emoji: existingReaction.emoji || null,
+        activeReaction: existingReaction.active === false ? null : (existingReaction.emoji || null),
+        hasReacted: true,
+      });
+    }
+
+    const voterHash = hashClientFingerprint(req, `react:${id}`);
     const expiresAt = new Date(Date.now() + articleReactionWindowMs + (15 * 60 * 1000));
 
     try {
-      await ArticleReaction.create({ articleId: id, emoji, voterHash, windowKey, expiresAt });
+      await ArticleReaction.create({ articleId: id, emoji, voterHash, windowKey, active: true, expiresAt });
     } catch (error) {
       if (isMongoDuplicateKeyError(error)) {
-        return res.status(429).json({ error: 'Already reacted', emoji });
+        return res.status(429).json({ error: 'Already reacted', emoji, activeReaction: emoji, hasReacted: true });
       }
       throw error;
     }
@@ -221,7 +285,54 @@ export function createArticlesPublicRouter(deps) {
     if (!item) return res.status(404).json({ error: 'Not found' });
     delete item._id;
     delete item.__v;
-    return res.json({ reactions: item.reactions });
+    return res.json({ reactions: item.reactions, activeReaction: emoji, hasReacted: true });
+  }));
+
+  articlesRouter.delete('/:id/react', articleReactionLimiter, asyncHandler(async (req, res) => {
+    const id = Number.parseInt(req.params.id, 10);
+    if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+
+    const filter = { id, ...getPublishedFilter() };
+    const exists = await Article.exists(filter);
+    if (!exists) return res.status(404).json({ error: 'Not found' });
+
+    const windowKey = getWindowKey(articleReactionWindowMs);
+    const docs = await ArticleReaction.find({
+      articleId: id,
+      windowKey,
+      voterHash: { $in: getReactionHashCandidates(req, id) },
+    })
+      .select({ _id: 1, emoji: 1, active: 1 })
+      .lean();
+
+    if (docs.length === 0) {
+      return res.status(404).json({ error: 'No reaction to remove' });
+    }
+
+    const activeDoc = docs.find((doc) => VALID_REACTIONS.includes(doc?.emoji) && doc.active !== false);
+    if (!activeDoc) {
+      const item = await Article.findOne(filter).lean();
+      if (!item) return res.status(404).json({ error: 'Not found' });
+      delete item._id;
+      delete item.__v;
+      return res.json({ reactions: item.reactions, activeReaction: null, hasReacted: true });
+    }
+
+    await ArticleReaction.updateOne(
+      { _id: activeDoc._id },
+      { $set: { active: false, removedAt: new Date() } },
+    );
+
+    const item = await Article.findOneAndUpdate(
+      filter,
+      { $inc: { [`reactions.${activeDoc.emoji}`]: -1 } },
+      { returnDocument: 'after' },
+    ).lean();
+
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    delete item._id;
+    delete item.__v;
+    return res.json({ reactions: item.reactions, activeReaction: null, hasReacted: true });
   }));
 
   return articlesRouter;
