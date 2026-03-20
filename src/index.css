@@ -4248,6 +4248,16 @@
   animation: tetrisShake 200ms ease-out;
 }
 
+/* Wordle ENTER pulse */
+.wordle-enter-pulse {
+  animation: wordleEnterPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes wordleEnterPulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+  50% { box-shadow: 0 0 18px rgba(16, 185, 129, 0.7), 0 0 4px rgba(16, 185, 129, 0.3); }
+}
+
 @keyframes tetrisCountdown {
   0%   { transform: scale(0.5); opacity: 0; }
   50%  { transform: scale(1.15); opacity: 1; }

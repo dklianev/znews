@@ -7,7 +7,7 @@ const BG_KEYBOARD = [
     ['ENTER', 'З', 'Ь', 'Ц', 'Ж', 'Б', 'Н', 'М', 'Ч', 'BACKSPACE']
 ];
 
-export default function WordKeyboard({ onChar, onDelete, onEnter, statuses }) {
+export default function WordKeyboard({ onChar, onDelete, onEnter, statuses, isWordReady = false }) {
     useEffect(() => {
         const handleKeyDown = (e) => {
             if (e.key === 'Enter') onEnter();
@@ -33,13 +33,15 @@ export default function WordKeyboard({ onChar, onDelete, onEnter, statuses }) {
                         const isBackspace = key === 'BACKSPACE';
                         const status = statuses[key];
 
+                        const enterReady = isEnter && isWordReady;
                         let bgClass = 'bg-stone-200 hover:bg-stone-300 text-slate-800 border border-stone-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-white dark:border-transparent';
-                        if (status === 'correct') bgClass = 'bg-emerald-600 text-white';
+                        if (enterReady) bgClass = 'bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-700 shadow-[0_0_12px_rgba(16,185,129,0.5)]';
+                        else if (status === 'correct') bgClass = 'bg-emerald-600 text-white';
                         else if (status === 'present') bgClass = 'bg-amber-400 text-amber-950 dark:bg-yellow-600 dark:text-white';
                         else if (status === 'absent') bgClass = 'bg-slate-200 text-slate-400 border border-slate-200 dark:bg-zinc-900 dark:text-zinc-500 dark:border-transparent';
 
                         const widthClass = isEnter || isBackspace ? 'w-16 md:w-20' : 'w-8 md:w-12';
-                        const textClass = isEnter ? 'text-xs' : 'text-lg font-bold';
+                        const textClass = isEnter ? 'text-xs font-bold' : 'text-lg font-bold';
 
                         return (
                             <button
@@ -49,9 +51,9 @@ export default function WordKeyboard({ onChar, onDelete, onEnter, statuses }) {
                                     else if (isBackspace) onDelete();
                                     else onChar(key);
                                 }}
-                                className={`${widthClass} h-12 rounded-xl flex items-center justify-center transition-colors active:scale-95 ${bgClass} ${textClass}`}
+                                className={`${widthClass} h-12 rounded-xl flex items-center justify-center transition-all duration-200 active:scale-95 ${bgClass} ${textClass} ${enterReady ? 'wordle-enter-pulse' : ''}`}
                             >
-                                {isBackspace ? <Delete className="w-5 h-5" /> : key}
+                                {isBackspace ? <Delete className="w-5 h-5" /> : isEnter ? (enterReady ? '✓ ENTER' : 'ENTER') : key}
                             </button>
                         );
                     })}

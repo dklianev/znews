@@ -171,6 +171,7 @@ export default function GameWordPage() {
                     currentGuess={currentGuess}
                     wordLength={wordLength}
                     maxAttempts={maxAttempts}
+                    isWordReady={gameStatus === 'playing' && currentGuess.length === wordLength}
                 />
 
                 {gameStatus !== 'playing' && (
@@ -201,6 +202,7 @@ export default function GameWordPage() {
                     onDelete={onDelete}
                     onEnter={onEnter}
                     statuses={keyStatuses}
+                    isWordReady={gameStatus === 'playing' && currentGuess.length === wordLength}
                 />
             </div>
 
