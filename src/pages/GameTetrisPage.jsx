@@ -33,7 +33,7 @@ import {
   updateStats,
 } from '../utils/tetris';
 import { loadScopedGameProgress, saveScopedGameProgress } from '../utils/gameStorage';
-import TetrisBoard, { CELL_STEP } from '../components/games/tetris/TetrisBoard';
+import TetrisBoard, { CELL_STEP, BOARD_PX_WIDTH, BOARD_PX_HEIGHT } from '../components/games/tetris/TetrisBoard';
 import TetrisPreview from '../components/games/tetris/TetrisPreview';
 
 /* ── Constants ── */
@@ -204,6 +204,24 @@ export default function GameTetrisPage() {
   const [remaining, setRemaining] = useState(120000); // ms for ultra timer
   const [keyCount, setKeyCount] = useState(0); // total key presses for KPP
   const [gameStartTime, setGameStartTime] = useState(null);
+
+  /* Board responsive scale */
+  const boardContainerRef = useRef(null);
+  const [boardScale, setBoardScale] = useState(1);
+
+  useEffect(() => {
+    const el = boardContainerRef.current;
+    if (!el) return undefined;
+    const BOARD_BORDER = 6; // border-3 × 2
+    const fullWidth = BOARD_PX_WIDTH + BOARD_BORDER;
+    function measure() {
+      const available = el.clientWidth;
+      setBoardScale(available >= fullWidth ? 1 : available / fullWidth);
+    }
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
 
   /* UI state */
   const [showSettings, setShowSettings] = useState(false);
@@ -1203,7 +1221,12 @@ export default function GameTetrisPage() {
               )}
             </div>
 
-            <div className="p-0 relative">
+            <div ref={boardContainerRef} style={{ width: '100%', maxWidth: BOARD_PX_WIDTH + 6 }}>
+            <div className="p-0 relative" style={boardScale < 1 ? {
+              transform: `scale(${boardScale})`,
+              transformOrigin: 'top center',
+              height: (BOARD_PX_HEIGHT + 6) * boardScale,
+            } : undefined}>
               {/* Clear label overlay */}
               {clearLabel && gameStatus === 'playing' && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
@@ -1506,6 +1529,7 @@ export default function GameTetrisPage() {
                   </div>
                 )}
               </div>
+            </div>
             </div>
 
             {/* Mobile hold + pause */}

@@ -4,6 +4,8 @@ import { BOARD_ROWS, BOARD_COLS, THEMES } from '../../../utils/tetris';
 const CELL_SIZE = 34;
 const GAP = 1;
 export const CELL_STEP = CELL_SIZE + GAP;
+export const BOARD_PX_WIDTH = BOARD_COLS * CELL_STEP + GAP;
+export const BOARD_PX_HEIGHT = BOARD_ROWS * CELL_STEP + GAP;
 
 const TetrisRow = memo(function TetrisRow({ row, rIdx, theme, showGrid, lockFlashSet, isGravityDrop, activeCells, activeGlow }) {
   return row.map((cell, cIdx) => {
