@@ -1297,13 +1297,13 @@ export default function GameTetrisPage() {
                     {/* Theme selector */}
                     <div className="mb-4">
                       <p className="text-white/50 text-[10px] font-display uppercase tracking-widest mb-2">Тема</p>
-                      <div className="flex gap-1.5 justify-center flex-wrap">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-w-[260px] mx-auto">
                         {Object.entries(THEMES).map(([key, t]) => (
                           <button
                             key={key}
                             type="button"
                             onClick={() => setSettings((s) => ({ ...s, theme: key }))}
-                            className={`flex items-center gap-2 px-3 py-1.5 font-display text-[10px] uppercase tracking-widest border-2 transition-colors ${
+                            className={`flex min-w-0 items-center justify-center gap-2 px-2.5 py-1.5 font-display text-[10px] uppercase tracking-widest border-2 transition-colors ${
                               settings.theme === key
                                 ? 'border-yellow-400 bg-yellow-400/20 text-yellow-400'
                                 : 'border-white/20 text-white/40 hover:border-white/40'
@@ -1313,15 +1313,10 @@ export default function GameTetrisPage() {
                               className="block h-2.5 w-2.5 rounded-full border border-white/30"
                               style={{ background: t.colors.I }}
                             />
-                            {t.name}
+                            <span className="truncate">{t.name}</span>
                           </button>
                         ))}
                       </div>
-                      {settings.theme === 'lagoon' && (
-                        <p className="mt-2 text-[9px] font-display uppercase tracking-[0.18em] text-[#7ff8ec]">
-                          Lagoon тема активна
-                        </p>
-                      )}
                     </div>
 
                     {/* Quick settings row */}
