@@ -160,7 +160,7 @@ export async function runArticlesPublicRoutesTests() {
     assert.deepEqual(findFilters[0], {
       articleId: 7,
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'browser:react:7', 'hash:react:7:fire', 'browser:react:7:fire', 'hash:react:7:shock', 'browser:react:7:shock', 'hash:react:7:laugh', 'browser:react:7:laugh', 'hash:react:7:skull', 'browser:react:7:skull', 'hash:react:7:clap', 'browser:react:7:clap'] },
+      voterHash: { $in: ['hash:react:7', 'hash:react:7:fire', 'hash:react:7:shock', 'hash:react:7:laugh', 'hash:react:7:skull', 'hash:react:7:clap'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(res.body, {
@@ -172,6 +172,26 @@ export async function runArticlesPublicRoutesTests() {
         clap: true,
       },
       hasReacted: true,
+    });
+  }
+
+  {
+    const { deps, findFilters } = createDeps();
+    const router = createArticlesPublicRouter(deps);
+    const handlers = getRouteHandlers(router, 'get', '/:id/reactions/me');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      params: { id: '7' },
+      headers: { 'x-zn-client-id': 'zn-browser-123456' },
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(findFilters[0], {
+      articleId: 7,
+      windowKey: 42,
+      voterHash: { $in: ['browser:react:7', 'browser:react:7:fire', 'browser:react:7:shock', 'browser:react:7:laugh', 'browser:react:7:skull', 'browser:react:7:clap'] },
+      $or: [{ active: { $exists: false } }, { active: true }],
     });
   }
 
@@ -218,7 +238,7 @@ export async function runArticlesPublicRoutesTests() {
     assert.deepEqual(findFilters[0], {
       articleId: 7,
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'browser:react:7', 'hash:react:7:fire', 'browser:react:7:fire', 'hash:react:7:shock', 'browser:react:7:shock', 'hash:react:7:laugh', 'browser:react:7:laugh', 'hash:react:7:skull', 'browser:react:7:skull', 'hash:react:7:clap', 'browser:react:7:clap'] },
+      voterHash: { $in: ['hash:react:7', 'hash:react:7:fire', 'hash:react:7:shock', 'hash:react:7:laugh', 'hash:react:7:skull', 'hash:react:7:clap'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(res.body, {
@@ -247,7 +267,7 @@ export async function runArticlesPublicRoutesTests() {
       articleId: 7,
       emoji: 'shock',
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'browser:react:7', 'hash:react:7:shock', 'browser:react:7:shock'] },
+      voterHash: { $in: ['hash:react:7', 'hash:react:7:shock'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(creates, [{
@@ -262,6 +282,35 @@ export async function runArticlesPublicRoutesTests() {
       emoji: 'shock',
       hasReacted: true,
     });
+  }
+
+  {
+    const { deps, creates, findOneFilters } = createDeps();
+    const router = createArticlesPublicRouter(deps);
+    const handlers = getRouteHandlers(router, 'post', '/:id/react');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      params: { id: '7' },
+      body: { emoji: 'shock' },
+      headers: { 'x-zn-client-id': 'zn-browser-123456' },
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(findOneFilters[0], {
+      articleId: 7,
+      emoji: 'shock',
+      windowKey: 42,
+      voterHash: { $in: ['browser:react:7', 'browser:react:7:shock'] },
+      $or: [{ active: { $exists: false } }, { active: true }],
+    });
+    assert.deepEqual(creates, [{
+      articleId: 7,
+      emoji: 'shock',
+      voterHash: 'browser:react:7:shock',
+      windowKey: 42,
+      expiresAt: creates[0].expiresAt,
+    }]);
   }
 
   {
@@ -294,7 +343,7 @@ export async function runArticlesPublicRoutesTests() {
       articleId: 7,
       emoji: 'clap',
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'browser:react:7', 'hash:react:7:clap', 'browser:react:7:clap'] },
+      voterHash: { $in: ['hash:react:7', 'hash:react:7:clap'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     }]);
     assert.deepEqual(creates, [{
@@ -367,7 +416,7 @@ export async function runArticlesPublicRoutesTests() {
       articleId: 7,
       emoji: 'shock',
       windowKey: 42,
-      voterHash: { $in: ['hash:react:7', 'browser:react:7', 'hash:react:7:shock', 'browser:react:7:shock'] },
+      voterHash: { $in: ['hash:react:7', 'hash:react:7:shock'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(creates, [{

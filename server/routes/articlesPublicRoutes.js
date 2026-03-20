@@ -36,20 +36,29 @@ export function createArticlesPublicRouter(deps) {
       { active: true },
     ],
   };
+  const CLIENT_ID_PATTERN = /^[a-zA-Z0-9._:-]{8,120}$/;
+
+  function hasBrowserClientId(req) {
+    const value = typeof req.headers?.['x-zn-client-id'] === 'string'
+      ? req.headers['x-zn-client-id'].trim()
+      : '';
+    return CLIENT_ID_PATTERN.test(value);
+  }
 
   function getReactionHashCandidates(req, articleId, emoji = null) {
-    const hashes = new Set([
-      hashClientFingerprint(req, `react:${articleId}`),
-      hashBrowserClientFingerprint(req, `react:${articleId}`),
-    ]);
+    const useBrowserScopedHashes = hasBrowserClientId(req);
+    const hashForScope = (scope) => (
+      useBrowserScopedHashes
+        ? hashBrowserClientFingerprint(req, scope)
+        : hashClientFingerprint(req, scope)
+    );
+    const hashes = new Set([hashForScope(`react:${articleId}`)]);
     if (emoji && VALID_REACTIONS.includes(emoji)) {
-      hashes.add(hashClientFingerprint(req, `react:${articleId}:${emoji}`));
-      hashes.add(hashBrowserClientFingerprint(req, `react:${articleId}:${emoji}`));
+      hashes.add(hashForScope(`react:${articleId}:${emoji}`));
       return [...hashes];
     }
     VALID_REACTIONS.forEach((item) => {
-      hashes.add(hashClientFingerprint(req, `react:${articleId}:${item}`));
-      hashes.add(hashBrowserClientFingerprint(req, `react:${articleId}:${item}`));
+      hashes.add(hashForScope(`react:${articleId}:${item}`));
     });
     return [...hashes];
   }
