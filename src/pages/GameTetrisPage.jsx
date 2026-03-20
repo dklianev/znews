@@ -33,7 +33,7 @@ import {
   updateStats,
 } from '../utils/tetris';
 import { loadScopedGameProgress, saveScopedGameProgress } from '../utils/gameStorage';
-import TetrisBoard from '../components/games/tetris/TetrisBoard';
+import TetrisBoard, { CELL_STEP } from '../components/games/tetris/TetrisBoard';
 import TetrisPreview from '../components/games/tetris/TetrisPreview';
 
 /* ── Constants ── */
@@ -1445,7 +1445,7 @@ export default function GameTetrisPage() {
 
                 {/* Danger zone overlay */}
                 {inDanger && (
-                  <div className="tetris-danger-zone absolute left-0 right-0 top-0 pointer-events-none" style={{ height: 4 * 29 + 1, zIndex: 5 }} />
+                  <div className="tetris-danger-zone absolute left-0 right-0 top-0 pointer-events-none" style={{ height: 4 * CELL_STEP + 1, zIndex: 5 }} />
                 )}
 
                 {/* Hard drop trail */}
@@ -1454,10 +1454,10 @@ export default function GameTetrisPage() {
                     key={dropTrail.key}
                     className="tetris-drop-trail absolute pointer-events-none"
                     style={{
-                      left: 1 + dropTrail.col * 29,
-                      top: 1 + dropTrail.fromRow * 29,
-                      width: dropTrail.width * 29 - 1,
-                      height: (dropTrail.toRow - dropTrail.fromRow) * 29,
+                      left: 1 + dropTrail.col * CELL_STEP,
+                      top: 1 + dropTrail.fromRow * CELL_STEP,
+                      width: dropTrail.width * CELL_STEP - 1,
+                      height: (dropTrail.toRow - dropTrail.fromRow) * CELL_STEP,
                       background: `linear-gradient(to bottom, rgba(255,255,255,0), ${currentTheme.frameColor || themeColors.I}66)`,
                       borderRadius: 2,
                     }}

@@ -1,8 +1,9 @@
 import { memo, useMemo } from 'react';
 import { BOARD_ROWS, BOARD_COLS, THEMES } from '../../../utils/tetris';
 
-const CELL_SIZE = 28;
+const CELL_SIZE = 34;
 const GAP = 1;
+export const CELL_STEP = CELL_SIZE + GAP;
 
 const TetrisRow = memo(function TetrisRow({ row, rIdx, theme, showGrid, lockFlashSet, isGravityDrop, activeCells, activeGlow }) {
   return row.map((cell, cIdx) => {
@@ -50,7 +51,7 @@ const TetrisRow = memo(function TetrisRow({ row, rIdx, theme, showGrid, lockFlas
               : 'none',
           borderRadius: 2,
           boxShadow: shadow,
-          '--drop-from': isGravityDrop ? '-29px' : '0px',
+          '--drop-from': isGravityDrop ? `${-(CELL_SIZE + GAP)}px` : '0px',
         }}
       />
     );

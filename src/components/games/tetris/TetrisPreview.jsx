@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { TETROMINOES, getTrimmedShape, THEMES } from '../../../utils/tetris';
 
-const CELL = 16;
+const CELL = 18;
 const GAP = 2;
 
 function TetrisPreview({ pieceKey, label, small, themeName = 'classic' }) {
