@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { api } from '../utils/api';
 
@@ -16,17 +16,29 @@ function formatCount(n) {
   return String(n);
 }
 
+function buildCounts(reactions) {
+  return {
+    fire: reactions?.fire || 0,
+    shock: reactions?.shock || 0,
+    laugh: reactions?.laugh || 0,
+    skull: reactions?.skull || 0,
+    clap: reactions?.clap || 0,
+  };
+}
+
 export default function ArticleReactions({ articleId, reactions = {} }) {
-  const [counts, setCounts] = useState(() => ({
-    fire: reactions.fire || 0,
-    shock: reactions.shock || 0,
-    laugh: reactions.laugh || 0,
-    skull: reactions.skull || 0,
-    clap: reactions.clap || 0,
-  }));
+  const [counts, setCounts] = useState(() => buildCounts(reactions));
   const [reacted, setReacted] = useState({});
   const [popping, setPopping] = useState(null);
   const cooldownRef = useRef({});
+
+  // Reset state when navigating to a different article
+  useEffect(() => {
+    setCounts(buildCounts(reactions));
+    setReacted({});
+    setPopping(null);
+    cooldownRef.current = {};
+  }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleReact = useCallback(async (key) => {
     if (reacted[key] || cooldownRef.current[key]) return;
@@ -43,8 +55,14 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
       if (res.reactions) {
         setCounts(res.reactions);
       }
-    } catch {
+    } catch (err) {
       // 429 = already reacted — keep optimistic state
+      // Any other error = rollback
+      const status = err?.status || err?.response?.status;
+      if (status !== 429) {
+        setReacted((prev) => ({ ...prev, [key]: false }));
+        setCounts((prev) => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }));
+      }
     }
 
     setTimeout(() => { cooldownRef.current[key] = false; }, 2000);

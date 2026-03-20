@@ -194,6 +194,11 @@ export function createArticlesPublicRouter(deps) {
     }
 
     const filter = { id, ...getPublishedFilter() };
+
+    // Verify article exists and is published before consuming a dedup slot
+    const exists = await Article.exists(filter);
+    if (!exists) return res.status(404).json({ error: 'Not found' });
+
     const voterHash = hashClientFingerprint(req, `react:${id}:${emoji}`);
     const windowKey = getWindowKey(articleReactionWindowMs);
     const expiresAt = new Date(Date.now() + articleReactionWindowMs + (15 * 60 * 1000));
