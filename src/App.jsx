@@ -14,6 +14,7 @@ import { appCopy } from './content/uiCopy';
 const HomePage = lazy(() => import('./pages/HomePage'));
 const ArticlePage = lazy(() => import('./pages/ArticlePage'));
 const CategoryPage = lazy(() => import('./pages/CategoryPage'));
+const AuthorPage = lazy(() => import('./pages/AuthorPage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const JobsPage = lazy(() => import('./pages/JobsPage'));
@@ -326,6 +327,7 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           <Route path="/article/:id" element={<ArticlePage />} />
           <Route path="/category/:slug" element={<CategoryPage />} />
+          <Route path="/author/:id" element={<AuthorPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/jobs" element={<JobsPage />} />

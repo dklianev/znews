@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
-import { Plus, Pencil, Trash2, X, Save, AlertTriangle, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Save, AlertTriangle, Search, Phone, Mail } from 'lucide-react';
+import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
 
@@ -115,7 +116,7 @@ export default function ManageProfiles() {
     }));
   }, [permissions]);
 
-  const [authorForm, setAuthorForm] = useState({ name: '', avatar: '👤', role: '' });
+  const [authorForm, setAuthorForm] = useState({ name: '', avatar: '👤', avatarImage: '', avatarImageMeta: null, role: '', bio: '', phone: '', email: '' });
   const [editingAuthor, setEditingAuthor] = useState(null);
 
   const focusUserField = (field) => {
@@ -276,7 +277,7 @@ export default function ManageProfiles() {
       toast.success('Авторът е обновен');
     }
     setEditingAuthor(null);
-    setAuthorForm({ name: '', avatar: '👤', role: '' });
+    setAuthorForm({ name: '', avatar: '👤', avatarImage: '', avatarImageMeta: null, role: '', bio: '', phone: '', email: '' });
   };
 
   const handleDeleteAuthor = async (id) => {
@@ -609,7 +610,7 @@ export default function ManageProfiles() {
           <button
             onClick={() => {
               setEditingAuthor('new');
-              setAuthorForm({ name: '', avatar: '👤', role: '' });
+              setAuthorForm({ name: '', avatar: '👤', avatarImage: '', avatarImageMeta: null, role: '', bio: '', phone: '', email: '' });
             }}
             className="mb-4 flex items-center gap-2 px-4 py-2 bg-zn-hot text-white text-sm font-sans font-semibold hover:bg-zn-hot transition-colors"
           >
@@ -622,7 +623,7 @@ export default function ManageProfiles() {
               <h3 className="font-sans font-semibold text-gray-900 mb-4">
                 {editingAuthor === 'new' ? 'Нов автор' : 'Редактирай автор'}
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>Име</label>
                   <input
@@ -641,8 +642,41 @@ export default function ManageProfiles() {
                     placeholder="Разследващ журналист"
                   />
                 </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <label className={labelCls}>Аватар</label>
+                  <label className={labelCls}><Phone className="w-3.5 h-3.5 inline mr-1" />Телефон</label>
+                  <input
+                    className={inputCls}
+                    value={authorForm.phone || ''}
+                    onChange={(event) => setAuthorForm({ ...authorForm, phone: event.target.value })}
+                    placeholder="+359 88 123 4567"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}><Mail className="w-3.5 h-3.5 inline mr-1" />Имейл</label>
+                  <input
+                    className={inputCls}
+                    value={authorForm.email || ''}
+                    onChange={(event) => setAuthorForm({ ...authorForm, email: event.target.value })}
+                    placeholder="maria@znews.bg"
+                    type="email"
+                  />
+                </div>
+              </div>
+              <div className="mt-4">
+                <label className={labelCls}>Био</label>
+                <textarea
+                  className={inputCls + ' resize-y min-h-[60px]'}
+                  value={authorForm.bio || ''}
+                  onChange={(event) => setAuthorForm({ ...authorForm, bio: event.target.value })}
+                  placeholder="Кратко описание на автора..."
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                  <label className={labelCls}>Аватар (емоджи)</label>
                   <div className="flex flex-wrap gap-1.5">
                     {AVATARS.map((avatar) => (
                       <button
@@ -657,6 +691,19 @@ export default function ManageProfiles() {
                       </button>
                     ))}
                   </div>
+                </div>
+                <div>
+                  <AdminImageField
+                    label="Снимка на автора"
+                    value={authorForm.avatarImage || ''}
+                    onChange={(val) => setAuthorForm({ ...authorForm, avatarImage: val })}
+                    imageMeta={authorForm.avatarImageMeta}
+                    onChangeMeta={(meta) => setAuthorForm({ ...authorForm, avatarImageMeta: meta })}
+                    previewClassName="h-32"
+                    helperText="Снимка от медийната библиотека (замества емоджи аватара)"
+                    editorAspectPresets={[{ label: '1:1', value: 1 }]}
+                    defaultEditorMode="focal"
+                  />
                 </div>
               </div>
               <div className="flex gap-2 mt-5">
@@ -685,7 +732,11 @@ export default function ManageProfiles() {
                   <tr key={author.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-lg">{author.avatar}</span>
+                        {author.avatarImage ? (
+                          <img src={author.avatarImage} alt={author.name} className="w-8 h-8 rounded-full object-cover border border-gray-200" />
+                        ) : (
+                          <span className="text-lg">{author.avatar}</span>
+                        )}
                         <span className="text-sm font-sans font-medium text-gray-900">{author.name}</span>
                       </div>
                     </td>

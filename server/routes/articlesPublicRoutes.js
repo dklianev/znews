@@ -43,6 +43,8 @@ export function createArticlesPublicRouter(deps) {
 
     if (category) filter.category = category;
     if (sectionFilter) Object.assign(filter, sectionFilter);
+    const authorId = parsePositiveInt(req.query.authorId, null);
+    if (authorId) filter.authorId = authorId;
     if (q) filter.$text = { $search: q };
 
     let query = Article.find(filter);

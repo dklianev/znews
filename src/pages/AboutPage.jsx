@@ -1,5 +1,6 @@
 import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Users, Award, Newspaper, Shield, CheckCircle, AlertTriangle } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
@@ -255,15 +256,25 @@ export default function AboutPage() {
               viewport={{ once: true }}
               transition={{ duration: 0.3, delay: index * 0.08 }}
               whileHover={{ y: -4, transition: { duration: 0.2 } }}
-              className="comic-panel comic-dots bg-white p-6 text-center relative group"
             >
-              <div className="relative inline-block mb-3">
-                <div className={`w-18 h-18 ${AVATAR_COLORS[index % AVATAR_COLORS.length]} text-white flex items-center justify-center font-comic text-3xl border-3 border-[#1C1428] rounded-full mx-auto group-hover:scale-105 transition-transform relative z-[2]`} style={{ boxShadow: '3px 3px 0 #1C1428' }}>
-                  {author.name?.charAt(0)}
+              <Link
+                to={`/author/${author.id}`}
+                className="comic-panel comic-dots bg-white p-6 text-center relative group block hover:shadow-lg transition-shadow"
+              >
+                <div className="relative inline-block mb-3">
+                  {author.avatarImage ? (
+                    <div className="w-18 h-18 rounded-full overflow-hidden border-3 border-[#1C1428] mx-auto group-hover:scale-105 transition-transform relative z-[2]" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
+                      <img src={author.avatarImage} alt={author.name} loading="lazy" decoding="async" className="w-full h-full object-cover" style={{ objectPosition: author.avatarImageMeta?.objectPosition || '50% 50%' }} />
+                    </div>
+                  ) : (
+                    <div className={`w-18 h-18 ${AVATAR_COLORS[index % AVATAR_COLORS.length]} text-white flex items-center justify-center font-comic text-3xl border-3 border-[#1C1428] rounded-full mx-auto group-hover:scale-105 transition-transform relative z-[2]`} style={{ boxShadow: '3px 3px 0 #1C1428' }}>
+                      {author.name?.charAt(0)}
+                    </div>
+                  )}
                 </div>
-              </div>
-              <h3 className="font-display font-black text-lg text-zn-text tracking-wider uppercase relative z-[2]">{author.name}</h3>
-              <p className="text-sm font-display font-bold text-zn-hot uppercase tracking-wider relative z-[2]">{author.role}</p>
+                <h3 className="font-display font-black text-lg text-zn-text tracking-wider uppercase relative z-[2]">{author.name}</h3>
+                <p className="text-sm font-display font-bold text-zn-hot uppercase tracking-wider relative z-[2]">{author.role}</p>
+              </Link>
             </motion.div>
           ))}
         </div>

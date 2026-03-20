@@ -65,7 +65,15 @@ const authorSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
   name: String,
   avatar: String,
+  avatarImage: String,
+  avatarImageMeta: {
+    objectPosition: String,
+    objectScale: Number,
+  },
   role: String,
+  bio: String,
+  phone: String,
+  email: String,
 }, opts);
 
 // ÄÄÄ Category ÄÄÄ

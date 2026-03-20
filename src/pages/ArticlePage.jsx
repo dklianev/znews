@@ -652,15 +652,19 @@ export default function ArticlePage() {
           {/* Meta bar */}
           <div className="flex items-center flex-wrap gap-4 text-sm font-sans text-zn-text-dim pb-5 mb-6 border-b border-zn-border">
             {author && (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-zn-hot text-white flex items-center justify-center font-display font-black text-xs border-2 border-[#1C1428]">
-                  {author.name?.charAt(0)}
+              <Link to={`/author/${author.id}`} className="flex items-center gap-2 hover:text-zn-hot transition-colors">
+                <div className="w-8 h-8 bg-zn-hot text-white flex items-center justify-center font-display font-black text-xs border-2 border-[#1C1428] overflow-hidden">
+                  {author.avatarImage ? (
+                    <img src={author.avatarImage} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    author.name?.charAt(0)
+                  )}
                 </div>
                 <div>
                   <span className="font-semibold text-zn-text">{author.name}</span>
                   <span className="text-zn-text-dim ml-1">— {author.role}</span>
                 </div>
-              </div>
+              </Link>
             )}
             <span>{formatNewsDate(article.date)}</span>
             <span className="flex items-center gap-1">
@@ -874,10 +878,14 @@ export default function ArticlePage() {
 
           {/* Author card */}
           {author && (
-            <div className="newspaper-page comic-panel comic-dots p-5 text-center relative">
+            <Link to={`/author/${author.id}`} className="block newspaper-page comic-panel comic-dots p-5 text-center relative hover:shadow-lg transition-shadow">
               <div className="tape-deco absolute -top-2 right-6 w-12 h-4 bg-yellow-200/70 dark:bg-yellow-700/30 border border-black/5 dark:border-yellow-600/20 transform rotate-3 z-10" />
-              <div className="w-16 h-16 bg-zn-hot text-white flex items-center justify-center font-display font-black text-2xl border-3 border-[#1C1428] mx-auto mb-3 relative z-[2] comic-ink-shadow">
-                {author.name?.charAt(0)}
+              <div className="w-16 h-16 bg-zn-hot text-white flex items-center justify-center font-display font-black text-2xl border-3 border-[#1C1428] mx-auto mb-3 relative z-[2] comic-ink-shadow overflow-hidden">
+                {author.avatarImage ? (
+                  <img src={author.avatarImage} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  author.name?.charAt(0)
+                )}
               </div>
               <h3 className="font-display font-bold text-lg text-zn-text tracking-wider relative z-[2]">{author.name}</h3>
               <p className="text-sm font-sans text-zn-hot font-semibold relative z-[2]">{author.role}</p>
@@ -886,7 +894,7 @@ export default function ArticlePage() {
                   {articles.filter(a => a.authorId === author.id).length} публикации
                 </p>
               </div>
-            </div>
+            </Link>
           )}
 
           <ErrorBoundary fallback={null}><TrendingSidebar /></ErrorBoundary>
