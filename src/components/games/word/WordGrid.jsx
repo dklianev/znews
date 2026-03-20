@@ -53,7 +53,7 @@ function CurrentRow({ guess, wordLength, isReady }) {
                         animate={{ scale: 1 }}
                         className={`w-12 h-12 border-[3px] flex items-center justify-center text-2xl font-black uppercase rounded shadow-[0_0_10px_rgba(255,255,255,0.08)] transition-colors duration-200 ${
                             isReady
-                                ? 'border-emerald-400 dark:border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-slate-900 dark:text-white'
+                                ? 'border-sky-400 dark:border-sky-500 bg-sky-50 dark:bg-sky-950/20 text-slate-900 dark:text-white'
                                 : 'border-slate-400 dark:border-zinc-500 bg-white dark:bg-zinc-800 text-slate-900 dark:text-white'
                         }`}
                     >
@@ -68,7 +68,7 @@ function CurrentRow({ guess, wordLength, isReady }) {
                 <motion.p
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400 mt-1"
+                    className="text-[11px] font-bold uppercase tracking-[0.2em] text-sky-600 dark:text-sky-400 mt-1"
                 >
                     Натисни ENTER ↵
                 </motion.p>
