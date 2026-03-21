@@ -1,13 +1,11 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Phone, Mail, FileText, Eye, Clock, ChevronRight, Newspaper, BarChart3, Flame } from 'lucide-react';
 import TrendingSidebar from '../components/TrendingSidebar';
 import AdSlot from '../components/ads/AdSlot';
 import { usePublicData } from '../context/DataContext';
-import ComicNewsCard from '../components/ComicNewsCard';
 import ResponsiveImage from '../components/ResponsiveImage';
-import { getComicCardStyle } from '../utils/comicCardDesign';
 import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { formatNewsDate } from '../utils/newsDate';
@@ -30,20 +28,7 @@ function formatCount(n) {
   return String(n);
 }
 
-function getArticleStats(articles) {
-  let totalViews = 0;
-  let totalReactions = 0;
-  const categorySet = new Set();
-  for (const a of articles) {
-    totalViews += Number(a.views) || 0;
-    if (a.category) categorySet.add(a.category);
-    if (a.reactions) {
-      const r = a.reactions;
-      totalReactions += (r.fire || 0) + (r.shock || 0) + (r.laugh || 0) + (r.skull || 0) + (r.clap || 0);
-    }
-  }
-  return { totalViews, totalReactions, categoryCount: categorySet.size };
-}
+const EMPTY_STATS = { totalViews: 0, totalReactions: 0, categoryCount: 0 };
 
 /* ─── Skeleton ─── */
 function HeroSkeleton() {
@@ -451,8 +436,7 @@ function HeadlineItem({ article, categories }) {
 export default function AuthorPage() {
   const { id } = useParams();
   const authorId = Number(id);
-  const { authors, categories, ads, siteSettings, loading } = usePublicData();
-  const layoutPresets = siteSettings?.layoutPresets || {};
+  const { authors, categories, ads, loading } = usePublicData();
   const author = authors.find((a) => a.id === authorId);
 
   useDocumentTitle(makeTitle(author?.name || 'Автор'));
@@ -461,11 +445,37 @@ export default function AuthorPage() {
   const [totalArticles, setTotalArticles] = useState(0);
   const [loadingArticles, setLoadingArticles] = useState(false);
   const [page, setPage] = useState(1);
+  const [authorStats, setAuthorStats] = useState(EMPTY_STATS);
 
   useEffect(() => {
     setPage(1);
     setAuthorArticles([]);
     setTotalArticles(0);
+    setAuthorStats(EMPTY_STATS);
+  }, [authorId]);
+
+  /* Fetch aggregate author stats from server */
+  useEffect(() => {
+    let cancelled = false;
+    if (!authorId || isNaN(authorId)) return undefined;
+
+    api.articles.getAuthorStats(authorId)
+      .then((payload) => {
+        if (cancelled) return;
+        setAuthorStats({
+          totalViews: Number(payload?.totalViews) || 0,
+          totalReactions: Number(payload?.totalReactions) || 0,
+          categoryCount: Number(payload?.categoryCount) || 0,
+        });
+        if (typeof payload?.totalArticles === 'number') {
+          setTotalArticles(payload.totalArticles);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAuthorStats(EMPTY_STATS);
+      });
+
+    return () => { cancelled = true; };
   }, [authorId]);
 
   useEffect(() => {
@@ -500,7 +510,6 @@ export default function AuthorPage() {
     return () => { cancelled = true; };
   }, [authorId, page]);
 
-  const stats = useMemo(() => getArticleStats(authorArticles), [authorArticles]);
   const totalPages = Math.max(1, Math.ceil((totalArticles || 0) / PER_PAGE));
   const showEmptyState = !loadingArticles && authorArticles.length === 0;
   const showInitialSkeleton = loadingArticles && authorArticles.length === 0;
@@ -536,11 +545,11 @@ export default function AuthorPage() {
     >
       <div className="space-y-6">
         {/* ═══ HERO BLOCK ═══ */}
-        <AuthorHero author={author} totalArticles={totalArticles} stats={stats} />
+        <AuthorHero author={author} totalArticles={totalArticles} stats={authorStats} />
 
         {/* ═══ STATS STRIP ═══ */}
         {totalArticles > 0 && (
-          <StatsStrip totalArticles={totalArticles} stats={stats} categories={categories} />
+          <StatsStrip totalArticles={totalArticles} stats={authorStats} categories={categories} />
         )}
 
         {/* ═══ CONTENT AREA ═══ */}

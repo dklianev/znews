@@ -170,6 +170,42 @@ export function createArticlesPublicRouter(deps) {
     return [...hashes];
   }
 
+  articlesRouter.get('/author-stats/:authorId', cacheMiddleware, asyncHandler(async (req, res) => {
+    const authorId = Number.parseInt(req.params.authorId, 10);
+    if (!Number.isInteger(authorId)) return res.status(400).json({ error: 'Invalid authorId' });
+
+    const filter = { ...getPublishedFilter(), authorId };
+    const [result] = await Article.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          totalArticles: { $sum: 1 },
+          totalViews: { $sum: { $ifNull: ['$views', 0] } },
+          totalReactions: {
+            $sum: {
+              $add: [
+                { $ifNull: ['$reactions.fire', 0] },
+                { $ifNull: ['$reactions.shock', 0] },
+                { $ifNull: ['$reactions.laugh', 0] },
+                { $ifNull: ['$reactions.skull', 0] },
+                { $ifNull: ['$reactions.clap', 0] },
+              ],
+            },
+          },
+          categories: { $addToSet: '$category' },
+        },
+      },
+    ]);
+
+    return res.json({
+      totalArticles: result?.totalArticles || 0,
+      totalViews: result?.totalViews || 0,
+      totalReactions: result?.totalReactions || 0,
+      categoryCount: result?.categories?.length || 0,
+    });
+  }));
+
   articlesRouter.get('/', cacheMiddleware, asyncHandler(async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;

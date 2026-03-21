@@ -455,6 +455,7 @@ export const api = {
     getAdminMeta: () => request('/articles/admin/meta'),
     searchRelatedAdmin: (params) => request(`/articles/admin/related${toQuery(params)}`),
     getById: (id, params) => request(`/articles/${id}${toQuery(params)}`),
+    getAuthorStats: (authorId) => request(`/articles/author-stats/${authorId}`),
     incrementView: (id) => request(`/articles/${id}/view`, { method: 'POST' }),
     getReactionState: (id) => request(`/articles/${id}/reactions/me`, { headers: getClientIdHeaders() }),
     react: (id, emoji) => request(`/articles/${id}/react`, {
