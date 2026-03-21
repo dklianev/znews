@@ -6,7 +6,7 @@ import { getTodayStr } from '../utils/gameDate';
 import { loadGameProgress, recordGameLoss, recordGameWin, saveGameProgress } from '../utils/gameStorage';
 import HangmanFigure from '../components/games/hangman/HangmanFigure';
 import HangmanKeyboard from '../components/games/hangman/HangmanKeyboard';
-import { applyHangmanReveal, createHangmanSlots, getHangmanKeyboardRows, isHangmanSolved, normalizeHangmanLetter } from '../utils/hangman';
+import { applyHangmanReveal, createHangmanSlots, getHangmanKeyboardRows, isHangmanSolved, normalizeHangmanKeyboardInput, normalizeHangmanLetter } from '../utils/hangman';
 
 const GAME_SLUG = 'hangman';
 const NOTICE_TONE_CLASSNAMES = {
@@ -167,7 +167,7 @@ export default function GameHangmanPage() {
 
     const onKeyDown = (event) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const letter = normalizeHangmanLetter(event.key);
+      const letter = normalizeHangmanKeyboardInput(event.key, payload.keyboardLayout, event.code);
       if (!letter) return;
       event.preventDefault();
       handleGuess(letter);
@@ -325,7 +325,13 @@ export default function GameHangmanPage() {
           </div>
         </section>
 
-        <HangmanKeyboard rows={keyboardRows} statuses={letterStatuses} disabled={gameStatus !== 'playing' || isProcessing} onGuess={handleGuess} />
+        <HangmanKeyboard
+          rows={keyboardRows}
+          statuses={letterStatuses}
+          usedLetters={guessedLetters}
+          disabled={gameStatus !== 'playing' || isProcessing}
+          onGuess={handleGuess}
+        />
       </main>
 
       {showHelp && (

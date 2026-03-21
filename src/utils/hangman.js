@@ -1,7 +1,7 @@
 const BG_KEYBOARD_ROWS = Object.freeze([
-  ['А', 'Б', 'В', 'Г', 'Д', 'Е', 'Ж', 'З', 'И', 'Й'],
-  ['К', 'Л', 'М', 'Н', 'О', 'П', 'Р', 'С', 'Т', 'У'],
-  ['Ф', 'Х', 'Ц', 'Ч', 'Ш', 'Щ', 'Ъ', 'Ь', 'Ю', 'Я'],
+  ['Я', 'В', 'Е', 'Р', 'Т', 'Ъ', 'У', 'И', 'О', 'П', 'Ю'],
+  ['А', 'С', 'Д', 'Ф', 'Г', 'Х', 'Й', 'К', 'Л', 'Ш', 'Щ'],
+  ['З', 'Ь', 'Ц', 'Ж', 'Б', 'Н', 'М', 'Ч'],
 ]);
 
 const LATIN_KEYBOARD_ROWS = Object.freeze([
@@ -11,12 +11,53 @@ const LATIN_KEYBOARD_ROWS = Object.freeze([
 ]);
 
 const LETTER_PATTERN = /^[\p{L}\p{N}]$/u;
+const BG_KEYBOARD_SET = new Set(BG_KEYBOARD_ROWS.flat());
+const BG_PHONETIC_CODE_MAP = Object.freeze({
+  KeyQ: 'Я',
+  KeyW: 'В',
+  KeyE: 'Е',
+  KeyR: 'Р',
+  KeyT: 'Т',
+  KeyY: 'Ъ',
+  KeyU: 'У',
+  KeyI: 'И',
+  KeyO: 'О',
+  KeyP: 'П',
+  BracketLeft: 'Ю',
+  KeyA: 'А',
+  KeyS: 'С',
+  KeyD: 'Д',
+  KeyF: 'Ф',
+  KeyG: 'Г',
+  KeyH: 'Х',
+  KeyJ: 'Й',
+  KeyK: 'К',
+  KeyL: 'Л',
+  Semicolon: 'Ш',
+  Quote: 'Щ',
+  KeyZ: 'З',
+  KeyX: 'Ь',
+  KeyC: 'Ц',
+  KeyV: 'Ж',
+  KeyB: 'Б',
+  KeyN: 'Н',
+  KeyM: 'М',
+  Comma: 'Ч',
+});
 
 export function normalizeHangmanLetter(value) {
   const trimmed = String(value || '').trim().toUpperCase();
   if (!trimmed) return '';
   const first = Array.from(trimmed)[0] || '';
   return LETTER_PATTERN.test(first) ? first : '';
+}
+
+export function normalizeHangmanKeyboardInput(value, layout, code = '') {
+  const normalizedLayout = String(layout || 'bg').trim().toLowerCase();
+  const normalizedLetter = normalizeHangmanLetter(value);
+  if (normalizedLayout === 'latin' || normalizedLayout === 'en') return normalizedLetter;
+  if (BG_KEYBOARD_SET.has(normalizedLetter)) return normalizedLetter;
+  return BG_PHONETIC_CODE_MAP[String(code || '').trim()] || '';
 }
 
 export function getHangmanKeyboardRows(layout) {

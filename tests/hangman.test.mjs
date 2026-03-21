@@ -3,6 +3,7 @@ import {
   createHangmanSlots,
   getHangmanKeyboardRows,
   isHangmanSolved,
+  normalizeHangmanKeyboardInput,
   normalizeHangmanLetter,
 } from '../src/utils/hangman.js';
 
@@ -30,6 +31,12 @@ export function runHangmanTests() {
   const defaultRows = getHangmanKeyboardRows('bg');
   assert(defaultRows.length === 3, 'default hangman keyboard should contain three rows');
   assert(defaultRows.every((row) => Array.isArray(row) && row.length > 0), 'default hangman keyboard rows should not be empty');
+  assertDeepEqual(defaultRows[0], ['Я', 'В', 'Е', 'Р', 'Т', 'Ъ', 'У', 'И', 'О', 'П', 'Ю'], 'bg phonetic layout first row');
+  assertDeepEqual(defaultRows[1], ['А', 'С', 'Д', 'Ф', 'Г', 'Х', 'Й', 'К', 'Л', 'Ш', 'Щ'], 'bg phonetic layout second row');
+  assertDeepEqual(defaultRows[2], ['З', 'Ь', 'Ц', 'Ж', 'Б', 'Н', 'М', 'Ч'], 'bg phonetic layout third row');
+  assert(normalizeHangmanKeyboardInput('w', 'bg', 'KeyW') === 'В', 'bg phonetic keyboard should map latin key positions to cyrillic letters');
+  assert(normalizeHangmanKeyboardInput('В', 'bg', 'KeyW') === 'В', 'bg keyboard should still accept direct cyrillic input');
+  assert(normalizeHangmanKeyboardInput('w', 'latin', 'KeyW') === 'W', 'latin keyboard should preserve latin input');
 
   const slots = createHangmanSlots(4);
   assertDeepEqual(slots, [null, null, null, null], 'createHangmanSlots should create null-filled slots');
