@@ -396,6 +396,8 @@ export function DataProvider({ children }) {
           || Number(error?.status) === 403
           || !getSession()?.token;
         if (authRejected) {
+          clearSession();
+          setSession(null);
           setPermissions([]);
           setComments([]);
           setUsers([]);

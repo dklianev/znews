@@ -49,6 +49,70 @@ function removeSessionFromStorage(storage) {
   }
 }
 
+function decodeBase64Url(value) {
+  const normalized = String(value || '')
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  if (!normalized) return null;
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4 || 4)) % 4);
+  try {
+    if (typeof window !== 'undefined' && typeof window.atob === 'function') {
+      return window.atob(padded);
+    }
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(padded, 'base64').toString('utf8');
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function getJwtExpiryMs(token) {
+  const rawToken = String(token || '').trim();
+  if (!rawToken) return 0;
+  const parts = rawToken.split('.');
+  if (parts.length < 2) return 0;
+  try {
+    const payload = JSON.parse(decodeBase64Url(parts[1]) || '');
+    const exp = Number(payload?.exp);
+    return Number.isFinite(exp) && exp > 0 ? exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function normalizeSession(session) {
+  if (!session || typeof session !== 'object') return null;
+  const normalized = { ...session };
+  const savedAt = Number(normalized.accessTokenSavedAt) || Date.now();
+  normalized.accessTokenSavedAt = savedAt;
+
+  const explicitExpiresAt = Number(normalized.accessTokenExpiresAt);
+  if (Number.isFinite(explicitExpiresAt) && explicitExpiresAt > 0) {
+    normalized.accessTokenExpiresAt = explicitExpiresAt;
+    return normalized;
+  }
+
+  const jwtExpiry = getJwtExpiryMs(normalized.token);
+  if (jwtExpiry > 0) {
+    normalized.accessTokenExpiresAt = jwtExpiry;
+    return normalized;
+  }
+
+  const expiresIn = Number(normalized.accessTokenExpiresIn);
+  if (Number.isFinite(expiresIn) && expiresIn > 0) {
+    normalized.accessTokenExpiresAt = savedAt + expiresIn * 1000;
+  }
+
+  return normalized;
+}
+
+function isSessionExpired(session) {
+  const expiresAt = Number(session?.accessTokenExpiresAt);
+  return Number.isFinite(expiresAt) && expiresAt <= Date.now();
+}
+
 function readClientIdFromStorage(storage) {
   if (!storage) return null;
   try {
@@ -78,35 +142,45 @@ function emitSessionUpdated(session) {
 export function getSession() {
   const sessionStorage = getWebStorage('sessionStorage');
   const localStorage = getWebStorage('localStorage');
-  const session = readSessionFromStorage(sessionStorage);
+  const session = normalizeSession(readSessionFromStorage(sessionStorage));
   if (session) {
-    inMemorySession = session;
-    return session;
+    if (isSessionExpired(session)) {
+      removeSessionFromStorage(sessionStorage);
+    } else {
+      inMemorySession = session;
+      writeSessionToStorage(sessionStorage, session);
+      return session;
+    }
   }
 
   // Legacy migration path: move persisted session from localStorage to sessionStorage.
-  const legacySession = readSessionFromStorage(localStorage);
+  const legacySession = normalizeSession(readSessionFromStorage(localStorage));
   if (legacySession) {
-    inMemorySession = legacySession;
-    writeSessionToStorage(sessionStorage, legacySession);
-    removeSessionFromStorage(localStorage);
-    return legacySession;
+    if (isSessionExpired(legacySession)) {
+      removeSessionFromStorage(localStorage);
+    } else {
+      inMemorySession = legacySession;
+      writeSessionToStorage(sessionStorage, legacySession);
+      removeSessionFromStorage(localStorage);
+      return legacySession;
+    }
   }
 
   return inMemorySession;
 }
 
 export function saveSession(session) {
-  inMemorySession = session || null;
+  const normalizedSession = normalizeSession(session);
+  inMemorySession = normalizedSession || null;
   const sessionStorage = getWebStorage('sessionStorage');
   const localStorage = getWebStorage('localStorage');
 
   // Prefer sessionStorage (short-lived token persistence). Fallback to localStorage only if unavailable.
-  const persisted = writeSessionToStorage(sessionStorage, session);
-  if (!persisted) writeSessionToStorage(localStorage, session);
+  const persisted = writeSessionToStorage(sessionStorage, normalizedSession);
+  if (!persisted) writeSessionToStorage(localStorage, normalizedSession);
   else removeSessionFromStorage(localStorage);
 
-  emitSessionUpdated(session);
+  emitSessionUpdated(normalizedSession);
 }
 
 export function clearSession() {
