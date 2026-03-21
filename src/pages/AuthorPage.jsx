@@ -131,6 +131,12 @@ function AuthorHero({ author, totalArticles, stats }) {
                 </span>
               </div>
             )}
+            <div
+              className="absolute -bottom-3 -right-3 bg-zn-hot text-white font-display font-black text-[9px] uppercase tracking-[0.2em] px-2.5 py-1 border-2 border-[#1C1428] z-10"
+              style={{ boxShadow: '2px 2px 0 #1C1428', transform: 'rotate(3deg)' }}
+            >
+              {author.role || 'АВТОР'}
+            </div>
           </div>
         </div>
 
@@ -678,12 +684,6 @@ export default function AuthorPage() {
 
           {/* Sidebar */}
           <div className="space-y-5">
-            {/* Stamp badge */}
-            <div className="hidden lg:flex justify-center">
-              <div className="comic-stamp-circle animate-wiggle text-[9px]" style={{ transform: 'rotate(-12deg)' }}>
-                {author.role?.toUpperCase().slice(0, 12) || 'АВТОР'}
-              </div>
-            </div>
 
             <TrendingSidebar />
             <AdSlot ads={ads} slot="author.sidebar.1" pageType="author" />
