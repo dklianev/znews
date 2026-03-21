@@ -48,6 +48,7 @@ const DEFAULT_SETTINGS = {
     { to: '/court', label: 'Съдебна хроника' },
     { to: '/events', label: 'Събития' },
     { to: '/gallery', label: 'Галерия' },
+    { to: '/latest', label: 'Последни новини' },
   ],
   contact: {
     address: 'Vinewood Blvd 42, Los Santos',

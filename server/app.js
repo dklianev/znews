@@ -330,6 +330,7 @@ const DEFAULT_SITE_SETTINGS = Object.freeze({
     { label: 'Съдебна хроника', to: '/court' },
     { label: 'Събития', to: '/events' },
     { label: 'Галерия', to: '/gallery' },
+    { label: 'Последни новини', to: '/latest' },
   ],
   contact: {
     address: 'Vinewood Blvd 42, Los Santos',

@@ -7,7 +7,7 @@ import PollWidget from '../components/PollWidget';
 import AdSlot from '../components/ads/AdSlot';
 import { usePublicData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
-import { Flame, Megaphone, Bell, Siren, TrendingUp, Eye, RefreshCw, AlertTriangle, Zap, Newspaper, ShieldAlert } from 'lucide-react';
+import { Flame, Megaphone, Bell, Siren, TrendingUp, Eye, RefreshCw, AlertTriangle, Zap, Newspaper, ShieldAlert, ChevronRight } from 'lucide-react';
 import ComicNewsCard from '../components/ComicNewsCard';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
@@ -143,6 +143,19 @@ function HomePageSkeleton() {
         ))}
       </div>
     </div>
+  );
+}
+
+function SectionActionLink({ to, label, mobile = false }) {
+  const className = mobile
+    ? 'md:hidden mt-4 inline-flex w-full items-center justify-center gap-1.5 border-3 border-[#1C1428] bg-white px-4 py-3 font-display text-xs font-black uppercase tracking-[0.16em] text-zn-text shadow-[4px_4px_0_#1C1428] transition-all duration-200 hover:bg-zn-purple hover:text-white'
+    : 'hidden md:inline-flex items-center gap-1 rounded-none border-2 border-[#1C1428] bg-white px-3 py-1.5 font-display text-[11px] font-black uppercase tracking-[0.16em] text-zn-text shadow-[3px_3px_0_#1C1428] transition-all duration-200 hover:bg-zn-purple hover:text-white';
+
+  return (
+    <Link to={to} className={className}>
+      <span>{label}</span>
+      <ChevronRight className="h-4 w-4 shrink-0" />
+    </Link>
   );
 }
 
@@ -489,6 +502,7 @@ export default function HomePage() {
             <Siren className="w-5 h-5" /> {homeCopy.crimeLabel}
           </div>
           <div className="flex-1 h-1 bg-gradient-to-r from-zn-navy/40 to-transparent" />
+          <SectionActionLink to="/category/crime" label={homeCopy.sectionViewAllLabel} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {crimeArticles.map((article, index) => {
@@ -506,6 +520,7 @@ export default function HomePage() {
             );
           })}
         </div>
+        <SectionActionLink to="/category/crime" label={homeCopy.sectionViewAllLabel} mobile />
       </section>
 
       {/* ═══ Quick Categories ═══ */}
@@ -532,6 +547,7 @@ export default function HomePage() {
               <TrendingUp className="w-5 h-5" /> {homeCopy.latestLabel}
             </div>
             <div className="flex-1 h-1 bg-gradient-to-r from-zn-purple/40 to-transparent" />
+            <SectionActionLink to="/latest" label={homeCopy.latestMoreLabel} />
           </div>
 
           {latestShowcase.length > 0 ? (
@@ -655,6 +671,7 @@ export default function HomePage() {
               })}
             </div>
           )}
+          <SectionActionLink to="/latest" label={homeCopy.latestMoreLabel} mobile />
 
           {/* ═══ Reportage ═══ */}
           {reportageArticles.length > 0 && (
@@ -664,6 +681,7 @@ export default function HomePage() {
                   {homeCopy.reportageLabel}
                 </div>
                 <div className="flex-1 h-1 bg-gradient-to-r from-zn-orange/40 to-transparent" />
+                <SectionActionLink to="/category/reportage" label={homeCopy.sectionViewAllLabel} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {reportageArticles.map((article, index) => {
@@ -680,6 +698,7 @@ export default function HomePage() {
                   );
                 })}
               </div>
+              <SectionActionLink to="/category/reportage" label={homeCopy.sectionViewAllLabel} mobile />
             </section>
           )}
 
@@ -691,6 +710,7 @@ export default function HomePage() {
                   {homeCopy.breakingLabel}
                 </div>
                 <div className="flex-1 h-1 bg-gradient-to-r from-zn-hot/40 to-transparent" />
+                <SectionActionLink to="/category/breaking" label={homeCopy.sectionViewAllLabel} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {breakingArticles.map((article, index) => {
@@ -707,6 +727,7 @@ export default function HomePage() {
                   );
                 })}
               </div>
+              <SectionActionLink to="/category/breaking" label={homeCopy.sectionViewAllLabel} mobile />
             </section>
           )}
 
@@ -718,6 +739,7 @@ export default function HomePage() {
                   {homeCopy.emergencyLabel}
                 </div>
                 <div className="flex-1 h-1 bg-gradient-to-r from-zn-hot/40 to-transparent" />
+                <SectionActionLink to="/category/emergency" label={homeCopy.sectionViewAllLabel} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {emergencyArticles.map((article, index) => {
@@ -734,6 +756,7 @@ export default function HomePage() {
                   );
                 })}
               </div>
+              <SectionActionLink to="/category/emergency" label={homeCopy.sectionViewAllLabel} mobile />
             </section>
           )}
         </div>
@@ -769,5 +792,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-

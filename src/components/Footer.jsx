@@ -26,6 +26,7 @@ const DEFAULT_FOOTER_INFO_LINKS = [
   { label: 'Съдебна хроника', to: '/court' },
   { label: 'Събития', to: '/events' },
   { label: 'Галерия', to: '/gallery' },
+  { label: 'Последни новини', to: '/latest' },
 ];
 
 const DEFAULT_CONTACT = {
@@ -48,9 +49,13 @@ export default function Footer() {
   const quickLinks = hasBreakingCategory && !hasBreakingLink
     ? [...quickLinksBase, { label: 'Горещо', to: '/category/breaking' }]
     : quickLinksBase;
-  const infoLinks = Array.isArray(siteSettings?.footerInfoLinks) && siteSettings.footerInfoLinks.length > 0
+  const infoLinksBase = Array.isArray(siteSettings?.footerInfoLinks) && siteSettings.footerInfoLinks.length > 0
     ? siteSettings.footerInfoLinks
     : DEFAULT_FOOTER_INFO_LINKS;
+  const hasLatestInfoLink = infoLinksBase.some((item) => item?.to === '/latest');
+  const infoLinks = hasLatestInfoLink
+    ? infoLinksBase
+    : [...infoLinksBase, { label: 'Последни новини', to: '/latest' }];
   const contact = {
     ...DEFAULT_CONTACT,
     ...(siteSettings?.contact || {}),

@@ -16,6 +16,7 @@ const ArticlePage = lazy(() => import('./pages/ArticlePage'));
 const CategoryPage = lazy(() => import('./pages/CategoryPage'));
 const AuthorPage = lazy(() => import('./pages/AuthorPage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
+const LatestPage = lazy(() => import('./pages/LatestPage'));
 const AboutPage = lazy(() => import('./pages/AboutPage'));
 const JobsPage = lazy(() => import('./pages/JobsPage'));
 const GalleryPage = lazy(() => import('./pages/GalleryPage'));
@@ -329,6 +330,7 @@ function AppContent() {
           <Route path="/category/:slug" element={<CategoryPage />} />
           <Route path="/author/:id" element={<AuthorPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/latest" element={<LatestPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/jobs" element={<JobsPage />} />
           <Route path="/court" element={<CourtPage />} />

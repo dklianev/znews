@@ -2,6 +2,13 @@ import tailwindcss from '@tailwindcss/postcss';
 import valueParser from 'postcss-value-parser';
 import postcss from 'postcss';
 
+function withSource(node, source) {
+  if (source) {
+    node.source = source;
+  }
+  return node;
+}
+
 // ─── Custom Plugin: @property initial-value → :root fallbacks ───
 // Collects @property rules and injects their initial-value as regular
 // CSS custom properties in :root (safety net for Chrome 103 which
@@ -11,8 +18,10 @@ function propertyInjectPlugin() {
     postcssPlugin: 'postcss-property-inject',
     Once(root) {
       const vars = {};
+      let lastProperty = null;
 
       root.walkAtRules('property', (rule) => {
+        lastProperty = rule;
         const propName = rule.params.trim();
         rule.walkDecls('initial-value', (decl) => {
           vars[propName] = decl.value;
@@ -22,13 +31,12 @@ function propertyInjectPlugin() {
       const entries = Object.entries(vars);
       if (entries.length === 0) return;
 
-      const rootRule = postcss.rule({ selector: ':root' });
+      const referenceSource = lastProperty?.source || root.source;
+      const rootRule = withSource(postcss.rule({ selector: ':root' }), referenceSource);
       for (const [name, value] of entries) {
-        rootRule.append(postcss.decl({ prop: name, value }));
+        rootRule.append(withSource(postcss.decl({ prop: name, value }), referenceSource));
       }
 
-      let lastProperty = null;
-      root.walkAtRules('property', (rule) => { lastProperty = rule; });
       if (lastProperty) {
         lastProperty.after(rootRule);
       } else {
@@ -236,12 +244,13 @@ function supportsUnwrapPlugin() {
 
         if (parts.length === 0) return;
 
-        const fallbackRule = postcss.rule({ selector: parentRule.selector });
-        fallbackRule.append(postcss.decl({ prop: 'transform', value: parts.join(' ') }));
-        const supportsRule = postcss.atRule({
+        const referenceSource = decl.source || parentRule.source;
+        const fallbackRule = withSource(postcss.rule({ selector: parentRule.selector }), referenceSource);
+        fallbackRule.append(decl.clone({ prop: 'transform', value: parts.join(' ') }));
+        const supportsRule = withSource(postcss.atRule({
           name: 'supports',
           params: 'not (translate: 0)',
-        });
+        }), referenceSource);
         supportsRule.append(fallbackRule);
         parentRule.after(supportsRule);
       });
@@ -279,19 +288,21 @@ function supportsUnwrapPlugin() {
         }
 
         if (existingSupports) {
-          // Already inside @supports — the "in oklab" version stays here.
+          // Already inside @supports - the "in oklab" version stays here.
           // Add a fallback rule (without "in oklab") BEFORE the @supports block.
-          const fallbackRule = postcss.rule({ selector: parentRule.selector });
-          fallbackRule.append(postcss.decl({ prop: decl.prop, value: fallbackValue }));
+          const referenceSource = decl.source || parentRule.source;
+          const fallbackRule = withSource(postcss.rule({ selector: parentRule.selector }), referenceSource);
+          fallbackRule.append(decl.clone({ prop: decl.prop, value: fallbackValue }));
           existingSupports.before(fallbackRule);
         } else {
-          // Not inside @supports — move "in oklab" into @supports, keep fallback.
-          const supportsInner = postcss.rule({ selector: parentRule.selector });
-          supportsInner.append(postcss.decl({ prop: decl.prop, value: decl.value }));
-          const supportsRule = postcss.atRule({
+          // Not inside @supports - move "in oklab" into @supports, keep fallback.
+          const referenceSource = decl.source || parentRule.source;
+          const supportsInner = withSource(postcss.rule({ selector: parentRule.selector }), referenceSource);
+          supportsInner.append(decl.clone({ prop: decl.prop, value: decl.value }));
+          const supportsRule = withSource(postcss.atRule({
             name: 'supports',
             params: '(background: linear-gradient(in oklab, red, red))',
-          });
+          }), referenceSource);
           supportsRule.append(supportsInner);
           parentRule.after(supportsRule);
 
