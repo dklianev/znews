@@ -421,6 +421,19 @@
   }
 }
 
+@utility comic-chip-arcade {
+  color: #0d2340;
+  background: linear-gradient(150deg, #5ef0d1 0%, #83dcff 55%, #ffe27a 100%);
+  border-color: #1c1428;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  box-shadow: 3px 3px 0 #0d425d;
+
+  &:hover {
+    background: linear-gradient(150deg, #83fae0 0%, #a0e7ff 55%, #ffec9e 100%);
+    box-shadow: 4px 6px 0 #0d425d;
+  }
+}
+
 @utility comic-top-actions {
   -webkit-overflow-scrolling: touch;
 }
@@ -3250,6 +3263,19 @@
 
   .dark .comic-chip-hot {
     border-color: #524a62;
+  }
+
+  .dark .comic-chip-arcade {
+    color: #f4fff8;
+    border-color: #524a62;
+    background: linear-gradient(150deg, #0d5e63 0%, #0f5b7c 55%, #377f68 100%);
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.26);
+    box-shadow: 3px 3px 0 #0a0812;
+  }
+
+  .dark .comic-chip-arcade:hover {
+    background: linear-gradient(150deg, #11777f 0%, #12739a 55%, #469a7b 100%);
+    box-shadow: 4px 5px 0 #0a0812;
   }
 
   .dark .comic-top-action {

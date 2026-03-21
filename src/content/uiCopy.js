@@ -26,6 +26,7 @@ export const navbarCopy = {
     { to: '/gallery', label: 'Галерия' },
   ],
   defaultSpotlightLinks: [
+    { to: '/games', label: 'Игри', icon: 'Gamepad2', hot: false, tilt: '1.8deg' },
     { to: '/category/breaking', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-2deg' },
     { to: '/category/underground', label: 'Подземен свят', icon: 'Megaphone', hot: true, tilt: '1.5deg' },
     { to: '/category/society', label: 'Общество', icon: 'Bell', hot: false, tilt: '-1deg' },

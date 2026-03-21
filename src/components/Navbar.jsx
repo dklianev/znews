@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp } from 'lucide-react';
+import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp, Gamepad2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../context/ThemeContext';
 import { usePublicData } from '../context/DataContext';
@@ -18,6 +18,7 @@ const SPOTLIGHT_ICON_MAP = {
   Zap,
   Newspaper,
   ShieldAlert,
+  Gamepad2,
 };
 
 export default memo(function Navbar() {
@@ -110,10 +111,13 @@ export default memo(function Navbar() {
     const spotlightLinksRaw = Array.isArray(siteSettings?.spotlightLinks) && siteSettings.spotlightLinks.length > 0
       ? siteSettings.spotlightLinks
       : DEFAULT_SPOTLIGHT_LINKS;
-    return spotlightLinksRaw.map((item) => ({
-      ...item,
-      Icon: SPOTLIGHT_ICON_MAP[item.icon] || Flame,
-    }));
+    return spotlightLinksRaw
+      .map((item) => ({
+        ...item,
+        Icon: SPOTLIGHT_ICON_MAP[item.icon] || Flame,
+        isArcade: item?.to === '/games' || item?.icon === 'Gamepad2',
+      }))
+      .sort((a, b) => Number(a.isArcade) - Number(b.isArcade));
   }, [siteSettings?.spotlightLinks]);
 
   const handleSearch = useCallback((e) => {
@@ -419,12 +423,12 @@ export default memo(function Navbar() {
             <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-zn-hot to-transparent md:hidden" />
             <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-zn-navy to-transparent md:hidden" />
             <div className="flex items-center justify-center gap-3 md:gap-5 overflow-x-auto scrollbar-hide py-1">
-              {spotlightLinks.map(({ to, label, Icon, hot, tilt }) => (
+              {spotlightLinks.map(({ to, label, Icon, hot, tilt, isArcade }) => (
                 <Link
                   key={to}
                   to={to}
                   prefetch="intent"
-                  className={`comic-chip whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-hot ${hot ? 'comic-chip-hot' : ''}`}
+                  className={`comic-chip whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-hot ${isArcade ? 'comic-chip-arcade' : ''} ${hot && !isArcade ? 'comic-chip-hot' : ''}`}
                   style={{ '--chip-tilt': tilt }}
                 >
                   <Icon className="w-4 h-4" />

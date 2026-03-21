@@ -304,6 +304,7 @@ const DEFAULT_SITE_SETTINGS = Object.freeze({
     { to: '/gallery', label: 'Галерия' },
   ],
   spotlightLinks: [
+    { to: '/games', label: 'Игри', icon: 'Gamepad2', hot: false, tilt: '1.8deg' },
     { to: '/category/crime', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-2deg' },
     { to: '/category/underground', label: 'Скандали', icon: 'Megaphone', hot: true, tilt: '1.5deg' },
     { to: '/category/society', label: 'Слухове', icon: 'Bell', hot: false, tilt: '-1deg' },

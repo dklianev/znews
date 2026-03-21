@@ -296,7 +296,9 @@ export default function HomePage() {
     const spotlightSource = Array.isArray(siteSettings?.spotlightLinks) && siteSettings.spotlightLinks.length > 0
       ? siteSettings.spotlightLinks
       : DEFAULT_HOME_SPOTLIGHT_LINKS;
-    const bottomPills = (spotlightSource.length > 0 ? spotlightSource : DEFAULT_HOME_SPOTLIGHT_LINKS)
+    const bottomPillSource = (spotlightSource.length > 0 ? spotlightSource : DEFAULT_HOME_SPOTLIGHT_LINKS)
+      .filter((item) => item?.to !== '/games');
+    const bottomPills = (bottomPillSource.length > 0 ? bottomPillSource : DEFAULT_HOME_SPOTLIGHT_LINKS)
       .slice(0, 3)
       .map((item, index) => ({
         to: typeof item?.to === 'string' && item.to ? item.to : DEFAULT_HOME_SPOTLIGHT_LINKS[index]?.to || '/',

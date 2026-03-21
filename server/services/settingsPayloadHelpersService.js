@@ -4,7 +4,7 @@ export function createSettingsPayloadHelpers({
   DEFAULT_SITE_SETTINGS,
   normalizeText,
 }) {
-  const allowedSpotlightIcons = new Set(['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'Newspaper', 'ShieldAlert']);
+  const allowedSpotlightIcons = new Set(['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'Newspaper', 'ShieldAlert', 'Gamepad2']);
   const allowedLayoutPresets = new Set(['default', 'impact', 'noir', 'classic']);
   const layoutPresetSectionKeys = [
     'homeFeatured',
@@ -61,6 +61,23 @@ export function createSettingsPayloadHelpers({
     return /^-?\d+(\.\d+)?deg$/i.test(tilt) ? tilt : fallback;
   }
 
+  function appendMissingSpotlightDefaults(items) {
+    const next = Array.isArray(items) ? [...items] : [];
+    const seen = new Set(
+      next
+        .map((item) => (typeof item?.to === 'string' ? item.to : ''))
+        .filter(Boolean)
+    );
+
+    DEFAULT_SITE_SETTINGS.spotlightLinks.forEach((defaultItem) => {
+      if (seen.has(defaultItem.to)) return;
+      next.push({ ...defaultItem });
+      seen.add(defaultItem.to);
+    });
+
+    return next;
+  }
+
   function normalizeBreakingCategoryLabel(route, rawLabel, maxLen = 50) {
     const normalizedLabel = normalizeText(rawLabel, maxLen);
     if (route !== '/category/breaking') return normalizedLabel;
@@ -88,7 +105,9 @@ export function createSettingsPayloadHelpers({
       .filter((item) => item.label)
       .slice(0, 16);
 
-    const spotlightLinksInput = Array.isArray(source.spotlightLinks) ? source.spotlightLinks : DEFAULT_SITE_SETTINGS.spotlightLinks;
+    const spotlightLinksInput = appendMissingSpotlightDefaults(
+      Array.isArray(source.spotlightLinks) ? source.spotlightLinks : DEFAULT_SITE_SETTINGS.spotlightLinks
+    );
     const spotlightLinks = spotlightLinksInput
       .map((item, idx) => {
         const fallback = DEFAULT_SITE_SETTINGS.spotlightLinks[idx] || DEFAULT_SITE_SETTINGS.spotlightLinks[0];
@@ -102,6 +121,7 @@ export function createSettingsPayloadHelpers({
         };
       })
       .filter((item) => item.label)
+      .filter((item, idx, items) => items.findIndex((candidate) => candidate.to === item.to) === idx)
       .slice(0, 8);
 
     const footerPillsInput = Array.isArray(source.footerPills) ? source.footerPills : DEFAULT_SITE_SETTINGS.footerPills;
