@@ -131,13 +131,6 @@ function AuthorHero({ author, totalArticles, stats }) {
                 </span>
               </div>
             )}
-            {/* Role stamp over avatar corner */}
-            <div
-              className="absolute -bottom-3 -right-3 bg-zn-hot text-white font-display font-black text-[9px] uppercase tracking-[0.2em] px-2.5 py-1 border-2 border-[#1C1428] z-10"
-              style={{ boxShadow: '2px 2px 0 #1C1428', transform: 'rotate(3deg)' }}
-            >
-              {author.role || 'АВТОР'}
-            </div>
           </div>
         </div>
 
@@ -145,7 +138,7 @@ function AuthorHero({ author, totalArticles, stats }) {
         <div className="flex-1 text-center md:text-left min-w-0">
           {/* Kicker */}
           <span className="inline-block font-display text-[10px] font-bold uppercase tracking-[0.25em] text-zn-hot mb-1">
-            Досие на автора
+            Биография
           </span>
 
           {/* Name */}
@@ -258,10 +251,10 @@ function FeaturedArticle({ article, categories }) {
         to={`/article/${article.id}`}
         className="group block newspaper-page comic-panel comic-dots relative overflow-hidden"
       >
-        <div className="flex flex-col md:flex-row">
+        <div className="flex flex-col md:flex-row md:items-stretch">
           {/* Image — left/top */}
-          <div className="relative md:w-1/2 overflow-hidden">
-            <div className="aspect-[16/10] md:aspect-auto md:h-full">
+          <div className="relative md:w-1/2 overflow-hidden md:self-stretch md:flex">
+            <div className="aspect-[16/10] md:aspect-auto md:flex-1 min-h-[240px]">
               {article.image ? (
                 <ResponsiveImage
                   src={article.image}
@@ -697,3 +690,4 @@ export default function AuthorPage() {
     </motion.div>
   );
 }
+
