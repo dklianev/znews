@@ -259,6 +259,7 @@ function FeaturedArticle({ article, categories }) {
                 <ResponsiveImage
                   src={article.image}
                   alt={article.title}
+                  pictureClassName="block w-full h-full"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   style={{
                     objectPosition: article.imageMeta?.objectPosition || '50% 50%',
@@ -342,6 +343,7 @@ function MidArticle({ article, categories, index }) {
           <ResponsiveImage
             src={article.image}
             alt={article.title}
+            pictureClassName="block w-full h-full"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             style={{
               objectPosition: article.imageMeta?.objectPosition || '50% 50%',
@@ -397,6 +399,7 @@ function HeadlineItem({ article, categories }) {
           <ResponsiveImage
             src={article.image}
             alt=""
+            pictureClassName="block w-full h-full"
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
             style={{ objectPosition: article.imageMeta?.objectPosition || '50% 50%' }}
           />
