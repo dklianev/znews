@@ -91,15 +91,6 @@ const SPOTLIGHT_ICON_OPTIONS = ['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'N
 function resolveSettings(raw) {
   const input = raw && typeof raw === 'object' ? raw : {};
   const filterRemovedCategories = (links) => links.filter((item) => item?.to !== '/category/sports');
-  const mergeGamesSpotlightLink = (links) => {
-    const source = Array.isArray(links) && links.length > 0 ? links : DEFAULT_SETTINGS.spotlightLinks;
-    const next = Array.isArray(source) ? [...source] : [];
-    const gamesDefault = DEFAULT_SETTINGS.spotlightLinks.find((item) => item?.to === '/games');
-    if (gamesDefault && !next.some((item) => item?.to === '/games')) {
-      next.push({ ...gamesDefault });
-    }
-    return next;
-  };
   const footerQuickLinksSource = filterRemovedCategories(
     Array.isArray(input.footerQuickLinks) && input.footerQuickLinks.length > 0 ? input.footerQuickLinks : DEFAULT_SETTINGS.footerQuickLinks
   );
@@ -116,7 +107,9 @@ function resolveSettings(raw) {
     breakingBadgeLabel: typeof input.breakingBadgeLabel === 'string' && input.breakingBadgeLabel.trim()
       ? input.breakingBadgeLabel
       : DEFAULT_SETTINGS.breakingBadgeLabel,
-    spotlightLinks: mergeGamesSpotlightLink(input.spotlightLinks),
+    spotlightLinks: Array.isArray(input.spotlightLinks) && input.spotlightLinks.length > 0
+      ? input.spotlightLinks
+      : DEFAULT_SETTINGS.spotlightLinks,
     footerPills: Array.isArray(input.footerPills) && input.footerPills.length > 0 ? input.footerPills : DEFAULT_SETTINGS.footerPills,
     footerQuickLinks: [
       latestFooterLink,

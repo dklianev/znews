@@ -117,7 +117,6 @@ export async function runSettingsPayloadHelpersTests() {
   assert.deepEqual(site.navbarLinks, [{ to: '/', label: 'X', hot: true }]);
   assert.deepEqual(site.spotlightLinks, [
     { to: '/category/breaking', label: 'Spotlight', icon: 'Flame', hot: true, tilt: '-2deg' },
-    { to: '/games', label: 'Games', icon: 'Gamepad2', hot: false, tilt: '1.8deg' },
   ]);
   assert.deepEqual(site.footerPills, [{ to: '/ok', label: 'Pill', hot: false, tilt: '15deg' }]);
   assert.deepEqual(site.footerQuickLinks, [{ to: '/category/breaking', label: 'Извънредни' }]);
@@ -140,4 +139,7 @@ export async function runSettingsPayloadHelpersTests() {
     buttonLabel: 'Go',
     buttonLink: '/tipline',
   });
+
+  const defaultSite = helpers.sanitizeSiteSettingsPayload({});
+  assert.deepEqual(defaultSite.spotlightLinks, defaults.DEFAULT_SITE_SETTINGS.spotlightLinks);
 }

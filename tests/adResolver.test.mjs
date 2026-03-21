@@ -61,6 +61,19 @@ export function runAdResolverTests() {
   });
   assert.equal(resolvedCategory?.id, 2, 'category targeting should beat global targeting when article targeting misses');
 
+  const resolvedCombinedCategory = resolveAdForSlot(baseAds, {
+    slot: 'article.bottom',
+    pageType: 'article',
+    articleId: 999,
+    categoryId: 'crime-underground',
+    categoryIds: ['crime-underground', 'crime', 'underground'],
+  });
+  assert.equal(
+    resolvedCombinedCategory?.id,
+    2,
+    'category targeting should still work when a synthetic archive page provides real category aliases'
+  );
+
   const legacySide = normalizeAdRecord({
     id: 11,
     type: 'side',

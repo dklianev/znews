@@ -93,6 +93,10 @@ function normalizeContext(context) {
   const parsedArticleId = Number.parseInt(context?.articleId, 10);
   const articleId = Number.isInteger(parsedArticleId) ? parsedArticleId : null;
   const categoryId = normalizeText(context?.categoryId, 64).toLowerCase();
+  const categoryIds = uniqueLowercaseStrings([
+    ...(Array.isArray(context?.categoryIds) ? context.categoryIds : []),
+    categoryId,
+  ]);
   const parsedNow = new Date(context?.now || Date.now());
   const now = Number.isNaN(parsedNow.getTime()) ? new Date() : parsedNow;
   const rotationKey = normalizeText(context?.rotationKey, 240);
@@ -106,6 +110,7 @@ function normalizeContext(context) {
     pageType,
     articleId,
     categoryId,
+    categoryIds,
     now,
     rotationKey,
     rotationSeed,
@@ -129,17 +134,21 @@ function getAdSortKey(ad) {
   return stableHash(String(ad?.id || 'preview'));
 }
 
-function getSpecificityScore(targeting, pageType, articleId, categoryId) {
+function hasCategoryMatch(targetingIds, categoryIds) {
+  return categoryIds.some((value) => targetingIds.includes(value));
+}
+
+function getSpecificityScore(targeting, pageType, articleId, categoryIds) {
   let score = 0;
   if (targeting.pageTypes.includes(pageType)) score += 50;
   if (Number.isInteger(articleId) && targeting.articleIds.includes(articleId)) score += 500;
-  if (categoryId && targeting.categoryIds.includes(categoryId)) score += 200;
+  if (hasCategoryMatch(targeting.categoryIds, categoryIds)) score += 200;
   score += Math.min(30, targeting.excludeArticleIds.length + targeting.excludeCategoryIds.length);
   return score;
 }
 
 function getCandidateScore(ad, context) {
-  return getSpecificityScore(ad.targeting, context.pageType, context.articleId, context.categoryId);
+  return getSpecificityScore(ad.targeting, context.pageType, context.articleId, context.categoryIds);
 }
 
 function compareEligibleAds(left, right, context) {
@@ -159,16 +168,16 @@ function comparePoolAds(left, right) {
   return getAdSortKey(left) - getAdSortKey(right);
 }
 
-function matchesExclusions(targeting, articleId, categoryId) {
+function matchesExclusions(targeting, articleId, categoryIds) {
   if (Number.isInteger(articleId) && targeting.excludeArticleIds.includes(articleId)) return false;
-  if (categoryId && targeting.excludeCategoryIds.includes(categoryId)) return false;
+  if (hasCategoryMatch(targeting.excludeCategoryIds, categoryIds)) return false;
   return true;
 }
 
-function matchesPositiveTargeting(targeting, pageType, articleId, categoryId) {
+function matchesPositiveTargeting(targeting, pageType, articleId, categoryIds) {
   if (targeting.pageTypes.length > 0 && !targeting.pageTypes.includes(pageType)) return false;
   if (targeting.articleIds.length > 0 && !targeting.articleIds.includes(articleId)) return false;
-  if (targeting.categoryIds.length > 0 && !targeting.categoryIds.includes(categoryId)) return false;
+  if (targeting.categoryIds.length > 0 && !hasCategoryMatch(targeting.categoryIds, categoryIds)) return false;
   return true;
 }
 
@@ -185,12 +194,12 @@ function buildEligibilityState(ads, context) {
     };
   }
 
-  const eligibleAds = (Array.isArray(ads) ? ads : [])
+    const eligibleAds = (Array.isArray(ads) ? ads : [])
     .map(normalizeAdRecord)
     .filter((ad) => isAdPubliclyAvailable(ad, normalizedContext.now))
     .filter((ad) => ad.placements.includes(normalizedContext.slotId))
-    .filter((ad) => matchesExclusions(ad.targeting, normalizedContext.articleId, normalizedContext.categoryId))
-    .filter((ad) => matchesPositiveTargeting(ad.targeting, normalizedContext.pageType, normalizedContext.articleId, normalizedContext.categoryId))
+    .filter((ad) => matchesExclusions(ad.targeting, normalizedContext.articleId, normalizedContext.categoryIds))
+    .filter((ad) => matchesPositiveTargeting(ad.targeting, normalizedContext.pageType, normalizedContext.articleId, normalizedContext.categoryIds))
     .sort((left, right) => compareEligibleAds(left, right, normalizedContext));
 
   const topCandidate = eligibleAds[0] || null;
@@ -246,7 +255,7 @@ export function buildAdRotationKey(context) {
     normalizedContext.slotId,
     normalizedContext.pageType || normalizedContext.slot?.pageType || 'global',
     Number.isInteger(normalizedContext.articleId) ? normalizedContext.articleId : 'na',
-    normalizedContext.categoryId || 'na',
+    normalizedContext.categoryIds.join(',') || normalizedContext.categoryId || 'na',
     normalizedContext.rotationSeed || 'global',
     windowKey,
   ].join('|');

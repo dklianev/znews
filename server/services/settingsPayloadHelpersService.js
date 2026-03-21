@@ -61,16 +61,6 @@ export function createSettingsPayloadHelpers({
     return /^-?\d+(\.\d+)?deg$/i.test(tilt) ? tilt : fallback;
   }
 
-  function appendMissingGamesSpotlight(items) {
-    const next = Array.isArray(items) ? [...items] : [];
-    const gamesDefault = DEFAULT_SITE_SETTINGS.spotlightLinks.find((item) => item?.to === '/games');
-    if (!gamesDefault) return next;
-    const hasGames = next.some((item) => item?.to === '/games');
-    if (hasGames) return next;
-    next.push({ ...gamesDefault });
-    return next;
-  }
-
   function normalizeBreakingCategoryLabel(route, rawLabel, maxLen = 50) {
     const normalizedLabel = normalizeText(rawLabel, maxLen);
     if (route !== '/category/breaking') return normalizedLabel;
@@ -98,9 +88,9 @@ export function createSettingsPayloadHelpers({
       .filter((item) => item.label)
       .slice(0, 16);
 
-    const spotlightLinksInput = appendMissingGamesSpotlight(
-      Array.isArray(source.spotlightLinks) ? source.spotlightLinks : DEFAULT_SITE_SETTINGS.spotlightLinks
-    );
+    const spotlightLinksInput = Array.isArray(source.spotlightLinks)
+      ? source.spotlightLinks
+      : DEFAULT_SITE_SETTINGS.spotlightLinks;
     const spotlightLinks = spotlightLinksInput
       .map((item, idx) => {
         const fallback = DEFAULT_SITE_SETTINGS.spotlightLinks[idx] || DEFAULT_SITE_SETTINGS.spotlightLinks[0];

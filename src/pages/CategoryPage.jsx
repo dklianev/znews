@@ -62,6 +62,9 @@ export default function CategoryPage() {
   const layoutPresets = siteSettings?.layoutPresets || {};
   const specialCategory = SPECIAL_CATEGORY_PAGES[String(slug || '').trim().toLowerCase()] || null;
   const category = specialCategory || categories.find(c => c.id === slug);
+  const adCategoryIds = specialCategory
+    ? [specialCategory.id, ...specialCategory.queryCategories]
+    : [category?.id].filter(Boolean);
 
   useDocumentTitle(makeTitle(category?.name || 'Категория'));
   const [categoryArticles, setCategoryArticles] = useState([]);
@@ -151,7 +154,7 @@ export default function CategoryPage() {
 
       {/* Ad */}
       <section className="mb-6">
-        <AdSlot ads={ads} slot="category.top" pageType="category" categoryId={category.id} />
+        <AdSlot ads={ads} slot="category.top" pageType="category" categoryId={category.id} categoryIds={adCategoryIds} />
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -191,6 +194,7 @@ export default function CategoryPage() {
                             slot="category.grid.after4"
                             pageType="category"
                             categoryId={category.id}
+                            categoryIds={adCategoryIds}
                             className="md:col-span-2 my-1"
                           />
                         )}
@@ -200,6 +204,7 @@ export default function CategoryPage() {
                             slot="category.grid.after8"
                             pageType="category"
                             categoryId={category.id}
+                            categoryIds={adCategoryIds}
                             className="md:col-span-2 my-1"
                           />
                         )}
@@ -240,8 +245,8 @@ export default function CategoryPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           <TrendingSidebar />
-          <AdSlot ads={ads} slot="category.sidebar.1" pageType="category" categoryId={category.id} />
-          <AdSlot ads={ads} slot="category.sidebar.2" pageType="category" categoryId={category.id} />
+          <AdSlot ads={ads} slot="category.sidebar.1" pageType="category" categoryId={category.id} categoryIds={adCategoryIds} />
+          <AdSlot ads={ads} slot="category.sidebar.2" pageType="category" categoryId={category.id} categoryIds={adCategoryIds} />
         </div>
       </div>
     </motion.div>

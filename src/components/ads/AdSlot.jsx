@@ -50,6 +50,7 @@ export default function AdSlot({
   pageType,
   articleId = null,
   categoryId = '',
+  categoryIds = [],
   className = '',
 }) {
   const slotMeta = getAdSlot(slot);
@@ -65,10 +66,11 @@ export default function AdSlot({
       pageType: pageType || slotMeta.pageType,
       articleId,
       categoryId,
+      categoryIds,
       rotationSeed,
       rotationWindowKey,
     });
-  }, [articleId, categoryId, pageType, rotationSeed, rotationWindowKey, slot, slotMeta]);
+  }, [articleId, categoryId, categoryIds, pageType, rotationSeed, rotationWindowKey, slot, slotMeta]);
 
   const resolvedAd = useMemo(() => {
     if (!slotMeta) return null;
@@ -77,10 +79,11 @@ export default function AdSlot({
       pageType: pageType || slotMeta.pageType,
       articleId,
       categoryId,
+      categoryIds,
       rotationKey,
       rotationWindowKey,
     });
-  }, [ads, articleId, categoryId, pageType, rotationKey, rotationWindowKey, slot, slotMeta]);
+  }, [ads, articleId, categoryId, categoryIds, pageType, rotationKey, rotationWindowKey, slot, slotMeta]);
 
   const analyticsContext = useMemo(() => {
     if (!slotMeta || !resolvedAd) return null;
