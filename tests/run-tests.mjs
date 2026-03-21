@@ -9,6 +9,7 @@ import { runAdHelpersServiceTests } from './adHelpersService.test.mjs';
 import { runHangmanTests } from './hangman.test.mjs';
 import { runCrosswordTests } from './crossword.test.mjs';
 import { runSpellingBeeTests } from './spellingBee.test.mjs';
+import { runCopyToClipboardTests } from './copyToClipboard.test.mjs';
 import { runRequestIdentityTests } from './requestIdentity.test.mjs';
 import { runCacheServiceTests } from './cacheService.test.mjs';
 import { runDiagnosticsServiceTests } from './diagnosticsService.test.mjs';
@@ -59,6 +60,7 @@ import { runPublicFeedRoutesTests } from './publicFeedRoutes.test.mjs';
 import { runNewsDateTests } from './newsDate.test.mjs';
 import { runWebSpaRoutesTests } from './webSpaRoutes.test.mjs';
 import { runTetrisTests } from './tetris.test.mjs';
+import { runTouchSwipeTests } from './touchSwipe.test.mjs';
 import { runApiClientSessionTests } from './apiClientSession.test.mjs';
 
 async function runTest(name, fn) {
@@ -82,6 +84,7 @@ await runTest('adHelpersService', runAdHelpersServiceTests);
 await runTest('hangman', runHangmanTests);
 await runTest('crossword', runCrosswordTests);
 await runTest('spellingBee', runSpellingBeeTests);
+await runTest('copyToClipboard', runCopyToClipboardTests);
 await runTest('requestIdentity', runRequestIdentityTests);
 await runTest('cacheService', runCacheServiceTests);
 await runTest('diagnosticsService', runDiagnosticsServiceTests);
@@ -132,6 +135,7 @@ await runTest('publicFeedRoutes', runPublicFeedRoutesTests);
 await runTest('newsDate', runNewsDateTests);
 await runTest('webSpaRoutes', runWebSpaRoutesTests);
 await runTest('tetris', runTetrisTests);
+await runTest('touchSwipe', runTouchSwipeTests);
 await runTest('apiClientSession', runApiClientSessionTests);
 
 console.log('All tests passed.');

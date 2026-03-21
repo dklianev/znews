@@ -1,5 +1,37 @@
 const LETTER_PATTERN = /^\p{L}$/u;
 const WORD_PATTERN = /^\p{L}+$/u;
+const BG_PHONETIC_CODE_MAP = Object.freeze({
+  KeyQ: 'Я',
+  KeyW: 'В',
+  KeyE: 'Е',
+  KeyR: 'Р',
+  KeyT: 'Т',
+  KeyY: 'Ъ',
+  KeyU: 'У',
+  KeyI: 'И',
+  KeyO: 'О',
+  KeyP: 'П',
+  BracketLeft: 'Ю',
+  KeyA: 'А',
+  KeyS: 'С',
+  KeyD: 'Д',
+  KeyF: 'Ф',
+  KeyG: 'Г',
+  KeyH: 'Х',
+  KeyJ: 'Й',
+  KeyK: 'К',
+  KeyL: 'Л',
+  Semicolon: 'Ш',
+  Quote: 'Щ',
+  KeyZ: 'З',
+  KeyX: 'Ь',
+  KeyC: 'Ц',
+  KeyV: 'Ж',
+  KeyB: 'Б',
+  KeyN: 'Н',
+  KeyM: 'М',
+  Comma: 'Ч',
+});
 
 export const SPELLING_BEE_OUTER_LETTER_COUNT = 6;
 export const SPELLING_BEE_TOTAL_LETTER_COUNT = 7;
@@ -25,6 +57,25 @@ function toValueList(values) {
 export function normalizeSpellingBeeLetter(value) {
   const char = Array.from(String(value || '').trim().toUpperCase())[0] || '';
   return LETTER_PATTERN.test(char) ? char : '';
+}
+
+export function normalizeSpellingBeeKeyboardInput(value, code = '', allowedLetters = []) {
+  const normalizedLetter = normalizeSpellingBeeLetter(value);
+  const normalizedAllowedLetters = Array.isArray(allowedLetters)
+    ? allowedLetters.map((letter) => normalizeSpellingBeeLetter(letter)).filter(Boolean)
+    : [];
+
+  if (normalizedAllowedLetters.length === 0) {
+    return normalizedLetter || BG_PHONETIC_CODE_MAP[String(code || '').trim()] || '';
+  }
+
+  const allowedLetterSet = new Set(normalizedAllowedLetters);
+  if (normalizedLetter && allowedLetterSet.has(normalizedLetter)) {
+    return normalizedLetter;
+  }
+
+  const mappedLetter = BG_PHONETIC_CODE_MAP[String(code || '').trim()] || '';
+  return mappedLetter && allowedLetterSet.has(mappedLetter) ? mappedLetter : '';
 }
 
 export function normalizeSpellingBeeOuterLetters(values, count = SPELLING_BEE_OUTER_LETTER_COUNT) {

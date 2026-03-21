@@ -17,8 +17,10 @@ import {
   OPPOSITE,
   SPEED_BY_DIFFICULTY,
 } from '../utils/snake';
+import { copyToClipboard } from '../utils/copyToClipboard';
 import { loadScopedGameProgress, saveScopedGameProgress } from '../utils/gameStorage';
 import SnakeBoard from '../components/games/snake/SnakeBoard';
+import { getSwipeDirection } from '../utils/touchSwipe';
 
 const GAME_SLUG = 'snake';
 const STORAGE_SCOPE = 'session';
@@ -47,6 +49,7 @@ export default function GameSnakePage() {
   const [floatingLabel, setFloatingLabel] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
   const [gameState, setGameState] = useState(() => createGameState('medium', false));
+  const [shareNotice, setShareNotice] = useState(null);
 
   const snakeRef = useRef(snake);
   const foodRef = useRef(food);
@@ -60,6 +63,7 @@ export default function GameSnakePage() {
   const tickRef = useRef(null);
   const comboTimerRef = useRef(null);
   const floatTimerRef = useRef(null);
+  const shareNoticeTimerRef = useRef(null);
 
   snakeRef.current = snake;
   foodRef.current = food;
@@ -95,6 +99,12 @@ export default function GameSnakePage() {
   const resetComboTimer = useCallback(() => {
     if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
     comboTimerRef.current = setTimeout(() => setCombo(0), COMBO_TIMEOUT);
+  }, []);
+
+  const flashShareNotice = useCallback((message, tone) => {
+    if (shareNoticeTimerRef.current) clearTimeout(shareNoticeTimerRef.current);
+    setShareNotice({ message, tone });
+    shareNoticeTimerRef.current = setTimeout(() => setShareNotice(null), 2200);
   }, []);
 
   const startGame = useCallback(() => {
@@ -210,6 +220,10 @@ export default function GameSnakePage() {
     }
   }, [gameStatus, difficulty, wrapMode, score, saveHighScore]);
 
+  useEffect(() => () => {
+    if (shareNoticeTimerRef.current) clearTimeout(shareNoticeTimerRef.current);
+  }, []);
+
   // Keyboard controls
   useEffect(() => {
     function handleKey(e) {
@@ -240,33 +254,30 @@ export default function GameSnakePage() {
 
   // Touch controls
   const touchStartRef = useRef(null);
-  useEffect(() => {
-    function handleTouchStart(e) {
-      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    }
-    function handleTouchEnd(e) {
-      if (!touchStartRef.current || statusRef.current !== 'playing') return;
-      const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
-      const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
-      touchStartRef.current = null;
-      if (Math.abs(dx) < 15 && Math.abs(dy) < 15) return;
-      let newDir;
-      if (Math.abs(dx) > Math.abs(dy)) { newDir = dx > 0 ? 'RIGHT' : 'LEFT'; }
-      else { newDir = dy > 0 ? 'DOWN' : 'UP'; }
-      if (OPPOSITE[newDir] !== dirRef.current) { nextDirRef.current = newDir; }
-    }
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchend', handleTouchEnd, { passive: true });
-    return () => {
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
+  const handleBoardTouchStart = useCallback((event) => {
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
   }, []);
 
-  const handleShare = useCallback(() => {
+  const handleBoardTouchEnd = useCallback((event) => {
+    if (statusRef.current !== 'playing') return;
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+    const direction = getSwipeDirection(touchStartRef.current, { x: touch.clientX, y: touch.clientY }, 15);
+    touchStartRef.current = null;
+    if (!direction) return;
+    const nextDirection = direction.toUpperCase();
+    if (OPPOSITE[nextDirection] !== dirRef.current) {
+      nextDirRef.current = nextDirection;
+    }
+  }, []);
+
+  const handleShare = useCallback(async () => {
     const text = `zNews Змия\n🏆 ${formatScore(score)} точки\n📏 Дължина: ${snake.length} | ${DIFFICULTY_LABELS[difficulty]}${wrapMode ? ' (wrap)' : ''}\n🍎 ${gameState.foodEaten} храни изядени`;
-    navigator.clipboard.writeText(text).then(() => alert('Резултатът е копиран!'));
-  }, [score, snake.length, difficulty, wrapMode, gameState.foodEaten]);
+    const copied = await copyToClipboard(text);
+    flashShareNotice(copied ? 'Резултатът е копиран!' : 'Не успях да копирам резултата.', copied ? 'success' : 'error');
+  }, [difficulty, flashShareNotice, gameState.foodEaten, score, snake.length, wrapMode]);
 
   const isBoosted = gameState.speedBoostUntil > Date.now();
 
@@ -443,9 +454,19 @@ export default function GameSnakePage() {
                 </div>
               )}
 
-              <div style={{ position: 'relative', zIndex: 0 }}>
+              <div
+                style={{ position: 'relative', zIndex: 0, touchAction: 'none' }}
+                onTouchStart={handleBoardTouchStart}
+                onTouchEnd={handleBoardTouchEnd}
+              >
                 <SnakeBoard snake={snake} food={food} obstacles={obstacles} wrapMode={wrapMode} floatingLabel={floatingLabel} />
               </div>
+
+              {shareNotice && gameStatus === 'over' && (
+                <p className={`mt-3 text-center text-xs font-display uppercase tracking-widest ${shareNotice.tone === 'success' ? 'text-emerald-300' : 'text-rose-300'}`}>
+                  {shareNotice.message}
+                </p>
+              )}
             </div>
 
             <div className="flex md:hidden gap-2">

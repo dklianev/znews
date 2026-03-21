@@ -12,6 +12,7 @@ import {
   move,
 } from '../utils/game2048';
 import { loadScopedGameProgress, saveScopedGameProgress } from '../utils/gameStorage';
+import { getSwipeDirection } from '../utils/touchSwipe';
 
 const GAME_SLUG = '2048';
 const STORAGE_SCOPE = 'session';
@@ -163,30 +164,19 @@ export default function Game2048Page() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [doMove, handleUndo]);
 
-  // Touch/swipe controls
   const touchStartRef = useRef(null);
-  useEffect(() => {
-    function handleTouchStart(e) {
-      touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    }
-    function handleTouchEnd(e) {
-      if (!touchStartRef.current) return;
-      const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
-      const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
-      touchStartRef.current = null;
-      if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
-      if (Math.abs(dx) > Math.abs(dy)) {
-        doMove(dx > 0 ? 'right' : 'left');
-      } else {
-        doMove(dy > 0 ? 'down' : 'up');
-      }
-    }
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchend', handleTouchEnd, { passive: true });
-    return () => {
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
+  const handleBoardTouchStart = useCallback((event) => {
+    const touch = event.touches?.[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const handleBoardTouchEnd = useCallback((event) => {
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+    const direction = getSwipeDirection(touchStartRef.current, { x: touch.clientX, y: touch.clientY });
+    touchStartRef.current = null;
+    if (direction) doMove(direction);
   }, [doMove]);
 
   const handleShare = useCallback(() => {
@@ -343,7 +333,10 @@ export default function Game2048Page() {
                   width: GRID * CELL_SIZE + (GRID + 1) * GAP,
                   height: GRID * CELL_SIZE + (GRID + 1) * GAP,
                   borderRadius: 6,
+                  touchAction: 'none',
                 }}
+                onTouchStart={handleBoardTouchStart}
+                onTouchEnd={handleBoardTouchEnd}
               >
                 {/* Empty cell backgrounds */}
                 {Array.from({ length: GRID * GRID }).map((_, idx) => {

@@ -10,6 +10,7 @@ import {
   getSpellingBeeRank,
   getSpellingBeeWordScore,
   isSpellingBeePangram,
+  normalizeSpellingBeeKeyboardInput,
   normalizeSpellingBeeLetter,
   normalizeSpellingBeeOuterLetters,
   normalizeSpellingBeeWord,
@@ -253,7 +254,11 @@ export default function GameSpellingBeePage() {
         handleDelete();
         return;
       }
-      const letter = normalizeSpellingBeeLetter(event.key);
+      const letter = normalizeSpellingBeeKeyboardInput(
+        event.key,
+        event.code,
+        [centerLetterRef.current, ...outerLettersRef.current]
+      );
       if (!letter) return;
       event.preventDefault();
       appendLetter(letter);

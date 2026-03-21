@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import { copyToClipboard } from '../utils/copyToClipboard';
 import { loadGameProgress, saveGameProgress, recordGameWin, recordGameLoss } from '../utils/gameStorage';
 import { getTodayStr } from '../utils/gameDate';
 import ConnectionsBoard from '../components/games/connections/ConnectionsBoard';
@@ -24,6 +25,7 @@ export default function GameConnectionsPage() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [oneAwayAlert, setOneAwayAlert] = useState(false);
     const [shakeTiles, setShakeTiles] = useState(false);
+    const [shareNotice, setShareNotice] = useState(null);
     const displayError = error === 'No puzzle for today'
         ? 'Днешните връзки още са в подготовка. Провери отново малко по-късно.'
         : error;
@@ -165,8 +167,11 @@ export default function GameConnectionsPage() {
         return text;
     };
 
-    const handleShare = () => {
-        navigator.clipboard.writeText(generateShareText()).then(() => alert('Резултатът е копиран!'));
+    const handleShare = async () => {
+        const copied = await copyToClipboard(generateShareText());
+        setShareNotice(copied
+            ? { tone: 'success', message: 'Резултатът е копиран!' }
+            : { tone: 'error', message: 'Не успях да копирам резултата.' });
     };
 
     return (
@@ -258,6 +263,11 @@ export default function GameConnectionsPage() {
                             <Share2 className="w-5 h-5" />
                             Сподели
                         </button>
+                        {shareNotice && (
+                            <p className={`mt-3 text-sm font-bold ${shareNotice.tone === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                {shareNotice.message}
+                            </p>
+                        )}
                     </div>
                 )}
             </main>

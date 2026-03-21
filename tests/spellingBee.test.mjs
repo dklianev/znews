@@ -4,6 +4,7 @@ import {
   getSpellingBeeWordScore,
   getSpellingBeeWordValidation,
   hasCompleteSpellingBeeHive,
+  normalizeSpellingBeeKeyboardInput,
   normalizeSpellingBeeLetter,
   normalizeSpellingBeeOuterLetters,
   normalizeSpellingBeeWord,
@@ -29,6 +30,9 @@ export function runSpellingBeeTests() {
 
   assert(normalizeSpellingBeeLetter(' a ') === 'A', 'normalizeSpellingBeeLetter should trim and uppercase a single letter');
   assert(normalizeSpellingBeeLetter('!') === '', 'normalizeSpellingBeeLetter should reject punctuation');
+  assert(normalizeSpellingBeeKeyboardInput('w', 'KeyW', ['В', 'Я']) === 'В', 'spelling bee keyboard should map phonetic latin keys to allowed cyrillic letters');
+  assert(normalizeSpellingBeeKeyboardInput('В', 'KeyW', ['В']) === 'В', 'spelling bee keyboard should still accept direct cyrillic input');
+  assert(normalizeSpellingBeeKeyboardInput('w', 'KeyW', ['W']) === 'W', 'spelling bee keyboard should preserve direct allowed latin letters');
   assertDeepEqual(normalizeSpellingBeeOuterLetters('p, r e n t l'), ['P', 'R', 'E', 'N', 'T', 'L'], 'normalizeSpellingBeeOuterLetters should split string inputs');
   assert(normalizeSpellingBeeWord(' parental ') === 'PARENTAL', 'normalizeSpellingBeeWord should normalize bee words');
   assert(normalizeSpellingBeeWord('para-ntal') === '', 'normalizeSpellingBeeWord should reject punctuation');
