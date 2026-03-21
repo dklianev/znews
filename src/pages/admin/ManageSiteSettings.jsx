@@ -22,10 +22,10 @@ const DEFAULT_SETTINGS = {
   ],
   breakingBadgeLabel: 'ГОРЕЩО!',
   spotlightLinks: [
-    { to: '/games', label: 'Игри', icon: 'Gamepad2', hot: false, tilt: '1.8deg' },
-    { to: '/category/crime', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-2deg' },
+    { to: '/category/breaking', label: 'Горещо', icon: 'Flame', hot: true, tilt: '-2deg' },
     { to: '/category/underground', label: 'Скандали', icon: 'Megaphone', hot: true, tilt: '1.5deg' },
     { to: '/category/society', label: 'Слухове', icon: 'Bell', hot: false, tilt: '-1deg' },
+    { to: '/games', label: 'Игри', icon: 'Gamepad2', hot: false, tilt: '1.8deg' },
   ],
   footerPills: [
     { to: '/category/crime', label: 'Горещо', hot: true, tilt: '-1.5deg' },
@@ -91,21 +91,13 @@ const SPOTLIGHT_ICON_OPTIONS = ['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'N
 function resolveSettings(raw) {
   const input = raw && typeof raw === 'object' ? raw : {};
   const filterRemovedCategories = (links) => links.filter((item) => item?.to !== '/category/sports');
-  const mergeDefaultSpotlightLinks = (links) => {
+  const mergeGamesSpotlightLink = (links) => {
     const source = Array.isArray(links) && links.length > 0 ? links : DEFAULT_SETTINGS.spotlightLinks;
     const next = Array.isArray(source) ? [...source] : [];
-    const seen = new Set(
-      next
-        .map((item) => (typeof item?.to === 'string' ? item.to : ''))
-        .filter(Boolean)
-    );
-
-    DEFAULT_SETTINGS.spotlightLinks.forEach((defaultItem) => {
-      if (seen.has(defaultItem.to)) return;
-      next.push({ ...defaultItem });
-      seen.add(defaultItem.to);
-    });
-
+    const gamesDefault = DEFAULT_SETTINGS.spotlightLinks.find((item) => item?.to === '/games');
+    if (gamesDefault && !next.some((item) => item?.to === '/games')) {
+      next.push({ ...gamesDefault });
+    }
     return next;
   };
   const footerQuickLinksSource = filterRemovedCategories(
@@ -124,7 +116,7 @@ function resolveSettings(raw) {
     breakingBadgeLabel: typeof input.breakingBadgeLabel === 'string' && input.breakingBadgeLabel.trim()
       ? input.breakingBadgeLabel
       : DEFAULT_SETTINGS.breakingBadgeLabel,
-    spotlightLinks: mergeDefaultSpotlightLinks(input.spotlightLinks),
+    spotlightLinks: mergeGamesSpotlightLink(input.spotlightLinks),
     footerPills: Array.isArray(input.footerPills) && input.footerPills.length > 0 ? input.footerPills : DEFAULT_SETTINGS.footerPills,
     footerQuickLinks: [
       latestFooterLink,

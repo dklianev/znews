@@ -61,20 +61,13 @@ export function createSettingsPayloadHelpers({
     return /^-?\d+(\.\d+)?deg$/i.test(tilt) ? tilt : fallback;
   }
 
-  function appendMissingSpotlightDefaults(items) {
+  function appendMissingGamesSpotlight(items) {
     const next = Array.isArray(items) ? [...items] : [];
-    const seen = new Set(
-      next
-        .map((item) => (typeof item?.to === 'string' ? item.to : ''))
-        .filter(Boolean)
-    );
-
-    DEFAULT_SITE_SETTINGS.spotlightLinks.forEach((defaultItem) => {
-      if (seen.has(defaultItem.to)) return;
-      next.push({ ...defaultItem });
-      seen.add(defaultItem.to);
-    });
-
+    const gamesDefault = DEFAULT_SITE_SETTINGS.spotlightLinks.find((item) => item?.to === '/games');
+    if (!gamesDefault) return next;
+    const hasGames = next.some((item) => item?.to === '/games');
+    if (hasGames) return next;
+    next.push({ ...gamesDefault });
     return next;
   }
 
@@ -105,7 +98,7 @@ export function createSettingsPayloadHelpers({
       .filter((item) => item.label)
       .slice(0, 16);
 
-    const spotlightLinksInput = appendMissingSpotlightDefaults(
+    const spotlightLinksInput = appendMissingGamesSpotlight(
       Array.isArray(source.spotlightLinks) ? source.spotlightLinks : DEFAULT_SITE_SETTINGS.spotlightLinks
     );
     const spotlightLinks = spotlightLinksInput

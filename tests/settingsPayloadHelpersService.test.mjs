@@ -17,7 +17,7 @@ function createDefaults() {
       breakingBadgeLabel: 'Breaking',
       navbarLinks: [{ to: '/', label: 'Home', hot: false }],
       spotlightLinks: [
-        { to: '/category/crime', label: 'Crime', icon: 'Flame', hot: true, tilt: '-2deg' },
+        { to: '/category/breaking', label: 'Breaking', icon: 'Flame', hot: true, tilt: '-2deg' },
         { to: '/games', label: 'Games', icon: 'Gamepad2', hot: false, tilt: '1.8deg' },
       ],
       footerPills: [{ to: '/category/business', label: 'Business', hot: false, tilt: '1deg' }],
@@ -116,7 +116,7 @@ export async function runSettingsPayloadHelpersTests() {
   assert.equal(site.breakingBadgeLabel, 'Fresh');
   assert.deepEqual(site.navbarLinks, [{ to: '/', label: 'X', hot: true }]);
   assert.deepEqual(site.spotlightLinks, [
-    { to: '/category/crime', label: 'Spotlight', icon: 'Flame', hot: true, tilt: '-2deg' },
+    { to: '/category/breaking', label: 'Spotlight', icon: 'Flame', hot: true, tilt: '-2deg' },
     { to: '/games', label: 'Games', icon: 'Gamepad2', hot: false, tilt: '1.8deg' },
   ]);
   assert.deepEqual(site.footerPills, [{ to: '/ok', label: 'Pill', hot: false, tilt: '15deg' }]);
