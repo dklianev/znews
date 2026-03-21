@@ -419,16 +419,14 @@ export default memo(function Navbar() {
       {/* ── TABLOID CATEGORY PILLS — ROUNDED like the images ── */}
       <div className="relative border-t-4 border-b-4 border-black/20">
         <div className="bg-gradient-to-r from-zn-hot via-zn-purple to-zn-navy">
-          <div className="max-w-6xl mx-auto px-4 py-2 relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-zn-hot to-transparent md:hidden" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-zn-navy to-transparent md:hidden" />
-            <div className="flex items-center justify-center gap-3 md:gap-5 overflow-x-auto scrollbar-hide py-1">
+          <div className="max-w-6xl mx-auto px-3 md:px-4 py-2 relative">
+            <div className="comic-spotlight-strip grid grid-cols-2 items-stretch justify-start gap-2 md:flex md:items-center md:justify-center md:gap-5 overflow-visible md:overflow-x-auto scrollbar-hide py-1">
               {spotlightLinks.map(({ to, label, Icon, hot, tilt, isArcade }) => (
                 <Link
                   key={to}
                   to={to}
                   prefetch="intent"
-                  className={`comic-chip whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-hot ${isArcade ? 'comic-chip-arcade' : ''} ${hot && !isArcade ? 'comic-chip-hot' : ''}`}
+                  className={`comic-chip comic-spotlight-chip w-full md:w-auto whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-hot ${isArcade ? 'comic-chip-arcade' : ''} ${hot && !isArcade ? 'comic-chip-hot' : ''}`}
                   style={{ '--chip-tilt': tilt }}
                 >
                   <Icon className="w-4 h-4" />

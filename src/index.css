@@ -434,6 +434,15 @@
   }
 }
 
+@utility comic-spotlight-strip {
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-inline: 0.75rem;
+}
+
+@utility comic-spotlight-chip {
+  flex: 0 0 auto;
+}
+
 @utility comic-top-actions {
   -webkit-overflow-scrolling: touch;
 }
@@ -3276,6 +3285,44 @@
   .dark .comic-chip-arcade:hover {
     background: linear-gradient(150deg, #11777f 0%, #12739a 55%, #469a7b 100%);
     box-shadow: 4px 5px 0 #0a0812;
+  }
+
+  @media (max-width: 767px) {
+    .comic-spotlight-strip {
+      gap: 0.55rem;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .comic-spotlight-chip {
+      width: 100%;
+      min-height: 2.2rem;
+      justify-content: center;
+      gap: 0.38rem;
+      padding: 0.44rem 0.55rem;
+      font-size: 0.6rem;
+      letter-spacing: 0.04em;
+      transform: rotate(0deg);
+      box-shadow: 2px 2px 0 #1c1428;
+    }
+
+    .comic-spotlight-chip svg {
+      width: 0.88rem;
+      height: 0.88rem;
+    }
+
+    .comic-spotlight-chip:hover {
+      transform: translateY(-1px);
+      box-shadow: 3px 4px 0 #1c1428;
+    }
+
+    .dark .comic-spotlight-chip {
+      box-shadow: 2px 2px 0 #0a0812;
+    }
+
+    .dark .comic-spotlight-chip:hover {
+      box-shadow: 3px 4px 0 #0a0812;
+    }
   }
 
   .dark .comic-top-action {
