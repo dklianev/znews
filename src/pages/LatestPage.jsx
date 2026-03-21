@@ -57,6 +57,7 @@ export default function LatestPage() {
   const [loadingArticles, setLoadingArticles] = useState(false);
   const [loadError, setLoadError] = useState('');
   const restoredKeyRef = useRef('');
+  const isRestoringRef = useRef(false);
 
   const page = parsePageValue(searchParams.get('page'));
   const requestLimit = Math.max(PER_PAGE, page * PER_PAGE);
@@ -108,6 +109,7 @@ export default function LatestPage() {
 
     const persistScroll = () => {
       rafId = 0;
+      if (isRestoringRef.current) return;
       try {
         window.sessionStorage.setItem(key, String(window.scrollY || 0));
       } catch {
@@ -121,11 +123,10 @@ export default function LatestPage() {
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    persistScroll();
 
     return () => {
       if (rafId) window.cancelAnimationFrame(rafId);
-      persistScroll();
+      if (!isRestoringRef.current) persistScroll();
       window.removeEventListener('scroll', handleScroll);
     };
   }, [page]);
@@ -135,6 +136,7 @@ export default function LatestPage() {
     const key = getLatestScrollKey(page);
     if (restoredKeyRef.current === key) return undefined;
     restoredKeyRef.current = key;
+    isRestoringRef.current = true;
 
     let savedY = 0;
     try {
@@ -143,23 +145,35 @@ export default function LatestPage() {
       savedY = 0;
     }
 
-    if (!Number.isFinite(savedY) || savedY <= 0) return undefined;
+    if (!Number.isFinite(savedY) || savedY <= 0) {
+      isRestoringRef.current = false;
+      return undefined;
+    }
 
     let cancelled = false;
     let attempts = 0;
+    let timeoutId = 0;
     const restoreScroll = () => {
       if (cancelled) return;
       window.scrollTo(0, savedY);
       attempts += 1;
-      if (attempts < 3 && Math.abs((window.scrollY || 0) - savedY) > 4) {
-        window.requestAnimationFrame(restoreScroll);
+      if (attempts < 12 && Math.abs((window.scrollY || 0) - savedY) > 4) {
+        timeoutId = window.setTimeout(restoreScroll, 80);
+        return;
+      }
+      isRestoringRef.current = false;
+      try {
+        window.sessionStorage.setItem(key, String(savedY));
+      } catch {
+        // ignore storage errors
       }
     };
 
-    const rafId = window.requestAnimationFrame(restoreScroll);
+    timeoutId = window.setTimeout(restoreScroll, 0);
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(rafId);
+      isRestoringRef.current = false;
+      window.clearTimeout(timeoutId);
     };
   }, [loadingArticles, page, latestArticles.length]);
 
@@ -346,7 +360,7 @@ export default function LatestPage() {
               Потокът показва най-новото хронологично. За по-точно ровене използвай категориите или търсачката.
             </p>
             <div className="flex flex-wrap gap-2">
-              <Link to="/category/crime" className="comic-chip comic-chip-hot">Криминале</Link>
+              <Link to="/category/crime-underground" className="comic-chip comic-chip-hot">Криминални</Link>
               <Link to="/category/breaking" className="comic-chip comic-chip-hot">Извънредно</Link>
               <Link to="/category/emergency" className="comic-chip">Спешно</Link>
               <Link to="/search" className="comic-chip">Търсене</Link>

@@ -11,6 +11,13 @@ import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const PER_PAGE = 6;
 const CATEGORY_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt';
+const SPECIAL_CATEGORY_PAGES = Object.freeze({
+  'crime-underground': {
+    id: 'crime-underground',
+    name: 'Криминални / Подземен свят',
+    queryCategories: ['crime', 'underground'],
+  },
+});
 
 function CategoryCardSkeleton({ compact = true }) {
   return (
@@ -53,7 +60,8 @@ export default function CategoryPage() {
   const { slug } = useParams();
   const { categories, ads, siteSettings, loading } = usePublicData();
   const layoutPresets = siteSettings?.layoutPresets || {};
-  const category = categories.find(c => c.id === slug);
+  const specialCategory = SPECIAL_CATEGORY_PAGES[String(slug || '').trim().toLowerCase()] || null;
+  const category = specialCategory || categories.find(c => c.id === slug);
 
   useDocumentTitle(makeTitle(category?.name || 'Категория'));
   const [categoryArticles, setCategoryArticles] = useState([]);
@@ -73,7 +81,9 @@ export default function CategoryPage() {
 
     setLoadingArticles(true);
     api.articles.getAll({
-      category: slug,
+      ...(specialCategory
+        ? { categories: specialCategory.queryCategories.join(',') }
+        : { category: slug }),
       page,
       limit: PER_PAGE,
       fields: CATEGORY_LIST_FIELDS,
@@ -99,7 +109,7 @@ export default function CategoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [slug, page]);
+  }, [slug, page, specialCategory]);
 
   const totalPages = Math.max(1, Math.ceil((totalArticles || 0) / PER_PAGE));
 

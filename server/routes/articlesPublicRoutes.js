@@ -170,6 +170,16 @@ export function createArticlesPublicRouter(deps) {
     return [...hashes];
   }
 
+  function parseCategoryList(rawValue) {
+    const raw = typeof rawValue === 'string' ? rawValue : '';
+    if (!raw.trim()) return [];
+    return raw
+      .split(',')
+      .map((value) => normalizeText(value, 64).toLowerCase())
+      .filter(Boolean)
+      .filter((value, index, list) => list.indexOf(value) === index);
+  }
+
   articlesRouter.get('/author-stats/:authorId', cacheMiddleware, asyncHandler(async (req, res) => {
     const authorId = Number.parseInt(req.params.authorId, 10);
     if (!Number.isInteger(authorId)) return res.status(400).json({ error: 'Invalid authorId' });
@@ -214,6 +224,7 @@ export function createArticlesPublicRouter(deps) {
       ? (includeArchived ? { status: 'archived' } : { status: { $ne: 'archived' } })
       : getPublishedFilter();
     const category = normalizeText(req.query.category, 64);
+    const categories = parseCategoryList(req.query.categories);
     const q = normalizeText(req.query.q, 160);
     const sectionFilter = getArticleSectionFilter(req.query.section);
     const fieldsProjection = buildArticleProjection(req.query.fields);
@@ -221,7 +232,8 @@ export function createArticlesPublicRouter(deps) {
     const page = parsePositiveInt(req.query.page, 1, { min: 1, max: 2000 });
     const limit = parsePositiveInt(req.query.limit, 24, { min: 1, max: 120 });
 
-    if (category) filter.category = category;
+    if (categories.length > 0) filter.category = { $in: categories };
+    else if (category) filter.category = category;
     if (sectionFilter) Object.assign(filter, sectionFilter);
     const authorId = parsePositiveInt(req.query.authorId, null);
     if (authorId) filter.authorId = authorId;

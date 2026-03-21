@@ -58,12 +58,15 @@ function chainableLean(value) {
   return {
     select() { return this; },
     sort() { return this; },
+    skip() { return this; },
+    limit() { return this; },
     lean: async () => value,
   };
 }
 
 function createDeps(overrides = {}) {
   const findFilters = [];
+  const articleListFilters = [];
   const findOneFilters = [];
   const findOneDeleteFilters = [];
   const invalidations = [];
@@ -74,6 +77,7 @@ function createDeps(overrides = {}) {
   return {
     creates,
     findFilters,
+    articleListFilters,
     findOneFilters,
     findOneDeleteFilters,
     invalidations,
@@ -82,6 +86,13 @@ function createDeps(overrides = {}) {
       Article: {
         async exists() {
           return { _id: 'article' };
+        },
+        find(filter) {
+          articleListFilters.push(filter);
+          return chainableLean([
+            { id: 7, category: 'crime', title: 'Crime story' },
+            { id: 8, category: 'underground', title: 'Underground story' },
+          ]);
         },
         findOne() {
           return chainableLean({ id: 7, reactions: { fire: 3, shock: 1, laugh: 0, skull: 0, clap: 2 } });
@@ -103,6 +114,9 @@ function createDeps(overrides = {}) {
               clap: 2 + clapDelta,
             },
           });
+        },
+        async countDocuments() {
+          return 2;
         },
       },
       ArticleReaction: {
@@ -188,6 +202,26 @@ function createDeps(overrides = {}) {
 }
 
 export async function runArticlesPublicRoutesTests() {
+  {
+    const { deps, articleListFilters } = createDeps();
+    const router = createArticlesPublicRouter(deps);
+    const handlers = getRouteHandlers(router, 'get', '/');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      query: { categories: 'crime,underground', page: '1', limit: '6' },
+      headers: {},
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(articleListFilters[0], {
+      status: 'published',
+      category: { $in: ['crime', 'underground'] },
+    });
+    assert.equal(res.body?.items?.length, 2);
+    assert.equal(res.body?.total, 2);
+  }
+
   {
     const { deps, findFilters } = createDeps();
     const router = createArticlesPublicRouter(deps);

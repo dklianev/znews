@@ -502,7 +502,7 @@ export default function HomePage() {
             <Siren className="w-5 h-5" /> {homeCopy.crimeLabel}
           </div>
           <div className="flex-1 h-1 bg-gradient-to-r from-zn-navy/40 to-transparent" />
-          <SectionActionLink to="/category/crime" label={homeCopy.sectionViewAllLabel} />
+          <SectionActionLink to="/category/crime-underground" label={homeCopy.sectionViewAllLabel} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {crimeArticles.map((article, index) => {
@@ -520,7 +520,7 @@ export default function HomePage() {
             );
           })}
         </div>
-        <SectionActionLink to="/category/crime" label={homeCopy.sectionViewAllLabel} mobile />
+        <SectionActionLink to="/category/crime-underground" label={homeCopy.sectionViewAllLabel} mobile />
       </section>
 
       {/* ═══ Quick Categories ═══ */}
