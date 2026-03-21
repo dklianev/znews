@@ -59,6 +59,7 @@ import { runPublicFeedRoutesTests } from './publicFeedRoutes.test.mjs';
 import { runNewsDateTests } from './newsDate.test.mjs';
 import { runWebSpaRoutesTests } from './webSpaRoutes.test.mjs';
 import { runTetrisTests } from './tetris.test.mjs';
+import { runApiClientSessionTests } from './apiClientSession.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -131,5 +132,6 @@ await runTest('publicFeedRoutes', runPublicFeedRoutesTests);
 await runTest('newsDate', runNewsDateTests);
 await runTest('webSpaRoutes', runWebSpaRoutesTests);
 await runTest('tetris', runTetrisTests);
+await runTest('apiClientSession', runApiClientSessionTests);
 
 console.log('All tests passed.');

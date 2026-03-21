@@ -166,7 +166,14 @@ export function getSession() {
     }
   }
 
-  return inMemorySession;
+  const memorySession = normalizeSession(inMemorySession);
+  if (memorySession && !isSessionExpired(memorySession)) {
+    inMemorySession = memorySession;
+    return memorySession;
+  }
+
+  inMemorySession = null;
+  return null;
 }
 
 export function saveSession(session) {
