@@ -11,9 +11,10 @@ const DEFAULT_FOOTER_PILLS = [
 ];
 
 const DEFAULT_FOOTER_QUICK_LINKS = [
+  { label: 'Последни новини', to: '/latest' },
   { label: 'Криминални', to: '/category/crime' },
   { label: 'Подземен свят', to: '/category/underground' },
-  { label: 'Извънредни', to: '/category/emergency' },
+  { label: 'Полиция', to: '/category/emergency' },
   { label: 'Горещо', to: '/category/breaking' },
   { label: 'Политика', to: '/category/politics' },
   { label: 'Бизнес', to: '/category/business' },
@@ -26,7 +27,6 @@ const DEFAULT_FOOTER_INFO_LINKS = [
   { label: 'Съдебна хроника', to: '/court' },
   { label: 'Събития', to: '/events' },
   { label: 'Галерия', to: '/gallery' },
-  { label: 'Последни новини', to: '/latest' },
 ];
 
 const DEFAULT_CONTACT = {
@@ -40,22 +40,22 @@ export default function Footer() {
   const footerPills = Array.isArray(siteSettings?.footerPills) && siteSettings.footerPills.length > 0
     ? siteSettings.footerPills
     : DEFAULT_FOOTER_PILLS;
+  const infoLinksRaw = Array.isArray(siteSettings?.footerInfoLinks) && siteSettings.footerInfoLinks.length > 0
+    ? siteSettings.footerInfoLinks
+    : DEFAULT_FOOTER_INFO_LINKS;
   const quickLinksRaw = Array.isArray(siteSettings?.footerQuickLinks) && siteSettings.footerQuickLinks.length > 0
     ? siteSettings.footerQuickLinks
     : DEFAULT_FOOTER_QUICK_LINKS;
-  const quickLinksBase = quickLinksRaw.filter((item) => item?.to !== '/category/sports');
+  const latestQuickLink = quickLinksRaw.find((item) => item?.to === '/latest')
+    || infoLinksRaw.find((item) => item?.to === '/latest')
+    || { label: 'Последни новини', to: '/latest' };
+  const quickLinksBase = quickLinksRaw.filter((item) => item?.to !== '/category/sports' && item?.to !== '/latest');
   const hasBreakingCategory = Array.isArray(categories) && categories.some((item) => item?.id === 'breaking');
   const hasBreakingLink = quickLinksBase.some((item) => item?.to === '/category/breaking');
   const quickLinks = hasBreakingCategory && !hasBreakingLink
-    ? [...quickLinksBase, { label: 'Горещо', to: '/category/breaking' }]
-    : quickLinksBase;
-  const infoLinksBase = Array.isArray(siteSettings?.footerInfoLinks) && siteSettings.footerInfoLinks.length > 0
-    ? siteSettings.footerInfoLinks
-    : DEFAULT_FOOTER_INFO_LINKS;
-  const hasLatestInfoLink = infoLinksBase.some((item) => item?.to === '/latest');
-  const infoLinks = hasLatestInfoLink
-    ? infoLinksBase
-    : [...infoLinksBase, { label: 'Последни новини', to: '/latest' }];
+    ? [latestQuickLink, ...quickLinksBase, { label: 'Горещо', to: '/category/breaking' }]
+    : [latestQuickLink, ...quickLinksBase];
+  const infoLinks = infoLinksRaw.filter((item) => item?.to !== '/latest');
   const contact = {
     ...DEFAULT_CONTACT,
     ...(siteSettings?.contact || {}),

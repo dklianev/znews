@@ -34,6 +34,7 @@ const DEFAULT_SETTINGS = {
     { to: '/category/business', label: 'Бизнес', hot: false, tilt: '-1deg' },
   ],
   footerQuickLinks: [
+    { to: '/latest', label: 'Последни новини' },
     { to: '/category/crime', label: 'Криминални' },
     { to: '/category/underground', label: 'Подземен свят' },
     { to: '/category/emergency', label: 'Полиция' },
@@ -48,7 +49,6 @@ const DEFAULT_SETTINGS = {
     { to: '/court', label: 'Съдебна хроника' },
     { to: '/events', label: 'Събития' },
     { to: '/gallery', label: 'Галерия' },
-    { to: '/latest', label: 'Последни новини' },
   ],
   contact: {
     address: 'Vinewood Blvd 42, Los Santos',
@@ -90,6 +90,15 @@ const SPOTLIGHT_ICON_OPTIONS = ['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'N
 function resolveSettings(raw) {
   const input = raw && typeof raw === 'object' ? raw : {};
   const filterRemovedCategories = (links) => links.filter((item) => item?.to !== '/category/sports');
+  const footerQuickLinksSource = filterRemovedCategories(
+    Array.isArray(input.footerQuickLinks) && input.footerQuickLinks.length > 0 ? input.footerQuickLinks : DEFAULT_SETTINGS.footerQuickLinks
+  );
+  const footerInfoLinksSource = Array.isArray(input.footerInfoLinks) && input.footerInfoLinks.length > 0
+    ? input.footerInfoLinks
+    : DEFAULT_SETTINGS.footerInfoLinks;
+  const latestFooterLink = footerQuickLinksSource.find((item) => item?.to === '/latest')
+    || footerInfoLinksSource.find((item) => item?.to === '/latest')
+    || { to: '/latest', label: 'Последни новини' };
   return {
     navbarLinks: filterRemovedCategories(
       Array.isArray(input.navbarLinks) && input.navbarLinks.length > 0 ? input.navbarLinks : DEFAULT_SETTINGS.navbarLinks
@@ -99,10 +108,11 @@ function resolveSettings(raw) {
       : DEFAULT_SETTINGS.breakingBadgeLabel,
     spotlightLinks: Array.isArray(input.spotlightLinks) && input.spotlightLinks.length > 0 ? input.spotlightLinks : DEFAULT_SETTINGS.spotlightLinks,
     footerPills: Array.isArray(input.footerPills) && input.footerPills.length > 0 ? input.footerPills : DEFAULT_SETTINGS.footerPills,
-    footerQuickLinks: filterRemovedCategories(
-      Array.isArray(input.footerQuickLinks) && input.footerQuickLinks.length > 0 ? input.footerQuickLinks : DEFAULT_SETTINGS.footerQuickLinks
-    ),
-    footerInfoLinks: Array.isArray(input.footerInfoLinks) && input.footerInfoLinks.length > 0 ? input.footerInfoLinks : DEFAULT_SETTINGS.footerInfoLinks,
+    footerQuickLinks: [
+      latestFooterLink,
+      ...footerQuickLinksSource.filter((item) => item?.to !== '/latest'),
+    ],
+    footerInfoLinks: footerInfoLinksSource.filter((item) => item?.to !== '/latest'),
     contact: {
       ...DEFAULT_SETTINGS.contact,
       ...(input.contact || {}),

@@ -316,6 +316,7 @@ const DEFAULT_SITE_SETTINGS = Object.freeze({
     { label: 'Бизнес', to: '/category/business', hot: false, tilt: '-1deg' },
   ],
   footerQuickLinks: [
+    { label: 'Последни новини', to: '/latest' },
     { label: 'Криминални', to: '/category/crime' },
     { label: 'Подземен свят', to: '/category/underground' },
     { label: 'Полиция', to: '/category/emergency' },
@@ -330,7 +331,6 @@ const DEFAULT_SITE_SETTINGS = Object.freeze({
     { label: 'Съдебна хроника', to: '/court' },
     { label: 'Събития', to: '/events' },
     { label: 'Галерия', to: '/gallery' },
-    { label: 'Последни новини', to: '/latest' },
   ],
   contact: {
     address: 'Vinewood Blvd 42, Los Santos',
