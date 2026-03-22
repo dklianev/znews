@@ -7,9 +7,17 @@ const DIFFICULTY_COLORS = {
     4: 'bg-fuchsia-100 text-fuchsia-950 border border-fuchsia-200 dark:bg-purple-400 dark:text-purple-950 dark:border-transparent'
 };
 
+function getTileTextClasses(item) {
+    const length = Array.from(String(item || '').trim()).length;
+    if (length >= 11) return 'text-[0.72rem] leading-[0.92] tracking-[-0.05em] sm:text-[0.95rem]';
+    if (length >= 9) return 'text-[0.8rem] leading-[0.95] tracking-[-0.04em] sm:text-[1rem]';
+    if (length >= 7) return 'text-[0.88rem] leading-[0.98] tracking-[-0.03em] sm:text-[1.05rem]';
+    return 'text-[0.98rem] leading-[1.02] tracking-[-0.02em] sm:text-[1.08rem] md:text-lg';
+}
+
 export default function ConnectionsBoard({ items, selectedItems, solvedGroups, onToggle, shakeTiles }) {
     return (
-        <div className="w-full flex flex-col gap-2">
+        <div className="w-full flex flex-col gap-2 sm:gap-3">
             {/* Solved Groups at the top */}
             {solvedGroups.map(group => (
                 <motion.div
@@ -24,9 +32,10 @@ export default function ConnectionsBoard({ items, selectedItems, solvedGroups, o
             ))}
 
             {/* Grid of remaining items */}
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-2 sm:gap-3">
                 {items.map(item => {
                     const isSelected = selectedItems.includes(item);
+                    const tileTextClasses = getTileTextClasses(item);
 
                     return (
                         <motion.button
@@ -34,12 +43,12 @@ export default function ConnectionsBoard({ items, selectedItems, solvedGroups, o
                             onClick={() => onToggle(item)}
                             animate={shakeTiles && isSelected ? { x: [-5, 5, -5, 5, 0] } : {}}
                             transition={{ duration: 0.4 }}
-                            className={`aspect-square sm:aspect-[4/3] rounded-xl flex items-center justify-center p-2 text-sm sm:text-base md:text-lg font-black uppercase text-center transition-all ${isSelected
+                            className={`min-h-[104px] sm:min-h-[118px] rounded-[22px] sm:rounded-xl flex items-center justify-center px-1.5 py-2 sm:p-3 font-black uppercase text-center transition-all ${isSelected
                                     ? 'bg-slate-800 text-white scale-95 shadow-inner dark:bg-zinc-600'
                                     : 'bg-white text-slate-900 border border-slate-200 shadow-sm hover:bg-slate-50 hover:border-slate-300 dark:bg-zinc-800 dark:text-white dark:border-transparent dark:hover:bg-zinc-700'
                                 }`}
                         >
-                            <span className="break-words w-full px-1 leading-tight">{item}</span>
+                            <span className={`block w-full break-words whitespace-normal px-0.5 ${tileTextClasses}`}>{item}</span>
                         </motion.button>
                     );
                 })}

@@ -225,24 +225,24 @@ export default function GameConnectionsPage() {
                             </div>
                         </div>
 
-                        <div className="flex gap-4">
+                        <div className="grid w-full max-w-2xl grid-cols-3 gap-2 sm:flex sm:w-auto sm:max-w-none sm:gap-4">
                             <button
                                 onClick={shuffleItems}
-                                className="px-6 py-3 rounded-xl border border-stone-200 dark:border-zinc-700 text-slate-900 dark:text-white uppercase tracking-widest font-bold bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors"
+                                className="min-w-0 px-3 py-3 rounded-xl border border-stone-200 dark:border-zinc-700 text-[11px] sm:text-sm text-slate-900 dark:text-white uppercase tracking-[0.18em] sm:tracking-widest font-bold bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors"
                             >
                                 Разбъркай
                             </button>
                             <button
                                 onClick={deselectAll}
                                 disabled={selectedItems.length === 0}
-                                className="px-6 py-3 rounded-xl border border-stone-200 dark:border-zinc-700 text-slate-900 dark:text-white uppercase tracking-widest font-bold bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+                                className="min-w-0 px-3 py-3 rounded-xl border border-stone-200 dark:border-zinc-700 text-[11px] sm:text-sm text-slate-900 dark:text-white uppercase tracking-[0.18em] sm:tracking-widest font-bold bg-white dark:bg-zinc-900 hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
                             >
                                 Изчисти
                             </button>
                             <button
                                 onClick={handleSubmit}
                                 disabled={selectedItems.length !== 4 || isProcessing}
-                                className={`px-8 py-3 rounded-xl font-bold uppercase tracking-widest transition-all ${selectedItems.length === 4 && !isProcessing
+                                className={`min-w-0 px-3 sm:px-8 py-3 rounded-xl text-[11px] sm:text-sm font-bold uppercase tracking-[0.18em] sm:tracking-widest transition-all ${selectedItems.length === 4 && !isProcessing
                                         ? 'bg-slate-900 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-zinc-200'
                                         : 'bg-slate-200 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 border border-slate-200 dark:border-zinc-700 cursor-not-allowed'
                                     }`}
