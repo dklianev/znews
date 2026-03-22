@@ -1,9 +1,9 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Palette, RotateCcw, Settings2, Share2, Sparkles, Trophy, Zap } from 'lucide-react';
 import BlockBustBoard from '../components/games/blockbust/BlockBustBoard';
-import BlockBustTray from '../components/games/blockbust/BlockBustTray';
+import BlockBustTray, { PieceMiniBoard } from '../components/games/blockbust/BlockBustTray';
 import BlockBustSettings from '../components/games/blockbust/BlockBustSettings';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { copyToClipboard } from '../utils/copyToClipboard';
@@ -48,7 +48,7 @@ function createFreshRun(bestScore = 0, themeId = BLOCK_BUST_THEMES[0].id) {
     combo: 0,
     fullWipes: 0,
     moveCount: 0,
-    selectedPieceId: null,
+    selectedSlotIndex: null,
     themeId,
     status: 'playing',
     bestScore,
@@ -137,12 +137,12 @@ export default function GameBlockBustPage() {
   const audioContextRef = useRef(null);
   const dragGhostRef = useRef(null);
   const [shakeCount, setShakeCount] = useState(0);
+  const [floatingScores, setFloatingScores] = useState([]);
 
-  const selectedPiece = useMemo(() => run.tray.find((piece) => piece.id === run.selectedPieceId) || null, [run.selectedPieceId, run.tray]);
+  const selectedPiece = useMemo(() => typeof run.selectedSlotIndex === 'number' ? (run.tray[run.selectedSlotIndex] || null) : null, [run.selectedSlotIndex, run.tray]);
   const level = useMemo(() => getBlockBustLevel(run.totalLines), [run.totalLines]);
   const occupancy = useMemo(() => getBlockBustBoardOccupancy(run.board), [run.board]);
   const activeTheme = useMemo(() => getBlockBustTheme(settings.themeMode === 'manual' ? settings.manualThemeId : run.themeId), [run.themeId, settings.manualThemeId, settings.themeMode]);
-  const nextTheme = useMemo(() => getBlockBustTheme(getBlockBustNextThemeId(run.themeId)), [run.themeId]);
   const levelProgress = useMemo(() => Math.max(0, run.totalLines % LINES_PER_LEVEL), [run.totalLines]);
   const previewState = useMemo(() => {
     if (!selectedPiece || !anchorCell) return { cells: [], valid: false };
@@ -198,22 +198,52 @@ export default function GameBlockBustPage() {
     setBanner({ eyebrow: 'Ново издание', title: 'Полето е занулено', accent: getBlockBustTheme(themeId).accent });
   });
 
-  const placeSelectedPiece = useEffectEvent((row, col) => {
-    if (!selectedPiece || run.status === 'over') return false;
-    const result = resolveBlockBustMove(run.board, selectedPiece, row, col, run.combo);
-    if (!result) { setBanner({ eyebrow: 'Невалидно', title: 'Тук не пасва фигура', accent: '#ef4444' }); return false; }
+  const placeSelectedPiece = useEffectEvent((row, col, overridePiece, overrideIndex) => {
+    const pieceIndex = overrideIndex !== undefined ? overrideIndex : run.selectedSlotIndex;
+    const piece = overridePiece || (typeof pieceIndex === 'number' ? run.tray[pieceIndex] : null);
+    if (!piece || run.status === 'over') return false;
+    const result = resolveBlockBustMove(run.board, piece, row, col, run.combo);
+    if (!result) { 
+      if (settings.controlMode !== 'drag-tap') setBanner({ eyebrow: 'Невалидно', title: 'Тук не пасва фигура', accent: '#ef4444' }); 
+      return false; 
+    }
     const nextLevel = getBlockBustLevel(run.totalLines + result.linesCleared);
-    const remainingTray = run.tray.filter((piece) => piece.id !== selectedPiece.id);
-    const nextTray = remainingTray.length === 0 ? createBlockBustTray(result.board, nextLevel) : remainingTray;
+    
+    const remainingTray = [...run.tray];
+    if (typeof pieceIndex === 'number') remainingTray[pieceIndex] = null;
+    
+    const nextTray = remainingTray.every(p => !p) ? createBlockBustTray(result.board, nextLevel) : remainingTray;
     const nextThemeId = result.perfectClear ? getBlockBustNextThemeId(run.themeId) : run.themeId;
-    const nextRun = { ...run, board: result.board, tray: nextTray, score: run.score + result.score, totalLines: run.totalLines + result.linesCleared, combo: result.nextCombo, fullWipes: run.fullWipes + (result.perfectClear ? 1 : 0), moveCount: run.moveCount + 1, selectedPieceId: null, themeId: nextThemeId, status: isBlockBustGameOver(result.board, nextTray) ? 'over' : 'playing' };
+    const nextRun = { ...run, board: result.board, tray: nextTray, score: run.score + result.score, totalLines: run.totalLines + result.linesCleared, combo: result.nextCombo, fullWipes: run.fullWipes + (result.perfectClear ? 1 : 0), moveCount: run.moveCount + 1, selectedSlotIndex: null, themeId: nextThemeId, status: isBlockBustGameOver(result.board, nextTray) ? 'over' : 'playing' };
     setRun(nextRun);
     setResumed(false);
     setAnchorCell(null);
     if (nextRun.score > bestScore) setBestScore(nextRun.score);
     persistDailyProgress(nextRun, nextRun.status === 'over' ? 'over' : 'played');
-    if (result.perfectClear) { playTone('perfect'); setShakeCount((c) => c + 1); setBanner({ type: 'perfect', eyebrow: 'Пълно изчистване', title: `Нова тема: ${getBlockBustTheme(nextThemeId).name}`, accent: getBlockBustTheme(nextThemeId).accent }); }
-    else if (result.hadClear) { playTone('clear'); setShakeCount((c) => c + 1); setBanner({ type: 'clear', eyebrow: result.nextCombo > 1 ? `Комбо x${result.nextCombo}` : 'Чист удар', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'} изчистени`, accent: activeTheme.accent }); }
+
+    let shakeAmount = 0;
+    if (result.perfectClear) shakeAmount = 3;
+    else if (result.linesCleared >= 4) shakeAmount = 2;
+    else if (result.linesCleared > 0) shakeAmount = 1;
+    if (shakeAmount > 0) setShakeCount((c) => c + shakeAmount);
+
+    if (result.score > 0) {
+      const element = boardRef.current;
+      let fx = 0; let fy = 0;
+      if (element && piece) {
+        const rect = element.getBoundingClientRect();
+        fx = rect.left + ((col + piece.width / 2) * (rect.width / 8));
+        fy = rect.top + ((row + piece.height / 2) * (rect.height / 8));
+      }
+      const newScore = { id: Date.now() + Math.random(), score: result.score, x: fx, y: fy };
+      setFloatingScores(prev => [...prev.slice(-4), newScore]);
+      setTimeout(() => {
+        setFloatingScores(prev => prev.filter(s => s.id !== newScore.id));
+      }, 1500);
+    }
+
+    if (result.perfectClear) { playTone('perfect'); setBanner({ type: 'perfect', eyebrow: 'Пълно изчистване', title: `Нова тема: ${getBlockBustTheme(nextThemeId).name}`, accent: getBlockBustTheme(nextThemeId).accent }); }
+    else if (result.hadClear) { playTone('clear'); setBanner({ type: 'clear', eyebrow: result.nextCombo > 1 ? `Комбо x${result.nextCombo}` : 'Чист удар', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'} изчистени`, accent: activeTheme.accent }); }
     else playTone('place');
     if (nextRun.status === 'over') { playTone('over'); setBanner({ type: 'over', eyebrow: 'Край на изданието', title: 'Полето е пълно', accent: '#cc0a1a' }); }
     
@@ -221,54 +251,92 @@ export default function GameBlockBustPage() {
     return true;
   });
 
-  const handleSelectPiece = useEffectEvent((pieceId) => { setRun((current) => ({ ...current, selectedPieceId: current.selectedPieceId === pieceId ? null : pieceId })); playTone('select'); });
-  const handleStartDragPiece = useEffectEvent((event, pieceId) => {
+  const handleSelectPiece = useEffectEvent((index) => { setRun((current) => ({ ...current, selectedSlotIndex: current.selectedSlotIndex === index ? null : index })); playTone('select'); });
+  const handleStartDragPiece = useEffectEvent((event, index) => {
     if (settings.controlMode !== 'drag-tap') return;
-    dragStateRef.current = { active: true };
-    setRun((current) => ({ ...current, selectedPieceId: pieceId }));
+    dragStateRef.current = { active: true, pieceIndex: index, moved: false };
+    setRun((current) => ({ ...current, selectedSlotIndex: index }));
     playTone('select');
-    event.currentTarget.setPointerCapture?.(event.pointerId);
     if (dragGhostRef.current) {
       dragGhostRef.current.style.display = 'block';
-      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY}px) translate(-50%, -100%)`;
-      dragGhostRef.current.setAttribute('data-piece', pieceId);
+      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY}px) translate(-50%, -150%) scale(1.6) rotate(-4deg)`;
     }
   });
   const updateAnchorFromPoint = useEffectEvent((clientX, clientY) => {
     const element = boardRef.current;
     if (!element) return;
     const rect = element.getBoundingClientRect();
-    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) { setAnchorCell(null); return; }
-    const row = Math.max(0, Math.min(7, Math.floor((clientY - rect.top) / (rect.height / 8))));
-    const col = Math.max(0, Math.min(7, Math.floor((clientX - rect.left) / (rect.width / 8))));
-    setAnchorCell({ row, col });
-    setFocusCell({ row, col });
+    
+    const marginX = rect.width * 0.4;
+    const marginTop = rect.height * 0.25;
+    const marginBottom = rect.height * 0.7; // Massive buffer for thumbs hanging below the screen
+    if (clientX < rect.left - marginX || clientX > rect.right + marginX || clientY < rect.top - marginTop || clientY > rect.bottom + marginBottom) { 
+      setAnchorCell(null); 
+      dragStateRef.current.anchorCell = null;
+      return; 
+    }
+    
+    let rawRow = Math.floor((clientY - rect.top) / (rect.height / 8));
+    let rawCol = Math.floor((clientX - rect.left) / (rect.width / 8));
+
+    let piece = selectedPiece;
+    if (dragStateRef.current.active && typeof dragStateRef.current.pieceIndex === 'number') {
+      piece = run.tray[dragStateRef.current.pieceIndex] || piece;
+    }
+
+    if (dragStateRef.current.active && piece) {
+      rawCol -= Math.floor(piece.width / 2);
+      rawRow -= Math.floor(piece.height);
+    } else {
+      rawRow = Math.max(0, Math.min(7, rawRow));
+      rawCol = Math.max(0, Math.min(7, rawCol));
+    }
+    
+    setAnchorCell(prev => (prev && prev.row === rawRow && prev.col === rawCol) ? prev : { row: rawRow, col: rawCol });
+    setFocusCell(prev => (prev && prev.row === rawRow && prev.col === rawCol) ? prev : { row: rawRow, col: rawCol });
+    dragStateRef.current.anchorCell = { row: rawRow, col: rawCol };
   });
-  const handleWindowPointerUp = useEffectEvent(() => { dragStateRef.current = { active: false }; if (dragGhostRef.current) dragGhostRef.current.style.display = 'none'; });
+  const handleWindowPointerUp = useEffectEvent(() => {
+    const state = dragStateRef.current;
+    if (!state.active) return;
+    dragStateRef.current = { active: false };
+    if (dragGhostRef.current) dragGhostRef.current.style.display = 'none';
+
+    if (typeof state.pieceIndex === 'number') {
+      const pieceToPlace = run.tray[state.pieceIndex];
+      if (pieceToPlace && state.anchorCell) {
+        placeSelectedPiece(state.anchorCell.row, state.anchorCell.col, pieceToPlace, state.pieceIndex);
+      } else if (state.moved) {
+        setRun(current => ({ ...current, selectedSlotIndex: null }));
+      }
+    }
+  });
   useEffect(() => { function onPointerUp() { handleWindowPointerUp(); } window.addEventListener('pointerup', onPointerUp); window.addEventListener('pointercancel', onPointerUp); return () => { window.removeEventListener('pointerup', onPointerUp); window.removeEventListener('pointercancel', onPointerUp); }; }, [handleWindowPointerUp]);
+
   const handleWindowPointerMove = useEffectEvent((event) => {
     if (dragStateRef.current.active && dragGhostRef.current) {
-      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY}px) translate(-50%, -100%)`;
+      dragStateRef.current.moved = true;
+      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY}px) translate(-50%, -150%) scale(1.6) rotate(-4deg)`;
+      updateAnchorFromPoint(event.clientX, event.clientY);
     }
   });
   useEffect(() => { window.addEventListener('pointermove', handleWindowPointerMove); return () => window.removeEventListener('pointermove', handleWindowPointerMove); }, [handleWindowPointerMove]);
 
   const handleBoardPointerMove = useEffectEvent((event) => { if (settings.controlMode !== 'drag-tap' && !selectedPiece) return; if (!dragStateRef.current.active && settings.controlMode === 'drag-tap') return; updateAnchorFromPoint(event.clientX, event.clientY); });
-  const handleBoardPointerUp = useEffectEvent(() => { if (!dragStateRef.current.active) return; dragStateRef.current = { active: false }; if (dragGhostRef.current) dragGhostRef.current.style.display = 'none'; if (selectedPiece && anchorCell && previewState.valid) placeSelectedPiece(anchorCell.row, anchorCell.col); });
   const handleShare = useEffectEvent(async () => { const copied = await copyToClipboard(buildShareText(run, level, activeTheme.name)); setShareNotice({ message: copied ? 'Резултатът е копиран.' : 'Не успях да копирам резултата.' }); });
   const handleKeyDown = useEffectEvent((event) => {
     const tag = event.target?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    if (event.code === 'Escape') { if (showSettings) setShowSettings(false); else if (run.selectedPieceId) setRun((current) => ({ ...current, selectedPieceId: null })); return; }
+    if (event.code === 'Escape') { if (showSettings) setShowSettings(false); else if (typeof run.selectedSlotIndex === 'number') setRun((current) => ({ ...current, selectedSlotIndex: null })); return; }
     if (event.code === 'KeyR') { event.preventDefault(); resetRun(); return; }
     if (event.code === 'KeyO') { event.preventDefault(); setShowSettings((current) => !current); return; }
-    if (event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3') { event.preventDefault(); const piece = run.tray[Number.parseInt(event.code.replace('Digit', ''), 10) - 1]; if (piece) handleSelectPiece(piece.id); return; }
+    if (event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3') { event.preventDefault(); const index = Number.parseInt(event.code.replace('Digit', ''), 10) - 1; const piece = run.tray[index]; if (piece) handleSelectPiece(index); return; }
     if (event.code === 'ArrowUp' || event.code === 'ArrowDown' || event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
       event.preventDefault();
       setFocusCell((current) => event.code === 'ArrowUp' ? { row: Math.max(0, current.row - 1), col: current.col } : event.code === 'ArrowDown' ? { row: Math.min(7, current.row + 1), col: current.col } : event.code === 'ArrowLeft' ? { row: current.row, col: Math.max(0, current.col - 1) } : { row: current.row, col: Math.min(7, current.col + 1) });
       return;
     }
-    if ((event.code === 'Space' || event.code === 'Enter') && run.selectedPieceId) { event.preventDefault(); placeSelectedPiece(focusCell.row, focusCell.col); }
+    if ((event.code === 'Space' || event.code === 'Enter') && typeof run.selectedSlotIndex === 'number') { event.preventDefault(); placeSelectedPiece(focusCell.row, focusCell.col); }
   });
   useEffect(() => { function onKeyDown(event) { handleKeyDown(event); } window.addEventListener('keydown', onKeyDown); return () => window.removeEventListener('keydown', onKeyDown); }, [handleKeyDown]);
 
@@ -341,13 +409,13 @@ export default function GameBlockBustPage() {
                   <div><p className="font-display text-xs uppercase tracking-[0.28em] text-[#6a6477] dark:text-zinc-500">Поле 8x8</p><p className="mt-1 text-sm font-semibold text-[#504961] dark:text-zinc-400">{selectedPiece ? 'Избраната фигура следва курсора или фокуса. Пусни я върху валидна клетка.' : 'Докосни фигура отдолу, за да започнеш хода.'}</p></div>
                   <div className="rounded-full border-[3px] border-[#1c1428] bg-[#f8f3ea] px-3 py-2 font-display text-[10px] font-black uppercase tracking-[0.24em] text-[#1c1428] dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">{settings.controlMode === 'drag-tap' ? 'Влачи + докосни' : 'Само докосни'}</div>
                 </div>
-                <BlockBustBoard ref={boardRef} board={run.board} theme={activeTheme} previewCells={previewState.cells} invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell)} focusCell={focusCell} showPlacementPreview={settings.showPlacementPreview} contrastMode={settings.gridContrast} patternAssist={settings.patternAssist} onCellEnter={(row, col) => { setAnchorCell({ row, col }); setFocusCell({ row, col }); }} onCellClick={(row, col) => placeSelectedPiece(row, col)} onBoardPointerMove={handleBoardPointerMove} onBoardPointerUp={handleBoardPointerUp} onBoardLeave={() => setAnchorCell(null)} />
+                <BlockBustBoard ref={boardRef} board={run.board} theme={activeTheme} previewCells={previewState.cells} invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell)} focusCell={focusCell} showPlacementPreview={settings.showPlacementPreview} contrastMode={settings.gridContrast} patternAssist={settings.patternAssist} onCellEnter={(row, col) => { setAnchorCell({ row, col }); setFocusCell({ row, col }); }} onCellClick={(row, col) => placeSelectedPiece(row, col)} onBoardPointerMove={handleBoardPointerMove} onBoardPointerUp={handleWindowPointerUp} onBoardLeave={() => setAnchorCell(null)} />
                 <div className="mt-4 grid gap-3 rounded-[1.4rem] border-[3px] border-[#1c1428] bg-[#f8f3ea] px-4 py-4 shadow-[4px_4px_0_rgba(28,20,40,0.08)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div><p className="font-display text-xs uppercase tracking-[0.28em] text-[#6a6477] dark:text-zinc-500">Лента с фигури</p><p className="mt-1 text-sm font-semibold text-[#504961] dark:text-zinc-400">Изиграй и трите, за да получиш нова серия.</p></div>
                     <div className="rounded-full px-3 py-1 font-display text-[10px] font-black uppercase tracking-[0.24em] text-white" style={{ background: activeTheme.accent }}>{selectedPiece ? `Избрана: ${selectedPiece.size} клетки` : 'Няма избор'}</div>
                   </div>
-                  <BlockBustTray pieces={run.tray} selectedPieceId={run.selectedPieceId} onSelectPiece={handleSelectPiece} onStartDragPiece={handleStartDragPiece} theme={activeTheme} patternAssist={settings.patternAssist} controlMode={settings.controlMode} />
+                  <BlockBustTray pieces={run.tray} selectedSlotIndex={run.selectedSlotIndex} onSelectPiece={handleSelectPiece} onStartDragPiece={handleStartDragPiece} theme={activeTheme} patternAssist={settings.patternAssist} controlMode={settings.controlMode} />
                 </div>
               </section>
             </div>
@@ -358,14 +426,13 @@ export default function GameBlockBustPage() {
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   {BLOCK_BUST_THEMES.map((themeItem) => {
                     const isActive = themeItem.id === activeTheme.id;
-                    const isNext = settings.themeMode === 'auto' && themeItem.id === nextTheme.id;
-                    return <div key={themeItem.id} className={`rounded-[1rem] border-[3px] px-3 py-3 transition-transform ${isActive ? 'translate-y-[-2px]' : ''}`} style={{ borderColor: isActive ? themeItem.accent : '#1c1428', background: isActive ? `linear-gradient(180deg, ${themeItem.accentSoft} 0%, rgba(255,255,255,0.96) 100%)` : 'rgba(255,255,255,0.88)', boxShadow: isActive ? `0 10px 24px ${themeItem.fillShadow}` : '4px 4px 0 rgba(28,20,40,0.1)' }}><p className="font-display text-[10px] uppercase tracking-[0.22em] text-[#6a6477]">{isActive ? 'Активна' : isNext ? 'Следва' : 'Тема'}</p><p className="mt-2 font-display text-sm font-black uppercase text-[#1c1428]">{themeItem.name}</p></div>;
+                    return <div key={themeItem.id} className={`rounded-[1rem] border-[3px] px-3 py-3 transition-transform ${isActive ? 'translate-y-[-2px]' : ''}`} style={{ borderColor: isActive ? themeItem.accent : '#1c1428', background: isActive ? `linear-gradient(180deg, ${themeItem.accentSoft} 0%, rgba(255,255,255,0.96) 100%)` : 'rgba(255,255,255,0.88)', boxShadow: isActive ? `0 10px 24px ${themeItem.fillShadow}` : '4px 4px 0 rgba(28,20,40,0.1)' }}><p className="font-display text-[10px] uppercase tracking-[0.22em] text-[#6a6477]">{isActive ? 'Активна' : 'Тема'}</p><p className="mt-2 font-display text-sm font-black uppercase text-[#1c1428]">{themeItem.name}</p></div>;
                   })}
                 </div>
                 <div className="mt-4 rounded-[1.2rem] border-[3px] border-[#1c1428] bg-white px-4 py-4 dark:border-zinc-700 dark:bg-zinc-900">
                   <p className="font-display text-xs uppercase tracking-[0.22em] text-[#6a6477] dark:text-zinc-500">Смяна на темата</p>
                   <p className="mt-2 font-display text-3xl font-black uppercase text-[#1c1428] dark:text-white">{activeTheme.name}</p>
-                  <p className="mt-2 text-sm font-semibold text-[#5c5666] dark:text-zinc-400">{settings.themeMode === 'manual' ? 'Темата е заключена ръчно. Пълните изчиствания още носят бонус, но не сменят skin-а.' : `Следващото пълно изчистване ще те прехвърли към ${nextTheme.name}.`}</p>
+                  <p className="mt-2 text-sm font-semibold text-[#5c5666] dark:text-zinc-400">{settings.themeMode === 'manual' ? 'Темата е заключена ръчно. Пълните изчиствания още носят бонус, но не сменят skin-а.' : `Следващото пълно изчистване ще те прехвърли към изцяло нова случайна тема.`}</p>
                 </div>
               </section>
               <section className="rounded-[1.8rem] border-[3px] border-[#1c1428] bg-[#f8f3ea] p-4 shadow-[5px_5px_0_rgba(28,20,40,0.14)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none"><p className="font-display text-xs font-black uppercase tracking-[0.28em] text-[#cc0a1a]">Как се държи рънът</p><ul className="mt-4 space-y-3 text-sm font-semibold text-[#5c5666] dark:text-zinc-400"><li>Изчистеният ред или колона вдига комбото и темпото на ръна.</li><li>Пълното изчистване сменя темата и носи най-големия бонус.</li><li>Новата серия идва едва след като изиграеш и трите фигури.</li><li>Колкото по-плътно е полето, толкова по-важен става изборът на фигура.</li></ul></section>
@@ -375,12 +442,29 @@ export default function GameBlockBustPage() {
         </div>
       </div>
       <AnimatePresence>{shareNotice ? <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-full border-[3px] border-[#1c1428] bg-white px-5 py-3 font-display text-xs font-black uppercase tracking-[0.24em] text-[#1c1428] shadow-[4px_4px_0_rgba(28,20,40,0.14)]">{shareNotice.message}</motion.div> : null}</AnimatePresence>
+      <AnimatePresence>
+        {floatingScores.map((s) => (
+          <motion.div
+            key={s.id}
+            initial={{ opacity: 0, scale: 0.5, y: s.y, x: s.x, rotate: (Math.random() - 0.5) * 20 }}
+            animate={{ opacity: 1, scale: 1, y: s.y - 80, x: s.x }}
+            exit={{ opacity: 0, scale: 1.2, y: s.y - 120 }}
+            transition={{ duration: 1.2, type: 'spring', bounce: 0.4 }}
+            className="fixed z-[120] pointer-events-none drop-shadow-md"
+            style={{ left: '-2rem', top: '-1rem' }}
+          >
+            <span className="font-display text-4xl font-black text-zn-gold text-comic-stroke-black" style={{ filter: 'drop-shadow(2px 2px 0 rgba(28,20,40,1))' }}>
+              +{s.score}
+            </span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
       <div 
         ref={dragGhostRef} 
-        className="fixed left-0 top-0 z-[100] pointer-events-none hidden transition-transform duration-75 origin-bottom"
+        className="fixed left-0 top-0 z-[100] pointer-events-none hidden transition-transform duration-75 origin-center"
       >
-        <div className="rounded-[1.3rem] bg-black/20 p-2 backdrop-blur-sm border-[2px] border-white/50 shadow-xl">
-           <p className="font-display text-[10px] font-black uppercase tracking-wider text-white">Влачиш фигура</p>
+        <div className="drop-shadow-[0_20px_35px_rgba(0,0,0,0.55)]">
+           {selectedPiece && <PieceMiniBoard piece={selectedPiece} selected={false} theme={activeTheme} />}
         </div>
       </div>
       {showSettings ? <BlockBustSettings settings={settings} onChange={setSettings} onClose={() => setShowSettings(false)} /> : null}

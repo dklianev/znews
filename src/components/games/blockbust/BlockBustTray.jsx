@@ -5,7 +5,7 @@ function getPieceCellSize(piece) {
   return 15;
 }
 
-function PieceMiniBoard({ piece, selected, disabled, theme, patternAssist = false }) {
+export function PieceMiniBoard({ piece, selected, disabled, theme, patternAssist = false }) {
   if (!piece) {
     return (
       <div className="min-h-[5.5rem] rounded-[1.4rem] border-3 border-dashed border-[#1C1428] bg-black/5 opacity-40 sm:min-h-[6rem]" />
@@ -27,9 +27,9 @@ function PieceMiniBoard({ piece, selected, disabled, theme, patternAssist = fals
       {piece.cells.map(([row, col], index) => (
         <span
           key={`${piece.id}-${row}-${col}-${index}`}
-          className={`absolute rounded-[0.7rem] border border-black/10 ${patternClass}`}
+          className={`absolute rounded-[0.35rem] border border-black/10 ${patternClass}`}
           style={{
-            width: `${cellSize - 1}px`,
+            width: `${cellSize}px`,
             height: `${cellSize - 1}px`,
             left: `${5 + col * cellSize}px`,
             top: `${5 + row * cellSize}px`,
@@ -41,16 +41,18 @@ function PieceMiniBoard({ piece, selected, disabled, theme, patternAssist = fals
             zIndex: selected ? 10 : 1,
           }}
         >
-          <div className="pointer-events-none absolute inset-[1px] rounded-[0.55rem] bg-gradient-to-br from-white/30 to-transparent" />
+          <div className="pointer-events-none absolute inset-[1px] rounded-[0.25rem] bg-gradient-to-br from-white/30 to-transparent" />
         </span>
       ))}
     </div>
   );
 }
 
+import { AnimatePresence, motion } from 'motion/react';
+
 export default function BlockBustTray({
   pieces,
-  selectedPieceId,
+  selectedSlotIndex,
   onSelectPiece,
   onStartDragPiece,
   theme,
@@ -61,20 +63,25 @@ export default function BlockBustTray({
 
   return (
     <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+      <AnimatePresence mode="popLayout">
       {trayPieces.map((piece, index) => {
-        const selected = piece?.id === selectedPieceId;
+        const selected = piece !== null && index === selectedSlotIndex;
         const keyboardHint = index + 1;
 
         return (
-          <button
-            key={piece?.id || `slot-${index}`}
+          <motion.button
+            key={`slot-${index}-${piece ? piece.id : 'empty'}`}
+            initial={piece ? { scale: 0.8, y: 30, opacity: 0 } : { scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            exit={{ scale: 0.6, opacity: 0 }}
+            transition={piece ? { type: 'spring', delay: index * 0.05, stiffness: 400, damping: 25 } : { duration: 0.2 }}
             type="button"
-            onClick={() => piece && onSelectPiece?.(piece.id)}
+            onClick={() => piece && onSelectPiece?.(index)}
             onPointerDown={(event) => {
               if (!piece || controlMode !== 'drag-tap') return;
-              onStartDragPiece?.(event, piece.id);
+              onStartDragPiece?.(event, index);
             }}
-            className={`relative overflow-hidden comic-panel px-2.5 py-3 text-left transition-all duration-300 ${
+            className={`touch-none relative overflow-hidden comic-panel px-2.5 py-3 text-left transition-all duration-300 ${
               selected ? 'translate-y-[-4px] scale-[1.03] z-10' : 'translate-y-0 z-0'
             }`}
             style={{
@@ -124,9 +131,10 @@ export default function BlockBustTray({
                 </p>
               </div>
             </div>
-          </button>
+          </motion.button>
         );
       })}
+      </AnimatePresence>
     </div>
   );
 }

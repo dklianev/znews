@@ -233,8 +233,9 @@ export function getBlockBustTheme(themeId) {
 }
 
 export function getBlockBustNextThemeId(currentThemeId) {
-  const currentIndex = Math.max(0, BLOCK_BUST_THEMES.findIndex((theme) => theme.id === currentThemeId));
-  return BLOCK_BUST_THEMES[(currentIndex + 1) % BLOCK_BUST_THEMES.length].id;
+  const available = BLOCK_BUST_THEMES.filter(t => t.id !== currentThemeId);
+  if (available.length === 0) return currentThemeId;
+  return available[Math.floor(Math.random() * available.length)].id;
 }
 
 export function getBlockBustLevel(totalLines = 0) {
@@ -434,7 +435,7 @@ export function serializeBlockBustRun(state) {
   return {
     version: BLOCK_BUST_RUN_VERSION,
     board: cloneBoard(state.board || createEmptyBlockBustBoard()),
-    tray: Array.isArray(state.tray) ? state.tray.map((piece) => piece.id) : [],
+    tray: Array.isArray(state.tray) ? state.tray.map((piece) => piece ? piece.id : null) : [],
     score: Math.max(0, Number(state.score) || 0),
     bestScore: Math.max(0, Number(state.bestScore) || 0),
     totalLines: Math.max(0, Number(state.totalLines) || 0),
@@ -443,7 +444,7 @@ export function serializeBlockBustRun(state) {
     moveCount: Math.max(0, Number(state.moveCount) || 0),
     themeId: getBlockBustTheme(state.themeId).id,
     status: state.status === 'over' ? 'over' : 'playing',
-    selectedPieceId: typeof state.selectedPieceId === 'string' ? state.selectedPieceId : null,
+    selectedSlotIndex: typeof state.selectedSlotIndex === 'number' ? state.selectedSlotIndex : null,
   };
 }
 
@@ -451,9 +452,8 @@ export function hydrateBlockBustRun(payload) {
   if (!payload || payload.version !== BLOCK_BUST_RUN_VERSION) return null;
   const pieceMap = new Map(BLOCK_BUST_PIECES.map((piece) => [piece.id, piece]));
   const tray = (Array.isArray(payload.tray) ? payload.tray : [])
-    .map((id) => pieceMap.get(id))
-    .filter(Boolean);
-  if (tray.length === 0) return null;
+    .map((id) => id ? (pieceMap.get(id) || null) : null);
+  if (tray.filter(Boolean).length === 0) return null;
   const board = Array.isArray(payload.board) && payload.board.length === BLOCK_BUST_BOARD_SIZE
     ? payload.board.map((row) => Array.from({ length: BLOCK_BUST_BOARD_SIZE }, (_, index) => Number(row?.[index]) ? 1 : 0))
     : createEmptyBlockBustBoard();
@@ -469,6 +469,6 @@ export function hydrateBlockBustRun(payload) {
     moveCount: Math.max(0, Number(payload.moveCount) || 0),
     themeId: getBlockBustTheme(payload.themeId).id,
     status: payload.status === 'over' ? 'over' : 'playing',
-    selectedPieceId: tray.some((piece) => piece.id === payload.selectedPieceId) ? payload.selectedPieceId : null,
+    selectedSlotIndex: typeof payload.selectedSlotIndex === 'number' && payload.selectedSlotIndex >= 0 && payload.selectedSlotIndex < tray.length && tray[payload.selectedSlotIndex] !== null ? payload.selectedSlotIndex : null,
   };
 }

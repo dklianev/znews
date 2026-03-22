@@ -108,12 +108,12 @@ export function runBlockBustTests() {
     moveCount: 9,
     themeId: BLOCK_BUST_THEMES[2].id,
     status: 'playing',
-    selectedPieceId: tray[1].id,
+    selectedSlotIndex: 1,
   });
   const hydrated = hydrateBlockBustRun(serialized);
   assert.ok(hydrated, 'serialized run should hydrate');
   assert.equal(hydrated.tray.length, tray.length, 'hydrated tray should preserve piece count');
-  assert.equal(hydrated.selectedPieceId, tray[1].id, 'hydrated run should preserve selected piece');
+  assert.equal(hydrated.selectedSlotIndex, 1, 'hydrated run should preserve selected piece index');
 
   assert.equal(
     hydrateBlockBustRun({ ...serialized, tray: [], version: 1 }),
@@ -128,5 +128,5 @@ export function runBlockBustTests() {
 
   assert.equal(getBlockBustLevel(0), 1, 'level should start at 1');
   assert.equal(getBlockBustLevel(8), 2, 'level should increase every eight lines');
-  assert.equal(getBlockBustNextThemeId(BLOCK_BUST_THEMES[0].id), BLOCK_BUST_THEMES[1].id, 'theme rotation should move to the next theme');
+  assert.notEqual(getBlockBustNextThemeId(BLOCK_BUST_THEMES[0].id), BLOCK_BUST_THEMES[0].id, 'theme rotation should move to a different theme');
 }

@@ -55,7 +55,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
         />
 
         <div
-          className="relative mt-8 grid gap-1.5 sm:gap-2"
+          className="relative mt-8 grid gap-0.5 sm:gap-1"
           style={{ gridTemplateColumns: `repeat(${BLOCK_BUST_BOARD_SIZE}, minmax(0, 1fr))` }}
         >
           {board.map((rowCells, rowIndex) => rowCells.map((cell, colIndex) => {
@@ -74,7 +74,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
                 onMouseEnter={() => onCellEnter?.(rowIndex, colIndex)}
                 onFocus={() => onCellEnter?.(rowIndex, colIndex)}
                 onClick={() => onCellClick?.(rowIndex, colIndex)}
-                className="relative block w-full overflow-hidden rounded-[1.05rem] outline-none transition-transform duration-150"
+                className="relative block w-full overflow-hidden rounded-[0.45rem] sm:rounded-md outline-none transition-transform duration-150"
                 style={{
                   paddingTop: '100%',
                   transform: isFocused ? 'scale(1.02)' : 'scale(1)',
@@ -83,7 +83,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
               >
                 {!filled && (
                   <span
-                    className="absolute inset-[0%] rounded-[1.05rem] border transition-all duration-150"
+                    className="absolute inset-[0%] rounded-[0.45rem] sm:rounded-md border transition-all duration-150"
                     style={{
                       background: theme.cellBg,
                       borderColor: contrastMode === 'high' ? 'rgba(255,255,255,0.18)' : theme.cellBorder,
@@ -96,11 +96,11 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
                   {filled && (
                     <motion.span
                       layoutId={`block-${rowIndex}-${colIndex}`}
-                      initial={{ scale: 0, opacity: 0 }}
+                      initial={{ scale: 1.25, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.65, opacity: 0, filter: 'brightness(2) contrast(1.5)' }}
-                      transition={{ type: 'spring', stiffness: 450, damping: 22 }}
-                      className="absolute inset-[-1px] rounded-[1.1rem] border transition-colors duration-150"
+                      transition={{ type: 'spring', stiffness: 500, damping: 18 }}
+                      className="absolute inset-[-1px] rounded-[0.45rem] sm:rounded-md border transition-colors duration-150"
                       style={{
                         background: `${patternBackground ? `${patternBackground}, ` : ''}linear-gradient(160deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
                         backgroundSize: patternBackground ? '12px 12px, auto' : undefined,
@@ -115,17 +115,22 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
 
                 {isPreview && (
                   <span
-                    className="absolute inset-[0.18rem] rounded-[0.88rem] border-2 border-dashed z-10"
+                    className="absolute inset-[-1px] rounded-[0.45rem] sm:rounded-md border z-10"
                     style={{
-                      background: invalidPreview ? theme.invalid : theme.ghost,
+                      background: invalidPreview ? '#ef4444' : `linear-gradient(160deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
                       borderColor: invalidPreview ? 'rgba(255,255,255,0.2)' : theme.fillFrom,
+                      opacity: invalidPreview ? 0.4 : 0.65,
                     }}
-                  />
+                  >
+                    {!invalidPreview && (
+                      <div className="pointer-events-none absolute inset-[1px] rounded-sm sm:rounded-md bg-gradient-to-br from-white/30 to-transparent" />
+                    )}
+                  </span>
                 )}
 
                 {isFocused && (
                   <span
-                    className="absolute inset-[-2px] rounded-[1.2rem] border-2 z-20 pointer-events-none"
+                    className="absolute inset-[-1px] rounded-[0.45rem] sm:rounded-md border-2 z-20 pointer-events-none"
                     style={{
                       borderColor: theme.accent,
                       boxShadow: `0 0 0 2px ${theme.accentSoft}`,
