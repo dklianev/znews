@@ -36,6 +36,7 @@ const GameTetrisPage = lazy(() => import('./pages/GameTetrisPage'));
 const GameSnakePage = lazy(() => import('./pages/GameSnakePage'));
 const Game2048Page = lazy(() => import('./pages/Game2048Page'));
 const GameFlappyBirdPage = lazy(() => import('./pages/GameFlappyBirdPage'));
+const GameBlockBustPage = lazy(() => import('./pages/GameBlockBustPage'));
 
 // Admin (lazy — heavy, rarely visited)
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
@@ -349,6 +350,7 @@ function AppContent() {
           <Route path="/games/snake" element={<PublicGameRoute slug="snake"><GameSnakePage /></PublicGameRoute>} />
           <Route path="/games/2048" element={<PublicGameRoute slug="2048"><Game2048Page /></PublicGameRoute>} />
           <Route path="/games/flappybird" element={<PublicGameRoute slug="flappybird"><GameFlappyBirdPage /></PublicGameRoute>} />
+          <Route path="/games/blockbust" element={<PublicGameRoute slug="blockbust"><GameBlockBustPage /></PublicGameRoute>} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

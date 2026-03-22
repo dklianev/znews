@@ -1669,8 +1669,8 @@ registerPermissionRoutes(app, {
 });
 
 // ─── Games API (Public) ───
-const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword']);
-const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword']);
+const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword', 'tetris', 'snake', '2048', 'flappybird', 'blockbust']);
+const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword', 'tetris', 'snake', '2048', 'flappybird', 'blockbust']);
 const SUPPORTED_PUZZLE_STATUSES = new Set(['draft', 'published', 'archived']);
 const SUPPORTED_PUZZLE_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 const TEMPORARILY_UNAVAILABLE_GAME_ERROR = 'Тази игра временно не е активна.';

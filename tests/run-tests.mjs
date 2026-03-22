@@ -23,6 +23,7 @@ import { runSettingsHelpersTests } from './settingsHelpersService.test.mjs';
 import { runArticlePushHelpersTests } from './articlePushHelpersService.test.mjs';
 import { runDocumentHelpersTests } from './documentHelpersService.test.mjs';
 import { runGamesCatalogServiceTests } from './gamesCatalogService.test.mjs';
+import { runGameSharedHelpersServiceTests } from './gameSharedHelpersService.test.mjs';
 import { runAccessHelpersTests } from './accessHelpersService.test.mjs';
 import { runAuthTokenHelpersTests } from './authTokenHelpersService.test.mjs';
 import { runAuthSessionHelpersTests } from './authSessionHelpersService.test.mjs';
@@ -62,6 +63,7 @@ import { runWebSpaRoutesTests } from './webSpaRoutes.test.mjs';
 import { runTetrisTests } from './tetris.test.mjs';
 import { runTouchSwipeTests } from './touchSwipe.test.mjs';
 import { runApiClientSessionTests } from './apiClientSession.test.mjs';
+import { runBlockBustTests } from './blockBust.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -98,6 +100,7 @@ await runTest('settingsHelpers', runSettingsHelpersTests);
 await runTest('articlePushHelpers', runArticlePushHelpersTests);
 await runTest('documentHelpers', runDocumentHelpersTests);
 await runTest('gamesCatalogService', runGamesCatalogServiceTests);
+await runTest('gameSharedHelpersService', runGameSharedHelpersServiceTests);
 await runTest('accessHelpers', runAccessHelpersTests);
 await runTest('authTokenHelpers', runAuthTokenHelpersTests);
 await runTest('authSessionHelpers', runAuthSessionHelpersTests);
@@ -137,5 +140,6 @@ await runTest('webSpaRoutes', runWebSpaRoutesTests);
 await runTest('tetris', runTetrisTests);
 await runTest('touchSwipe', runTouchSwipeTests);
 await runTest('apiClientSession', runApiClientSessionTests);
+await runTest('blockBust', runBlockBustTests);
 
 console.log('All tests passed.');

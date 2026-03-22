@@ -2,17 +2,18 @@ import { GameDefinition, GamePuzzle } from './models.js';
 import { createGamePuzzleTemplate } from '../shared/gamePuzzleTemplates.js';
 
 export const DEFAULT_GAME_DEFINITIONS = Object.freeze([
-  { id: 1, slug: 'word', title: 'Думата на деня', type: 'word', description: 'Познай тайната дума за деня за до шест опита.', icon: 'Type', active: true, sortOrder: 1, theme: 'green' },
-  { id: 2, slug: 'connections', title: 'Връзки', type: 'connections', description: 'Групирай 16-те думи в 4 логически свързани категории.', icon: 'Link', active: true, sortOrder: 2, theme: 'indigo' },
-  { id: 3, slug: 'quiz', title: 'Новинарски тест', type: 'quiz', description: 'Провери знанията си за най-важните местни истории.', icon: 'HelpCircle', active: true, sortOrder: 3, theme: 'orange' },
-  { id: 4, slug: 'sudoku', title: 'Судоку', type: 'sudoku', description: 'Играй по всяко време и сменяй трудността от лесно до експерт.', icon: 'Grid3x3', active: true, sortOrder: 4, theme: 'purple' },
-  { id: 5, slug: 'hangman', title: 'Бесеница', type: 'hangman', description: 'Отгатни думата буква по буква, преди шансовете ти да свършат.', icon: 'Type', active: true, sortOrder: 5, theme: 'orange' },
-  { id: 6, slug: 'spellingbee', title: 'Spelling Bee', type: 'spellingbee', description: 'Събери възможно най-много думи от седем букви, като централната е задължителна.', icon: 'Hexagon', active: true, sortOrder: 6, theme: 'orange' },
-  { id: 7, slug: 'crossword', title: 'Кръстословица', type: 'crossword', description: 'Попълни мини кръстословица с думи по хоризонтала и вертикала.', icon: 'Hash', active: true, sortOrder: 7, theme: 'indigo' },
-  { id: 8, slug: 'tetris', title: 'Тетрис', type: 'tetris', description: 'Подреждай фигури, чисти линии, гони рекорд. Класиката на класиките.', icon: 'Blocks', active: true, sortOrder: 8, theme: 'purple' },
-  { id: 9, slug: 'snake', title: 'Змия', type: 'snake', description: 'Яж, расти, не се блъскай. Три трудности, безкраен режим.', icon: 'Tangent', active: true, sortOrder: 9, theme: 'green' },
-  { id: 10, slug: '2048', title: '2048', type: '2048', description: 'Плъзгай плочки, сливай числа, достигни 2048. Пристрастяващ пъзел!', icon: 'Grid3x3', active: true, sortOrder: 10, theme: 'orange' },
-  { id: 11, slug: 'flappybird', title: 'Flappy Bird', type: 'flappybird', description: 'Махай крилца, прелитай тръби, гони рекорд. Колко далеч ще стигнеш?', icon: 'Gamepad2', active: true, sortOrder: 11, theme: 'green' },
+  { id: 1, slug: 'word', title: 'Намери точната дума', type: 'word', description: 'Познай точната дума за деня в до шест опита.', icon: 'Type', active: true, sortOrder: 1, theme: 'green' },
+  { id: 2, slug: 'connections', title: 'Connections', type: 'connections', description: 'Свържи 16 думи в 4 правилни тематични групи.', icon: 'Link', active: true, sortOrder: 2, theme: 'indigo' },
+  { id: 3, slug: 'quiz', title: 'Новинарски quiz', type: 'quiz', description: 'Провери паметта си за най-големите истории на деня.', icon: 'HelpCircle', active: true, sortOrder: 3, theme: 'orange' },
+  { id: 4, slug: 'sudoku', title: 'Судоку', type: 'sudoku', description: 'Реши числовата мрежа и дръж темпото до последната клетка.', icon: 'Grid3x3', active: true, sortOrder: 4, theme: 'purple' },
+  { id: 5, slug: 'hangman', title: 'Бесеница', type: 'hangman', description: 'Познай скритата дума преди да свършат шансовете.', icon: 'Type', active: true, sortOrder: 5, theme: 'orange' },
+  { id: 6, slug: 'spellingbee', title: 'Spelling Bee', type: 'spellingbee', description: 'Събирай български думи около централна буква и стигни панграма.', icon: 'Hexagon', active: true, sortOrder: 6, theme: 'orange' },
+  { id: 7, slug: 'crossword', title: 'Кръстословица', type: 'crossword', description: 'Попълни цялата мрежа с правилните отговори.', icon: 'Hash', active: true, sortOrder: 7, theme: 'indigo' },
+  { id: 8, slug: 'tetris', title: 'Тетрис', type: 'tetris', description: 'Класически блокове, бързи решения и истински newsroom натиск.', icon: 'Blocks', active: true, sortOrder: 8, theme: 'purple' },
+  { id: 9, slug: 'snake', title: 'Змия', type: 'snake', description: 'Яж, растѝ и оцелявай колкото можеш по-дълго.', icon: 'Tangent', active: true, sortOrder: 9, theme: 'green' },
+  { id: 10, slug: '2048', title: '2048', type: '2048', description: 'Плъзгай плочките, комбинирай числата и стигни до 2048.', icon: 'Grid3x3', active: true, sortOrder: 10, theme: 'orange' },
+  { id: 11, slug: 'flappybird', title: 'Flappy Bird', type: 'flappybird', description: 'Прелети между тръбите и задръж темпото.', icon: 'Gamepad2', active: true, sortOrder: 11, theme: 'green' },
+  { id: 12, slug: 'blockbust', title: 'Grid Riot', type: 'blockbust', description: 'Поставяй три фигури върху 8x8 полето и върти темите с всяко пълно изчистване.', icon: 'Blocks', active: true, sortOrder: 12, theme: 'orange' },
 ]);
 
 const DEFAULT_GAME_SLUGS = DEFAULT_GAME_DEFINITIONS.map((game) => game.slug);

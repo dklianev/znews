@@ -323,6 +323,14 @@ async function runBrowserSmoke() {
       },
     },
     {
+      path: '/api/games',
+      assert(payload) {
+        if (!Array.isArray(payload) || !payload.some((item) => item?.slug === 'blockbust' && item?.title === 'Grid Riot')) {
+          throw new Error('Expected /api/games to include the Grid Riot definition.');
+        }
+      },
+    },
+    {
       path: '/api/search?q=test',
       assert(payload) {
         const hasAllSections = ['articles', 'jobs', 'court', 'events', 'wanted']
@@ -420,6 +428,20 @@ async function runBrowserSmoke() {
         }
         if (snapshot.text.trim().length < 80) {
           throw new Error('Expected hangman page to render a valid game or empty-state message.');
+        }
+      },
+    },
+    {
+      path: '/games/blockbust',
+      assert(snapshot) {
+        if (snapshot.url !== '/games/blockbust') {
+          throw new Error(`Expected /games/blockbust to stay on the same route, received "${snapshot.url}"`);
+        }
+        if (snapshot.title.includes('404')) {
+          throw new Error('Expected block puzzle page to render a valid game view, not a 404 state.');
+        }
+        if (!snapshot.title.includes('Grid Riot') || !snapshot.text.includes('Точки')) {
+          throw new Error('Expected block puzzle page snapshot to include the game masthead and HUD.');
         }
       },
     },
