@@ -8,7 +8,7 @@ function getPieceCellSize(piece) {
 function PieceMiniBoard({ piece, selected, disabled, theme, patternAssist = false }) {
   if (!piece) {
     return (
-      <div className="min-h-[5.5rem] rounded-[1.3rem] border-2 border-dashed border-white/15 bg-black/10 sm:min-h-[6rem]" />
+      <div className="min-h-[5.5rem] rounded-[1.4rem] border-3 border-dashed border-[#1C1428] bg-black/5 opacity-40 sm:min-h-[6rem]" />
     );
   }
 
@@ -21,25 +21,28 @@ function PieceMiniBoard({ piece, selected, disabled, theme, patternAssist = fals
 
   return (
     <div
-      className={`relative mx-auto transition-transform duration-150 ${selected ? 'scale-[1.03]' : ''}`}
+      className={`relative mx-auto transition-transform duration-300 ${selected ? 'scale-[1.15]' : 'scale-100'}`}
       style={{ width: trayWidth, height: trayHeight }}
     >
       {piece.cells.map(([row, col], index) => (
         <span
           key={`${piece.id}-${row}-${col}-${index}`}
-          className={`absolute rounded-[0.65rem] border border-black/10 ${patternClass}`}
+          className={`absolute rounded-[0.7rem] border border-black/10 ${patternClass}`}
           style={{
             width: `${cellSize - 1}px`,
             height: `${cellSize - 1}px`,
             left: `${5 + col * cellSize}px`,
             top: `${5 + row * cellSize}px`,
-            background: `linear-gradient(180deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
+            background: `linear-gradient(160deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
             boxShadow: selected
-              ? `0 8px 18px ${theme.fillShadow}, inset 0 1px 0 rgba(255,255,255,0.28)`
-              : `0 6px 14px ${theme.fillShadow}, inset 0 1px 0 rgba(255,255,255,0.18)`,
-            opacity: disabled ? 0.45 : 1,
+              ? `inset 0 2px 4px rgba(255,255,255,0.6), inset 0 -2px 5px rgba(0,0,0,0.3), 0 10px 20px ${theme.fillShadow}`
+              : `inset 0 1px 3px rgba(255,255,255,0.5), inset 0 -1px 3px rgba(0,0,0,0.2), 0 5px 12px ${theme.fillShadow}`,
+            opacity: disabled ? 0.35 : 1,
+            zIndex: selected ? 10 : 1,
           }}
-        />
+        >
+          <div className="pointer-events-none absolute inset-[1px] rounded-[0.55rem] bg-gradient-to-br from-white/30 to-transparent" />
+        </span>
       ))}
     </div>
   );
@@ -71,17 +74,17 @@ export default function BlockBustTray({
               if (!piece || controlMode !== 'drag-tap') return;
               onStartDragPiece?.(event, piece.id);
             }}
-            className={`relative overflow-hidden rounded-[1.35rem] border-[3px] px-2.5 py-3 text-left transition-all duration-200 ${
-              selected ? 'translate-y-[-2px] scale-[1.01]' : 'translate-y-0'
+            className={`relative overflow-hidden comic-panel px-2.5 py-3 text-left transition-all duration-300 ${
+              selected ? 'translate-y-[-4px] scale-[1.03] z-10' : 'translate-y-0 z-0'
             }`}
             style={{
-              borderColor: selected ? theme.fillFrom : theme.boardBorder,
+              borderColor: selected ? theme.fillFrom : '#1C1428',
               background: selected
-                ? `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.05) 100%), ${theme.boardBg}`
+                ? `linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 100%), ${theme.boardBg}`
                 : `linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 100%), ${theme.boardBg}`,
               boxShadow: selected
-                ? `0 18px 30px ${theme.fillShadow}, 4px 4px 0 rgba(28,20,40,0.15)`
-                : `0 10px 22px rgba(20,16,32,0.15), 4px 4px 0 rgba(28,20,40,0.1)`,
+                ? `0 24px 40px ${theme.fillShadow}, 6px 6px 0 #1C1428`
+                : `0 10px 22px rgba(20,16,32,0.15), 4px 4px 0 #1C1428`,
             }}
           >
             <span className="absolute left-2.5 top-2 rounded-full border border-white/18 bg-white/10 px-2 py-1 font-display text-[9px] uppercase tracking-[0.22em] text-white/80">

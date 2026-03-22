@@ -135,6 +135,8 @@ export default function GameBlockBustPage() {
   const boardRef = useRef(null);
   const dragStateRef = useRef({ active: false });
   const audioContextRef = useRef(null);
+  const dragGhostRef = useRef(null);
+  const [shakeCount, setShakeCount] = useState(0);
 
   const selectedPiece = useMemo(() => run.tray.find((piece) => piece.id === run.selectedPieceId) || null, [run.selectedPieceId, run.tray]);
   const level = useMemo(() => getBlockBustLevel(run.totalLines), [run.totalLines]);
@@ -210,10 +212,12 @@ export default function GameBlockBustPage() {
     setAnchorCell(null);
     if (nextRun.score > bestScore) setBestScore(nextRun.score);
     persistDailyProgress(nextRun, nextRun.status === 'over' ? 'over' : 'played');
-    if (result.perfectClear) { playTone('perfect'); setBanner({ eyebrow: 'Пълно изчистване', title: `Нова тема: ${getBlockBustTheme(nextThemeId).name}`, accent: getBlockBustTheme(nextThemeId).accent }); }
-    else if (result.hadClear) { playTone('clear'); setBanner({ eyebrow: result.nextCombo > 1 ? `Комбо x${result.nextCombo}` : 'Чист удар', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'} изчистени`, accent: activeTheme.accent }); }
+    if (result.perfectClear) { playTone('perfect'); setShakeCount((c) => c + 1); setBanner({ type: 'perfect', eyebrow: 'Пълно изчистване', title: `Нова тема: ${getBlockBustTheme(nextThemeId).name}`, accent: getBlockBustTheme(nextThemeId).accent }); }
+    else if (result.hadClear) { playTone('clear'); setShakeCount((c) => c + 1); setBanner({ type: 'clear', eyebrow: result.nextCombo > 1 ? `Комбо x${result.nextCombo}` : 'Чист удар', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'} изчистени`, accent: activeTheme.accent }); }
     else playTone('place');
-    if (nextRun.status === 'over') { playTone('over'); setBanner({ eyebrow: 'Край на изданието', title: 'Няма място за нито една фигура', accent: '#cc0a1a' }); }
+    if (nextRun.status === 'over') { playTone('over'); setBanner({ type: 'over', eyebrow: 'Край на изданието', title: 'Полето е пълно', accent: '#cc0a1a' }); }
+    
+    if (dragGhostRef.current) dragGhostRef.current.style.display = 'none';
     return true;
   });
 
@@ -224,6 +228,11 @@ export default function GameBlockBustPage() {
     setRun((current) => ({ ...current, selectedPieceId: pieceId }));
     playTone('select');
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    if (dragGhostRef.current) {
+      dragGhostRef.current.style.display = 'block';
+      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY}px) translate(-50%, -100%)`;
+      dragGhostRef.current.setAttribute('data-piece', pieceId);
+    }
   });
   const updateAnchorFromPoint = useEffectEvent((clientX, clientY) => {
     const element = boardRef.current;
@@ -235,10 +244,17 @@ export default function GameBlockBustPage() {
     setAnchorCell({ row, col });
     setFocusCell({ row, col });
   });
-  const handleWindowPointerUp = useEffectEvent(() => { dragStateRef.current = { active: false }; });
-  useEffect(() => { function onPointerUp() { handleWindowPointerUp(); } window.addEventListener('pointerup', onPointerUp); return () => window.removeEventListener('pointerup', onPointerUp); }, [handleWindowPointerUp]);
+  const handleWindowPointerUp = useEffectEvent(() => { dragStateRef.current = { active: false }; if (dragGhostRef.current) dragGhostRef.current.style.display = 'none'; });
+  useEffect(() => { function onPointerUp() { handleWindowPointerUp(); } window.addEventListener('pointerup', onPointerUp); window.addEventListener('pointercancel', onPointerUp); return () => { window.removeEventListener('pointerup', onPointerUp); window.removeEventListener('pointercancel', onPointerUp); }; }, [handleWindowPointerUp]);
+  const handleWindowPointerMove = useEffectEvent((event) => {
+    if (dragStateRef.current.active && dragGhostRef.current) {
+      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY}px) translate(-50%, -100%)`;
+    }
+  });
+  useEffect(() => { window.addEventListener('pointermove', handleWindowPointerMove); return () => window.removeEventListener('pointermove', handleWindowPointerMove); }, [handleWindowPointerMove]);
+
   const handleBoardPointerMove = useEffectEvent((event) => { if (settings.controlMode !== 'drag-tap' && !selectedPiece) return; if (!dragStateRef.current.active && settings.controlMode === 'drag-tap') return; updateAnchorFromPoint(event.clientX, event.clientY); });
-  const handleBoardPointerUp = useEffectEvent(() => { if (!dragStateRef.current.active) return; dragStateRef.current = { active: false }; if (selectedPiece && anchorCell && previewState.valid) placeSelectedPiece(anchorCell.row, anchorCell.col); });
+  const handleBoardPointerUp = useEffectEvent(() => { if (!dragStateRef.current.active) return; dragStateRef.current = { active: false }; if (dragGhostRef.current) dragGhostRef.current.style.display = 'none'; if (selectedPiece && anchorCell && previewState.valid) placeSelectedPiece(anchorCell.row, anchorCell.col); });
   const handleShare = useEffectEvent(async () => { const copied = await copyToClipboard(buildShareText(run, level, activeTheme.name)); setShareNotice({ message: copied ? 'Резултатът е копиран.' : 'Не успях да копирам резултата.' }); });
   const handleKeyDown = useEffectEvent((event) => {
     const tag = event.target?.tagName;
@@ -298,8 +314,28 @@ export default function GameBlockBustPage() {
               {resumed && run.status !== 'over' ? <section className="rounded-[1.6rem] border-[3px] border-[#1c1428] bg-white px-4 py-4 shadow-[4px_4px_0_rgba(28,20,40,0.12)] dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-none"><p className="font-display text-xs font-black uppercase tracking-[0.28em] text-[#0088aa]">Продължаваш</p><p className="mt-2 text-sm font-semibold text-[#504961] dark:text-zinc-400">Върнахме те в последния рън. Остават {run.tray.length} фигури в текущата серия.</p></section> : null}
             </div>
 
-            <div className="grid gap-5 lg:order-2">
-              <AnimatePresence>{banner ? <motion.div key={`${banner.eyebrow}-${banner.title}`} initial={{ opacity: 0, y: -14, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.96 }} transition={{ duration: settings.animationLevel === 'reduced' ? 0.16 : 0.28 }} className="mx-auto w-full max-w-[34rem] rounded-[1.5rem] border-[3px] border-[#1c1428] bg-white/92 px-5 py-4 shadow-[5px_5px_0_rgba(28,20,40,0.14)] dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-none"><p className="font-display text-xs font-black uppercase tracking-[0.3em]" style={{ color: banner.accent }}>{banner.eyebrow}</p><p className="mt-2 font-display text-2xl font-black uppercase text-[#1c1428] dark:text-white">{banner.title}</p></motion.div> : null}</AnimatePresence>
+            <div className={`grid gap-5 lg:order-2 ${shakeCount > 0 ? 'animate-shake' : ''}`} onAnimationEnd={() => setShakeCount(0)}>
+              <div className="absolute left-0 right-0 top-[-2rem] z-30 flex justify-center pointer-events-none">
+                <AnimatePresence>
+                  {banner ? (
+                    <motion.div
+                      key={`${banner.eyebrow}-${banner.title}`}
+                      initial={{ opacity: 0, scale: 0.5, rotate: banner.type === 'over' ? -6 : 8, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, rotate: banner.type === 'over' ? -3 : 4, y: 0 }}
+                      exit={{ opacity: 0, scale: 1.1, y: -20 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                      className={`rounded-xl border-[4px] border-[#1C1428] px-6 py-3 shadow-[6px_6px_0_#1c1428] ${banner.type === 'perfect' ? 'bg-zn-gold' : banner.type === 'over' ? 'bg-zn-hot' : 'bg-zn-purple'}`}
+                    >
+                      <p className="font-display text-[11px] font-black uppercase tracking-[0.3em] text-white/90 drop-shadow-md">
+                        {banner.eyebrow}
+                      </p>
+                      <p className="mt-1 font-display text-2xl font-black uppercase leading-none tracking-wide text-white drop-shadow-lg text-comic-stroke-black">
+                        {banner.title}
+                      </p>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
               <section className="mx-auto w-full max-w-[34rem] rounded-[1.8rem] border-[3px] border-[#1c1428] bg-white/72 px-4 py-4 shadow-[5px_5px_0_rgba(28,20,40,0.12)] backdrop-blur-sm dark:border-zinc-700 dark:bg-zinc-900/70 dark:shadow-none">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div><p className="font-display text-xs uppercase tracking-[0.28em] text-[#6a6477] dark:text-zinc-500">Поле 8x8</p><p className="mt-1 text-sm font-semibold text-[#504961] dark:text-zinc-400">{selectedPiece ? 'Избраната фигура следва курсора или фокуса. Пусни я върху валидна клетка.' : 'Докосни фигура отдолу, за да започнеш хода.'}</p></div>
@@ -339,6 +375,14 @@ export default function GameBlockBustPage() {
         </div>
       </div>
       <AnimatePresence>{shareNotice ? <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 rounded-full border-[3px] border-[#1c1428] bg-white px-5 py-3 font-display text-xs font-black uppercase tracking-[0.24em] text-[#1c1428] shadow-[4px_4px_0_rgba(28,20,40,0.14)]">{shareNotice.message}</motion.div> : null}</AnimatePresence>
+      <div 
+        ref={dragGhostRef} 
+        className="fixed left-0 top-0 z-[100] pointer-events-none hidden transition-transform duration-75 origin-bottom"
+      >
+        <div className="rounded-[1.3rem] bg-black/20 p-2 backdrop-blur-sm border-[2px] border-white/50 shadow-xl">
+           <p className="font-display text-[10px] font-black uppercase tracking-wider text-white">Влачиш фигура</p>
+        </div>
+      </div>
       {showSettings ? <BlockBustSettings settings={settings} onChange={setSettings} onClose={() => setShowSettings(false)} /> : null}
     </div>
   );
