@@ -79,13 +79,51 @@ export const THEMES = {
     frameColor: '#69F7E8',
     previewBorder: '#55E4D8',
   },
+  random: {
+    name: 'Random',
+    colors: { I: '#00BCD4', O: '#FFC107', T: '#9C27B0', S: '#4CAF50', Z: '#F44336', J: '#2196F3', L: '#FF9800', garbage: '#666666' },
+    bg: '#1a1a2e',
+    boardBg: '#0a0a0a',
+    boardSurface: '#0a0a0a',
+    frameColor: '#1C1428',
+    previewBorder: '#1C1428',
+  },
 };
+
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1))).toString(16).padStart(2, '0'); };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+/** Regenerate random colors for the 'random' theme */
+export function generateRandomTetrisColors() {
+  const pieces = ['I', 'O', 'T', 'S', 'Z', 'J', 'L'];
+  const baseHue = Math.floor(Math.random() * 360);
+  const colors = { garbage: '#666666' };
+  for (let i = 0; i < pieces.length; i++) {
+    const h = (baseHue + Math.round(i * (360 / pieces.length)) + Math.floor(Math.random() * 18)) % 360;
+    const s = 68 + Math.floor(Math.random() * 27);
+    const l = 50 + Math.floor(Math.random() * 18);
+    colors[pieces[i]] = hslToHex(h, s, l);
+  }
+  const bgHue = Math.floor(Math.random() * 360);
+  THEMES.random.colors = colors;
+  THEMES.random.bg = hslToHex(bgHue, 30, 8);
+  THEMES.random.boardBg = hslToHex(bgHue, 25, 4);
+  THEMES.random.boardSurface = hslToHex(bgHue, 25, 4);
+  return colors;
+}
+
+// Initialize random theme on load
+generateRandomTetrisColors();
 
 const THEME_KEYS = Object.keys(THEMES);
 
-/** Pick a random theme key different from the current one */
+/** Pick a random theme key different from the current one (excludes 'random' from auto-rotation) */
 export function getNextRandomTetrisTheme(currentThemeKey) {
-  const candidates = THEME_KEYS.filter((key) => key !== currentThemeKey);
+  const candidates = THEME_KEYS.filter((key) => key !== currentThemeKey && key !== 'random');
   if (candidates.length === 0) return currentThemeKey;
   return candidates[Math.floor(Math.random() * candidates.length)];
 }

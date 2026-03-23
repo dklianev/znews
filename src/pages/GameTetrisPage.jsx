@@ -19,6 +19,7 @@ import {
   getTetrisRecordValue,
   getGhostPosition,
   getLevel,
+  generateRandomTetrisColors,
   getNextRandomTetrisTheme,
   hardDrop,
   isBetterTetrisRecord,
@@ -339,7 +340,8 @@ export default function GameTetrisPage() {
 
   const level = useMemo(() => mode === 'zen' ? 0 : getLevel(lines, startLevel - 1), [lines, startLevel, mode]);
   const prevLevelRef = useRef(level);
-  const currentTheme = useMemo(() => (THEMES[settings.theme] || THEMES.classic), [settings.theme]);
+  const [randomSeed, setRandomSeed] = useState(0);
+  const currentTheme = useMemo(() => { void randomSeed; return THEMES[settings.theme] || THEMES.classic; }, [settings.theme, randomSeed]);
   const themeColors = useMemo(() => currentTheme.colors, [currentTheme]);
 
   const playSound = useCallback((type) => {
@@ -577,9 +579,13 @@ export default function GameTetrisPage() {
         triggerBoardGlow(linesCleared >= 4 ? '#FFD700' : '#FF00FF');
         if (linesCleared >= 4) {
           playSound('tetris');
-          // Theme rotation on Tetris (4-line clear) — switch to random theme
-          const nextTheme = getNextRandomTetrisTheme(settingsRef.current.theme);
-          setSettings((s) => ({ ...s, theme: nextTheme }));
+          if (settingsRef.current.theme === 'random') {
+            generateRandomTetrisColors();
+            setRandomSeed((s) => s + 1);
+          } else {
+            const nextTheme = getNextRandomTetrisTheme(settingsRef.current.theme);
+            setSettings((s) => ({ ...s, theme: nextTheme }));
+          }
           setTimeout(() => playSound('themeChange'), 150);
         } else {
           playSound('tspin');
@@ -1450,7 +1456,7 @@ export default function GameTetrisPage() {
                           <button
                             key={key}
                             type="button"
-                            onClick={() => setSettings((s) => ({ ...s, theme: key }))}
+                            onClick={() => { if (key === 'random') { generateRandomTetrisColors(); setRandomSeed((s) => s + 1); } setSettings((s) => ({ ...s, theme: key })); }}
                             className={`flex min-w-0 items-center justify-center gap-2 px-2.5 py-1.5 font-display text-[10px] uppercase tracking-widest border-2 transition-colors ${
                               settings.theme === key
                                 ? 'border-yellow-400 bg-yellow-400/20 text-yellow-400'
@@ -1459,7 +1465,7 @@ export default function GameTetrisPage() {
                           >
                             <span
                               className="block h-2.5 w-2.5 rounded-full border border-white/30"
-                              style={{ background: t.colors.I }}
+                              style={{ background: key === 'random' ? `conic-gradient(${t.colors.I}, ${t.colors.T}, ${t.colors.S}, ${t.colors.Z}, ${t.colors.I})` : t.colors.I }}
                             />
                             <span className="truncate">{t.name}</span>
                           </button>
