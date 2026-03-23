@@ -386,7 +386,6 @@ function buildWeightedPieceCandidates(board, level, currentTray = []) {
   const occupancy = getBlockBustBoardOccupancy(board);
   const existingIds = new Set((Array.isArray(currentTray) ? currentTray : []).map((piece) => piece.id));
   const rawCandidates = BLOCK_BUST_PIECES
-    .filter((piece) => piece.band <= band)
     .map((piece) => ({
       piece,
       placements: getBlockBustValidPlacements(board, piece),
@@ -398,7 +397,7 @@ function buildWeightedPieceCandidates(board, level, currentTray = []) {
     if (candidate.piece.tags.includes('rescue') && occupancy >= 0.45) weight *= 1.85;
     if (candidate.piece.tags.includes('simple') && occupancy >= 0.6) weight *= 1.45;
     if (candidate.piece.tags.includes('awkward') && occupancy >= 0.45) weight *= 0.7;
-    if (candidate.piece.band > 2 && level < 7) weight *= 0.7;
+    if (candidate.piece.band > band) weight *= 0.65;
     if (existingIds.has(candidate.piece.id)) weight *= 0.55;
     if (candidate.placements.length >= 10) weight *= 1.2;
     return {
