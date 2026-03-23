@@ -1,4 +1,4 @@
-import { BLOCK_BUST_THEMES } from '../../../utils/blockBust';
+// Settings for ZBlast game
 
 function FieldLabel({ title, body }) {
   return (
@@ -117,34 +117,11 @@ export default function BlockBustSettings({ settings, onChange, onClose }) {
           </section>
 
           <section className="rounded-[1.6rem] border-[3px] border-[#1c1428] bg-white px-4 py-4 shadow-[4px_4px_0_rgba(28,20,40,0.12)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none">
-            <FieldLabel title="Смяна на тема" body="Избери дали темата да се сменя автоматично при пълно изчистване, или да я заключиш ръчно." />
-            <div className="flex flex-wrap gap-2">
-              <SelectChip active={activeSettings.themeMode === 'auto'} onClick={() => updateSetting('themeMode', 'auto')}>Автоматична</SelectChip>
-              <SelectChip active={activeSettings.themeMode === 'manual'} onClick={() => updateSetting('themeMode', 'manual')}>Ръчна</SelectChip>
-            </div>
-            {activeSettings.themeMode === 'manual' && (
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                {BLOCK_BUST_THEMES.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => updateSetting('manualThemeId', t.id)}
-                    className={`rounded-[0.8rem] border-[3px] px-3 py-2 text-left font-display text-xs font-black uppercase tracking-[0.18em] transition-transform ${
-                      activeSettings.manualThemeId === t.id
-                        ? 'translate-y-[-2px] text-white'
-                        : 'border-[#1c1428] bg-white text-[#1c1428] shadow-[3px_3px_0_rgba(28,20,40,0.14)]'
-                    }`}
-                    style={activeSettings.manualThemeId === t.id ? {
-                      borderColor: t.accent,
-                      background: `linear-gradient(135deg, ${t.ribbonFrom} 0%, ${t.ribbonTo} 100%)`,
-                      boxShadow: `3px 3px 0 ${t.accent}`,
-                    } : undefined}
-                  >
-                    {t.name}
-                  </button>
-                ))}
-              </div>
-            )}
+            <FieldLabel title="Допълнително" />
+            <ul className="space-y-2 text-sm text-[#5c5666] dark:text-zinc-400">
+              <li>- Влачи + докосни пази модерното усещане, а tap режимът е сигурният fallback за CEF.</li>
+              <li>- Намалените анимации и високият контраст държат играта четима и на по-стари браузъри.</li>
+            </ul>
           </section>
         </div>
       </div>

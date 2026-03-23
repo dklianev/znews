@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Palette, RotateCcw, Settings2, Share2, Sparkles, Trophy, Zap } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Settings2, Share2, Sparkles, Trophy, Zap } from 'lucide-react';
 import BlockBustBoard from '../components/games/blockbust/BlockBustBoard';
 import BlockBustTray, { PieceMiniBoard } from '../components/games/blockbust/BlockBustTray';
 import BlockBustSettings from '../components/games/blockbust/BlockBustSettings';
@@ -86,8 +86,8 @@ function getRiskTone(occupancy) {
   return '#00a0d2';
 }
 
-function buildShareText(run, level, themeName) {
-  return [`zNews ${GAME_TITLE}`, `Точки: ${formatScore(run.score)}`, `Ниво: ${level}`, `Пълни изчиствания: ${run.fullWipes}`, `Тема: ${themeName}`, `Ходове: ${run.moveCount}`].join('\n');
+function buildShareText(run, level) {
+  return [`zNews ${GAME_TITLE}`, `Точки: ${formatScore(run.score)}`, `Ниво: ${level}`, `Пълни изчиствания: ${run.fullWipes}`, `Ходове: ${run.moveCount}`].join('\n');
 }
 
 function StatsTile({ label, value, icon: Icon }) {
@@ -154,11 +154,6 @@ export default function GameBlockBustPage() {
   }, [anchorCell, run.board, selectedPiece]);
 
   useEffect(() => { try { window.localStorage.setItem(BLOCK_BUST_SETTINGS_KEY, JSON.stringify(settings)); } catch { /* noop */ } }, [settings]);
-  useEffect(() => {
-    if (settings.themeMode === 'manual' && settings.manualThemeId && settings.manualThemeId !== run.themeId) {
-      setRun((current) => ({ ...current, themeId: settings.manualThemeId }));
-    }
-  }, [settings.themeMode, settings.manualThemeId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { saveScopedGameProgress(GAME_SLUG, BLOCK_BUST_META_SCOPE, { bestScore }); }, [bestScore]);
   useEffect(() => { const serialized = serializeBlockBustRun({ ...run, bestScore }); if (serialized) saveScopedGameProgress(GAME_SLUG, BLOCK_BUST_RUN_SCOPE, serialized); }, [bestScore, run]);
   useEffect(() => {
@@ -221,7 +216,7 @@ export default function GameBlockBustPage() {
     if (typeof pieceIndex === 'number') remainingTray[pieceIndex] = null;
     
     const nextTray = remainingTray.every(p => !p) ? createBlockBustTray(result.board, nextLevel) : remainingTray;
-    const nextThemeId = result.perfectClear && settings.themeMode !== 'manual' ? getBlockBustNextThemeId(run.themeId) : run.themeId;
+    const nextThemeId = result.perfectClear ? getBlockBustNextThemeId(run.themeId) : run.themeId;
     const nextRun = { ...run, board: result.board, tray: nextTray, score: run.score + result.score, totalLines: run.totalLines + result.linesCleared, combo: result.nextCombo, fullWipes: run.fullWipes + (result.perfectClear ? 1 : 0), moveCount: run.moveCount + 1, selectedSlotIndex: null, themeId: nextThemeId, status: isBlockBustGameOver(result.board, nextTray) ? 'over' : 'playing' };
     setRun(nextRun);
     setResumed(false);
@@ -250,7 +245,7 @@ export default function GameBlockBustPage() {
       }, 1500);
     }
 
-    if (result.perfectClear) { playTone('perfect'); setBanner({ type: 'perfect', eyebrow: 'Пълно изчистване', title: `Нова тема: ${getBlockBustTheme(nextThemeId).name}`, accent: getBlockBustTheme(nextThemeId).accent }); }
+    if (result.perfectClear) { playTone('perfect'); setBanner({ type: 'perfect', eyebrow: 'Пълно изчистване', title: 'Полето е чисто!', accent: getBlockBustTheme(nextThemeId).accent }); }
     else if (result.hadClear) { playTone('clear'); setBanner({ type: 'clear', eyebrow: result.nextCombo > 1 ? `Комбо x${result.nextCombo}` : 'Чист удар', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'} изчистени`, accent: activeTheme.accent }); }
     else playTone('place');
     if (nextRun.status === 'over') { playTone('over'); setBanner({ type: 'over', eyebrow: 'Край на изданието', title: 'Полето е пълно', accent: '#cc0a1a' }); }
@@ -337,7 +332,7 @@ export default function GameBlockBustPage() {
   useEffect(() => { window.addEventListener('pointermove', handleWindowPointerMove); return () => window.removeEventListener('pointermove', handleWindowPointerMove); }, [handleWindowPointerMove]);
 
   const handleBoardPointerMove = useEffectEvent((event) => { if (settings.controlMode !== 'drag-tap' && !selectedPiece) return; if (!dragStateRef.current.active && settings.controlMode === 'drag-tap') return; updateAnchorFromPoint(event.clientX, event.clientY); });
-  const handleShare = useEffectEvent(async () => { const copied = await copyToClipboard(buildShareText(run, level, activeTheme.name)); setShareNotice({ message: copied ? 'Резултатът е копиран.' : 'Не успях да копирам резултата.' }); });
+  const handleShare = useEffectEvent(async () => { const copied = await copyToClipboard(buildShareText(run, level)); setShareNotice({ message: copied ? 'Резултатът е копиран.' : 'Не успях да копирам резултата.' }); });
   const handleKeyDown = useEffectEvent((event) => {
     const tag = event.target?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -373,12 +368,11 @@ export default function GameBlockBustPage() {
               <div>
                 <p className="font-display text-xs uppercase tracking-[0.34em] text-white/75">Редакционен аркаден рън</p>
                 <h1 className="mt-3 font-display text-4xl font-black uppercase leading-none sm:text-6xl">{GAME_TITLE}</h1>
-                <p className="mt-3 max-w-2xl text-sm font-semibold text-white/82 sm:text-base">Подреждай три фигури наведнъж, чисти редове и колони и отключвай нова тема с всяко пълно изчистване.</p>
+                <p className="mt-3 max-w-2xl text-sm font-semibold text-white/82 sm:text-base">Подреждай три фигури наведнъж, чисти редове и колони и трупай комбо бонуси.</p>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[25rem]">
+              <div className="grid grid-cols-3 gap-3 lg:min-w-[20rem]">
                 <StatsTile label="Точки" value={formatScore(run.score)} icon={Trophy} />
                 <StatsTile label="Ниво" value={level} icon={Zap} />
-                <StatsTile label="Тема" value={activeTheme.name} icon={Palette} />
                 <StatsTile label="Комбо" value={run.combo > 0 ? `x${run.combo}` : '0'} icon={Sparkles} />
               </div>
             </div>
@@ -435,22 +429,8 @@ export default function GameBlockBustPage() {
             </div>
 
             <div className={`grid gap-4 ${settings.leftHanded ? 'lg:order-1' : 'lg:order-3'}`}>
-              <section className="rounded-[1.8rem] border-[3px] border-[#1c1428] bg-[#f8f3ea] p-4 shadow-[5px_5px_0_rgba(28,20,40,0.14)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none">
-                <p className="font-display text-xs font-black uppercase tracking-[0.3em] text-[#5b1a8c]">Архив на темите</p>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  {BLOCK_BUST_THEMES.map((themeItem) => {
-                    const isActive = themeItem.id === activeTheme.id;
-                    return <div key={themeItem.id} className={`rounded-[1rem] border-[3px] px-3 py-3 transition-transform ${isActive ? 'translate-y-[-2px]' : ''}`} style={{ borderColor: isActive ? themeItem.accent : '#1c1428', background: isActive ? `linear-gradient(180deg, ${themeItem.accentSoft} 0%, rgba(255,255,255,0.96) 100%)` : 'rgba(255,255,255,0.88)', boxShadow: isActive ? `0 10px 24px ${themeItem.fillShadow}` : '4px 4px 0 rgba(28,20,40,0.1)' }}><p className="font-display text-[10px] uppercase tracking-[0.22em] text-[#6a6477]">{isActive ? 'Активна' : 'Тема'}</p><p className="mt-2 font-display text-sm font-black uppercase text-[#1c1428]">{themeItem.name}</p></div>;
-                  })}
-                </div>
-                <div className="mt-4 rounded-[1.2rem] border-[3px] border-[#1c1428] bg-white px-4 py-4 dark:border-zinc-700 dark:bg-zinc-900">
-                  <p className="font-display text-xs uppercase tracking-[0.22em] text-[#6a6477] dark:text-zinc-500">Смяна на темата</p>
-                  <p className="mt-2 font-display text-3xl font-black uppercase text-[#1c1428] dark:text-white">{activeTheme.name}</p>
-                  <p className="mt-2 text-sm font-semibold text-[#5c5666] dark:text-zinc-400">{settings.themeMode === 'manual' ? 'Темата е заключена ръчно. Пълните изчиствания още носят бонус, но не сменят skin-а.' : `Следващото пълно изчистване ще те прехвърли към изцяло нова случайна тема.`}</p>
-                </div>
-              </section>
-              <section className="rounded-[1.8rem] border-[3px] border-[#1c1428] bg-[#f8f3ea] p-4 shadow-[5px_5px_0_rgba(28,20,40,0.14)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none"><p className="font-display text-xs font-black uppercase tracking-[0.28em] text-[#cc0a1a]">Как се държи рънът</p><ul className="mt-4 space-y-3 text-sm font-semibold text-[#5c5666] dark:text-zinc-400"><li>Изчистеният ред или колона вдига комбото и темпото на ръна.</li><li>Пълното изчистване сменя темата и носи най-големия бонус.</li><li>Новата серия идва едва след като изиграеш и трите фигури.</li><li>Колкото по-плътно е полето, толкова по-важен става изборът на фигура.</li></ul></section>
-              {run.status === 'over' ? <section className="rounded-[1.8rem] border-[3px] border-[#1c1428] bg-white p-5 shadow-[5px_5px_0_rgba(28,20,40,0.14)] dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-none"><p className="font-display text-xs font-black uppercase tracking-[0.28em] text-[#cc0a1a]">Край на изданието</p><h2 className="mt-3 font-display text-3xl font-black uppercase text-[#1c1428] dark:text-white">Рънът приключи</h2><p className="mt-2 text-sm font-semibold text-[#5c5666] dark:text-zinc-400">Събра {formatScore(run.score)} точки, стигна до {activeTheme.name} и направи {run.fullWipes} пълни изчиствания.</p><div className="mt-5 grid gap-3"><button type="button" onClick={() => resetRun(true)} className="rounded-[1.1rem] border-[3px] border-[#1c1428] bg-zn-hot px-4 py-3 font-display text-sm font-black uppercase tracking-[0.22em] text-white shadow-[4px_4px_0_rgba(28,20,40,0.14)]">Играй пак</button><button type="button" onClick={handleShare} className="rounded-[1.1rem] border-[3px] border-[#1c1428] bg-white px-4 py-3 font-display text-sm font-black uppercase tracking-[0.22em] text-[#1c1428] shadow-[4px_4px_0_rgba(28,20,40,0.12)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-white dark:shadow-none">Сподели резултата</button></div></section> : null}
+              <section className="rounded-[1.8rem] border-[3px] border-[#1c1428] bg-[#f8f3ea] p-4 shadow-[5px_5px_0_rgba(28,20,40,0.14)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none"><p className="font-display text-xs font-black uppercase tracking-[0.28em] text-[#cc0a1a]">Как се държи рънът</p><ul className="mt-4 space-y-3 text-sm font-semibold text-[#5c5666] dark:text-zinc-400"><li>Изчистеният ред или колона вдига комбото и темпото на ръна.</li><li>Пълното изчистване носи най-големия бонус.</li><li>Новата серия идва едва след като изиграеш и трите фигури.</li><li>Колкото по-плътно е полето, толкова по-важен става изборът на фигура.</li></ul></section>
+              {run.status === 'over' ? <section className="rounded-[1.8rem] border-[3px] border-[#1c1428] bg-white p-5 shadow-[5px_5px_0_rgba(28,20,40,0.14)] dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-none"><p className="font-display text-xs font-black uppercase tracking-[0.28em] text-[#cc0a1a]">Край на изданието</p><h2 className="mt-3 font-display text-3xl font-black uppercase text-[#1c1428] dark:text-white">Рънът приключи</h2><p className="mt-2 text-sm font-semibold text-[#5c5666] dark:text-zinc-400">Събра {formatScore(run.score)} точки и направи {run.fullWipes} пълни изчиствания за {run.moveCount} хода.</p><div className="mt-5 grid gap-3"><button type="button" onClick={() => resetRun(true)} className="rounded-[1.1rem] border-[3px] border-[#1c1428] bg-zn-hot px-4 py-3 font-display text-sm font-black uppercase tracking-[0.22em] text-white shadow-[4px_4px_0_rgba(28,20,40,0.14)]">Играй пак</button><button type="button" onClick={handleShare} className="rounded-[1.1rem] border-[3px] border-[#1c1428] bg-white px-4 py-3 font-display text-sm font-black uppercase tracking-[0.22em] text-[#1c1428] shadow-[4px_4px_0_rgba(28,20,40,0.12)] dark:border-zinc-700 dark:bg-zinc-950 dark:text-white dark:shadow-none">Сподели резултата</button></div></section> : null}
             </div>
           </div>
         </div>
