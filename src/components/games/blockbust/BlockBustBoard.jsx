@@ -55,6 +55,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
         />
 
         <div
+          id="blockbust-grid"
           className="relative mt-8 grid gap-0.5 sm:gap-1"
           style={{ gridTemplateColumns: `repeat(${BLOCK_BUST_BOARD_SIZE}, minmax(0, 1fr))` }}
         >
@@ -83,7 +84,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
               >
                 {!filled && (
                   <span
-                    className="absolute inset-[0%] rounded-[0.45rem] sm:rounded-md border transition-all duration-150"
+                    className="pointer-events-none absolute inset-[0%] rounded-[0.45rem] sm:rounded-md border transition-all duration-150"
                     style={{
                       background: theme.cellBg,
                       borderColor: contrastMode === 'high' ? 'rgba(255,255,255,0.18)' : theme.cellBorder,
@@ -100,7 +101,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0.65, opacity: 0, filter: 'brightness(2) contrast(1.5)' }}
                       transition={{ type: 'spring', stiffness: 500, damping: 18 }}
-                      className="absolute inset-[-1px] rounded-[0.45rem] sm:rounded-md border transition-colors duration-150"
+                      className="pointer-events-none absolute inset-[-1px] rounded-[0.45rem] sm:rounded-md border transition-colors duration-150"
                       style={{
                         background: `${patternBackground ? `${patternBackground}, ` : ''}linear-gradient(160deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
                         backgroundSize: patternBackground ? '12px 12px, auto' : undefined,
@@ -115,7 +116,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
 
                 {isPreview && (
                   <span
-                    className="absolute inset-[-1px] rounded-[0.45rem] sm:rounded-md border z-10"
+                    className="pointer-events-none absolute inset-[-1px] rounded-[0.45rem] sm:rounded-md border z-10"
                     style={{
                       background: invalidPreview ? '#ef4444' : `linear-gradient(160deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
                       borderColor: invalidPreview ? 'rgba(255,255,255,0.2)' : theme.fillFrom,

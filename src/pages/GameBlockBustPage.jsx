@@ -263,9 +263,9 @@ export default function GameBlockBustPage() {
     }
   });
   const updateAnchorFromPoint = useEffectEvent((clientX, clientY) => {
-    const element = boardRef.current;
-    if (!element) return;
-    const rect = element.getBoundingClientRect();
+    const gridEl = document.getElementById('blockbust-grid');
+    if (!gridEl) return;
+    const rect = gridEl.getBoundingClientRect();
     
     const marginX = rect.width * 0.4;
     const marginTop = rect.height * 0.25;
@@ -409,7 +409,7 @@ export default function GameBlockBustPage() {
                   <div><p className="font-display text-xs uppercase tracking-[0.28em] text-[#6a6477] dark:text-zinc-500">Поле 8x8</p><p className="mt-1 text-sm font-semibold text-[#504961] dark:text-zinc-400">{selectedPiece ? 'Избраната фигура следва курсора или фокуса. Пусни я върху валидна клетка.' : 'Докосни фигура отдолу, за да започнеш хода.'}</p></div>
                   <div className="rounded-full border-[3px] border-[#1c1428] bg-[#f8f3ea] px-3 py-2 font-display text-[10px] font-black uppercase tracking-[0.24em] text-[#1c1428] dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">{settings.controlMode === 'drag-tap' ? 'Влачи + докосни' : 'Само докосни'}</div>
                 </div>
-                <BlockBustBoard ref={boardRef} board={run.board} theme={activeTheme} previewCells={previewState.cells} invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell)} focusCell={focusCell} showPlacementPreview={settings.showPlacementPreview} contrastMode={settings.gridContrast} patternAssist={settings.patternAssist} onCellEnter={(row, col) => { setAnchorCell({ row, col }); setFocusCell({ row, col }); }} onCellClick={(row, col) => placeSelectedPiece(row, col)} onBoardPointerMove={handleBoardPointerMove} onBoardPointerUp={handleWindowPointerUp} onBoardLeave={() => setAnchorCell(null)} />
+                <BlockBustBoard ref={boardRef} board={run.board} theme={activeTheme} previewCells={previewState.cells} invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell)} focusCell={focusCell} showPlacementPreview={settings.showPlacementPreview} contrastMode={settings.gridContrast} patternAssist={settings.patternAssist} onCellEnter={(row, col) => { if (dragStateRef.current.active) return; setAnchorCell({ row, col }); setFocusCell({ row, col }); }} onCellClick={(row, col) => placeSelectedPiece(row, col)} onBoardPointerMove={handleBoardPointerMove} onBoardPointerUp={handleWindowPointerUp} onBoardLeave={() => { if (!dragStateRef.current.active) setAnchorCell(null); }} />
                 <div className="mt-4 grid gap-3 rounded-[1.4rem] border-[3px] border-[#1c1428] bg-[#f8f3ea] px-4 py-4 shadow-[4px_4px_0_rgba(28,20,40,0.08)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div><p className="font-display text-xs uppercase tracking-[0.28em] text-[#6a6477] dark:text-zinc-500">Лента с фигури</p><p className="mt-1 text-sm font-semibold text-[#504961] dark:text-zinc-400">Изиграй и трите, за да получиш нова серия.</p></div>
