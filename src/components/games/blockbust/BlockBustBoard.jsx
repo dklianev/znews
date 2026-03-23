@@ -68,6 +68,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
               key={key}
               type="button"
               onMouseEnter={() => onCellEnter?.(ri, ci)}
+              onFocus={() => onCellEnter?.(ri, ci)}
               onClick={() => onCellClick?.(ri, ci)}
               className="relative block w-full outline-none"
               style={{ paddingTop: '100%' }}

@@ -141,7 +141,6 @@ export const BLOCK_BUST_DEFAULT_SETTINGS = Object.freeze({
   confirmRestart: false,
   gridContrast: 'normal',
   leftHanded: false,
-  patternAssist: false,
 });
 
 const BASE_PIECE_DEFINITIONS = Object.freeze([

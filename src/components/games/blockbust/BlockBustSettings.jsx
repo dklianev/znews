@@ -100,14 +100,6 @@ export default function BlockBustSettings({ settings, onChange, onClose }) {
             </div>
 
             <div className="mt-5">
-              <FieldLabel title="Шарка за контраст" body="Добавя фина текстура върху фигурите за по-ясно разделяне на theme-ите." />
-              <div className="flex flex-wrap gap-2">
-                <SelectChip active={activeSettings.patternAssist} onClick={() => updateSetting('patternAssist', true)}>Показвай</SelectChip>
-                <SelectChip active={!activeSettings.patternAssist} onClick={() => updateSetting('patternAssist', false)}>Скрий</SelectChip>
-              </div>
-            </div>
-
-            <div className="mt-5">
               <FieldLabel title="Потвърждение при рестарт" body="Спира случайното зануляване на силен рън, ако натиснеш бутона твърде бързо." />
               <div className="flex flex-wrap gap-2">
                 <SelectChip active={activeSettings.confirmRestart} onClick={() => updateSetting('confirmRestart', true)}>Да</SelectChip>
