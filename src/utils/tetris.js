@@ -81,6 +81,15 @@ export const THEMES = {
   },
 };
 
+const THEME_KEYS = Object.keys(THEMES);
+
+/** Pick a random theme key different from the current one */
+export function getNextRandomTetrisTheme(currentThemeKey) {
+  const candidates = THEME_KEYS.filter((key) => key !== currentThemeKey);
+  if (candidates.length === 0) return currentThemeKey;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
 /* ── Level & speed ── */
 
 /**

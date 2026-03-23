@@ -19,6 +19,7 @@ import {
   getTetrisRecordValue,
   getGhostPosition,
   getLevel,
+  getNextRandomTetrisTheme,
   hardDrop,
   isBetterTetrisRecord,
   isValidPosition,
@@ -141,8 +142,52 @@ function fallbackCopy(text) {
 
 const SETTINGS_VERSION = 3; // Bump when defaults change to force migration
 
+/* ── Sound engine ── */
+
+const TETRIS_TONES = {
+  move:    { freq: 180, dur: 0.03, vol: 0.025, wave: 'square' },
+  rotate:  { freq: 340, dur: 0.04, vol: 0.03, wave: 'triangle' },
+  drop:    { freq: 120, dur: 0.06, vol: 0.05, wave: 'square' },
+  lock:    { freq: 200, dur: 0.05, vol: 0.04, wave: 'triangle' },
+  clear:   { freq: 520, dur: 0.10, vol: 0.04, wave: 'triangle' },
+  tetris:  { freq: 880, dur: 0.22, vol: 0.06, wave: 'sine', sweep: 440 },
+  combo:   { freq: 600, dur: 0.08, vol: 0.04, wave: 'triangle' },
+  tspin:   { freq: 660, dur: 0.14, vol: 0.05, wave: 'sine' },
+  hold:    { freq: 280, dur: 0.04, vol: 0.03, wave: 'triangle' },
+  levelup: { freq: 740, dur: 0.18, vol: 0.05, wave: 'sine', sweep: 440 },
+  perfect: { freq: 990, dur: 0.28, vol: 0.06, wave: 'sine', sweep: 550 },
+  over:    { freq: 130, dur: 0.30, vol: 0.05, wave: 'sawtooth' },
+  themeChange: { freq: 1100, dur: 0.25, vol: 0.06, wave: 'sine', sweep: 660 },
+};
+
+let _tetrisAudioCtx = null;
+
+function playTetrisTone(type) {
+  const tone = TETRIS_TONES[type];
+  if (!tone) return;
+  try {
+    const Ctor = window.AudioContext || window.webkitAudioContext;
+    if (!Ctor) return;
+    if (!_tetrisAudioCtx) _tetrisAudioCtx = new Ctor();
+    const ctx = _tetrisAudioCtx;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = tone.wave;
+    osc.frequency.setValueAtTime(tone.freq, now);
+    if (tone.sweep) osc.frequency.exponentialRampToValueAtTime(tone.sweep, now + tone.dur);
+    gain.gain.setValueAtTime(tone.vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + tone.dur);
+    osc.start(now);
+    osc.stop(now + tone.dur);
+  } catch { /* noop */ }
+}
+
 function loadSettings() {
-  const defaults = { theme: 'classic', showGrid: false, queueSize: 3, keys: { ...DEFAULT_KEYS }, handling: { ...DEFAULT_HANDLING }, _v: SETTINGS_VERSION };
+  const defaults = { theme: 'classic', showGrid: false, queueSize: 3, soundEnabled: true, keys: { ...DEFAULT_KEYS }, handling: { ...DEFAULT_HANDLING }, _v: SETTINGS_VERSION };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
@@ -297,10 +342,15 @@ export default function GameTetrisPage() {
   const currentTheme = useMemo(() => (THEMES[settings.theme] || THEMES.classic), [settings.theme]);
   const themeColors = useMemo(() => currentTheme.colors, [currentTheme]);
 
+  const playSound = useCallback((type) => {
+    if (settingsRef.current.soundEnabled) playTetrisTone(type);
+  }, []);
+
   // Level-up detection
   useEffect(() => {
     if (level > prevLevelRef.current && gameStatus === 'playing') {
       setLevelUpFlash(true);
+      playSound('levelup');
       const t = setTimeout(() => setLevelUpFlash(false), 500);
       return () => clearTimeout(t);
     }
@@ -472,6 +522,7 @@ export default function GameTetrisPage() {
 
     if (!isValidPosition(nextBoard, newPiece.shape, newPiece.row, newPiece.col)) {
       setGameStatus('over');
+      playSound('over');
       saveHighScore(getRecordCandidate(modeRef.current, false), modeRef.current);
       return;
     }
@@ -494,7 +545,7 @@ export default function GameTetrisPage() {
     setPiece(newPiece);
     setHoldUsed(ihsUsed);
     lockResetsRef.current = 0;
-  }, [getRecordCandidate, saveHighScore]);
+  }, [getRecordCandidate, playSound, saveHighScore]);
 
   const cancelLockTimer = useCallback(() => {
     if (lockTimerRef.current) { clearTimeout(lockTimerRef.current); lockTimerRef.current = null; }
@@ -514,7 +565,7 @@ export default function GameTetrisPage() {
     );
     const newStats = updateStats(statsRef.current, linesCleared, tSpin, Math.max(0, newCombo), perfect);
 
-    // Visual feedback
+    // Sound + visual feedback
     if (linesCleared > 0) {
       triggerFlash(clearedIndices);
       triggerGravityDrop(clearedIndices);
@@ -524,10 +575,23 @@ export default function GameTetrisPage() {
         triggerTilt();
         triggerClearBanner(label, true);
         triggerBoardGlow(linesCleared >= 4 ? '#FFD700' : '#FF00FF');
-      } else if (label) {
-        triggerClearBanner(label, false);
+        if (linesCleared >= 4) {
+          playSound('tetris');
+          // Theme rotation on Tetris (4-line clear) — switch to random theme
+          const nextTheme = getNextRandomTetrisTheme(settingsRef.current.theme);
+          setSettings((s) => ({ ...s, theme: nextTheme }));
+          setTimeout(() => playSound('themeChange'), 150);
+        } else {
+          playSound('tspin');
+        }
+      } else {
+        playSound('clear');
+        if (label) triggerClearBanner(label, false);
       }
-      if (newCombo > 1) triggerComboBanner(newCombo);
+      if (newCombo > 1) { triggerComboBanner(newCombo); playSound('combo'); }
+      if (perfect) playSound('perfect');
+    } else {
+      playSound('lock');
     }
 
     let nextBoard = cleared;
@@ -574,7 +638,7 @@ export default function GameTetrisPage() {
     }
 
     spawnPiece({ board: nextBoard });
-  }, [getRecordCandidate, saveHighScore, showClearLabel, showScorePopup, spawnPiece, triggerBoardGlow, triggerClearBanner, triggerComboBanner, triggerFlash, triggerGravityDrop, triggerLockFlash, triggerShake, triggerTilt]);
+  }, [getRecordCandidate, playSound, saveHighScore, showClearLabel, showScorePopup, spawnPiece, triggerBoardGlow, triggerClearBanner, triggerComboBanner, triggerFlash, triggerGravityDrop, triggerLockFlash, triggerShake, triggerTilt]);
 
   const lockAndSpawn = useCallback(() => {
     cancelLockTimer();
@@ -707,7 +771,8 @@ export default function GameTetrisPage() {
       return;
     }
 
-    // First press: immediate move
+    // First press: immediate move + sound
+    playSound('move');
     executeMovement(action);
 
     // DAS delay, then ARR
@@ -719,7 +784,7 @@ export default function GameTetrisPage() {
         arrTimersRef.current[action] = setInterval(() => executeMovement(action), arr);
       }
     }, das);
-  }, [executeMovement]);
+  }, [executeMovement, playSound]);
 
   const stopDAS = useCallback((action) => {
     heldActionsRef.current.delete(action);
@@ -764,6 +829,7 @@ export default function GameTetrisPage() {
           const next = prev - 100;
           if (next <= 0) {
             setGameStatus('over');
+            playSound('over');
             saveHighScore(getRecordCandidate('ultra', false), 'ultra');
             return 0;
           }
@@ -942,21 +1008,22 @@ export default function GameTetrisPage() {
       switch (action) {
         case 'rotateCW': {
           const rotated = tryRotate(b, p, true);
-          if (rotated) { setPiece(rotated); resetLockDelay(); }
+          if (rotated) { setPiece(rotated); resetLockDelay(); playSound('rotate'); }
           break;
         }
         case 'rotateCCW': {
           const rotated = tryRotate(b, p, false);
-          if (rotated) { setPiece(rotated); resetLockDelay(); }
+          if (rotated) { setPiece(rotated); resetLockDelay(); playSound('rotate'); }
           break;
         }
         case 'rotate180': {
           const rotated = tryRotate180(b, p);
-          if (rotated) { setPiece(rotated); resetLockDelay(); }
+          if (rotated) { setPiece(rotated); resetLockDelay(); playSound('rotate'); }
           break;
         }
         case 'hold':
           holdPieceFn();
+          playSound('hold');
           break;
         case 'hardDrop': {
           cancelLockTimer();
@@ -965,6 +1032,7 @@ export default function GameTetrisPage() {
           const { piece: dropped, cellsDropped } = hardDrop(b, p);
           if (cellsDropped > 2) triggerDropTrail(dropped, fromRow);
           setScore((s) => s + cellsDropped * POINTS.HARD_DROP);
+          playSound('drop');
           processLock(dropped, b);
           break;
         }
@@ -1411,6 +1479,17 @@ export default function GameTetrisPage() {
                         }`}
                       >
                         <Grid3X3 className="w-3 h-3" /> Grid
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSettings((s) => ({ ...s, soundEnabled: !s.soundEnabled }))}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 font-display text-[10px] uppercase tracking-widest border-2 transition-colors ${
+                          settings.soundEnabled
+                            ? 'border-yellow-400 bg-yellow-400/20 text-yellow-400'
+                            : 'border-white/20 text-white/40 hover:border-white/40'
+                        }`}
+                      >
+                        {settings.soundEnabled ? '🔊' : '🔇'} Звук
                       </button>
                       <div className="flex items-center gap-1">
                         <span className="text-white/40 text-[10px] font-display uppercase">Опашка:</span>
