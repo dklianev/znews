@@ -1,54 +1,53 @@
+import { motion, AnimatePresence } from 'motion/react';
+
 function getPieceCellSize(piece) {
-  if (!piece) return 14;
-  if (piece.size >= 5) return 11;
-  if (piece.size === 4) return 13;
-  return 15;
+  if (!piece) return 16;
+  if (piece.size >= 5) return 13;
+  if (piece.size === 4) return 15;
+  return 17;
 }
 
-export function PieceMiniBoard({ piece, selected, disabled, theme, patternAssist = false }) {
+export function PieceMiniBoard({ piece, selected, disabled, theme, cellOverride }) {
   if (!piece) {
     return (
-      <div className="min-h-[5.5rem] rounded-[1.4rem] border-3 border-dashed border-[#1C1428] bg-black/5 opacity-40 sm:min-h-[6rem]" />
+      <div className="flex items-center justify-center min-h-[4rem] opacity-30">
+        <span className="text-xs text-white/40 font-display uppercase tracking-widest">—</span>
+      </div>
     );
   }
 
-  const cellSize = getPieceCellSize(piece);
-  const trayWidth = piece.width * cellSize + 10;
-  const trayHeight = piece.height * cellSize + 10;
-  const patternClass = patternAssist
-    ? 'bg-[radial-gradient(circle_at_25%_25%,rgba(255,255,255,0.22)_0,rgba(255,255,255,0.22)_1px,transparent_1px)] bg-[length:8px_8px]'
-    : '';
+  const cs = cellOverride || getPieceCellSize(piece);
+  const gap = 2;
+  const w = piece.width * cs + (piece.width - 1) * gap;
+  const h = piece.height * cs + (piece.height - 1) * gap;
 
   return (
     <div
-      className={`relative mx-auto transition-transform duration-300 ${selected ? 'scale-[1.15]' : 'scale-100'}`}
-      style={{ width: trayWidth, height: trayHeight }}
+      className={`relative mx-auto transition-transform duration-200 ${selected ? 'scale-110' : 'scale-100'}`}
+      style={{ width: w, height: h }}
     >
-      {piece.cells.map(([row, col], index) => (
+      {piece.cells.map(([row, col], i) => (
         <span
-          key={`${piece.id}-${row}-${col}-${index}`}
-          className={`absolute rounded-[0.35rem] border border-black/10 ${patternClass}`}
+          key={`${piece.id}-${i}`}
+          className="absolute rounded-[3px] sm:rounded-[4px] border border-black/10"
           style={{
-            width: `${cellSize}px`,
-            height: `${cellSize - 1}px`,
-            left: `${5 + col * cellSize}px`,
-            top: `${5 + row * cellSize}px`,
-            background: `linear-gradient(160deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
+            width: cs,
+            height: cs,
+            left: col * (cs + gap),
+            top: row * (cs + gap),
+            background: `linear-gradient(150deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
             boxShadow: selected
-              ? `inset 0 2px 4px rgba(255,255,255,0.6), inset 0 -2px 5px rgba(0,0,0,0.3), 0 10px 20px ${theme.fillShadow}`
-              : `inset 0 1px 3px rgba(255,255,255,0.5), inset 0 -1px 3px rgba(0,0,0,0.2), 0 5px 12px ${theme.fillShadow}`,
-            opacity: disabled ? 0.35 : 1,
-            zIndex: selected ? 10 : 1,
+              ? `inset 0 2px 3px rgba(255,255,255,0.5), inset 0 -2px 4px rgba(0,0,0,0.25), 0 6px 16px ${theme.fillShadow}`
+              : `inset 0 1px 2px rgba(255,255,255,0.4), inset 0 -1px 2px rgba(0,0,0,0.15), 0 3px 8px ${theme.fillShadow}`,
+            opacity: disabled ? 0.3 : 1,
           }}
         >
-          <div className="pointer-events-none absolute inset-[1px] rounded-[0.25rem] bg-gradient-to-br from-white/30 to-transparent" />
+          <span className="absolute inset-[1px] rounded-[2px] bg-gradient-to-br from-white/25 to-transparent" />
         </span>
       ))}
     </div>
   );
 }
-
-import { AnimatePresence, motion } from 'motion/react';
 
 export default function BlockBustTray({
   pieces,
@@ -56,84 +55,73 @@ export default function BlockBustTray({
   onSelectPiece,
   onStartDragPiece,
   theme,
-  patternAssist = false,
   controlMode = 'drag-tap',
 }) {
   const trayPieces = Array.isArray(pieces) ? pieces : [];
 
   return (
-    <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+    <div className="grid grid-cols-3 gap-2">
       <AnimatePresence mode="popLayout">
-      {trayPieces.map((piece, index) => {
-        const selected = piece !== null && index === selectedSlotIndex;
-        const keyboardHint = ['A', 'S', 'D'][index] || index + 1;
+        {trayPieces.map((piece, index) => {
+          const selected = piece !== null && index === selectedSlotIndex;
+          const hint = ['A', 'S', 'D'][index];
 
-        return (
-          <motion.button
-            key={`slot-${index}-${piece ? piece.id : 'empty'}`}
-            initial={piece ? { scale: 0.8, y: 30, opacity: 0 } : { scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            exit={{ scale: 0.6, opacity: 0 }}
-            transition={piece ? { type: 'spring', delay: index * 0.05, stiffness: 400, damping: 25 } : { duration: 0.2 }}
-            type="button"
-            onClick={() => piece && onSelectPiece?.(index)}
-            onPointerDown={(event) => {
-              if (!piece || controlMode !== 'drag-tap') return;
-              onStartDragPiece?.(event, index);
-            }}
-            className={`touch-none relative overflow-hidden comic-panel px-2.5 py-3 text-left transition-all duration-300 ${
-              selected ? 'translate-y-[-4px] scale-[1.03] z-10' : 'translate-y-0 z-0'
-            }`}
-            style={{
-              borderColor: selected ? theme.fillFrom : '#1C1428',
-              background: selected
-                ? `linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.05) 100%), ${theme.boardBg}`
-                : `linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.03) 100%), ${theme.boardBg}`,
-              boxShadow: selected
-                ? `0 24px 40px ${theme.fillShadow}, 6px 6px 0 #1C1428`
-                : `0 10px 22px rgba(20,16,32,0.15), 4px 4px 0 #1C1428`,
-            }}
-          >
-            <span className="absolute left-2.5 top-2 rounded-full border border-white/18 bg-white/10 px-2 py-1 font-display text-[9px] uppercase tracking-[0.22em] text-white/80">
-              {keyboardHint}
-            </span>
-            <span
-              className="absolute right-2.5 top-2 rounded-full px-2 py-1 font-display text-[9px] uppercase tracking-[0.22em]"
+          return (
+            <motion.button
+              key={`slot-${index}-${piece ? piece.id : 'empty'}`}
+              initial={piece ? { scale: 0.85, opacity: 0 } : { opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.7, opacity: 0 }}
+              transition={piece ? { type: 'spring', delay: index * 0.04, stiffness: 450, damping: 28 } : { duration: 0.15 }}
+              type="button"
+              onClick={() => piece && onSelectPiece?.(index)}
+              onPointerDown={(e) => {
+                if (!piece || controlMode !== 'drag-tap') return;
+                onStartDragPiece?.(e, index);
+              }}
+              className={`touch-none relative rounded-xl border-[2px] px-2 py-3 transition-all duration-200 ${
+                selected
+                  ? 'translate-y-[-3px] z-10 border-white/30'
+                  : 'translate-y-0 z-0 border-white/8 hover:border-white/15'
+              }`}
               style={{
-                color: selected ? '#1c1428' : 'rgba(255,255,255,0.72)',
-                background: selected ? theme.fillFrom : 'rgba(255,255,255,0.09)',
+                background: selected
+                  ? `linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.03) 100%), ${theme.boardBg}`
+                  : `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.1) 100%), ${theme.boardBg}`,
+                boxShadow: selected
+                  ? `0 12px 28px ${theme.fillShadow}, 0 0 0 1px ${theme.accent}40`
+                  : '0 4px 12px rgba(0,0,0,0.2)',
               }}
             >
-              {selected ? 'Избрана' : piece?.size <= 2 ? 'Бърза' : 'Силна'}
-            </span>
+              {/* Keyboard hint badge */}
+              <span className="absolute left-1.5 top-1.5 rounded-md bg-white/8 px-1.5 py-0.5 font-display text-[9px] font-bold uppercase text-white/50">
+                {hint}
+              </span>
 
-            <div className="mb-3 mt-6 flex min-h-[5.4rem] items-center justify-center sm:min-h-[6rem]">
-              <PieceMiniBoard
-                piece={piece}
-                selected={selected}
-                disabled={!piece}
-                theme={theme}
-                patternAssist={patternAssist}
-              />
-            </div>
+              {/* Size badge */}
+              {piece && (
+                <span
+                  className="absolute right-1.5 top-1.5 rounded-md px-1.5 py-0.5 font-display text-[9px] font-bold uppercase"
+                  style={{
+                    color: selected ? '#fff' : 'rgba(255,255,255,0.5)',
+                    background: selected ? theme.accent + '80' : 'rgba(255,255,255,0.06)',
+                  }}
+                >
+                  {piece.size}
+                </span>
+              )}
 
-            <div className="space-y-1.5 text-white/88">
-              <div>
-                <p className="font-display text-[9px] uppercase tracking-[0.2em] text-white/55">Размер</p>
-                <p className="font-display text-sm font-black uppercase tracking-[0.08em]">
-                  {piece ? `${piece.size} клетки` : 'Няма'}
-                </p>
+              <div className="mt-5 mb-1 flex min-h-[4rem] items-center justify-center">
+                <PieceMiniBoard
+                  piece={piece}
+                  selected={selected}
+                  disabled={!piece}
+                  theme={theme}
+                />
               </div>
-              <div>
-                <p className="font-display text-[9px] uppercase tracking-[0.2em] text-white/55">Контрол</p>
-                <p className="font-display text-[10px] font-black uppercase tracking-[0.18em]">
-                  {controlMode === 'drag-tap' ? 'Влачи / докосни' : 'Само докосни'}
-                </p>
-              </div>
-            </div>
-          </motion.button>
-        );
-      })}
+            </motion.button>
+          );
+        })}
       </AnimatePresence>
     </div>
   );
