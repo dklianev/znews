@@ -143,23 +143,24 @@ export const BLOCK_BUST_DEFAULT_SETTINGS = Object.freeze({
   leftHanded: false,
 });
 
+// Block Blast piece set — only bars, squares, rectangles, and L-shapes.
+// No zigzags, T-pieces, or crosses — those create unfillable holes.
+// All pieces available from level 1 (no band restriction).
 const BASE_PIECE_DEFINITIONS = Object.freeze([
-  { slug: 'dot', band: 1, weight: 12, tags: ['rescue', 'simple'], cells: [[0, 0]] },
-  { slug: 'bar2', band: 1, weight: 12, tags: ['rescue', 'simple'], cells: [[0, 0], [0, 1]] },
-  { slug: 'bar3', band: 1, weight: 10, tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
-  { slug: 'square2', band: 1, weight: 9, tags: ['stable'], cells: [[0, 0], [0, 1], [1, 0], [1, 1]] },
-  { slug: 'corner3', band: 1, weight: 9, tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
-  { slug: 'bar4', band: 2, weight: 8, tags: ['line'], cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
-  { slug: 'corner4', band: 2, weight: 8, tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
-  { slug: 'tee4', band: 2, weight: 7, tags: ['awkward'], cells: [[0, 1], [1, 0], [1, 1], [1, 2]] },
-  { slug: 'zig4', band: 2, weight: 7, tags: ['awkward'], cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
-  { slug: 'rect23', band: 2, weight: 6, tags: ['stable', 'heavy'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]] },
-  { slug: 'square3', band: 2, weight: 3, tags: ['awkward', 'heavy'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
-  { slug: 'bar5', band: 3, weight: 5, tags: ['line', 'awkward'], cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
-  { slug: 'corner5', band: 3, weight: 5, tags: ['awkward'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
-  { slug: 'cross5', band: 3, weight: 4, tags: ['awkward'], cells: [[0, 1], [1, 0], [1, 1], [1, 2], [2, 1]] },
-  { slug: 'tee5', band: 3, weight: 4, tags: ['awkward'], cells: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]] },
-  { slug: 'zig5', band: 3, weight: 4, tags: ['awkward'], cells: [[0, 0], [0, 1], [1, 1], [2, 1], [2, 2]] },
+  // ── Small (1-2 cells) — common rescue pieces ──
+  { slug: 'dot', band: 1, weight: 10, tags: ['rescue'], cells: [[0, 0]] },
+  { slug: 'bar2', band: 1, weight: 12, tags: ['rescue'], cells: [[0, 0], [0, 1]] },
+  // ── Medium (3-4 cells) — bread and butter ──
+  { slug: 'bar3', band: 1, weight: 11, tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
+  { slug: 'square2', band: 1, weight: 10, tags: ['stable'], cells: [[0, 0], [0, 1], [1, 0], [1, 1]] },
+  { slug: 'corner3', band: 1, weight: 10, tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
+  { slug: 'bar4', band: 1, weight: 9, tags: ['line'], cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
+  { slug: 'corner4', band: 1, weight: 8, tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
+  // ── Large (5-9 cells) — powerful clear enablers ──
+  { slug: 'bar5', band: 1, weight: 7, tags: ['line'], cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
+  { slug: 'corner5', band: 1, weight: 6, tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
+  { slug: 'rect23', band: 1, weight: 7, tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]] },
+  { slug: 'square3', band: 1, weight: 5, tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
 ]);
 
 function cloneBoard(board) {
@@ -380,8 +381,7 @@ function getWeightedRandom(candidates, rng) {
   return candidates[candidates.length - 1];
 }
 
-function buildWeightedPieceCandidates(board, level, currentTray = []) {
-  const band = getBlockBustDifficultyBand(level);
+function buildWeightedPieceCandidates(board, _level, currentTray = []) {
   const occupancy = getBlockBustBoardOccupancy(board);
   const existingIds = new Set((Array.isArray(currentTray) ? currentTray : []).map((piece) => piece.id));
   const rawCandidates = BLOCK_BUST_PIECES
@@ -393,38 +393,60 @@ function buildWeightedPieceCandidates(board, level, currentTray = []) {
 
   return rawCandidates.map((candidate) => {
     let weight = candidate.piece.weight;
-    if (candidate.piece.tags.includes('rescue') && occupancy >= 0.45) weight *= 1.85;
-    if (candidate.piece.tags.includes('simple') && occupancy >= 0.6) weight *= 1.45;
-    if (candidate.piece.tags.includes('awkward') && occupancy >= 0.45) weight *= 0.7;
-    if (candidate.piece.band > band) weight *= 0.65;
-    if (existingIds.has(candidate.piece.id)) weight *= 0.55;
-    if (candidate.placements.length >= 10) weight *= 1.2;
-    return {
-      ...candidate,
-      weight,
-    };
+
+    // Block Blast style: when board fills up, strongly prefer small rescue pieces
+    if (occupancy >= 0.65) {
+      if (candidate.piece.tags.includes('rescue')) weight *= 3.0;
+      else if (candidate.piece.size <= 4) weight *= 1.8;
+      else weight *= 0.5;
+    } else if (occupancy >= 0.45) {
+      if (candidate.piece.tags.includes('rescue')) weight *= 2.0;
+      else if (candidate.piece.size <= 4) weight *= 1.3;
+    }
+
+    // Boost pieces with many valid placements — they can actually be used
+    if (candidate.placements.length >= 15) weight *= 1.4;
+    else if (candidate.placements.length >= 8) weight *= 1.2;
+    else if (candidate.placements.length <= 2) weight *= 0.7;
+
+    // Avoid duplicate pieces in the same tray
+    if (existingIds.has(candidate.piece.id)) weight *= 0.4;
+    // Avoid same slug (different rotation) in tray
+    const existingSlugs = new Set((Array.isArray(currentTray) ? currentTray : []).map((p) => p.slug));
+    if (existingSlugs.has(candidate.piece.slug)) weight *= 0.6;
+
+    return { ...candidate, weight };
   });
 }
 
 export function createBlockBustTray(board, level = 1, rng = Math.random) {
   const safeRng = typeof rng === 'function' ? rng : Math.random;
   const tray = [];
-  const weightedCandidates = buildWeightedPieceCandidates(board, level, tray);
-  if (weightedCandidates.length === 0) return tray;
+  const occupancy = getBlockBustBoardOccupancy(board);
 
-  const rescueCandidates = weightedCandidates.filter((candidate) =>
-    candidate.piece.tags.includes('rescue') || candidate.placements.length >= 9
+  // Slot 1: always pick a rescue-friendly piece (small or with many placements)
+  const firstCandidates = buildWeightedPieceCandidates(board, level, tray);
+  if (firstCandidates.length === 0) return tray;
+  const rescueCandidates = firstCandidates.filter((c) =>
+    c.piece.tags.includes('rescue') || c.piece.size <= 3 || c.placements.length >= 12
   );
-  if (rescueCandidates.length > 0) {
-    tray.push(getWeightedRandom(rescueCandidates, safeRng).piece);
-  } else {
-    tray.push(getWeightedRandom(weightedCandidates, safeRng).piece);
-  }
+  tray.push(getWeightedRandom(rescueCandidates.length > 0 ? rescueCandidates : firstCandidates, safeRng).piece);
 
-  while (tray.length < 3) {
-    const nextCandidates = buildWeightedPieceCandidates(board, level, tray);
-    if (nextCandidates.length === 0) break;
-    tray.push(getWeightedRandom(nextCandidates, safeRng).piece);
+  // Slot 2: normal weighted pick
+  const secondCandidates = buildWeightedPieceCandidates(board, level, tray);
+  if (secondCandidates.length > 0) tray.push(getWeightedRandom(secondCandidates, safeRng).piece);
+
+  // Slot 3: if board is packed, bias toward line-clear enablers (bars, rects)
+  const thirdCandidates = buildWeightedPieceCandidates(board, level, tray);
+  if (thirdCandidates.length > 0) {
+    if (occupancy >= 0.4) {
+      const lineCandidates = thirdCandidates.filter((c) =>
+        c.piece.tags.includes('line') || c.piece.tags.includes('rescue')
+      );
+      tray.push(getWeightedRandom(lineCandidates.length > 0 ? lineCandidates : thirdCandidates, safeRng).piece);
+    } else {
+      tray.push(getWeightedRandom(thirdCandidates, safeRng).piece);
+    }
   }
 
   return tray;
