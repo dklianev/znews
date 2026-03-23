@@ -45,12 +45,15 @@ test-card-aligned.png
 generate-business-plan.mjs
 UPGRADE-PROMPT.md
 
+*.diff
+.git-diff*.txt
 frontend_diff.txt
 git_log*.txt
 git_show.txt
 last_commit.txt
 last3_commits.txt
 temp_*.txt
+test-flicker.mjs
 output/
 tmp-*.log
 preview-smoke.*.log

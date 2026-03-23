@@ -13,7 +13,7 @@ export const DEFAULT_GAME_DEFINITIONS = Object.freeze([
   { id: 9, slug: 'snake', title: 'Змия', type: 'snake', description: 'Яж, растѝ и оцелявай колкото можеш по-дълго.', icon: 'Tangent', active: true, sortOrder: 9, theme: 'green' },
   { id: 10, slug: '2048', title: '2048', type: '2048', description: 'Плъзгай плочките, комбинирай числата и стигни до 2048.', icon: 'Grid3x3', active: true, sortOrder: 10, theme: 'orange' },
   { id: 11, slug: 'flappybird', title: 'Flappy Bird', type: 'flappybird', description: 'Прелети между тръбите и задръж темпото.', icon: 'Gamepad2', active: true, sortOrder: 11, theme: 'green' },
-  { id: 12, slug: 'blockbust', title: 'Grid Riot', type: 'blockbust', description: 'Поставяй три фигури върху 8x8 полето и върти темите с всяко пълно изчистване.', icon: 'Blocks', active: true, sortOrder: 12, theme: 'orange' },
+  { id: 12, slug: 'blockbust', title: 'ZBlast', type: 'blockbust', description: 'Подреждай три фигури наведнъж, чисти редове и колони и отключвай нови теми.', icon: 'Blocks', active: true, sortOrder: 12, theme: 'orange' },
 ]);
 
 const DEFAULT_GAME_SLUGS = DEFAULT_GAME_DEFINITIONS.map((game) => game.slug);

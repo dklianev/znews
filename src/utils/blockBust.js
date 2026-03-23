@@ -148,17 +148,20 @@ export const BLOCK_BUST_DEFAULT_SETTINGS = Object.freeze({
 
 const BASE_PIECE_DEFINITIONS = Object.freeze([
   { slug: 'dot', band: 1, weight: 12, tags: ['rescue', 'simple'], cells: [[0, 0]] },
-  { slug: 'domino', band: 1, weight: 10, tags: ['rescue', 'simple'], cells: [[0, 0], [0, 1]] },
+  { slug: 'bar2', band: 1, weight: 12, tags: ['rescue', 'simple'], cells: [[0, 0], [0, 1]] },
   { slug: 'bar3', band: 1, weight: 10, tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
   { slug: 'square2', band: 1, weight: 9, tags: ['stable'], cells: [[0, 0], [0, 1], [1, 0], [1, 1]] },
-  { slug: 'corner3', band: 1, weight: 8, tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
+  { slug: 'corner3', band: 1, weight: 9, tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
   { slug: 'bar4', band: 2, weight: 8, tags: ['line'], cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
   { slug: 'corner4', band: 2, weight: 8, tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
   { slug: 'tee4', band: 2, weight: 7, tags: ['awkward'], cells: [[0, 1], [1, 0], [1, 1], [1, 2]] },
   { slug: 'zig4', band: 2, weight: 7, tags: ['awkward'], cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
+  { slug: 'square3', band: 2, weight: 3, tags: ['awkward', 'heavy'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
   { slug: 'bar5', band: 3, weight: 5, tags: ['line', 'awkward'], cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
   { slug: 'corner5', band: 3, weight: 5, tags: ['awkward'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
-  { slug: 'tee5', band: 3, weight: 4, tags: ['awkward'], cells: [[0, 1], [1, 0], [1, 1], [1, 2], [2, 1]] },
+  { slug: 'cross5', band: 3, weight: 4, tags: ['awkward'], cells: [[0, 1], [1, 0], [1, 1], [1, 2], [2, 1]] },
+  { slug: 'tee5', band: 3, weight: 4, tags: ['awkward'], cells: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]] },
+  { slug: 'zig5', band: 3, weight: 4, tags: ['awkward'], cells: [[0, 0], [0, 1], [1, 1], [2, 1], [2, 2]] },
 ]);
 
 function cloneBoard(board) {

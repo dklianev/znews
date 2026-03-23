@@ -77,33 +77,10 @@ export default function BlockBustSettings({ settings, onChange, onClose }) {
           </section>
 
           <section className="rounded-[1.6rem] border-[3px] border-[#1c1428] bg-white px-4 py-4 shadow-[4px_4px_0_rgba(28,20,40,0.12)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none">
-            <FieldLabel title="Тема" body="Автоматичният режим сменя skin-а след всяко пълно изчистване на полето." />
+            <FieldLabel title="Анимации" body="По-лекият режим пази feedback-а стегнат, без резки движения и излишен шум." />
             <div className="flex flex-wrap gap-2">
-              <SelectChip active={activeSettings.themeMode === 'auto'} onClick={() => updateSetting('themeMode', 'auto')}>Авто</SelectChip>
-              <SelectChip active={activeSettings.themeMode === 'manual'} onClick={() => updateSetting('themeMode', 'manual')}>Ръчно</SelectChip>
-            </div>
-
-            <div className="mt-4">
-              <label className="font-display text-xs font-black uppercase tracking-[0.24em] text-[#1c1428] dark:text-white">
-                Ръчна тема
-              </label>
-              <select
-                value={activeSettings.manualThemeId}
-                onChange={(event) => updateSetting('manualThemeId', event.target.value)}
-                className="mt-2 w-full rounded-[1rem] border-[3px] border-[#1c1428] bg-white px-4 py-3 text-sm font-semibold text-[#1c1428] outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-white"
-              >
-                {BLOCK_BUST_THEMES.map((theme) => (
-                  <option key={theme.id} value={theme.id}>{theme.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mt-5">
-              <FieldLabel title="Анимации" body="По-лекият режим пази feedback-а стегнат, без резки движения и излишен шум." />
-              <div className="flex flex-wrap gap-2">
-                <SelectChip active={activeSettings.animationLevel === 'normal'} onClick={() => updateSetting('animationLevel', 'normal')}>Нормални</SelectChip>
-                <SelectChip active={activeSettings.animationLevel === 'reduced'} onClick={() => updateSetting('animationLevel', 'reduced')}>Намалени</SelectChip>
-              </div>
+              <SelectChip active={activeSettings.animationLevel === 'normal'} onClick={() => updateSetting('animationLevel', 'normal')}>Нормални</SelectChip>
+              <SelectChip active={activeSettings.animationLevel === 'reduced'} onClick={() => updateSetting('animationLevel', 'reduced')}>Намалени</SelectChip>
             </div>
 
             <div className="mt-5">
@@ -140,13 +117,34 @@ export default function BlockBustSettings({ settings, onChange, onClose }) {
           </section>
 
           <section className="rounded-[1.6rem] border-[3px] border-[#1c1428] bg-white px-4 py-4 shadow-[4px_4px_0_rgba(28,20,40,0.12)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none">
-            <FieldLabel title="Какво не пипаме" body="Core loop-ът си остава класически: три фигури, без въртене, чистене на редове и колони." />
-            <ul className="space-y-2 text-sm text-[#5c5666] dark:text-zinc-400">
-              <li>- Пълното изчистване сменя темата само в auto режим.</li>
-              <li>- Влачи + докосни пази модерното усещане, а tap режимът е сигурният fallback за CEF.</li>
-              <li>- Намалените анимации и високият контраст държат играта четима и на по-стари браузъри.</li>
-              <li>- Ръчно заключената тема не променя бонусите, генератора или логиката на фигурите.</li>
-            </ul>
+            <FieldLabel title="Смяна на тема" body="Избери дали темата да се сменя автоматично при пълно изчистване, или да я заключиш ръчно." />
+            <div className="flex flex-wrap gap-2">
+              <SelectChip active={activeSettings.themeMode === 'auto'} onClick={() => updateSetting('themeMode', 'auto')}>Автоматична</SelectChip>
+              <SelectChip active={activeSettings.themeMode === 'manual'} onClick={() => updateSetting('themeMode', 'manual')}>Ръчна</SelectChip>
+            </div>
+            {activeSettings.themeMode === 'manual' && (
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                {BLOCK_BUST_THEMES.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => updateSetting('manualThemeId', t.id)}
+                    className={`rounded-[0.8rem] border-[3px] px-3 py-2 text-left font-display text-xs font-black uppercase tracking-[0.18em] transition-transform ${
+                      activeSettings.manualThemeId === t.id
+                        ? 'translate-y-[-2px] text-white'
+                        : 'border-[#1c1428] bg-white text-[#1c1428] shadow-[3px_3px_0_rgba(28,20,40,0.14)]'
+                    }`}
+                    style={activeSettings.manualThemeId === t.id ? {
+                      borderColor: t.accent,
+                      background: `linear-gradient(135deg, ${t.ribbonFrom} 0%, ${t.ribbonTo} 100%)`,
+                      boxShadow: `3px 3px 0 ${t.accent}`,
+                    } : undefined}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>

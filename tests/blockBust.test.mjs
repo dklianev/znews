@@ -59,7 +59,7 @@ export function runBlockBustTests() {
     if (index !== 3 && index !== 4) multiBoard[2][index] = 1;
     if (index !== 2) multiBoard[index][3] = 1;
   }
-  const domino = getPiece('domino', { width: 2 });
+  const domino = getPiece('bar2', { width: 2 });
   const multiMove = resolveBlockBustMove(multiBoard, domino, 2, 3, 1);
   assert.ok(multiMove, 'multi-clear move should resolve');
   assert.equal(multiMove.linesCleared, 2, 'row + column should count as two cleared lines');

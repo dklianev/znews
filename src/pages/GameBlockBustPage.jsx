@@ -31,7 +31,7 @@ import {
 } from '../utils/blockBust';
 
 const GAME_SLUG = 'blockbust';
-const GAME_TITLE = 'Grid Riot';
+const GAME_TITLE = 'ZBlast';
 const LINES_PER_LEVEL = 8;
 
 function formatScore(value) {
@@ -142,15 +142,23 @@ export default function GameBlockBustPage() {
   const selectedPiece = useMemo(() => typeof run.selectedSlotIndex === 'number' ? (run.tray[run.selectedSlotIndex] || null) : null, [run.selectedSlotIndex, run.tray]);
   const level = useMemo(() => getBlockBustLevel(run.totalLines), [run.totalLines]);
   const occupancy = useMemo(() => getBlockBustBoardOccupancy(run.board), [run.board]);
-  const activeTheme = useMemo(() => getBlockBustTheme(settings.themeMode === 'manual' ? settings.manualThemeId : run.themeId), [run.themeId, settings.manualThemeId, settings.themeMode]);
+  const activeTheme = useMemo(() => getBlockBustTheme(run.themeId), [run.themeId]);
   const levelProgress = useMemo(() => Math.max(0, run.totalLines % LINES_PER_LEVEL), [run.totalLines]);
   const previewState = useMemo(() => {
     if (!selectedPiece || !anchorCell) return { cells: [], valid: false };
+    const valid = canPlaceBlockBustPiece(run.board, selectedPiece, anchorCell.row, anchorCell.col);
+    // During drag, hide preview entirely when invalid to avoid flicker
+    if (!valid && dragStateRef.current.active) return { cells: [], valid: false };
     const cells = selectedPiece.cells.map(([row, col]) => ({ row: anchorCell.row + row, col: anchorCell.col + col })).filter(({ row, col }) => row >= 0 && col >= 0 && row < 8 && col < 8);
-    return { cells, valid: canPlaceBlockBustPiece(run.board, selectedPiece, anchorCell.row, anchorCell.col) };
+    return { cells, valid };
   }, [anchorCell, run.board, selectedPiece]);
 
   useEffect(() => { try { window.localStorage.setItem(BLOCK_BUST_SETTINGS_KEY, JSON.stringify(settings)); } catch { /* noop */ } }, [settings]);
+  useEffect(() => {
+    if (settings.themeMode === 'manual' && settings.manualThemeId && settings.manualThemeId !== run.themeId) {
+      setRun((current) => ({ ...current, themeId: settings.manualThemeId }));
+    }
+  }, [settings.themeMode, settings.manualThemeId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { saveScopedGameProgress(GAME_SLUG, BLOCK_BUST_META_SCOPE, { bestScore }); }, [bestScore]);
   useEffect(() => { const serialized = serializeBlockBustRun({ ...run, bestScore }); if (serialized) saveScopedGameProgress(GAME_SLUG, BLOCK_BUST_RUN_SCOPE, serialized); }, [bestScore, run]);
   useEffect(() => {
@@ -190,7 +198,7 @@ export default function GameBlockBustPage() {
 
   const resetRun = useEffectEvent((force = false) => {
     if (!force && settings.confirmRestart && !window.confirm('Сигурен ли си, че искаш да прекъснеш този рън?')) return;
-    const themeId = settings.themeMode === 'manual' ? settings.manualThemeId : BLOCK_BUST_THEMES[0].id;
+    const themeId = BLOCK_BUST_THEMES[0].id;
     setRun(createFreshRun(bestScore, themeId));
     setFocusCell(createBlockBustInitialCursor());
     setAnchorCell(null);
@@ -203,9 +211,9 @@ export default function GameBlockBustPage() {
     const piece = overridePiece || (typeof pieceIndex === 'number' ? run.tray[pieceIndex] : null);
     if (!piece || run.status === 'over') return false;
     const result = resolveBlockBustMove(run.board, piece, row, col, run.combo);
-    if (!result) { 
-      if (settings.controlMode !== 'drag-tap') setBanner({ eyebrow: 'Невалидно', title: 'Тук не пасва фигура', accent: '#ef4444' }); 
-      return false; 
+    if (!result) {
+      if (!dragStateRef.current.active && settings.controlMode !== 'drag-tap') setBanner({ eyebrow: 'Невалидно', title: 'Тук не пасва фигура', accent: '#ef4444' });
+      return false;
     }
     const nextLevel = getBlockBustLevel(run.totalLines + result.linesCleared);
     
@@ -213,7 +221,7 @@ export default function GameBlockBustPage() {
     if (typeof pieceIndex === 'number') remainingTray[pieceIndex] = null;
     
     const nextTray = remainingTray.every(p => !p) ? createBlockBustTray(result.board, nextLevel) : remainingTray;
-    const nextThemeId = result.perfectClear ? getBlockBustNextThemeId(run.themeId) : run.themeId;
+    const nextThemeId = result.perfectClear && settings.themeMode !== 'manual' ? getBlockBustNextThemeId(run.themeId) : run.themeId;
     const nextRun = { ...run, board: result.board, tray: nextTray, score: run.score + result.score, totalLines: run.totalLines + result.linesCleared, combo: result.nextCombo, fullWipes: run.fullWipes + (result.perfectClear ? 1 : 0), moveCount: run.moveCount + 1, selectedSlotIndex: null, themeId: nextThemeId, status: isBlockBustGameOver(result.board, nextTray) ? 'over' : 'playing' };
     setRun(nextRun);
     setResumed(false);
@@ -305,9 +313,15 @@ export default function GameBlockBustPage() {
     if (typeof state.pieceIndex === 'number') {
       const pieceToPlace = run.tray[state.pieceIndex];
       if (pieceToPlace && state.anchorCell) {
-        placeSelectedPiece(state.anchorCell.row, state.anchorCell.col, pieceToPlace, state.pieceIndex);
+        const placed = placeSelectedPiece(state.anchorCell.row, state.anchorCell.col, pieceToPlace, state.pieceIndex);
+        if (!placed && state.moved) {
+          // Failed placement during drag — deselect silently, no error banner
+          setRun(current => ({ ...current, selectedSlotIndex: null }));
+          setAnchorCell(null);
+        }
       } else if (state.moved) {
         setRun(current => ({ ...current, selectedSlotIndex: null }));
+        setAnchorCell(null);
       }
     }
   });
