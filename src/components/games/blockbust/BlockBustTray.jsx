@@ -66,7 +66,7 @@ export default function BlockBustTray({
       <AnimatePresence mode="popLayout">
       {trayPieces.map((piece, index) => {
         const selected = piece !== null && index === selectedSlotIndex;
-        const keyboardHint = index + 1;
+        const keyboardHint = ['A', 'S', 'D'][index] || index + 1;
 
         return (
           <motion.button

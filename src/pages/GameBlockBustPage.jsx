@@ -340,6 +340,7 @@ export default function GameBlockBustPage() {
     if (event.code === 'KeyR') { event.preventDefault(); resetRun(); return; }
     if (event.code === 'KeyO') { event.preventDefault(); setShowSettings((current) => !current); return; }
     if (event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3') { event.preventDefault(); const index = Number.parseInt(event.code.replace('Digit', ''), 10) - 1; const piece = run.tray[index]; if (piece) handleSelectPiece(index); return; }
+    if (event.code === 'KeyA' || event.code === 'KeyS' || event.code === 'KeyD') { event.preventDefault(); const asdIndex = { KeyA: 0, KeyS: 1, KeyD: 2 }[event.code]; const piece = run.tray[asdIndex]; if (piece) handleSelectPiece(asdIndex); return; }
     if (event.code === 'ArrowUp' || event.code === 'ArrowDown' || event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
       event.preventDefault();
       setFocusCell((current) => event.code === 'ArrowUp' ? { row: Math.max(0, current.row - 1), col: current.col } : event.code === 'ArrowDown' ? { row: Math.min(7, current.row + 1), col: current.col } : event.code === 'ArrowLeft' ? { row: current.row, col: Math.max(0, current.col - 1) } : { row: current.row, col: Math.min(7, current.col + 1) });
@@ -370,8 +371,9 @@ export default function GameBlockBustPage() {
                 <h1 className="mt-3 font-display text-4xl font-black uppercase leading-none sm:text-6xl">{GAME_TITLE}</h1>
                 <p className="mt-3 max-w-2xl text-sm font-semibold text-white/82 sm:text-base">Подреждай три фигури наведнъж, чисти редове и колони и трупай комбо бонуси.</p>
               </div>
-              <div className="grid grid-cols-3 gap-3 lg:min-w-[20rem]">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[22rem]">
                 <StatsTile label="Точки" value={formatScore(run.score)} icon={Trophy} />
+                <StatsTile label="Рекорд" value={formatScore(bestScore)} icon={Trophy} />
                 <StatsTile label="Ниво" value={level} icon={Zap} />
                 <StatsTile label="Комбо" value={run.combo > 0 ? `x${run.combo}` : '0'} icon={Sparkles} />
               </div>
