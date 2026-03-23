@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, RotateCcw, Settings2, Share2, Sparkles, Trophy, Zap } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Flame, RotateCcw, Settings2, Share2, Sparkles, Trophy, Undo2, Zap } from 'lucide-react';
 import BlockBustBoard from '../components/games/blockbust/BlockBustBoard';
 import BlockBustTray, { PieceMiniBoard } from '../components/games/blockbust/BlockBustTray';
 import BlockBustSettings from '../components/games/blockbust/BlockBustSettings';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { getTodayStr } from '../utils/gameDate';
-import { loadScopedGameProgress, saveGameProgress, saveScopedGameProgress } from '../utils/gameStorage';
+import { loadGameProgress, loadScopedGameProgress, saveGameProgress, saveScopedGameProgress } from '../utils/gameStorage';
 import {
   BLOCK_BUST_DEFAULT_SETTINGS,
   BLOCK_BUST_META_SCOPE,
@@ -26,6 +26,7 @@ import {
   getBlockBustValidPlacements,
   hydrateBlockBustRun,
   isBlockBustGameOver,
+  placeBlockBustPiece,
   resolveBlockBustMove,
   serializeBlockBustRun,
 } from '../utils/blockBust';
@@ -65,11 +66,25 @@ function loadSettings() {
   }
 }
 
+function computeStreak(meta) {
+  if (!meta?.lastPlayDate) return 0;
+  const today = getTodayStr();
+  if (meta.lastPlayDate === today) return Math.max(1, Number(meta.streak) || 1);
+  const d = new Date(); d.setDate(d.getDate() - 1);
+  const yesterday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return meta.lastPlayDate === yesterday ? Math.max(1, Number(meta.streak) || 0) : 0;
+}
+
 function loadRunState() {
   const meta = loadScopedGameProgress(GAME_SLUG, BLOCK_BUST_META_SCOPE);
   const hydrated = hydrateBlockBustRun(loadScopedGameProgress(GAME_SLUG, BLOCK_BUST_RUN_SCOPE));
   const bestScore = Math.max(0, Number(meta?.bestScore) || Number(hydrated?.bestScore) || 0);
-  return hydrated ? { run: { ...hydrated, bestScore }, bestScore, resumed: true } : { run: createFreshRun(bestScore), bestScore, resumed: false };
+  const streak = computeStreak(meta);
+  const today = getTodayStr();
+  const dailyBest = meta?.dailyBestDate === today ? Math.max(0, Number(meta?.dailyBest) || 0) : 0;
+  return hydrated
+    ? { run: { ...hydrated, bestScore }, bestScore, streak, dailyBest, resumed: true }
+    : { run: createFreshRun(bestScore), bestScore, streak, dailyBest, resumed: false };
 }
 
 function getRiskLabel(occupancy) {
@@ -139,6 +154,13 @@ export default function GameBlockBustPage() {
   const dragGhostRef = useRef(null);
   const [shakeCount, setShakeCount] = useState(0);
   const [floatingScores, setFloatingScores] = useState([]);
+  const [clearFlash, setClearFlash] = useState(null);
+  const [prevRunForUndo, setPrevRunForUndo] = useState(null);
+  const [streak, setStreak] = useState(initial.streak);
+  const [dailyBest, setDailyBest] = useState(initial.dailyBest);
+  const clearFlashRef = useRef(null);
+  const boardWrapRef = useRef(null);
+  const [boardScale, setBoardScale] = useState(1);
 
   const selectedPiece = useMemo(() => typeof run.selectedSlotIndex === 'number' ? (run.tray[run.selectedSlotIndex] || null) : null, [run.selectedSlotIndex, run.tray]);
   const level = useMemo(() => getBlockBustLevel(run.totalLines), [run.totalLines]);
@@ -173,6 +195,15 @@ export default function GameBlockBustPage() {
   }, [focusCell, isDragging, run.board, selectedPiece]);
   useEffect(() => { if (!banner) return undefined; const timeout = setTimeout(() => setBanner(null), settings.animationLevel === 'reduced' ? 1200 : 1800); return () => clearTimeout(timeout); }, [banner, settings.animationLevel]);
   useEffect(() => { if (!shareNotice) return undefined; const timeout = setTimeout(() => setShareNotice(null), 2200); return () => clearTimeout(timeout); }, [shareNotice]);
+  useEffect(() => {
+    const el = boardWrapRef.current;
+    if (!el) return undefined;
+    const MIN_BOARD = 280;
+    function measure() { const avail = el.clientWidth; setBoardScale(avail >= MIN_BOARD ? 1 : avail / MIN_BOARD); }
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
 
   const playTone = useEffectEvent((type) => {
     if (!settings.soundEnabled || typeof window === 'undefined') return;
@@ -187,7 +218,7 @@ export default function GameBlockBustPage() {
       const gain = ctx.createGain();
       oscillator.connect(gain);
       gain.connect(ctx.destination);
-      const tone = { select: [320, 0.06, 0.03, 'triangle'], place: [220, 0.08, 0.05, 'square'], clear: [470, 0.11, 0.04, 'triangle'], perfect: [720, 0.18, 0.05, 'sine'], over: [145, 0.2, 0.045, 'sawtooth'] }[type] || [240, 0.05, 0.02, 'triangle'];
+      const tone = { select: [320, 0.06, 0.03, 'triangle'], place: [220, 0.08, 0.05, 'square'], clear: [470, 0.11, 0.04, 'triangle'], perfect: [720, 0.18, 0.05, 'sine'], over: [145, 0.2, 0.045, 'sawtooth'], levelup: [660, 0.16, 0.045, 'sine'], undo: [180, 0.07, 0.03, 'triangle'], combo: [540, 0.09, 0.035, 'triangle'] }[type] || [240, 0.05, 0.02, 'triangle'];
       oscillator.type = tone[3];
       oscillator.frequency.setValueAtTime(tone[0], now);
       gain.gain.setValueAtTime(tone[2], now);
@@ -198,7 +229,21 @@ export default function GameBlockBustPage() {
   });
 
   const persistDailyProgress = useEffectEvent((nextRun, status = 'played') => {
-    saveGameProgress(GAME_SLUG, getTodayStr(), { score: nextRun.score, lines: nextRun.totalLines, fullWipes: nextRun.fullWipes, level: getBlockBustLevel(nextRun.totalLines), themeId: nextRun.themeId, gameStatus: status });
+    const today = getTodayStr();
+    const meta = loadScopedGameProgress(GAME_SLUG, BLOCK_BUST_META_SCOPE) || {};
+    const lastPlay = meta.lastPlayDate;
+    let newStreak;
+    if (lastPlay === today) { newStreak = Math.max(1, Number(meta.streak) || 1); }
+    else {
+      const d = new Date(); d.setDate(d.getDate() - 1);
+      const yesterday = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      newStreak = lastPlay === yesterday ? (Number(meta.streak) || 0) + 1 : 1;
+    }
+    const newDailyBest = meta.dailyBestDate === today ? Math.max(Number(meta.dailyBest) || 0, nextRun.score) : nextRun.score;
+    saveScopedGameProgress(GAME_SLUG, BLOCK_BUST_META_SCOPE, { bestScore: Math.max(bestScore, nextRun.score), streak: newStreak, lastPlayDate: today, dailyBest: newDailyBest, dailyBestDate: today });
+    setStreak(newStreak);
+    setDailyBest(newDailyBest);
+    saveGameProgress(GAME_SLUG, today, { score: nextRun.score, lines: nextRun.totalLines, fullWipes: nextRun.fullWipes, level: getBlockBustLevel(nextRun.totalLines), themeId: nextRun.themeId, gameStatus: status });
   });
 
   const resetRun = useEffectEvent((force = false) => {
@@ -212,6 +257,7 @@ export default function GameBlockBustPage() {
   });
 
   const placeSelectedPiece = useEffectEvent((row, col, overridePiece, overrideIndex) => {
+    if (clearFlashRef.current) return false;
     const pieceIndex = overrideIndex !== undefined ? overrideIndex : run.selectedSlotIndex;
     const piece = overridePiece || (typeof pieceIndex === 'number' ? run.tray[pieceIndex] : null);
     if (!piece || run.status === 'over') return false;
@@ -220,15 +266,35 @@ export default function GameBlockBustPage() {
       if (!dragStateRef.current.active && settings.controlMode !== 'drag-tap') setBanner({ eyebrow: 'Невалидно', title: 'Тук не пасва фигура', accent: '#ef4444' });
       return false;
     }
+
+    // Save undo state
+    setPrevRunForUndo({ ...run });
+
+    const prevLevel = level;
     const nextLevel = getBlockBustLevel(run.totalLines + result.linesCleared);
-    
+
     const remainingTray = [...run.tray];
     if (typeof pieceIndex === 'number') remainingTray[pieceIndex] = null;
-    
+
     const nextTray = remainingTray.every(p => !p) ? createBlockBustTray(result.board, nextLevel) : remainingTray;
     const nextThemeId = result.perfectClear ? getBlockBustNextThemeId(run.themeId) : run.themeId;
     const nextRun = { ...run, board: result.board, tray: nextTray, score: run.score + result.score, totalLines: run.totalLines + result.linesCleared, combo: result.nextCombo, fullWipes: run.fullWipes + (result.perfectClear ? 1 : 0), moveCount: run.moveCount + 1, selectedSlotIndex: null, themeId: nextThemeId, status: isBlockBustGameOver(result.board, nextTray) ? 'over' : 'playing' };
-    setRun(nextRun);
+
+    // Clear flash animation: show placed board briefly, then clear
+    if (result.hadClear) {
+      const placedBoard = placeBlockBustPiece(run.board, piece, row, col);
+      setRun({ ...nextRun, board: placedBoard });
+      setClearFlash({ rows: result.clearedRows, cols: result.clearedCols });
+      clearFlashRef.current = true;
+      setTimeout(() => {
+        setRun(prev => ({ ...prev, board: result.board }));
+        setClearFlash(null);
+        clearFlashRef.current = null;
+      }, 320);
+    } else {
+      setRun(nextRun);
+    }
+
     setResumed(false);
     setAnchorCell(null);
     if (nextRun.score > bestScore) setBestScore(nextRun.score);
@@ -255,16 +321,32 @@ export default function GameBlockBustPage() {
       }, 1500);
     }
 
-    if (result.perfectClear) { playTone('perfect'); setBanner({ type: 'perfect', eyebrow: 'Пълно изчистване', title: 'Полето е чисто!', accent: getBlockBustTheme(nextThemeId).accent }); }
-    else if (result.hadClear) { playTone('clear'); setBanner({ type: 'clear', eyebrow: result.nextCombo > 1 ? `Комбо x${result.nextCombo}` : 'Чист удар', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'} изчистени`, accent: activeTheme.accent }); }
+    // Level-up detection
+    if (nextLevel > prevLevel && !result.perfectClear && nextRun.status !== 'over') {
+      playTone('levelup');
+      setBanner({ type: 'levelup', eyebrow: `Ниво ${nextLevel}`, title: 'Ново ниво!', accent: activeTheme.accent });
+    } else if (result.perfectClear) { playTone('perfect'); setBanner({ type: 'perfect', eyebrow: 'Пълно изчистване', title: 'Полето е чисто!', accent: getBlockBustTheme(nextThemeId).accent }); }
+    else if (result.hadClear) {
+      if (result.nextCombo >= 3) playTone('combo');
+      else playTone('clear');
+      setBanner({ type: 'clear', eyebrow: result.nextCombo > 1 ? `Комбо x${result.nextCombo}` : 'Чист удар', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'} изчистени`, accent: activeTheme.accent });
+    }
     else playTone('place');
     if (nextRun.status === 'over') { playTone('over'); setBanner({ type: 'over', eyebrow: 'Край на изданието', title: 'Полето е пълно', accent: '#cc0a1a' }); }
-    
+
     if (dragGhostRef.current) dragGhostRef.current.style.display = 'none';
     return true;
   });
 
   const handleSelectPiece = useEffectEvent((index) => { setRun((current) => ({ ...current, selectedSlotIndex: current.selectedSlotIndex === index ? null : index })); playTone('select'); });
+  const handleUndo = useEffectEvent(() => {
+    if (!prevRunForUndo || clearFlashRef.current) return;
+    setRun(prevRunForUndo);
+    setPrevRunForUndo(null);
+    setAnchorCell(null);
+    playTone('undo');
+    setBanner({ eyebrow: 'Върнат ход', title: 'Опитай пак', accent: activeTheme.accent });
+  });
   const handleStartDragPiece = useEffectEvent((event, index) => {
     if (settings.controlMode !== 'drag-tap') return;
     dragStateRef.current = { active: true, pieceIndex: index, moved: false };
@@ -349,6 +431,7 @@ export default function GameBlockBustPage() {
     const tag = event.target?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     if (event.code === 'Escape') { if (showSettings) setShowSettings(false); else if (typeof run.selectedSlotIndex === 'number') setRun((current) => ({ ...current, selectedSlotIndex: null })); return; }
+    if (event.code === 'KeyZ') { event.preventDefault(); handleUndo(); return; }
     if (event.code === 'KeyR') { event.preventDefault(); resetRun(); return; }
     if (event.code === 'KeyO') { event.preventDefault(); setShowSettings((current) => !current); return; }
     if (event.code === 'Digit1' || event.code === 'Digit2' || event.code === 'Digit3') { event.preventDefault(); const index = Number.parseInt(event.code.replace('Digit', ''), 10) - 1; const piece = run.tray[index]; if (piece) handleSelectPiece(index); return; }
@@ -373,6 +456,7 @@ export default function GameBlockBustPage() {
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => setShowSettings(true)} className="inline-flex items-center gap-2 rounded-full border-[3px] border-[#1c1428] bg-white/90 px-4 py-2 font-display text-xs font-black uppercase tracking-[0.24em] text-[#1c1428] shadow-[4px_4px_0_rgba(28,20,40,0.14)]"><Settings2 className="h-4 w-4" />Настройки</button>
             <button type="button" onClick={handleShare} className="inline-flex items-center gap-2 rounded-full border-[3px] border-[#1c1428] bg-white/90 px-4 py-2 font-display text-xs font-black uppercase tracking-[0.24em] text-[#1c1428] shadow-[4px_4px_0_rgba(28,20,40,0.14)]"><Share2 className="h-4 w-4" />Сподели</button>
+            <button type="button" onClick={handleUndo} disabled={!prevRunForUndo} className={`inline-flex items-center gap-2 rounded-full border-[3px] border-[#1c1428] px-4 py-2 font-display text-xs font-black uppercase tracking-[0.24em] shadow-[4px_4px_0_rgba(28,20,40,0.14)] ${prevRunForUndo ? 'bg-white/90 text-[#1c1428]' : 'bg-white/40 text-[#1c1428]/40 cursor-not-allowed'}`}><Undo2 className="h-4 w-4" />Назад</button>
             <button type="button" onClick={() => resetRun()} className="inline-flex items-center gap-2 rounded-full border-[3px] border-[#1c1428] bg-zn-hot px-4 py-2 font-display text-xs font-black uppercase tracking-[0.24em] text-white shadow-[4px_4px_0_rgba(28,20,40,0.14)]"><RotateCcw className="h-4 w-4" />Нов рън</button>
           </div>
         </div>
@@ -385,11 +469,13 @@ export default function GameBlockBustPage() {
                 <h1 className="mt-3 font-display text-4xl font-black uppercase leading-none sm:text-6xl">{GAME_TITLE}</h1>
                 <p className="mt-3 max-w-2xl text-sm font-semibold text-white/82 sm:text-base">Подреждай три фигури наведнъж, чисти редове и колони и трупай комбо бонуси.</p>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:min-w-[22rem]">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:min-w-[28rem]">
                 <StatsTile label="Точки" value={formatScore(run.score)} icon={Trophy} />
+                <StatsTile label="Дневен рек." value={formatScore(dailyBest)} icon={CalendarDays} />
                 <StatsTile label="Рекорд" value={formatScore(bestScore)} icon={Trophy} />
                 <StatsTile label="Ниво" value={level} icon={Zap} />
                 <StatsTile label="Комбо" value={run.combo > 0 ? `x${run.combo}` : '0'} icon={Sparkles} />
+                <StatsTile label="Серия" value={streak > 0 ? `${streak}d` : '—'} icon={Flame} />
               </div>
             </div>
           </div>
@@ -416,7 +502,7 @@ export default function GameBlockBustPage() {
                       animate={{ opacity: 1, scale: 1, rotate: banner.type === 'over' ? -3 : 4, y: 0 }}
                       exit={{ opacity: 0, scale: 1.1, y: -20 }}
                       transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                      className={`rounded-xl border-[4px] border-[#1C1428] px-6 py-3 shadow-[6px_6px_0_#1c1428] ${banner.type === 'perfect' ? 'bg-zn-gold' : banner.type === 'over' ? 'bg-zn-hot' : 'bg-zn-purple'}`}
+                      className={`rounded-xl border-[4px] border-[#1C1428] px-6 py-3 shadow-[6px_6px_0_#1c1428] ${banner.type === 'perfect' ? 'bg-zn-gold' : banner.type === 'over' ? 'bg-zn-hot' : banner.type === 'levelup' ? 'bg-gradient-to-r from-zn-purple to-zn-hot' : 'bg-zn-purple'}`}
                     >
                       <p className="font-display text-[11px] font-black uppercase tracking-[0.3em] text-white/90 drop-shadow-md">
                         {banner.eyebrow}
@@ -433,7 +519,11 @@ export default function GameBlockBustPage() {
                   <div><p className="font-display text-xs uppercase tracking-[0.28em] text-[#6a6477] dark:text-zinc-500">Поле 8x8</p><p className="mt-1 text-sm font-semibold text-[#504961] dark:text-zinc-400">{selectedPiece ? 'Избраната фигура следва курсора или фокуса. Пусни я върху валидна клетка.' : 'Докосни фигура отдолу, за да започнеш хода.'}</p></div>
                   <div className="rounded-full border-[3px] border-[#1c1428] bg-[#f8f3ea] px-3 py-2 font-display text-[10px] font-black uppercase tracking-[0.24em] text-[#1c1428] dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">{settings.controlMode === 'drag-tap' ? 'Влачи + докосни' : 'Само докосни'}</div>
                 </div>
-                <BlockBustBoard ref={boardRef} board={run.board} theme={activeTheme} previewCells={previewState.cells} invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell) && !isDragging} focusCell={focusCell} showPlacementPreview={settings.showPlacementPreview} contrastMode={settings.gridContrast} patternAssist={settings.patternAssist} onCellEnter={(row, col) => { if (dragStateRef.current.active) return; setAnchorCell({ row, col }); setFocusCell({ row, col }); }} onCellClick={(row, col) => placeSelectedPiece(row, col)} onBoardPointerMove={handleBoardPointerMove} onBoardPointerUp={handleWindowPointerUp} onBoardLeave={() => { if (!dragStateRef.current.active) setAnchorCell(null); }} />
+                <div ref={boardWrapRef} style={boardScale < 1 ? { overflow: 'hidden' } : undefined}>
+                  <div style={boardScale < 1 ? { transform: `scale(${boardScale})`, transformOrigin: 'top left', width: `${100 / boardScale}%` } : undefined}>
+                    <BlockBustBoard ref={boardRef} board={run.board} theme={activeTheme} previewCells={previewState.cells} invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell) && !isDragging} focusCell={focusCell} showPlacementPreview={settings.showPlacementPreview} contrastMode={settings.gridContrast} patternAssist={settings.patternAssist} clearFlash={clearFlash} comboLevel={run.combo >= 3 ? Math.min(run.combo - 1, 5) : run.combo >= 2 ? 1 : 0} onCellEnter={(row, col) => { if (dragStateRef.current.active) return; setAnchorCell({ row, col }); setFocusCell({ row, col }); }} onCellClick={(row, col) => placeSelectedPiece(row, col)} onBoardPointerMove={handleBoardPointerMove} onBoardPointerUp={handleWindowPointerUp} onBoardLeave={() => { if (!dragStateRef.current.active) setAnchorCell(null); }} />
+                  </div>
+                </div>
                 <div className="mt-4 grid gap-3 rounded-[1.4rem] border-[3px] border-[#1c1428] bg-[#f8f3ea] px-4 py-4 shadow-[4px_4px_0_rgba(28,20,40,0.08)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div><p className="font-display text-xs uppercase tracking-[0.28em] text-[#6a6477] dark:text-zinc-500">Лента с фигури</p><p className="mt-1 text-sm font-semibold text-[#504961] dark:text-zinc-400">Изиграй и трите, за да получиш нова серия.</p></div>

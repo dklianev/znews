@@ -15,6 +15,8 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
   showPlacementPreview,
   contrastMode = 'normal',
   patternAssist = false,
+  clearFlash = null,
+  comboLevel = 0,
   onCellClick,
   onCellEnter,
   onBoardPointerMove,
@@ -22,6 +24,13 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
   onBoardLeave,
 }, ref) {
   const previewKeySet = useMemo(() => toPreviewKeySet(previewCells), [previewCells]);
+  const flashSet = useMemo(() => {
+    if (!clearFlash) return null;
+    const s = new Set();
+    for (const r of (clearFlash.rows || [])) { for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) s.add(`${r}:${c}`); }
+    for (const c of (clearFlash.cols || [])) { for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) s.add(`${r}:${c}`); }
+    return s;
+  }, [clearFlash]);
 
   return (
     <div className="mx-auto w-full max-w-[34rem]">
@@ -34,7 +43,8 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
         style={{
           background: theme.boardBg,
           borderColor: theme.boardBorder,
-          boxShadow: `${theme.boardShadow}, 8px 8px 0 rgba(28,20,40,1)`,
+          boxShadow: `${theme.boardShadow}, 8px 8px 0 rgba(28,20,40,1)${comboLevel >= 2 ? `, 0 0 ${16 + comboLevel * 12}px ${theme.accent}, 0 0 ${40 + comboLevel * 20}px ${theme.accentSoft}` : comboLevel === 1 ? `, 0 0 18px ${theme.accentSoft}` : ''}`,
+          transition: 'box-shadow 0.4s ease',
         }}
       >
         <div className="pointer-events-none absolute left-3 top-3 rounded-full border-[2px] border-[#1C1428] bg-white/10 px-3 py-1 font-display text-[10px] font-black uppercase tracking-[0.24em] text-white backdrop-blur-sm">
@@ -136,6 +146,16 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
                       borderColor: theme.accent,
                       boxShadow: `0 0 0 2px ${theme.accentSoft}`,
                     }}
+                  />
+                )}
+
+                {flashSet && flashSet.has(previewKey) && (
+                  <motion.span
+                    initial={{ opacity: 1, scale: 1.15 }}
+                    animate={{ opacity: 0, scale: 0.85 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                    className="pointer-events-none absolute inset-[-2px] rounded-[0.45rem] sm:rounded-md z-30"
+                    style={{ background: `radial-gradient(circle, rgba(255,255,255,0.92) 0%, ${theme.accent} 100%)` }}
                   />
                 )}
 
