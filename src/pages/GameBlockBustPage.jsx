@@ -355,7 +355,9 @@ export default function GameBlockBustPage() {
     if (event.code === 'KeyA' || event.code === 'KeyS' || event.code === 'KeyD') { event.preventDefault(); const asdIndex = { KeyA: 0, KeyS: 1, KeyD: 2 }[event.code]; const piece = run.tray[asdIndex]; if (piece) handleSelectPiece(asdIndex); return; }
     if (event.code === 'ArrowUp' || event.code === 'ArrowDown' || event.code === 'ArrowLeft' || event.code === 'ArrowRight') {
       event.preventDefault();
-      setFocusCell((current) => event.code === 'ArrowUp' ? { row: Math.max(0, current.row - 1), col: current.col } : event.code === 'ArrowDown' ? { row: Math.min(7, current.row + 1), col: current.col } : event.code === 'ArrowLeft' ? { row: current.row, col: Math.max(0, current.col - 1) } : { row: current.row, col: Math.min(7, current.col + 1) });
+      const next = event.code === 'ArrowUp' ? { row: Math.max(0, focusCell.row - 1), col: focusCell.col } : event.code === 'ArrowDown' ? { row: Math.min(7, focusCell.row + 1), col: focusCell.col } : event.code === 'ArrowLeft' ? { row: focusCell.row, col: Math.max(0, focusCell.col - 1) } : { row: focusCell.row, col: Math.min(7, focusCell.col + 1) };
+      setFocusCell(next);
+      setAnchorCell(next);
       return;
     }
     if ((event.code === 'Space' || event.code === 'Enter') && typeof run.selectedSlotIndex === 'number') { event.preventDefault(); placeSelectedPiece(focusCell.row, focusCell.col); }
@@ -401,10 +403,10 @@ export default function GameBlockBustPage() {
                   <Meter label="До ново ниво" value={`${levelProgress === 0 ? LINES_PER_LEVEL : LINES_PER_LEVEL - levelProgress} линии`} helper={`Ниво ${level + 1}`} color={activeTheme.accent} percent={(levelProgress / LINES_PER_LEVEL) * 100} />
                 </div>
               </section>
-              {resumed && run.status !== 'over' ? <section className="rounded-[1.6rem] border-[3px] border-[#1c1428] bg-white px-4 py-4 shadow-[4px_4px_0_rgba(28,20,40,0.12)] dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-none"><p className="font-display text-xs font-black uppercase tracking-[0.28em] text-[#0088aa]">Продължаваш</p><p className="mt-2 text-sm font-semibold text-[#504961] dark:text-zinc-400">Върнахме те в последния рън. Остават {run.tray.length} фигури в текущата серия.</p></section> : null}
+              {resumed && run.status !== 'over' ? <section className="rounded-[1.6rem] border-[3px] border-[#1c1428] bg-white px-4 py-4 shadow-[4px_4px_0_rgba(28,20,40,0.12)] dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-none"><p className="font-display text-xs font-black uppercase tracking-[0.28em] text-[#0088aa]">Продължаваш</p><p className="mt-2 text-sm font-semibold text-[#504961] dark:text-zinc-400">Върнахме те в последния рън. Остават {run.tray.filter(Boolean).length} фигури в текущата серия.</p></section> : null}
             </div>
 
-            <div className={`grid gap-5 lg:order-2 ${shakeCount > 0 ? 'animate-shake' : ''}`} onAnimationEnd={() => setShakeCount(0)}>
+            <div className={`relative grid gap-5 lg:order-2 ${shakeCount > 0 ? 'animate-shake' : ''}`} onAnimationEnd={() => setShakeCount(0)}>
               <div className="absolute left-0 right-0 top-[-2rem] z-30 flex justify-center pointer-events-none">
                 <AnimatePresence>
                   {banner ? (
@@ -431,7 +433,7 @@ export default function GameBlockBustPage() {
                   <div><p className="font-display text-xs uppercase tracking-[0.28em] text-[#6a6477] dark:text-zinc-500">Поле 8x8</p><p className="mt-1 text-sm font-semibold text-[#504961] dark:text-zinc-400">{selectedPiece ? 'Избраната фигура следва курсора или фокуса. Пусни я върху валидна клетка.' : 'Докосни фигура отдолу, за да започнеш хода.'}</p></div>
                   <div className="rounded-full border-[3px] border-[#1c1428] bg-[#f8f3ea] px-3 py-2 font-display text-[10px] font-black uppercase tracking-[0.24em] text-[#1c1428] dark:border-zinc-700 dark:bg-zinc-950 dark:text-white">{settings.controlMode === 'drag-tap' ? 'Влачи + докосни' : 'Само докосни'}</div>
                 </div>
-                <BlockBustBoard ref={boardRef} board={run.board} theme={activeTheme} previewCells={previewState.cells} invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell)} focusCell={focusCell} showPlacementPreview={settings.showPlacementPreview} contrastMode={settings.gridContrast} patternAssist={settings.patternAssist} onCellEnter={(row, col) => { if (dragStateRef.current.active) return; setAnchorCell({ row, col }); setFocusCell({ row, col }); }} onCellClick={(row, col) => placeSelectedPiece(row, col)} onBoardPointerMove={handleBoardPointerMove} onBoardPointerUp={handleWindowPointerUp} onBoardLeave={() => { if (!dragStateRef.current.active) setAnchorCell(null); }} />
+                <BlockBustBoard ref={boardRef} board={run.board} theme={activeTheme} previewCells={previewState.cells} invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell) && !isDragging} focusCell={focusCell} showPlacementPreview={settings.showPlacementPreview} contrastMode={settings.gridContrast} patternAssist={settings.patternAssist} onCellEnter={(row, col) => { if (dragStateRef.current.active) return; setAnchorCell({ row, col }); setFocusCell({ row, col }); }} onCellClick={(row, col) => placeSelectedPiece(row, col)} onBoardPointerMove={handleBoardPointerMove} onBoardPointerUp={handleWindowPointerUp} onBoardLeave={() => { if (!dragStateRef.current.active) setAnchorCell(null); }} />
                 <div className="mt-4 grid gap-3 rounded-[1.4rem] border-[3px] border-[#1c1428] bg-[#f8f3ea] px-4 py-4 shadow-[4px_4px_0_rgba(28,20,40,0.08)] dark:border-zinc-700 dark:bg-zinc-950 dark:shadow-none">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div><p className="font-display text-xs uppercase tracking-[0.28em] text-[#6a6477] dark:text-zinc-500">Лента с фигури</p><p className="mt-1 text-sm font-semibold text-[#504961] dark:text-zinc-400">Изиграй и трите, за да получиш нова серия.</p></div>
