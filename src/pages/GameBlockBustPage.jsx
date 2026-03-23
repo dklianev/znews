@@ -134,6 +134,7 @@ export default function GameBlockBustPage() {
   const [shareNotice, setShareNotice] = useState(null);
   const boardRef = useRef(null);
   const dragStateRef = useRef({ active: false });
+  const [isDragging, setIsDragging] = useState(false);
   const audioContextRef = useRef(null);
   const dragGhostRef = useRef(null);
   const [shakeCount, setShakeCount] = useState(0);
@@ -147,20 +148,29 @@ export default function GameBlockBustPage() {
   const previewState = useMemo(() => {
     if (!selectedPiece || !anchorCell) return { cells: [], valid: false };
     const valid = canPlaceBlockBustPiece(run.board, selectedPiece, anchorCell.row, anchorCell.col);
-    // During drag, hide preview entirely when invalid to avoid flicker
-    if (!valid && dragStateRef.current.active) return { cells: [], valid: false };
+    // During drag, suppress preview entirely when placement is invalid
+    if (!valid && isDragging) return { cells: [], valid: false };
+    // Also suppress if anchor is out of board bounds (drag offset can push into negatives)
+    if (anchorCell.row < 0 || anchorCell.col < 0) return { cells: [], valid: false };
     const cells = selectedPiece.cells.map(([row, col]) => ({ row: anchorCell.row + row, col: anchorCell.col + col })).filter(({ row, col }) => row >= 0 && col >= 0 && row < 8 && col < 8);
     return { cells, valid };
-  }, [anchorCell, run.board, selectedPiece]);
+  }, [anchorCell, isDragging, run.board, selectedPiece]);
 
   useEffect(() => { try { window.localStorage.setItem(BLOCK_BUST_SETTINGS_KEY, JSON.stringify(settings)); } catch { /* noop */ } }, [settings]);
   useEffect(() => { saveScopedGameProgress(GAME_SLUG, BLOCK_BUST_META_SCOPE, { bestScore }); }, [bestScore]);
   useEffect(() => { const serialized = serializeBlockBustRun({ ...run, bestScore }); if (serialized) saveScopedGameProgress(GAME_SLUG, BLOCK_BUST_RUN_SCOPE, serialized); }, [bestScore, run]);
+  // Auto-snap focus to a valid cell only when a NEW piece is selected (not during drag or hover)
+  const prevSelectedPieceRef = useRef(null);
   useEffect(() => {
-    if (!selectedPiece || canPlaceBlockBustPiece(run.board, selectedPiece, focusCell.row, focusCell.col)) return;
+    if (isDragging) return;
+    // Only snap when piece selection changes, not on every focusCell hover
+    if (selectedPiece === prevSelectedPieceRef.current) return;
+    prevSelectedPieceRef.current = selectedPiece;
+    if (!selectedPiece) return;
+    if (canPlaceBlockBustPiece(run.board, selectedPiece, focusCell.row, focusCell.col)) return;
     const firstPlacement = getBlockBustValidPlacements(run.board, selectedPiece)[0];
     if (firstPlacement) { setFocusCell(firstPlacement); setAnchorCell(firstPlacement); }
-  }, [focusCell, run.board, selectedPiece]);
+  }, [focusCell, isDragging, run.board, selectedPiece]);
   useEffect(() => { if (!banner) return undefined; const timeout = setTimeout(() => setBanner(null), settings.animationLevel === 'reduced' ? 1200 : 1800); return () => clearTimeout(timeout); }, [banner, settings.animationLevel]);
   useEffect(() => { if (!shareNotice) return undefined; const timeout = setTimeout(() => setShareNotice(null), 2200); return () => clearTimeout(timeout); }, [shareNotice]);
 
@@ -258,6 +268,7 @@ export default function GameBlockBustPage() {
   const handleStartDragPiece = useEffectEvent((event, index) => {
     if (settings.controlMode !== 'drag-tap') return;
     dragStateRef.current = { active: true, pieceIndex: index, moved: false };
+    setIsDragging(true);
     setRun((current) => ({ ...current, selectedSlotIndex: index }));
     playTone('select');
     if (dragGhostRef.current) {
@@ -303,6 +314,7 @@ export default function GameBlockBustPage() {
     const state = dragStateRef.current;
     if (!state.active) return;
     dragStateRef.current = { active: false };
+    setIsDragging(false);
     if (dragGhostRef.current) dragGhostRef.current.style.display = 'none';
 
     if (typeof state.pieceIndex === 'number') {
