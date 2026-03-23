@@ -23,7 +23,7 @@ export async function runGameSharedHelpersServiceTests() {
   const blockBustPayload = helpers.sanitizeGameDefinitionInput({
     slug: 'blockbust',
     type: 'blockbust',
-    title: 'Grid Riot',
+    title: 'ZBlast',
     description: 'Поставяй три фигури върху 8x8 полето.',
     icon: 'Blocks',
     active: true,
@@ -33,7 +33,7 @@ export async function runGameSharedHelpersServiceTests() {
 
   assert.equal(blockBustPayload.slug, 'blockbust');
   assert.equal(blockBustPayload.type, 'blockbust');
-  assert.equal(blockBustPayload.title, 'Grid Riot');
+  assert.equal(blockBustPayload.title, 'ZBlast');
 
   const updatedTetris = helpers.sanitizeGameDefinitionInput(
     {

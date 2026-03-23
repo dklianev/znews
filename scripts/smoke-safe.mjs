@@ -325,8 +325,8 @@ async function runBrowserSmoke() {
     {
       path: '/api/games',
       assert(payload) {
-        if (!Array.isArray(payload) || !payload.some((item) => item?.slug === 'blockbust' && item?.title === 'Grid Riot')) {
-          throw new Error('Expected /api/games to include the Grid Riot definition.');
+        if (!Array.isArray(payload) || !payload.some((item) => item?.slug === 'blockbust' && item?.title === 'ZBlast')) {
+          throw new Error('Expected /api/games to include the ZBlast definition.');
         }
       },
     },
@@ -440,7 +440,7 @@ async function runBrowserSmoke() {
         if (snapshot.title.includes('404')) {
           throw new Error('Expected block puzzle page to render a valid game view, not a 404 state.');
         }
-        if (!snapshot.title.includes('Grid Riot') || !snapshot.text.includes('Точки')) {
+        if (!snapshot.title.includes('ZBlast') || !snapshot.text.includes('Точки')) {
           throw new Error('Expected block puzzle page snapshot to include the game masthead and HUD.');
         }
       },
