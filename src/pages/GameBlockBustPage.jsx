@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, RotateCcw, Settings2, Share2, Undo2 } from 'lucide-react';
+import { ArrowLeft, Palette, RotateCcw, Settings2, Share2, Undo2 } from 'lucide-react';
 import BlockBustBoard from '../components/games/blockbust/BlockBustBoard';
 import BlockBustTray, { PieceMiniBoard } from '../components/games/blockbust/BlockBustTray';
 import BlockBustSettings from '../components/games/blockbust/BlockBustSettings';
@@ -37,6 +37,29 @@ const GAME_TITLE = 'ZBlast';
 const LINES_PER_LEVEL = 8;
 
 function fmt(n) { return String(Math.max(0, Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+
+/** Animated number that counts up/down over ~300ms */
+function useAnimatedNumber(target) {
+  const [display, setDisplay] = useState(target);
+  const rafRef = useRef(null);
+  const startRef = useRef({ from: target, to: target, t0: 0 });
+  useEffect(() => {
+    const from = startRef.current.to;
+    if (from === target) return;
+    startRef.current = { from, to: target, t0: performance.now() };
+    function tick(now) {
+      const { from: f, to: t, t0 } = startRef.current;
+      const elapsed = now - t0;
+      const progress = Math.min(1, elapsed / 300);
+      const eased = 1 - (1 - progress) * (1 - progress); // easeOutQuad
+      setDisplay(Math.round(f + (t - f) * eased));
+      if (progress < 1) rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [target]);
+  return display;
+}
 
 function createFreshRun(bestScore = 0, themeId = BLOCK_BUST_THEMES[0].id) {
   const board = createEmptyBlockBustBoard();
@@ -102,6 +125,10 @@ export default function GameBlockBustPage() {
   const [dailyBest, setDailyBest] = useState(initial.dailyBest);
   const boardWrapRef = useRef(null);
   const [boardScale, setBoardScale] = useState(1);
+
+  const animatedScore = useAnimatedNumber(run.score);
+  const animatedBest = useAnimatedNumber(bestScore);
+  const [showThemePicker, setShowThemePicker] = useState(false);
 
   const selectedPiece = useMemo(() => typeof run.selectedSlotIndex === 'number' ? (run.tray[run.selectedSlotIndex] || null) : null, [run.selectedSlotIndex, run.tray]);
   const level = useMemo(() => getBlockBustLevel(run.totalLines), [run.totalLines]);
@@ -405,10 +432,10 @@ export default function GameBlockBustPage() {
   /* ── Render ── */
   return (
     <div className="min-h-screen pb-20 transition-colors duration-500 dark:text-white" style={{ background: activeTheme.pageGradient }}>
-      {/* Hero header — Tetris style */}
+      {/* Hero header — level-adaptive hue shift */}
       <div
-        className="pt-6 pb-8 mb-6 border-b-4 border-[#1C1428] dark:border-zinc-700 relative overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${activeTheme.ribbonFrom} 0%, ${activeTheme.ribbonTo} 100%)` }}
+        className="pt-6 pb-8 mb-6 border-b-4 border-[#1C1428] dark:border-zinc-700 relative overflow-hidden transition-all duration-700"
+        style={{ background: `linear-gradient(135deg, ${activeTheme.ribbonFrom} 0%, ${activeTheme.ribbonTo} 100%)`, filter: `hue-rotate(${(level - 1) * 8}deg)` }}
       >
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_1px,transparent_1px)] bg-[length:20px_20px]" />
         <div className="max-w-5xl mx-auto px-4 relative z-10">
@@ -432,11 +459,11 @@ export default function GameBlockBustPage() {
           <div className="hidden md:flex flex-col gap-3 w-32">
             <div className="comic-panel bg-white dark:bg-zinc-900 p-3 text-center">
               <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-text/50 dark:text-zinc-400">Точки</span>
-              <p className="text-xl font-black font-display text-zn-text dark:text-white">{fmt(run.score)}</p>
+              <p className="text-xl font-black font-display text-zn-text dark:text-white tabular-nums">{fmt(animatedScore)}</p>
             </div>
             <div className="comic-panel bg-white dark:bg-zinc-900 p-3 text-center">
               <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-text/50 dark:text-zinc-400">Рекорд</span>
-              <p className="text-lg font-black font-display text-zn-hot">{fmt(bestScore)}</p>
+              <p className="text-lg font-black font-display text-zn-hot tabular-nums">{fmt(animatedBest)}</p>
             </div>
             <div className="comic-panel bg-white dark:bg-zinc-900 p-3 text-center">
               <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-text/50 dark:text-zinc-400">Ниво</span>
@@ -485,7 +512,7 @@ export default function GameBlockBustPage() {
             <div className="flex md:hidden gap-2 text-center flex-wrap justify-center">
               <div className="comic-panel bg-white dark:bg-zinc-900 px-2.5 py-1.5">
                 <span className="text-[8px] font-display uppercase tracking-widest text-zn-text/50 dark:text-zinc-400 block">Точки</span>
-                <span className="text-sm font-black font-display text-zn-text dark:text-white">{fmt(run.score)}</span>
+                <span className="text-sm font-black font-display text-zn-text dark:text-white tabular-nums">{fmt(animatedScore)}</span>
               </div>
               <div className="comic-panel bg-white dark:bg-zinc-900 px-2.5 py-1.5">
                 <span className="text-[8px] font-display uppercase tracking-widest text-zn-text/50 dark:text-zinc-400 block">Ниво</span>
@@ -504,7 +531,7 @@ export default function GameBlockBustPage() {
             </div>
 
             {/* Board */}
-            <div className="relative" ref={boardWrapRef}>
+            <div className="relative w-full max-w-[22rem] md:max-w-[26rem]" ref={boardWrapRef}>
               {/* Banner overlay */}
               <AnimatePresence>
                 {banner && (
@@ -556,7 +583,7 @@ export default function GameBlockBustPage() {
             </div>
 
             {/* Tray — below board like Block Blast */}
-            <div className="w-full max-w-[22rem]">
+            <div className="w-full max-w-[22rem] md:max-w-[26rem]">
               <BlockBustTray
                 pieces={run.tray}
                 selectedSlotIndex={run.selectedSlotIndex}
@@ -586,25 +613,39 @@ export default function GameBlockBustPage() {
 
           {/* Right panel */}
           <div className={`hidden md:flex flex-col gap-3 w-44`}>
-            {/* Game over card */}
-            {run.status === 'over' && (
-              <div className="comic-panel bg-white dark:bg-zinc-900 p-4">
-                <p className="font-display text-xs font-black uppercase tracking-widest text-zn-hot mb-2">Game Over</p>
-                <p className="text-sm text-zn-text/70 dark:text-zinc-400">
-                  {fmt(run.score)} точки за {run.moveCount} хода.
-                  {run.fullWipes > 0 ? ` ${run.fullWipes} perfect clear${run.fullWipes > 1 ? 's' : ''}.` : ''}
-                </p>
-                <button type="button" onClick={() => resetRun(true)} className="mt-3 w-full rounded-lg border-[2px] border-[#1c1428] bg-zn-hot px-3 py-2 font-display text-xs font-black uppercase tracking-widest text-white">
-                  Играй пак
-                </button>
-              </div>
-            )}
+            {/* Theme picker */}
+            <div className="comic-panel bg-white dark:bg-zinc-900 p-3">
+              <button
+                type="button"
+                onClick={() => setShowThemePicker(p => !p)}
+                className="flex items-center gap-1.5 font-display text-[10px] font-black uppercase tracking-widest text-zn-text/50 dark:text-zinc-400 w-full"
+              >
+                <Palette className="w-3.5 h-3.5" />
+                Тема: {activeTheme.name}
+              </button>
+              {showThemePicker && (
+                <div className="mt-2 grid grid-cols-3 gap-1.5">
+                  {BLOCK_BUST_THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => { setRun(c => ({ ...c, themeId: t.id })); setShowThemePicker(false); }}
+                      className={`w-full aspect-square rounded-lg border-2 transition-all ${
+                        t.id === activeTheme.id ? 'border-white scale-110 shadow-lg' : 'border-transparent opacity-70 hover:opacity-100'
+                      }`}
+                      style={{ background: `linear-gradient(135deg, ${t.fillFrom}, ${t.fillTo})` }}
+                      title={t.name}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Daily best */}
             {dailyBest > 0 && (
               <div className="comic-panel bg-white dark:bg-zinc-900 p-3 text-center">
                 <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-text/50 dark:text-zinc-400">Дневен рекорд</span>
-                <p className="text-lg font-black font-display text-zn-text dark:text-white">{fmt(dailyBest)}</p>
+                <p className="text-lg font-black font-display text-zn-text dark:text-white tabular-nums">{fmt(dailyBest)}</p>
               </div>
             )}
 
@@ -673,6 +714,74 @@ export default function GameBlockBustPage() {
             className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2 comic-panel bg-white dark:bg-zinc-900 px-5 py-2.5 font-display text-xs font-black uppercase tracking-widest text-zn-text dark:text-white"
           >
             {shareNotice.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Game Over overlay */}
+      <AnimatePresence>
+        {run.status === 'over' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.7, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 24, delay: 0.15 }}
+              className="relative w-[320px] max-w-[90vw] rounded-2xl border-[3px] border-[#1c1428] p-6 text-center shadow-[6px_6px_0_#1c1428]"
+              style={{ background: `linear-gradient(180deg, ${activeTheme.ribbonFrom}dd 0%, ${activeTheme.ribbonTo}dd 100%)` }}
+            >
+              <p className="font-display text-xs font-black uppercase tracking-[0.3em] text-white/70 mb-1">Game Over</p>
+              <p className="font-display text-5xl font-black text-white mb-1 tabular-nums" style={{ textShadow: '0 3px 8px rgba(0,0,0,0.4)' }}>
+                {fmt(run.score)}
+              </p>
+              <p className="text-white/60 text-sm font-semibold mb-5">точки</p>
+
+              <div className="grid grid-cols-3 gap-3 mb-5">
+                <div>
+                  <p className="text-white/50 text-[9px] font-display uppercase tracking-widest">Ниво</p>
+                  <p className="text-white text-lg font-black font-display">{level}</p>
+                </div>
+                <div>
+                  <p className="text-white/50 text-[9px] font-display uppercase tracking-widest">Ходове</p>
+                  <p className="text-white text-lg font-black font-display">{run.moveCount}</p>
+                </div>
+                <div>
+                  <p className="text-white/50 text-[9px] font-display uppercase tracking-widest">Линии</p>
+                  <p className="text-white text-lg font-black font-display">{run.totalLines}</p>
+                </div>
+              </div>
+
+              {run.fullWipes > 0 && (
+                <p className="text-yellow-300 text-xs font-bold mb-4">{run.fullWipes} Perfect Clear{run.fullWipes > 1 ? 's' : ''}!</p>
+              )}
+              {run.score >= bestScore && run.score > 0 && (
+                <p className="text-yellow-300 text-sm font-black font-display uppercase tracking-widest mb-4">Нов рекорд!</p>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => resetRun(true)}
+                  className="flex-1 rounded-xl border-[2px] border-white/30 bg-white px-4 py-2.5 font-display text-sm font-black uppercase tracking-widest text-[#1c1428] transition-transform active:scale-95"
+                >
+                  Играй пак
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className="rounded-xl border-[2px] border-white/30 bg-white/10 px-3 py-2.5 text-white transition-transform active:scale-95"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

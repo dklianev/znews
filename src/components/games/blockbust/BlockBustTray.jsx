@@ -81,15 +81,16 @@ export default function BlockBustTray({
               }}
               className={`touch-none relative rounded-xl border-[2px] px-2 py-3 transition-all duration-200 ${
                 selected
-                  ? 'translate-y-[-3px] z-10 border-white/30'
-                  : 'translate-y-0 z-0 border-white/8 hover:border-white/15'
+                  ? 'translate-y-[-4px] z-10'
+                  : 'translate-y-0 z-0 hover:translate-y-[-1px]'
               }`}
               style={{
                 background: selected
-                  ? `linear-gradient(180deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.03) 100%), ${theme.boardBg}`
+                  ? `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 100%), ${theme.boardBg}`
                   : `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.1) 100%), ${theme.boardBg}`,
+                borderColor: selected ? `${theme.accent}90` : 'rgba(255,255,255,0.08)',
                 boxShadow: selected
-                  ? `0 12px 28px ${theme.fillShadow}, 0 0 0 1px ${theme.accent}40`
+                  ? `0 12px 32px ${theme.fillShadow}, 0 0 0 2px ${theme.accent}50, 0 0 20px ${theme.accent}30`
                   : '0 4px 12px rgba(0,0,0,0.2)',
               }}
             >
