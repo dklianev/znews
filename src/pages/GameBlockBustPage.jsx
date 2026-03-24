@@ -145,7 +145,6 @@ export default function GameBlockBustPage() {
   const previewState = useMemo(() => {
     if (!selectedPiece || !anchorCell) return { cells: [], valid: false };
     const valid = canPlaceBlockBustPiece(run.board, selectedPiece, anchorCell.row, anchorCell.col);
-    if (!valid && isDragging) return { cells: [], valid: false };
     if (anchorCell.row < 0 || anchorCell.col < 0) return { cells: [], valid: false };
     const cells = selectedPiece.cells
       .map(([r, c]) => ({ row: anchorCell.row + r, col: anchorCell.col + c }))
@@ -324,7 +323,7 @@ export default function GameBlockBustPage() {
     playTone('select');
     if (dragGhostRef.current) {
       dragGhostRef.current.style.display = 'block';
-      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY}px) translate(-50%, -130%) scale(1.4)`;
+      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY}px) translate(-50%, -110%) scale(1.4)`;
     }
   });
 
@@ -348,7 +347,7 @@ export default function GameBlockBustPage() {
     }
     if (dragStateRef.current.active && piece) {
       rc -= Math.floor(piece.width / 2);
-      rr -= Math.floor(piece.height);
+      rr -= Math.floor(piece.height / 2) + 1;
     } else {
       rr = Math.max(0, Math.min(7, rr));
       rc = Math.max(0, Math.min(7, rc));
@@ -389,7 +388,7 @@ export default function GameBlockBustPage() {
   const handlePointerMove = useEffectEvent((e) => {
     if (!dragStateRef.current.active || !dragGhostRef.current) return;
     dragStateRef.current.moved = true;
-    dragGhostRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -130%) scale(1.4)`;
+    dragGhostRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -110%) scale(1.4)`;
     updateAnchor(e.clientX, e.clientY);
   });
 
