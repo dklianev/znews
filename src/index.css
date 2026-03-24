@@ -4358,6 +4358,18 @@
   animation: bbFlash 400ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* ZBlast reject shake — invalid placement feedback */
+@keyframes bbRejectShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(4px); }
+  40% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+  80% { transform: translateX(-2px); }
+}
+.bb-reject-shake {
+  animation: bbRejectShake 280ms ease-out;
+}
+
 /* ZBlast combo board pulse */
 @keyframes bbComboPulse {
   0%   { box-shadow: 0 0 0 0 var(--bb-accent, #8a5cff); }

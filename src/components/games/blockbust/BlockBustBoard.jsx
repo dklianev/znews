@@ -14,10 +14,12 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
   theme,
   previewCells,
   invalidPreview = false,
+  pendingClears = null,
   focusCell,
   showPlacementPreview,
   contrastMode = 'normal',
   clearFlash = null,
+  rejectShake = false,
   comboLevel = 0,
   onCellClick,
   onCellEnter,
@@ -26,6 +28,13 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
   onBoardLeave,
 }, ref) {
   const previewSet = useMemo(() => toKeySet(previewCells), [previewCells]);
+  const pendingClearSet = useMemo(() => {
+    if (!pendingClears || (!pendingClears.rows.length && !pendingClears.cols.length)) return null;
+    const s = new Set();
+    for (const r of pendingClears.rows) { for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) s.add(`${r}:${c}`); }
+    for (const c of pendingClears.cols) { for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) s.add(`${r}:${c}`); }
+    return s;
+  }, [pendingClears]);
   const flashSet = useMemo(() => {
     if (!clearFlash) return null;
     const s = new Set();
@@ -44,7 +53,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
       onPointerMove={onBoardPointerMove}
       onPointerUp={onBoardPointerUp}
       onPointerLeave={onBoardLeave}
-      className="relative overflow-hidden rounded-2xl border-[3px] p-1.5 sm:p-2 transition-shadow duration-300"
+      className={`relative overflow-hidden rounded-2xl border-[3px] p-1.5 sm:p-2 transition-shadow duration-300${rejectShake ? ' bb-reject-shake' : ''}`}
       style={{
         background: theme.boardBg,
         borderColor: theme.boardBorder,
@@ -62,6 +71,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
           const isPreview = showPlacementPreview && previewSet.has(key);
           const isFocused = focusCell?.row === ri && focusCell?.col === ci;
           const isFlashing = flashSet?.has(key);
+          const isPendingClear = pendingClearSet?.has(key);
 
           return (
             <button
@@ -109,6 +119,14 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
                     borderColor: invalidPreview ? 'rgba(255,255,255,0.2)' : theme.fillFrom,
                     opacity: invalidPreview ? 0.35 : 0.55,
                   }}
+                />
+              )}
+
+              {/* Pending clear highlight — shows which rows/cols will clear */}
+              {isPendingClear && !isFlashing && (
+                <span
+                  className="absolute inset-0 rounded-[4px] sm:rounded-md z-5 pointer-events-none"
+                  style={{ background: `${theme.accent}22` }}
                 />
               )}
 

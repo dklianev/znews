@@ -372,8 +372,11 @@ export function resolveBlockBustMove(board, piece, row, col, combo = 0) {
   const nextCombo = clearResult.lineCount > 0 ? combo + 1 : 0;
   const comboBonus = nextCombo >= 2 ? nextCombo * 10 : 0;
 
+  // Base placement points: 1 per cell placed (like real Block Blast)
+  const placementScore = piece.size;
+
   const perfectClearBonus = perfectClear ? 200 : 0;
-  const score = blockClearScore + simultaneousBonus + comboBonus + perfectClearBonus;
+  const score = placementScore + blockClearScore + simultaneousBonus + comboBonus + perfectClearBonus;
 
   return {
     board: clearResult.board,
@@ -421,10 +424,25 @@ function buildWeightedPieceCandidates(_board, _level, currentTray = []) {
   });
 }
 
-// Greedy placement: pick the spot that clears the most lines,
-// breaking ties by compactness (prefer bottom-right for packing)
+// Adjacency score: how many filled neighbors or walls border the piece cells.
+// Higher = tighter packing = more realistic player behavior.
+function placementAdjacency(board, piece, r, c) {
+  let score = 0;
+  for (const [pr, pc] of piece.cells) {
+    const row = r + pr, col = c + pc;
+    if (row > 0 && board[row - 1][col]) score += 2;
+    if (row < BLOCK_BUST_BOARD_SIZE - 1 && board[row + 1][col]) score += 2;
+    if (col > 0 && board[row][col - 1]) score += 2;
+    if (col < BLOCK_BUST_BOARD_SIZE - 1 && board[row][col + 1]) score += 2;
+    if (row === 0 || row === BLOCK_BUST_BOARD_SIZE - 1) score++;
+    if (col === 0 || col === BLOCK_BUST_BOARD_SIZE - 1) score++;
+  }
+  return score;
+}
+
+// Greedy placement: maximize line clears, then adjacency (tight packing)
 function greedyBestPlacement(board, piece) {
-  let bestR = -1, bestC = -1, bestClears = -1, bestBoard = null;
+  let bestR = -1, bestC = -1, bestClears = -1, bestAdj = -1, bestBoard = null;
   const maxR = BLOCK_BUST_BOARD_SIZE - piece.height;
   const maxC = BLOCK_BUST_BOARD_SIZE - piece.width;
   for (let r = 0; r <= maxR; r++) {
@@ -432,9 +450,11 @@ function greedyBestPlacement(board, piece) {
       if (!canPlaceBlockBustPiece(board, piece, r, c)) continue;
       const placed = placeBlockBustPiece(board, piece, r, c);
       const cleared = clearBlockBustLines(placed);
+      const adj = placementAdjacency(board, piece, r, c);
       if (cleared.lineCount > bestClears ||
-          (cleared.lineCount === bestClears && r + c > bestR + bestC)) {
+          (cleared.lineCount === bestClears && adj > bestAdj)) {
         bestClears = cleared.lineCount;
+        bestAdj = adj;
         bestR = r; bestC = c;
         bestBoard = cleared.board;
       }
@@ -468,12 +488,23 @@ function evaluateTrio(board, trio) {
   return best;
 }
 
-// Board health: lower occupancy + near-complete lines = healthier
+// Board health: low occupancy + near-complete lines - trapped empty cells
 function trioHealthScore(board) {
-  let filled = 0, nearComplete = 0;
+  let filled = 0, nearComplete = 0, trapped = 0;
   for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) {
     let rf = 0;
-    for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) { if (board[r][c]) { filled++; rf++; } }
+    for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) {
+      if (board[r][c]) { filled++; rf++; }
+      else {
+        // Count empty cells with 3+ filled/wall neighbors (death traps)
+        let walls = 0;
+        if (r === 0 || board[r - 1][c]) walls++;
+        if (r === BLOCK_BUST_BOARD_SIZE - 1 || board[r + 1][c]) walls++;
+        if (c === 0 || board[r][c - 1]) walls++;
+        if (c === BLOCK_BUST_BOARD_SIZE - 1 || board[r][c + 1]) walls++;
+        if (walls >= 3) trapped += walls === 4 ? 2 : 1;
+      }
+    }
     if (rf >= 6) nearComplete++;
   }
   for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) {
@@ -481,7 +512,7 @@ function trioHealthScore(board) {
     for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) if (board[r][c]) cf++;
     if (cf >= 6) nearComplete++;
   }
-  return (1 - filled / 64) * 50 + nearComplete * 15;
+  return (1 - filled / 64) * 50 + nearComplete * 15 - trapped * 6;
 }
 
 export function createBlockBustTray(board, level = 1, rng = Math.random) {
@@ -512,13 +543,13 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
   if (viable.length === 0) return candidates[0];
 
   // Phase 3: select trio based on difficulty curve
-  // Early levels bias toward healthier board outcomes; later levels allow harder setups
-  const difficulty = Math.min(1, (level - 1) / 12);
+  // Asymptotic curve: never fully adversarial, always ~15% player bias remains
+  const difficulty = 0.85 * (1 - 1 / (1 + (level - 1) * 0.08));
   viable.sort((a, b) => a.health - b.health); // ascending: index 0 = hardest
 
   const weights = viable.map((_, i) => {
     const t = viable.length > 1 ? i / (viable.length - 1) : 0.5;
-    return 0.3 + (1 - difficulty) * t * 2;
+    return 0.3 + (1 - difficulty) * t * 1.5;
   });
 
   const total = weights.reduce((s, w) => s + w, 0);
@@ -528,6 +559,31 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
     if (roll <= 0) return viable[i].trio;
   }
   return viable[viable.length - 1].trio;
+}
+
+// Check which rows/cols would clear if piece is placed at (row, col).
+// Returns null if placement is invalid or nothing clears.
+export function getBlockBustPendingClears(board, piece, row, col) {
+  if (!canPlaceBlockBustPiece(board, piece, row, col)) return null;
+  const pieceCells = new Set();
+  for (const [pr, pc] of piece.cells) pieceCells.add(`${row + pr}:${col + pc}`);
+  const rows = [];
+  for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) {
+    let complete = true;
+    for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) {
+      if (!board[r][c] && !pieceCells.has(`${r}:${c}`)) { complete = false; break; }
+    }
+    if (complete) rows.push(r);
+  }
+  const cols = [];
+  for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) {
+    let complete = true;
+    for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) {
+      if (!board[r][c] && !pieceCells.has(`${r}:${c}`)) { complete = false; break; }
+    }
+    if (complete) cols.push(c);
+  }
+  return (rows.length || cols.length) ? { rows, cols } : null;
 }
 
 export function serializeBlockBustRun(state) {

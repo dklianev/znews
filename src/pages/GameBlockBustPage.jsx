@@ -22,6 +22,7 @@ import {
   getBlockBustBoardOccupancy,
   getBlockBustLevel,
   getBlockBustNextThemeId,
+  getBlockBustPendingClears,
   getBlockBustTheme,
   getBlockBustValidPlacements,
   hydrateBlockBustRun,
@@ -123,6 +124,7 @@ export default function GameBlockBustPage() {
   const [clearFlash, setClearFlash] = useState(null);
   const clearFlashRef = useRef(null);
   const [prevRunForUndo, setPrevRunForUndo] = useState(null);
+  const [rejectShake, setRejectShake] = useState(false);
   const [streak, setStreak] = useState(initial.streak);
   const [dailyBest, setDailyBest] = useState(initial.dailyBest);
   const boardWrapRef = useRef(null);
@@ -145,13 +147,14 @@ export default function GameBlockBustPage() {
   const levelProgress = useMemo(() => run.totalLines % LINES_PER_LEVEL, [run.totalLines]);
 
   const previewState = useMemo(() => {
-    if (!selectedPiece || !anchorCell) return { cells: [], valid: false };
+    if (!selectedPiece || !anchorCell) return { cells: [], valid: false, pendingClears: null };
     const valid = canPlaceBlockBustPiece(run.board, selectedPiece, anchorCell.row, anchorCell.col);
-    if (anchorCell.row < 0 || anchorCell.col < 0) return { cells: [], valid: false };
+    if (anchorCell.row < 0 || anchorCell.col < 0) return { cells: [], valid: false, pendingClears: null };
     const cells = selectedPiece.cells
       .map(([r, c]) => ({ row: anchorCell.row + r, col: anchorCell.col + c }))
       .filter(({ row, col }) => row >= 0 && col >= 0 && row < 8 && col < 8);
-    return { cells, valid };
+    const pendingClears = valid ? getBlockBustPendingClears(run.board, selectedPiece, anchorCell.row, anchorCell.col) : null;
+    return { cells, valid, pendingClears };
   }, [anchorCell, isDragging, run.board, selectedPiece]);
 
   /* ── Persistence ── */
@@ -186,7 +189,7 @@ export default function GameBlockBustPage() {
   }, []);
 
   /* ── Sound ── */
-  const playTone = useEffectEvent((type) => {
+  const playTone = useEffectEvent((type, comboLvl = 0) => {
     if (!settings.soundEnabled) return;
     const Ctor = window.AudioContext || window.webkitAudioContext;
     if (!Ctor) return;
@@ -199,7 +202,7 @@ export default function GameBlockBustPage() {
       const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
       const t = { select: [320, 0.06, 0.03, 'triangle'], place: [220, 0.08, 0.05, 'square'], clear: [470, 0.11, 0.04, 'triangle'], perfect: [720, 0.18, 0.05, 'sine'], over: [145, 0.2, 0.045, 'sawtooth'], levelup: [660, 0.16, 0.045, 'sine'], undo: [180, 0.07, 0.03, 'triangle'], combo: [540, 0.09, 0.035, 'triangle'] }[type] || [240, 0.05, 0.02, 'triangle'];
-      osc.type = t[3]; osc.frequency.setValueAtTime(t[0], now);
+      osc.type = t[3]; osc.frequency.setValueAtTime(t[0] + (type === 'combo' ? Math.min(comboLvl, 6) * 60 : 0), now);
       gain.gain.setValueAtTime(t[2], now); gain.gain.exponentialRampToValueAtTime(0.0001, now + t[1]);
       osc.start(now); osc.stop(now + t[1]);
     } catch {}
@@ -292,7 +295,7 @@ export default function GameBlockBustPage() {
       playTone('perfect');
       setBanner({ eyebrow: 'Пълно изчистване', title: 'Perfect Clear!', accent: getBlockBustTheme(nextThemeId).accent });
     } else if (result.hadClear) {
-      playTone(result.nextCombo >= 3 ? 'combo' : 'clear');
+      playTone(result.nextCombo >= 3 ? 'combo' : 'clear', result.nextCombo);
       setBanner({ eyebrow: result.nextCombo > 1 ? `Combo x${result.nextCombo}` : 'Clear', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'}`, accent: activeTheme.accent });
     } else {
       playTone('place');
@@ -300,6 +303,14 @@ export default function GameBlockBustPage() {
     if (nextRun.status === 'over') { playTone('over'); setBanner({ type: 'over', eyebrow: 'Game Over', title: fmt(nextRun.score) + ' точки', accent: '#cc0a1a' }); }
     if (dragGhostRef.current) dragGhostRef.current.style.display = 'none';
     return true;
+  });
+
+  const handleCellClick = useEffectEvent((r, c) => {
+    const placed = placeSelectedPiece(r, c);
+    if (!placed && selectedPiece) {
+      setRejectShake(true);
+      setTimeout(() => setRejectShake(false), 300);
+    }
   });
 
   const handleSelectPiece = useEffectEvent((index) => {
@@ -588,13 +599,15 @@ export default function GameBlockBustPage() {
                     theme={activeTheme}
                     previewCells={previewState.cells}
                     invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell) && !isDragging}
+                    pendingClears={previewState.pendingClears}
                     focusCell={focusCell}
                     showPlacementPreview={settings.showPlacementPreview}
                     contrastMode={settings.gridContrast}
                     clearFlash={clearFlash}
+                    rejectShake={rejectShake}
                     comboLevel={run.combo >= 3 ? Math.min(run.combo - 1, 5) : run.combo >= 2 ? 1 : 0}
                     onCellEnter={(r, c) => { if (dragStateRef.current.active) return; setAnchorCell({ row: r, col: c }); setFocusCell({ row: r, col: c }); }}
-                    onCellClick={(r, c) => placeSelectedPiece(r, c)}
+                    onCellClick={handleCellClick}
                     onBoardPointerMove={handleBoardPointerMove}
                     onBoardPointerUp={handlePointerUp}
                     onBoardLeave={() => { if (!dragStateRef.current.active) setAnchorCell(null); }}

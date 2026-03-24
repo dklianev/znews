@@ -72,7 +72,7 @@ export default function BlockBustTray({
               initial={piece ? { scale: 0.85, opacity: 0 } : { opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.7, opacity: 0 }}
-              transition={piece ? { type: 'spring', delay: index * 0.04, stiffness: 450, damping: 28 } : { duration: 0.15 }}
+              transition={piece ? { type: 'spring', delay: index * 0.12, stiffness: 450, damping: 28 } : { duration: 0.15 }}
               type="button"
               onClick={() => piece && onSelectPiece?.(index)}
               onPointerDown={(e) => {
