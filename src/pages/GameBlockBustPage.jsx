@@ -317,6 +317,10 @@ export default function GameBlockBustPage() {
   });
 
   /* ── Drag system ── */
+  // Drag offset: ghost floats above finger so you can see it.
+  // The board anchor is computed to match the ghost position exactly.
+  const DRAG_OFFSET_ROWS = 2; // piece appears ~2 rows above the cursor cell
+
   const handleStartDrag = useEffectEvent((event, index) => {
     if (settings.controlMode !== 'drag-tap') return;
     dragStateRef.current = { active: true, pieceIndex: index, moved: false };
@@ -324,8 +328,11 @@ export default function GameBlockBustPage() {
     setRun(c => ({ ...c, selectedSlotIndex: index }));
     playTone('select');
     if (dragGhostRef.current) {
+      const grid = document.getElementById('blockbust-grid');
+      const cellPx = grid ? grid.getBoundingClientRect().height / 8 : 40;
+      const offsetPx = (DRAG_OFFSET_ROWS + 0.5) * cellPx;
       dragGhostRef.current.style.display = 'block';
-      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY}px) translate(-50%, -110%) scale(1.4)`;
+      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY - offsetPx}px) translate(-50%, -50%) scale(1.4)`;
     }
   });
 
@@ -333,23 +340,27 @@ export default function GameBlockBustPage() {
     const grid = document.getElementById('blockbust-grid');
     if (!grid) return;
     const rect = grid.getBoundingClientRect();
+    const cellW = rect.width / 8;
+    const cellH = rect.height / 8;
     const mx = rect.width * 0.4;
-    const mt = rect.height * 0.25;
-    const mb = rect.height * 0.7;
+    const mt = rect.height * 0.4;
+    const mb = rect.height * 0.8;
     if (cx < rect.left - mx || cx > rect.right + mx || cy < rect.top - mt || cy > rect.bottom + mb) {
       setAnchorCell(null);
       dragStateRef.current.anchorCell = null;
       return;
     }
-    let rr = Math.floor((cy - rect.top) / (rect.height / 8));
-    let rc = Math.floor((cx - rect.left) / (rect.width / 8));
     let piece = selectedPiece;
     if (dragStateRef.current.active && typeof dragStateRef.current.pieceIndex === 'number') {
       piece = run.tray[dragStateRef.current.pieceIndex] || piece;
     }
+    // Convert cursor position to grid cell
+    let rr = Math.floor((cy - rect.top) / cellH);
+    let rc = Math.floor((cx - rect.left) / cellW);
     if (dragStateRef.current.active && piece) {
+      // Center piece horizontally on cursor, offset up to match ghost visual
       rc -= Math.floor(piece.width / 2);
-      rr -= Math.floor(piece.height / 2) + 1;
+      rr -= Math.floor(piece.height / 2) + DRAG_OFFSET_ROWS;
     } else {
       rr = Math.max(0, Math.min(7, rr));
       rc = Math.max(0, Math.min(7, rc));
@@ -390,7 +401,10 @@ export default function GameBlockBustPage() {
   const handlePointerMove = useEffectEvent((e) => {
     if (!dragStateRef.current.active || !dragGhostRef.current) return;
     dragStateRef.current.moved = true;
-    dragGhostRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -110%) scale(1.4)`;
+    const grid = document.getElementById('blockbust-grid');
+    const cellPx = grid ? grid.getBoundingClientRect().height / 8 : 40;
+    const offsetPx = (DRAG_OFFSET_ROWS + 0.5) * cellPx;
+    dragGhostRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY - offsetPx}px) translate(-50%, -50%) scale(1.4)`;
     updateAnchor(e.clientX, e.clientY);
   });
 
