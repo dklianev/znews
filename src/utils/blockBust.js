@@ -153,21 +153,21 @@ export const BLOCK_BUST_DEFAULT_SETTINGS = Object.freeze({
 // - Large pieces stay infrequent but impactful
 const BASE_PIECE_DEFINITIONS = Object.freeze([
   // ── Small (1-2 cells) ──
-  { slug: 'dot',     weight: 6,  tags: ['rescue'], cells: [[0, 0]] },
-  { slug: 'bar2',    weight: 14, tags: ['rescue'], cells: [[0, 0], [0, 1]] },
+  { slug: 'dot',     weight: 10, tags: ['rescue'], cells: [[0, 0]] },
+  { slug: 'bar2',    weight: 18, tags: ['rescue'], cells: [[0, 0], [0, 1]] },
   // ── Medium (3-4 cells) — bread and butter ──
-  { slug: 'bar3',    weight: 13, tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
-  { slug: 'square2', weight: 10, tags: ['stable'], cells: [[0, 0], [0, 1], [1, 0], [1, 1]] },
-  { slug: 'corner3', weight: 8,  tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
+  { slug: 'bar3',    weight: 16, tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
+  { slug: 'square2', weight: 9,  tags: ['stable'], cells: [[0, 0], [0, 1], [1, 0], [1, 1]] },
+  { slug: 'corner3', weight: 7,  tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
   { slug: 'bar4',    weight: 11, tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
-  { slug: 'corner4', weight: 7,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
-  { slug: 'tee4',    weight: 6,  tags: ['stable'], cells: [[0, 1], [1, 0], [1, 1], [1, 2]] },
-  { slug: 'zig4',    weight: 6,  tags: ['stable'], cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
+  { slug: 'corner4', weight: 6,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
+  { slug: 'tee4',    weight: 5,  tags: ['stable'], cells: [[0, 1], [1, 0], [1, 1], [1, 2]] },
+  { slug: 'zig4',    weight: 5,  tags: ['stable'], cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
   // ── Large (5-9 cells) — clear enablers ──
   { slug: 'bar5',    weight: 8,  tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
-  { slug: 'corner5', weight: 5,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
-  { slug: 'rect23',  weight: 6,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]] },
-  { slug: 'square3', weight: 4,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
+  { slug: 'corner5', weight: 4,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
+  { slug: 'rect23',  weight: 5,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]] },
+  { slug: 'square3', weight: 3,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
 ]);
 
 function cloneBoard(board) {
