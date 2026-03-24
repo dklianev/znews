@@ -401,38 +401,133 @@ function getWeightedRandom(candidates, rng) {
   return candidates[candidates.length - 1];
 }
 
-// Block Blast authentic piece generation — pure weighted random.
-// No mercy, no rescue bias, no line-clear awareness.
-// Pieces are picked from the full catalog using base weights only.
-// Bigger pieces are naturally rarer (lower weight). Game can give
-// unplaceable pieces — game over is the normal end state.
+// ── Simulation-based tray generation ──
+// Mirrors how real Block Blast likely works:
+// 1. Generate ~25 candidate trios (weighted random)
+// 2. Simulate greedy placement for each trio across all orderings
+// 3. Filter to trios where at least one valid sequence exists
+// 4. Score survivors by post-placement board health
+// 5. Select trio using difficulty-weighted distribution
+
 function buildWeightedPieceCandidates(_board, _level, currentTray = []) {
   const existingIds = new Set((Array.isArray(currentTray) ? currentTray : []).map((piece) => piece.id));
   const existingSlugs = new Set((Array.isArray(currentTray) ? currentTray : []).map((p) => p.slug));
 
   return BLOCK_BUST_PIECES.map((piece) => {
     let weight = piece.weight;
-
-    // Only soft constraint: avoid exact same piece or same shape in one tray
     if (existingIds.has(piece.id)) weight *= 0.3;
     else if (existingSlugs.has(piece.slug)) weight *= 0.5;
-
     return { piece, weight };
   });
 }
 
+// Greedy placement: pick the spot that clears the most lines,
+// breaking ties by compactness (prefer bottom-right for packing)
+function greedyBestPlacement(board, piece) {
+  let bestR = -1, bestC = -1, bestClears = -1, bestBoard = null;
+  const maxR = BLOCK_BUST_BOARD_SIZE - piece.height;
+  const maxC = BLOCK_BUST_BOARD_SIZE - piece.width;
+  for (let r = 0; r <= maxR; r++) {
+    for (let c = 0; c <= maxC; c++) {
+      if (!canPlaceBlockBustPiece(board, piece, r, c)) continue;
+      const placed = placeBlockBustPiece(board, piece, r, c);
+      const cleared = clearBlockBustLines(placed);
+      if (cleared.lineCount > bestClears ||
+          (cleared.lineCount === bestClears && r + c > bestR + bestC)) {
+        bestClears = cleared.lineCount;
+        bestR = r; bestC = c;
+        bestBoard = cleared.board;
+      }
+    }
+  }
+  return bestR >= 0 ? { board: bestBoard, linesCleared: bestClears } : null;
+}
+
+// Simulate placing a trio in a specific order using greedy strategy
+function simulateTrioPlacement(board, trio) {
+  let b = board, totalCleared = 0;
+  for (const piece of trio) {
+    const result = greedyBestPlacement(b, piece);
+    if (!result) return null;
+    b = result.board;
+    totalCleared += result.linesCleared;
+  }
+  return { board: b, linesCleared: totalCleared };
+}
+
+// Try all 6 orderings — return the best result (most lines cleared)
+function evaluateTrio(board, trio) {
+  const orderings = [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+  let best = null;
+  for (const [a, b, c] of orderings) {
+    const result = simulateTrioPlacement(board, [trio[a], trio[b], trio[c]]);
+    if (result && (!best || result.linesCleared > best.linesCleared)) {
+      best = result;
+    }
+  }
+  return best;
+}
+
+// Board health: lower occupancy + near-complete lines = healthier
+function trioHealthScore(board) {
+  let filled = 0, nearComplete = 0;
+  for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) {
+    let rf = 0;
+    for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) { if (board[r][c]) { filled++; rf++; } }
+    if (rf >= 6) nearComplete++;
+  }
+  for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) {
+    let cf = 0;
+    for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) if (board[r][c]) cf++;
+    if (cf >= 6) nearComplete++;
+  }
+  return (1 - filled / 64) * 50 + nearComplete * 15;
+}
+
 export function createBlockBustTray(board, level = 1, rng = Math.random) {
   const safeRng = typeof rng === 'function' ? rng : Math.random;
-  const tray = [];
+  const N = 25;
 
-  // Block Blast style: 3 pure weighted random picks, no mercy.
-  // Pieces may not fit the board — that's how games end.
-  for (let i = 0; i < 3; i++) {
-    const candidates = buildWeightedPieceCandidates(board, level, tray);
-    tray.push(getWeightedRandom(candidates, safeRng).piece);
+  // Phase 1: generate candidate trios using weighted random
+  const candidates = [];
+  for (let i = 0; i < N; i++) {
+    const trio = [];
+    for (let j = 0; j < 3; j++) {
+      const wc = buildWeightedPieceCandidates(board, level, trio);
+      trio.push(getWeightedRandom(wc, safeRng).piece);
+    }
+    candidates.push(trio);
   }
 
-  return tray;
+  // Phase 2: simulate each trio and filter to solvable ones
+  const viable = [];
+  for (const trio of candidates) {
+    const sim = evaluateTrio(board, trio);
+    if (sim) {
+      viable.push({ trio, health: trioHealthScore(sim.board), clears: sim.linesCleared });
+    }
+  }
+
+  // Fallback: if no trio is solvable, the board is nearly full — game over is natural
+  if (viable.length === 0) return candidates[0];
+
+  // Phase 3: select trio based on difficulty curve
+  // Early levels bias toward healthier board outcomes; later levels allow harder setups
+  const difficulty = Math.min(1, (level - 1) / 12);
+  viable.sort((a, b) => a.health - b.health); // ascending: index 0 = hardest
+
+  const weights = viable.map((_, i) => {
+    const t = viable.length > 1 ? i / (viable.length - 1) : 0.5;
+    return 0.3 + (1 - difficulty) * t * 2;
+  });
+
+  const total = weights.reduce((s, w) => s + w, 0);
+  let roll = safeRng() * total;
+  for (let i = 0; i < viable.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return viable[i].trio;
+  }
+  return viable[viable.length - 1].trio;
 }
 
 export function serializeBlockBustRun(state) {
