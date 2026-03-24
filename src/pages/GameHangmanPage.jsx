@@ -277,9 +277,9 @@ export default function GameHangmanPage() {
               <span className="inline-flex items-center gap-2"><Target className="w-4 h-4 text-emerald-500" /> {maxMistakes} шанса</span>
             </div>
 
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex justify-center gap-1.5 sm:gap-2" style={{ flexWrap: 'nowrap' }}>
               {revealedSlots.map((letter, index) => (
-                <div key={`slot-${index}`} className="flex h-16 w-14 items-center justify-center rounded-[22px] border border-stone-200 bg-stone-50 text-2xl font-black uppercase shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-white">
+                <div key={`slot-${index}`} className={`flex items-center justify-center rounded-[18px] sm:rounded-[22px] border border-stone-200 bg-stone-50 font-black uppercase shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-white ${revealedSlots.length > 10 ? 'h-11 min-w-[2rem] text-lg sm:h-14 sm:min-w-[2.5rem] sm:text-xl' : revealedSlots.length > 7 ? 'h-12 min-w-[2.2rem] text-xl sm:h-14 sm:min-w-[2.8rem] sm:text-2xl' : 'h-14 min-w-[2.5rem] text-2xl sm:h-16 sm:min-w-[3.5rem]'}`} style={{ flex: '1 1 0', maxWidth: revealedSlots.length > 8 ? '3rem' : '3.5rem' }}>
                   {letter || ''}
                 </div>
               ))}

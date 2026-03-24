@@ -283,49 +283,6 @@ export default function Game2048Page() {
             </div>
 
             <div className="comic-panel p-2 relative" style={{ backgroundColor: '#bbada0' }}>
-              {/* Game over overlay */}
-              {gameStatus === 'over' && (
-                <div className="absolute inset-0 z-20 bg-black/75 flex items-center justify-center rounded">
-                  <div className="text-center px-4">
-                    <p className="text-zn-hot font-display text-3xl uppercase tracking-widest mb-1 font-black">Край!</p>
-                    <p className="text-white font-display text-lg mb-1">{formatScore(score)} точки</p>
-                    <p className="text-white/60 text-sm mb-1">Макс плочка: {getMaxTile(board)}</p>
-                    <p className="text-white/40 text-xs mb-3">{moveCount} хода</p>
-                    {score >= bestScore && score > 0 && (
-                      <p className="text-yellow-400 font-display uppercase tracking-widest text-sm mb-3 flex items-center justify-center gap-2">
-                        <Trophy className="w-4 h-4" /> Нов рекорд!
-                      </p>
-                    )}
-                    <div className="flex gap-3 justify-center">
-                      <button type="button" onClick={startNewGame} className="bg-amber-600 text-white font-display uppercase tracking-widest px-5 py-2.5 border-3 border-[#1C1428] shadow-comic hover:-translate-y-0.5 transition-transform text-sm">
-                        <RotateCcw className="w-4 h-4 inline mr-1" />Пак
-                      </button>
-                      <button type="button" onClick={handleShare} className="bg-white text-zn-text font-display uppercase tracking-widest px-5 py-2.5 border-3 border-[#1C1428] shadow-comic hover:-translate-y-0.5 transition-transform text-sm">
-                        <Share2 className="w-4 h-4 inline mr-1" />Сподели
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Won overlay */}
-              {gameStatus === 'won' && (
-                <div className="absolute inset-0 z-20 bg-black/75 flex items-center justify-center rounded">
-                  <div className="text-center px-4">
-                    <p className="text-yellow-400 font-display text-3xl uppercase tracking-widest mb-1 font-black">2048!</p>
-                    <p className="text-white font-display text-lg mb-2">{formatScore(score)} точки за {moveCount} хода</p>
-                    <div className="flex gap-3 justify-center">
-                      <button type="button" onClick={continueAfterWin} className="bg-amber-600 text-white font-display uppercase tracking-widest px-5 py-2.5 border-3 border-[#1C1428] shadow-comic hover:-translate-y-0.5 transition-transform text-sm">
-                        Продължи
-                      </button>
-                      <button type="button" onClick={startNewGame} className="bg-white text-zn-text font-display uppercase tracking-widest px-5 py-2.5 border-3 border-[#1C1428] shadow-comic hover:-translate-y-0.5 transition-transform text-sm">
-                        <RotateCcw className="w-4 h-4 inline mr-1" />Нова
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Grid */}
               <div
                 className="relative"
@@ -419,6 +376,63 @@ export default function Game2048Page() {
           </div>
         </div>
       </div>
+
+      {/* Game Over — full-screen overlay */}
+      {gameStatus === 'over' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+          <div className="relative w-[320px] max-w-[90vw] rounded-2xl border-[3px] border-[#1c1428] p-6 text-center shadow-[6px_6px_0_#1c1428] bg-gradient-to-b from-amber-700 to-amber-900">
+            <p className="font-display text-xs font-black uppercase tracking-[0.3em] text-white/70 mb-1">Game Over</p>
+            <p className="font-display text-5xl font-black text-white mb-1 tabular-nums" style={{ textShadow: '0 3px 8px rgba(0,0,0,0.4)' }}>
+              {formatScore(score)}
+            </p>
+            <p className="text-white/60 text-sm font-semibold mb-5">точки</p>
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div>
+                <p className="text-white/50 text-[9px] font-display uppercase tracking-widest">Макс плочка</p>
+                <p className="text-white text-lg font-black font-display">{getMaxTile(board)}</p>
+              </div>
+              <div>
+                <p className="text-white/50 text-[9px] font-display uppercase tracking-widest">Ходове</p>
+                <p className="text-white text-lg font-black font-display">{moveCount}</p>
+              </div>
+              <div>
+                <p className="text-white/50 text-[9px] font-display uppercase tracking-widest">Рекорд</p>
+                <p className="text-white text-lg font-black font-display">{formatScore(bestScore)}</p>
+              </div>
+            </div>
+            {score >= bestScore && score > 0 && (
+              <p className="text-yellow-300 text-sm font-black font-display uppercase tracking-widest mb-4">Нов рекорд!</p>
+            )}
+            <div className="flex gap-2">
+              <button type="button" onClick={startNewGame} className="flex-1 rounded-xl border-[2px] border-white/30 bg-white px-4 py-2.5 font-display text-sm font-black uppercase tracking-widest text-[#1c1428] transition-transform active:scale-95">
+                Играй пак
+              </button>
+              <button type="button" onClick={handleShare} className="rounded-xl border-[2px] border-white/30 bg-white/20 px-4 py-2.5 font-display text-sm font-black uppercase tracking-widest text-white transition-transform active:scale-95">
+                <Share2 className="w-4 h-4 inline mr-1" />Сподели
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Won — full-screen overlay */}
+      {gameStatus === 'won' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+          <div className="relative w-[320px] max-w-[90vw] rounded-2xl border-[3px] border-[#1c1428] p-6 text-center shadow-[6px_6px_0_#1c1428] bg-gradient-to-b from-yellow-500 to-amber-700">
+            <p className="font-display text-xs font-black uppercase tracking-[0.3em] text-white/70 mb-1">Поздравления!</p>
+            <p className="font-display text-5xl font-black text-white mb-1" style={{ textShadow: '0 3px 8px rgba(0,0,0,0.4)' }}>2048!</p>
+            <p className="text-white/80 text-sm font-semibold mb-5">{formatScore(score)} точки за {moveCount} хода</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={continueAfterWin} className="flex-1 rounded-xl border-[2px] border-white/30 bg-white px-4 py-2.5 font-display text-sm font-black uppercase tracking-widest text-[#1c1428] transition-transform active:scale-95">
+                Продължи
+              </button>
+              <button type="button" onClick={startNewGame} className="rounded-xl border-[2px] border-white/30 bg-white/20 px-4 py-2.5 font-display text-sm font-black uppercase tracking-widest text-white transition-transform active:scale-95">
+                <RotateCcw className="w-4 h-4 inline mr-1" />Нова
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* CSS animations for tiles — CEF 103 safe */}
       <style>{`
