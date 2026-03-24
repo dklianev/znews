@@ -129,6 +129,12 @@ export default function GameBlockBustPage() {
   const animatedScore = useAnimatedNumber(run.score);
   const animatedBest = useAnimatedNumber(bestScore);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [scoreFlash, setScoreFlash] = useState(false);
+  const prevScoreRef = useRef(run.score);
+  useEffect(() => {
+    if (run.score > prevScoreRef.current) { setScoreFlash(true); const t = setTimeout(() => setScoreFlash(false), 400); prevScoreRef.current = run.score; return () => clearTimeout(t); }
+    prevScoreRef.current = run.score;
+  }, [run.score]);
 
   const selectedPiece = useMemo(() => typeof run.selectedSlotIndex === 'number' ? (run.tray[run.selectedSlotIndex] || null) : null, [run.selectedSlotIndex, run.tray]);
   const level = useMemo(() => getBlockBustLevel(run.totalLines), [run.totalLines]);
@@ -219,7 +225,7 @@ export default function GameBlockBustPage() {
   /* ── Actions ── */
   const resetRun = useEffectEvent((force = false) => {
     if (!force && settings.confirmRestart && !window.confirm('Сигурен ли си, че искаш нов рън?')) return;
-    const tid = BLOCK_BUST_THEMES[0].id;
+    const tid = BLOCK_BUST_THEMES[Math.floor(Math.random() * BLOCK_BUST_THEMES.length)].id;
     setRun(createFreshRun(bestScore, tid));
     setFocusCell(createBlockBustInitialCursor());
     setAnchorCell(null);
@@ -457,9 +463,9 @@ export default function GameBlockBustPage() {
 
           {/* Left panel — stats */}
           <div className="hidden md:flex flex-col gap-3 w-32">
-            <div className="comic-panel bg-white dark:bg-zinc-900 p-3 text-center">
+            <div className={`comic-panel p-3 text-center transition-colors duration-300 ${scoreFlash ? 'bg-zn-gold/10 dark:bg-zn-gold/20' : 'bg-white dark:bg-zinc-900'}`}>
               <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-text/50 dark:text-zinc-400">Точки</span>
-              <p className="text-xl font-black font-display text-zn-text dark:text-white tabular-nums">{fmt(animatedScore)}</p>
+              <p className={`text-xl font-black font-display tabular-nums transition-transform duration-200 ${scoreFlash ? 'scale-110 text-zn-gold' : 'scale-100 text-zn-text dark:text-white'}`}>{fmt(animatedScore)}</p>
             </div>
             <div className="comic-panel bg-white dark:bg-zinc-900 p-3 text-center">
               <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-text/50 dark:text-zinc-400">Рекорд</span>
@@ -510,9 +516,9 @@ export default function GameBlockBustPage() {
           <div className="flex flex-col items-center gap-3 w-full md:w-auto">
             {/* Mobile stats */}
             <div className="flex md:hidden gap-2 text-center flex-wrap justify-center">
-              <div className="comic-panel bg-white dark:bg-zinc-900 px-2.5 py-1.5">
+              <div className={`comic-panel px-2.5 py-1.5 transition-colors duration-300 ${scoreFlash ? 'bg-zn-gold/10 dark:bg-zn-gold/20' : 'bg-white dark:bg-zinc-900'}`}>
                 <span className="text-[8px] font-display uppercase tracking-widest text-zn-text/50 dark:text-zinc-400 block">Точки</span>
-                <span className="text-sm font-black font-display text-zn-text dark:text-white tabular-nums">{fmt(animatedScore)}</span>
+                <span className={`text-sm font-black font-display tabular-nums ${scoreFlash ? 'text-zn-gold' : 'text-zn-text dark:text-white'}`}>{fmt(animatedScore)}</span>
               </div>
               <div className="comic-panel bg-white dark:bg-zinc-900 px-2.5 py-1.5">
                 <span className="text-[8px] font-display uppercase tracking-widest text-zn-text/50 dark:text-zinc-400 block">Ниво</span>
