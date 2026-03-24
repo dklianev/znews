@@ -61,7 +61,9 @@ function useAnimatedNumber(target) {
   return display;
 }
 
-function createFreshRun(bestScore = 0, themeId = BLOCK_BUST_THEMES[0].id) {
+function randomThemeId() { return BLOCK_BUST_THEMES[Math.floor(Math.random() * BLOCK_BUST_THEMES.length)].id; }
+
+function createFreshRun(bestScore = 0, themeId = randomThemeId()) {
   const board = createEmptyBlockBustBoard();
   return { board, tray: createBlockBustTray(board, 1), score: 0, totalLines: 0, combo: 0, fullWipes: 0, moveCount: 0, selectedSlotIndex: null, themeId, status: 'playing', bestScore };
 }
@@ -224,7 +226,7 @@ export default function GameBlockBustPage() {
   /* ── Actions ── */
   const resetRun = useEffectEvent((force = false) => {
     if (!force && settings.confirmRestart && !window.confirm('Сигурен ли си, че искаш нов рън?')) return;
-    const tid = BLOCK_BUST_THEMES[Math.floor(Math.random() * BLOCK_BUST_THEMES.length)].id;
+    const tid = randomThemeId();
     setRun(createFreshRun(bestScore, tid));
     setFocusCell(createBlockBustInitialCursor());
     setAnchorCell(null);

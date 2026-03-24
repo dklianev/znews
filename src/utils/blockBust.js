@@ -401,154 +401,35 @@ function getWeightedRandom(candidates, rng) {
   return candidates[candidates.length - 1];
 }
 
-// Count how many rows/columns a piece would complete or nearly complete at its best placement.
-// Returns { clears, nearClears } where clears = full line completions, nearClears = lines needing 1–2 more cells.
-function bestLineClearPotential(board, piece, placements) {
-  let bestClears = 0;
-  let bestNearClears = 0;
-  // Sample up to 12 placements to keep it fast
-  const sample = placements.length <= 12 ? placements : placements.filter((_, i) => i % Math.ceil(placements.length / 12) === 0);
-  for (const { row, col } of sample) {
-    const placed = placeBlockBustPiece(board, piece, row, col);
-    let clears = 0;
-    let nearClears = 0;
-    for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) {
-      const empty = placed[r].filter(c => !c).length;
-      if (empty === 0) clears++;
-      else if (empty <= 2) nearClears++;
-    }
-    for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) {
-      let empty = 0;
-      for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) { if (!placed[r][c]) empty++; }
-      if (empty === 0) clears++;
-      else if (empty <= 2) nearClears++;
-    }
-    if (clears > bestClears || (clears === bestClears && nearClears > bestNearClears)) {
-      bestClears = clears;
-      bestNearClears = nearClears;
-    }
-  }
-  return { clears: bestClears, nearClears: bestNearClears };
-}
-
-// Count isolated empty regions too small to fit the smallest piece (size < 2).
-// High fragmentation = bad board state. Based on A* paper heuristic insight.
-function countFragmentation(board) {
-  const visited = Array.from({ length: BLOCK_BUST_BOARD_SIZE }, () => Array(BLOCK_BUST_BOARD_SIZE).fill(false));
-  let fragmented = 0;
-  for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) {
-    for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) {
-      if (board[r][c] || visited[r][c]) continue;
-      // BFS to find connected empty region size
-      const queue = [[r, c]];
-      visited[r][c] = true;
-      let size = 0;
-      while (queue.length > 0) {
-        const [cr, cc] = queue.pop();
-        size++;
-        for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-          const nr = cr + dr, nc = cc + dc;
-          if (nr >= 0 && nr < BLOCK_BUST_BOARD_SIZE && nc >= 0 && nc < BLOCK_BUST_BOARD_SIZE && !board[nr][nc] && !visited[nr][nc]) {
-            visited[nr][nc] = true;
-            queue.push([nr, nc]);
-          }
-        }
-      }
-      if (size === 1) fragmented++;
-    }
-  }
-  return fragmented;
-}
-
-function buildWeightedPieceCandidates(board, _level, currentTray = []) {
-  const occupancy = getBlockBustBoardOccupancy(board);
+// Block Blast authentic piece generation — pure weighted random.
+// No mercy, no rescue bias, no line-clear awareness.
+// Pieces are picked from the full catalog using base weights only.
+// Bigger pieces are naturally rarer (lower weight). Game can give
+// unplaceable pieces — game over is the normal end state.
+function buildWeightedPieceCandidates(_board, _level, currentTray = []) {
   const existingIds = new Set((Array.isArray(currentTray) ? currentTray : []).map((piece) => piece.id));
-  const rawCandidates = BLOCK_BUST_PIECES
-    .map((piece) => ({
-      piece,
-      placements: getBlockBustValidPlacements(board, piece),
-    }))
-    .filter((candidate) => candidate.placements.length > 0);
+  const existingSlugs = new Set((Array.isArray(currentTray) ? currentTray : []).map((p) => p.slug));
 
-  // Only compute line-clear potential when board is 30%+ full (worth the cost)
-  const doLineClearCheck = occupancy >= 0.30;
+  return BLOCK_BUST_PIECES.map((piece) => {
+    let weight = piece.weight;
 
-  return rawCandidates.map((candidate) => {
-    let weight = candidate.piece.weight;
+    // Only soft constraint: avoid exact same piece or same shape in one tray
+    if (existingIds.has(piece.id)) weight *= 0.3;
+    else if (existingSlugs.has(piece.slug)) weight *= 0.5;
 
-    // Block Blast style: when board fills up, strongly prefer small rescue pieces
-    if (occupancy >= 0.65) {
-      if (candidate.piece.tags.includes('rescue')) weight *= 3.0;
-      else if (candidate.piece.size <= 4) weight *= 1.8;
-      else weight *= 0.5;
-    } else if (occupancy >= 0.45) {
-      if (candidate.piece.tags.includes('rescue')) weight *= 2.0;
-      else if (candidate.piece.size <= 4) weight *= 1.3;
-    }
-
-    // Boost pieces with many valid placements — they can actually be used
-    if (candidate.placements.length >= 15) weight *= 1.4;
-    else if (candidate.placements.length >= 8) weight *= 1.2;
-    else if (candidate.placements.length <= 2) weight *= 0.7;
-
-    // Line-clear awareness: boost pieces that can complete or nearly complete lines
-    if (doLineClearCheck) {
-      const lcp = bestLineClearPotential(board, candidate.piece, candidate.placements);
-      if (lcp.clears >= 2) weight *= 2.5;
-      else if (lcp.clears >= 1) weight *= 1.8;
-      else if (lcp.nearClears >= 2) weight *= 1.4;
-      else if (lcp.nearClears >= 1) weight *= 1.15;
-    }
-
-    // Avoid duplicate pieces in the same tray
-    if (existingIds.has(candidate.piece.id)) weight *= 0.4;
-    // Avoid same slug (different rotation) in tray
-    const existingSlugs = new Set((Array.isArray(currentTray) ? currentTray : []).map((p) => p.slug));
-    if (existingSlugs.has(candidate.piece.slug)) weight *= 0.6;
-
-    return { ...candidate, weight };
+    return { piece, weight };
   });
 }
 
 export function createBlockBustTray(board, level = 1, rng = Math.random) {
   const safeRng = typeof rng === 'function' ? rng : Math.random;
   const tray = [];
-  const occupancy = getBlockBustBoardOccupancy(board);
-  const fragCount = occupancy >= 0.3 ? countFragmentation(board) : 0;
 
-  // Slot 1: always pick a rescue-friendly piece (small or with many placements)
-  const firstCandidates = buildWeightedPieceCandidates(board, level, tray);
-  if (firstCandidates.length === 0) return tray;
-
-  // When board is fragmented (many isolated single-cell holes), prioritize dot/bar2
-  // that can fill those holes — directly inspired by the A* paper heuristic
-  if (fragCount >= 3) {
-    const gapFillers = firstCandidates.filter((c) =>
-      c.piece.slug === 'dot' || c.piece.slug === 'bar2'
-    );
-    tray.push(getWeightedRandom(gapFillers.length > 0 ? gapFillers : firstCandidates, safeRng).piece);
-  } else {
-    const rescueCandidates = firstCandidates.filter((c) =>
-      c.piece.tags.includes('rescue') || c.piece.size <= 3 || c.placements.length >= 12
-    );
-    tray.push(getWeightedRandom(rescueCandidates.length > 0 ? rescueCandidates : firstCandidates, safeRng).piece);
-  }
-
-  // Slot 2: normal weighted pick
-  const secondCandidates = buildWeightedPieceCandidates(board, level, tray);
-  if (secondCandidates.length > 0) tray.push(getWeightedRandom(secondCandidates, safeRng).piece);
-
-  // Slot 3: if board is packed, bias toward line-clear enablers (bars, rects)
-  const thirdCandidates = buildWeightedPieceCandidates(board, level, tray);
-  if (thirdCandidates.length > 0) {
-    if (occupancy >= 0.4) {
-      const lineCandidates = thirdCandidates.filter((c) =>
-        c.piece.tags.includes('line') || c.piece.tags.includes('rescue')
-      );
-      tray.push(getWeightedRandom(lineCandidates.length > 0 ? lineCandidates : thirdCandidates, safeRng).piece);
-    } else {
-      tray.push(getWeightedRandom(thirdCandidates, safeRng).piece);
-    }
+  // Block Blast style: 3 pure weighted random picks, no mercy.
+  // Pieces may not fit the board — that's how games end.
+  for (let i = 0; i < 3; i++) {
+    const candidates = buildWeightedPieceCandidates(board, level, tray);
+    tray.push(getWeightedRandom(candidates, safeRng).piece);
   }
 
   return tray;

@@ -8,7 +8,6 @@ import {
   createEmptyBlockBustBoard,
   getBlockBustLevel,
   getBlockBustNextThemeId,
-  getBlockBustValidPlacements,
   hasAnyBlockBustPlacement,
   hydrateBlockBustRun,
   isBlockBustGameOver,
@@ -91,12 +90,7 @@ export function runBlockBustTests() {
 
   const tray = createBlockBustTray(createEmptyBlockBustBoard(), 1, () => 0.25);
   assert.equal(tray.length, 3, 'fresh tray should generate three pieces');
-  assert.equal(hasAnyBlockBustPlacement(createEmptyBlockBustBoard(), tray), true, 'generated tray should always contain a playable piece');
-  assert.equal(
-    tray[0].tags.includes('rescue') || tray[0].size <= 3 || getBlockBustValidPlacements(createEmptyBlockBustBoard(), tray[0]).length >= 12,
-    true,
-    'first tray piece should bias toward rescue-friendly or highly placeable shapes',
-  );
+  assert.ok(tray.every(p => p && p.id && p.cells), 'all tray pieces should be valid piece objects');
 
   const serialized = serializeBlockBustRun({
     board: createEmptyBlockBustBoard(),
