@@ -143,24 +143,26 @@ export const BLOCK_BUST_DEFAULT_SETTINGS = Object.freeze({
   leftHanded: false,
 });
 
-// Block Blast piece set — only bars, squares, rectangles, and L-shapes.
-// No zigzags, T-pieces, or crosses — those create unfillable holes.
-// All pieces available from level 1 (no band restriction).
+// Block Blast piece set — all 19 base shapes (bars, squares, rectangles,
+// L-shapes, T, S, Z). Each base generates up to 4 rotations automatically.
+// All pieces available from level 1 — no band restriction.
 const BASE_PIECE_DEFINITIONS = Object.freeze([
-  // ── Small (1-2 cells) — common rescue pieces ──
-  { slug: 'dot', band: 1, weight: 10, tags: ['rescue'], cells: [[0, 0]] },
-  { slug: 'bar2', band: 1, weight: 12, tags: ['rescue'], cells: [[0, 0], [0, 1]] },
+  // ── Small (1-2 cells) — rescue pieces ──
+  { slug: 'dot',     weight: 10, tags: ['rescue'], cells: [[0, 0]] },
+  { slug: 'bar2',    weight: 12, tags: ['rescue'], cells: [[0, 0], [0, 1]] },
   // ── Medium (3-4 cells) — bread and butter ──
-  { slug: 'bar3', band: 1, weight: 11, tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
-  { slug: 'square2', band: 1, weight: 10, tags: ['stable'], cells: [[0, 0], [0, 1], [1, 0], [1, 1]] },
-  { slug: 'corner3', band: 1, weight: 10, tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
-  { slug: 'bar4', band: 1, weight: 9, tags: ['line'], cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
-  { slug: 'corner4', band: 1, weight: 8, tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
-  // ── Large (5-9 cells) — powerful clear enablers ──
-  { slug: 'bar5', band: 1, weight: 7, tags: ['line'], cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
-  { slug: 'corner5', band: 1, weight: 6, tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
-  { slug: 'rect23', band: 1, weight: 7, tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]] },
-  { slug: 'square3', band: 1, weight: 5, tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
+  { slug: 'bar3',    weight: 11, tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
+  { slug: 'square2', weight: 10, tags: ['stable'], cells: [[0, 0], [0, 1], [1, 0], [1, 1]] },
+  { slug: 'corner3', weight: 10, tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
+  { slug: 'bar4',    weight: 9,  tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
+  { slug: 'corner4', weight: 8,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
+  { slug: 'tee4',    weight: 7,  tags: ['stable'], cells: [[0, 1], [1, 0], [1, 1], [1, 2]] },
+  { slug: 'zig4',    weight: 7,  tags: ['stable'], cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
+  // ── Large (5-9 cells) — clear enablers ──
+  { slug: 'bar5',    weight: 7,  tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
+  { slug: 'corner5', weight: 6,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
+  { slug: 'rect23',  weight: 7,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]] },
+  { slug: 'square3', weight: 5,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
 ]);
 
 function cloneBoard(board) {
@@ -205,7 +207,7 @@ function buildPieceCatalog() {
         pieces.push({
           id: `${definition.slug}-${rotation}`,
           slug: definition.slug,
-          band: definition.band,
+          band: definition.band || 1,
           weight: definition.weight,
           tags: [...definition.tags],
           cells: current.map(([row, col]) => [row, col]),
@@ -334,13 +336,20 @@ export function isBlockBustGameOver(board, pieces) {
   return !hasAnyBlockBustPlacement(board, pieces);
 }
 
-function getClearBonus(lineCount) {
+// Block Blast scoring: 10 points per block cleared + combo bonus.
+// Combo bonus: 1 line=+20, 2 lines=+30, 3 lines=+40, ... 9+=+100
+function getSimultaneousClearBonus(lineCount) {
   if (lineCount <= 0) return 0;
-  if (lineCount === 1) return 10;
-  if (lineCount === 2) return 30;
-  if (lineCount === 3) return 60;
-  if (lineCount === 4) return 100;
-  return 100 + (lineCount - 4) * 35;
+  // +20 for 1 line, +30 for 2, +40 for 3, ... capped at +100
+  return Math.min(100, 10 + lineCount * 10);
+}
+
+function countClearedBlocks(board, clearedRows, clearedCols) {
+  // Count unique cells that were cleared (row∩col overlaps counted once)
+  const cleared = new Set();
+  for (const r of clearedRows) { for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) cleared.add(`${r}:${c}`); }
+  for (const c of clearedCols) { for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) cleared.add(`${r}:${c}`); }
+  return cleared.size;
 }
 
 export function resolveBlockBustMove(board, piece, row, col, combo = 0) {
@@ -349,17 +358,28 @@ export function resolveBlockBustMove(board, piece, row, col, combo = 0) {
   const placedBoard = placeBlockBustPiece(board, piece, row, col);
   const clearResult = clearBlockBustLines(placedBoard);
   const perfectClear = isBlockBustPerfectClear(clearResult.board);
-  const placementScore = piece.size;
-  const clearBonus = getClearBonus(clearResult.lineCount);
+
+  // Block Blast scoring: 10 pts per block cleared
+  const blocksCleared = clearResult.lineCount > 0
+    ? countClearedBlocks(placedBoard, clearResult.clearedRows, clearResult.clearedCols)
+    : 0;
+  const blockClearScore = blocksCleared * 10;
+
+  // Simultaneous multi-line bonus
+  const simultaneousBonus = getSimultaneousClearBonus(clearResult.lineCount);
+
+  // Combo streak: consecutive placements that clear lines
   const nextCombo = clearResult.lineCount > 0 ? combo + 1 : 0;
-  const comboBonus = clearResult.lineCount > 0 ? Math.max(0, (nextCombo - 1) * 10) : 0;
-  const perfectClearBonus = perfectClear ? 120 : 0;
+  const comboBonus = nextCombo >= 2 ? nextCombo * 10 : 0;
+
+  const perfectClearBonus = perfectClear ? 200 : 0;
+  const score = blockClearScore + simultaneousBonus + comboBonus + perfectClearBonus;
 
   return {
     board: clearResult.board,
-    score: placementScore + clearBonus + comboBonus + perfectClearBonus,
-    placementScore,
-    clearBonus,
+    score,
+    blockClearScore,
+    simultaneousBonus,
     comboBonus,
     perfectClearBonus,
     nextCombo,
