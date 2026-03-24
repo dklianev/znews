@@ -146,23 +146,28 @@ export const BLOCK_BUST_DEFAULT_SETTINGS = Object.freeze({
 // Block Blast piece set — all 19 base shapes (bars, squares, rectangles,
 // L-shapes, T, S, Z). Each base generates up to 4 rotations automatically.
 // All pieces available from level 1 — no band restriction.
+// Weights tuned to match real Block Blast feel:
+// - Bars (line pieces) are slightly boosted — key for clearing
+// - L-shapes per-variant weight reduced (4 rotations means high total)
+// - Dot is rarer (not exciting, used as filler)
+// - Large pieces stay infrequent but impactful
 const BASE_PIECE_DEFINITIONS = Object.freeze([
-  // ── Small (1-2 cells) — rescue pieces ──
-  { slug: 'dot',     weight: 10, tags: ['rescue'], cells: [[0, 0]] },
-  { slug: 'bar2',    weight: 12, tags: ['rescue'], cells: [[0, 0], [0, 1]] },
+  // ── Small (1-2 cells) ──
+  { slug: 'dot',     weight: 6,  tags: ['rescue'], cells: [[0, 0]] },
+  { slug: 'bar2',    weight: 14, tags: ['rescue'], cells: [[0, 0], [0, 1]] },
   // ── Medium (3-4 cells) — bread and butter ──
-  { slug: 'bar3',    weight: 11, tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
+  { slug: 'bar3',    weight: 13, tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
   { slug: 'square2', weight: 10, tags: ['stable'], cells: [[0, 0], [0, 1], [1, 0], [1, 1]] },
-  { slug: 'corner3', weight: 10, tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
-  { slug: 'bar4',    weight: 9,  tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
-  { slug: 'corner4', weight: 8,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
-  { slug: 'tee4',    weight: 7,  tags: ['stable'], cells: [[0, 1], [1, 0], [1, 1], [1, 2]] },
-  { slug: 'zig4',    weight: 7,  tags: ['stable'], cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
+  { slug: 'corner3', weight: 8,  tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
+  { slug: 'bar4',    weight: 11, tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
+  { slug: 'corner4', weight: 7,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
+  { slug: 'tee4',    weight: 6,  tags: ['stable'], cells: [[0, 1], [1, 0], [1, 1], [1, 2]] },
+  { slug: 'zig4',    weight: 6,  tags: ['stable'], cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
   // ── Large (5-9 cells) — clear enablers ──
-  { slug: 'bar5',    weight: 7,  tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
-  { slug: 'corner5', weight: 6,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
-  { slug: 'rect23',  weight: 7,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]] },
-  { slug: 'square3', weight: 5,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
+  { slug: 'bar5',    weight: 8,  tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
+  { slug: 'corner5', weight: 5,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
+  { slug: 'rect23',  weight: 6,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]] },
+  { slug: 'square3', weight: 4,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
 ]);
 
 function cloneBoard(board) {
@@ -336,16 +341,14 @@ export function isBlockBustGameOver(board, pieces) {
   return !hasAnyBlockBustPlacement(board, pieces);
 }
 
-// Block Blast scoring: 10 points per block cleared + combo bonus.
-// Combo bonus: 1 line=+20, 2 lines=+30, 3 lines=+40, ... 9+=+100
-function getSimultaneousClearBonus(lineCount) {
-  if (lineCount <= 0) return 0;
-  // +20 for 1 line, +30 for 2, +40 for 3, ... capped at +100
-  return Math.min(100, 10 + lineCount * 10);
-}
+// Block Blast scoring — authentic formula:
+// 1) Placement: +1 per cell placed (always)
+// 2) Line clear: cleared_cells × 10 (8 per row/col, overlaps counted once)
+// 3) Combo MULTIPLIER: consecutive clears multiply clear score (1st=1×, 2nd=2×, 3rd=3×...)
+// 4) Perfect clear: flat +200 bonus
+// The combo multiplier is the key mechanic — it makes streaks feel amazing.
 
 function countClearedBlocks(board, clearedRows, clearedCols) {
-  // Count unique cells that were cleared (row∩col overlaps counted once)
   const cleared = new Set();
   for (const r of clearedRows) { for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) cleared.add(`${r}:${c}`); }
   for (const c of clearedCols) { for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) cleared.add(`${r}:${c}`); }
@@ -359,31 +362,29 @@ export function resolveBlockBustMove(board, piece, row, col, combo = 0) {
   const clearResult = clearBlockBustLines(placedBoard);
   const perfectClear = isBlockBustPerfectClear(clearResult.board);
 
-  // Block Blast scoring: 10 pts per block cleared
+  // Placement points: 1 per cell placed
+  const placementScore = piece.size;
+
+  // Line clear: 10 pts per cleared cell
   const blocksCleared = clearResult.lineCount > 0
     ? countClearedBlocks(placedBoard, clearResult.clearedRows, clearResult.clearedCols)
     : 0;
-  const blockClearScore = blocksCleared * 10;
+  const baseClearScore = blocksCleared * 10;
 
-  // Simultaneous multi-line bonus
-  const simultaneousBonus = getSimultaneousClearBonus(clearResult.lineCount);
-
-  // Combo streak: consecutive placements that clear lines
+  // Combo: consecutive clears multiply the clear score
   const nextCombo = clearResult.lineCount > 0 ? combo + 1 : 0;
-  const comboBonus = nextCombo >= 2 ? nextCombo * 10 : 0;
-
-  // Base placement points: 1 per cell placed (like real Block Blast)
-  const placementScore = piece.size;
+  const comboMultiplier = Math.max(1, nextCombo);
+  const clearScore = baseClearScore * comboMultiplier;
 
   const perfectClearBonus = perfectClear ? 200 : 0;
-  const score = placementScore + blockClearScore + simultaneousBonus + comboBonus + perfectClearBonus;
+  const score = placementScore + clearScore + perfectClearBonus;
 
   return {
     board: clearResult.board,
     score,
-    blockClearScore,
-    simultaneousBonus,
-    comboBonus,
+    baseClearScore,
+    clearScore,
+    comboMultiplier,
     perfectClearBonus,
     nextCombo,
     perfectClear,

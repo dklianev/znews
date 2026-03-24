@@ -282,7 +282,7 @@ export default function GameBlockBustPage() {
         fx = rect.left + ((col + piece.width / 2) * (rect.width / 8));
         fy = rect.top + ((row + piece.height / 2) * (rect.height / 8));
       }
-      const s = { id: Date.now() + Math.random(), score: result.score, x: fx, y: fy };
+      const s = { id: Date.now() + Math.random(), score: result.score, x: fx, y: fy, combo: result.comboMultiplier > 1 ? result.comboMultiplier : 0 };
       setFloatingScores(prev => [...prev.slice(-3), s]);
       setTimeout(() => setFloatingScores(prev => prev.filter(f => f.id !== s.id)), 1200);
     }
@@ -296,7 +296,7 @@ export default function GameBlockBustPage() {
       setBanner({ eyebrow: 'Пълно изчистване', title: 'Perfect Clear!', accent: getBlockBustTheme(nextThemeId).accent });
     } else if (result.hadClear) {
       playTone(result.nextCombo >= 3 ? 'combo' : 'clear', result.nextCombo);
-      setBanner({ eyebrow: result.nextCombo > 1 ? `Combo x${result.nextCombo}` : 'Clear', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'}`, accent: activeTheme.accent });
+      setBanner({ eyebrow: result.nextCombo > 1 ? `Combo ×${result.nextCombo}` : 'Clear', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'}${result.comboMultiplier > 1 ? ` (×${result.comboMultiplier})` : ''}`, accent: activeTheme.accent });
     } else {
       playTone('place');
     }
@@ -721,7 +721,7 @@ export default function GameBlockBustPage() {
             style={{ left: '-1.5rem', top: '-0.5rem' }}
           >
             <span className="font-display text-3xl font-black text-zn-gold" style={{ textShadow: '1px 1px 0 #1c1428, -1px -1px 0 #1c1428, 1px -1px 0 #1c1428, -1px 1px 0 #1c1428' }}>
-              +{s.score}
+              +{s.score}{s.combo > 1 && <span className="text-xl text-white ml-1">×{s.combo}</span>}
             </span>
           </motion.div>
         ))}
