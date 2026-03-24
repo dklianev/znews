@@ -413,14 +413,35 @@ function getWeightedRandom(candidates, rng) {
 // 4. Score survivors by post-placement board health
 // 5. Select trio using difficulty-weighted distribution
 
-function buildWeightedPieceCandidates(_board, _level, currentTray = []) {
+// Largest contiguous empty rectangle width that fits piece dimensions
+function canFitPieceAnywhere(board, piece) {
+  for (let r = 0; r <= BLOCK_BUST_BOARD_SIZE - piece.height; r++) {
+    for (let c = 0; c <= BLOCK_BUST_BOARD_SIZE - piece.width; c++) {
+      if (canPlaceBlockBustPiece(board, piece, r, c)) return true;
+    }
+  }
+  return false;
+}
+
+function buildWeightedPieceCandidates(board, _level, currentTray = []) {
   const existingIds = new Set((Array.isArray(currentTray) ? currentTray : []).map((piece) => piece.id));
   const existingSlugs = new Set((Array.isArray(currentTray) ? currentTray : []).map((p) => p.slug));
+  const occupancy = getBlockBustBoardOccupancy(board);
 
   return BLOCK_BUST_PIECES.map((piece) => {
     let weight = piece.weight;
+    // Reduce duplicate shapes in the same tray
     if (existingIds.has(piece.id)) weight *= 0.3;
     else if (existingSlugs.has(piece.slug)) weight *= 0.5;
+
+    // Scale down large pieces when board is filling up — prevents
+    // unplaceable pieces dominating the pool at high occupancy
+    if (piece.size >= 6 && occupancy > 0.35) {
+      weight *= occupancy > 0.55 ? 0.15 : occupancy > 0.45 ? 0.4 : 0.7;
+    } else if (piece.size >= 5 && occupancy > 0.5) {
+      weight *= 0.5;
+    }
+
     return { piece, weight };
   });
 }
@@ -489,7 +510,10 @@ function evaluateTrio(board, trio) {
   return best;
 }
 
-// Board health: low occupancy + near-complete lines - trapped empty cells
+// Board health: occupancy + near-complete lines - traps + survivability
+// Survivability: how many distinct piece shapes can still be placed?
+// This is the key metric that prevents early game-overs — if only 2-3
+// shapes fit, the board is dying even if occupancy looks fine.
 function trioHealthScore(board) {
   let filled = 0, nearComplete = 0, trapped = 0;
   for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) {
@@ -497,7 +521,6 @@ function trioHealthScore(board) {
     for (let c = 0; c < BLOCK_BUST_BOARD_SIZE; c++) {
       if (board[r][c]) { filled++; rf++; }
       else {
-        // Count empty cells with 3+ filled/wall neighbors (death traps)
         let walls = 0;
         if (r === 0 || board[r - 1][c]) walls++;
         if (r === BLOCK_BUST_BOARD_SIZE - 1 || board[r + 1][c]) walls++;
@@ -513,12 +536,26 @@ function trioHealthScore(board) {
     for (let r = 0; r < BLOCK_BUST_BOARD_SIZE; r++) if (board[r][c]) cf++;
     if (cf >= 6) nearComplete++;
   }
-  return (1 - filled / 64) * 50 + nearComplete * 15 - trapped * 6;
+
+  // Survivability: count distinct piece slugs that have valid placements
+  const checked = new Set();
+  let fittable = 0;
+  for (const piece of BLOCK_BUST_PIECES) {
+    if (checked.has(piece.slug)) continue;
+    checked.add(piece.slug);
+    if (canFitPieceAnywhere(board, piece)) fittable++;
+  }
+
+  // fittable ranges 0-13 (13 base shapes). Weight it heavily.
+  return (1 - filled / 64) * 40 + nearComplete * 15 - trapped * 6 + fittable * 4;
 }
 
 export function createBlockBustTray(board, level = 1, rng = Math.random) {
   const safeRng = typeof rng === 'function' ? rng : Math.random;
-  const N = 25;
+  const occupancy = getBlockBustBoardOccupancy(board);
+
+  // More candidates when board is full (harder to find good trios)
+  const N = occupancy > 0.5 ? 60 : 45;
 
   // Phase 1: generate candidate trios using weighted random
   const candidates = [];
@@ -531,11 +568,23 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
     candidates.push(trio);
   }
 
-  // Phase 2: simulate each trio and filter to solvable ones
+  // Phase 2: simulate each trio, filter to solvable + survivable
   const viable = [];
   for (const trio of candidates) {
     const sim = evaluateTrio(board, trio);
     if (sim) {
+      // Hard survivability check: if board still has room, reject trios
+      // that leave too few piece shapes playable (death spiral prevention)
+      if (occupancy < 0.55) {
+        const checked = new Set();
+        let fittable = 0;
+        for (const p of BLOCK_BUST_PIECES) {
+          if (checked.has(p.slug)) continue;
+          checked.add(p.slug);
+          if (canFitPieceAnywhere(sim.board, p)) fittable++;
+        }
+        if (fittable < 6) continue; // reject — board is dying
+      }
       viable.push({ trio, health: trioHealthScore(sim.board), clears: sim.linesCleared });
     }
   }
@@ -543,23 +592,29 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
   // Fallback: if no trio is solvable, the board is nearly full — game over is natural
   if (viable.length === 0) return candidates[0];
 
-  // Phase 3: select trio based on difficulty curve
+  // Phase 3: apply health floor — reject trios that leave the board dying
+  // Aggressive floor in early game ensures a good start; relaxes as board fills
+  const healthFloor = occupancy < 0.3 ? 40 : occupancy < 0.45 ? 25 : occupancy < 0.6 ? 10 : -Infinity;
+  const healthy = viable.filter(v => v.health >= healthFloor);
+  const pool = healthy.length > 0 ? healthy : viable;
+
+  // Phase 4: select trio based on difficulty curve
   // Asymptotic curve: never fully adversarial, always ~15% player bias remains
   const difficulty = 0.85 * (1 - 1 / (1 + (level - 1) * 0.08));
-  viable.sort((a, b) => a.health - b.health); // ascending: index 0 = hardest
+  pool.sort((a, b) => a.health - b.health); // ascending: index 0 = hardest
 
-  const weights = viable.map((_, i) => {
-    const t = viable.length > 1 ? i / (viable.length - 1) : 0.5;
+  const weights = pool.map((_, i) => {
+    const t = pool.length > 1 ? i / (pool.length - 1) : 0.5;
     return 0.3 + (1 - difficulty) * t * 1.5;
   });
 
   const total = weights.reduce((s, w) => s + w, 0);
   let roll = safeRng() * total;
-  for (let i = 0; i < viable.length; i++) {
+  for (let i = 0; i < pool.length; i++) {
     roll -= weights[i];
-    if (roll <= 0) return viable[i].trio;
+    if (roll <= 0) return pool[i].trio;
   }
-  return viable[viable.length - 1].trio;
+  return pool[pool.length - 1].trio;
 }
 
 // Check which rows/cols would clear if piece is placed at (row, col).
