@@ -112,6 +112,8 @@ export function runBlockBustTests() {
   constrainedBoard[3][4] = 0;
   constrainedBoard[4][2] = 0;
   constrainedBoard[4][3] = 0;
+  const levelTwoTray = createBlockBustTray(constrainedBoard, 2, () => 0.37);
+  assert.equal(hasAnyBlockBustPlacement(constrainedBoard, levelTwoTray), true, 'level 2 bridge should still avoid dead-on-arrival trays on constrained boards');
   const constrainedTray = createBlockBustTray(constrainedBoard, 6, () => 0.37);
   assert.equal(hasAnyBlockBustPlacement(constrainedBoard, constrainedTray), true, 'generated tray should stay playable on a constrained board');
 

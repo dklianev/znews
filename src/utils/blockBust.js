@@ -618,7 +618,6 @@ function trioHealthScore(board) {
 
 export function createBlockBustTray(board, level = 1, rng = Math.random) {
   const safeRng = typeof rng === 'function' ? rng : Math.random;
-  const occupancy = getBlockBustBoardOccupancy(board);
 
   // ── Generate a raw weighted-random trio ──
   function generateRawTrio() {
@@ -631,13 +630,46 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
   }
 
   // ── Tray generation strategy ──
-  // Level 1 (first ~8 lines / 2-3 trays): simulation-based — prevents
+  // Level 1 (first ~8 lines / 2-3 trays): simulation-based - prevents
   // frustrating instant deaths while the player learns the board.
-  // Level 2+: pure weighted random — authentic Block Blast feel.
+  // Level 2-3: very light bridge - keeps the Block Blast feel, but softens
+  // the level-1 -> level-2 difficulty cliff without reviving the old
+  // near-unlosable generator.
+  // Level 4+: pure weighted random - authentic Block Blast feel.
   // The weighted piece pool already provides natural balance (small pieces
   // are more common, large pieces scale down at high occupancy).
-  if (level >= 2) {
+  if (level >= 4) {
     return generateRawTrio();
+  }
+
+  if (level >= 2) {
+    const candidateCount = level === 2 ? 4 : 3;
+    const candidates = [];
+    for (let i = 0; i < candidateCount; i += 1) candidates.push(generateRawTrio());
+
+    const viable = [];
+    for (const trio of candidates) {
+      const sim = evaluateTrio(board, trio);
+      if (sim) viable.push({ trio, health: trioHealthScore(sim.board) });
+    }
+
+    if (viable.length === 0) return candidates[0];
+
+    // Mild bridge only: keep randomness high, just bias away from the worst
+    // level-2/3 traps so the ramp from the opening trays feels smoother.
+    viable.sort((a, b) => a.health - b.health); // ascending: hardest first
+    const weights = viable.map((_, i) => {
+      const t = viable.length > 1 ? i / (viable.length - 1) : 0.5;
+      return level === 2 ? 0.55 + t * 0.9 : 0.7 + t * 0.5;
+    });
+
+    const total = weights.reduce((sum, weight) => sum + weight, 0);
+    let roll = safeRng() * total;
+    for (let i = 0; i < viable.length; i += 1) {
+      roll -= weights[i];
+      if (roll <= 0) return viable[i].trio;
+    }
+    return viable[viable.length - 1].trio;
   }
 
   // ── Level 1 only: forgiving start ──
