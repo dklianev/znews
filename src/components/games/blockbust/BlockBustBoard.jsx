@@ -107,14 +107,16 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
                 <span className="absolute inset-[2px] rounded-[3px] bg-gradient-to-br from-white/25 to-transparent" />
               </span>
 
-              {/* Ghost preview */}
+              {/* Ghost preview — shows where piece would land (green=valid, red=invalid) */}
               {isPreview && (
                 <span
-                  className="absolute inset-[-1px] rounded-[4px] sm:rounded-md border z-10 pointer-events-none transition-opacity duration-100"
+                  className="absolute inset-[-1px] rounded-[4px] sm:rounded-md border z-10 pointer-events-none transition-all duration-100"
                   style={{
-                    background: invalidPreview ? '#ef4444' : `linear-gradient(150deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
-                    borderColor: invalidPreview ? 'rgba(255,255,255,0.2)' : theme.fillFrom,
-                    opacity: invalidPreview ? 0.35 : 0.55,
+                    background: invalidPreview
+                      ? 'linear-gradient(150deg, #ef4444 0%, #dc2626 100%)'
+                      : `linear-gradient(150deg, ${theme.fillFrom} 0%, ${theme.fillTo} 100%)`,
+                    borderColor: invalidPreview ? 'rgba(239,68,68,0.5)' : theme.fillFrom,
+                    opacity: invalidPreview ? 0.45 : 0.55,
                   }}
                 />
               )}

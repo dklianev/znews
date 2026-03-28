@@ -150,7 +150,9 @@ export default function GameBlockBustPage() {
   const previewState = useMemo(() => {
     if (!selectedPiece || !anchorCell) return { cells: [], valid: false, pendingClears: null };
     const valid = canPlaceBlockBustPiece(run.board, selectedPiece, anchorCell.row, anchorCell.col);
-    if (anchorCell.row < 0 || anchorCell.col < 0) return { cells: [], valid: false, pendingClears: null };
+    // Show partial preview even when anchor is partially off-board (large pieces near edges).
+    // Filter keeps only cells that are within the 8×8 grid so the user sees where the piece
+    // would land, with red (invalid) color if the full piece doesn't fit.
     const cells = selectedPiece.cells
       .map(([r, c]) => ({ row: anchorCell.row + r, col: anchorCell.col + c }))
       .filter(({ row, col }) => row >= 0 && col >= 0 && row < 8 && col < 8);
@@ -501,7 +503,7 @@ export default function GameBlockBustPage() {
                     theme={activeTheme}
                     gridRef={gridRef}
                     previewCells={previewState.cells}
-                    invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell) && !isDragging}
+                    invalidPreview={!previewState.valid && previewState.cells.length > 0}
                     pendingClears={previewState.pendingClears}
                     focusCell={focusCell}
                     showPlacementPreview={settings.showPlacementPreview}
@@ -638,21 +640,22 @@ export default function GameBlockBustPage() {
         ))}
       </AnimatePresence>
 
-      {/* Drag ghost */}
+      {/* Drag ghost — follows cursor, tinted red when placement is invalid */}
       <div
         ref={dragGhostRef}
         className="fixed left-0 top-0 z-[100] pointer-events-none hidden"
         style={{ willChange: 'transform, opacity' }}
       >
-        <div className="relative">
+        <div className="relative" style={{ transition: 'filter 120ms ease-out', filter: (isDragging && !previewState.valid && previewState.cells.length > 0) ? 'saturate(0.3) brightness(0.7)' : 'none' }}>
           <span
-            className="absolute inset-[-16px] rounded-[1.6rem] blur-xl"
-            style={{ background: activeTheme.fillShadow, opacity: 0.85 }}
+            className="absolute inset-[-16px] rounded-[1.6rem] blur-xl transition-colors duration-120"
+            style={{ background: (isDragging && !previewState.valid && previewState.cells.length > 0) ? 'rgba(239,68,68,0.5)' : activeTheme.fillShadow, opacity: 0.85 }}
           />
           <div
-            className="relative rounded-[1.4rem] border-[2px] border-white/18 px-3 py-3"
+            className="relative rounded-[1.4rem] border-[2px] px-3 py-3 transition-colors duration-120"
             style={{
               background: 'linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 100%)',
+              borderColor: (isDragging && !previewState.valid && previewState.cells.length > 0) ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.18)',
               boxShadow: `0 16px 34px rgba(0,0,0,0.34), 0 0 0 1px ${activeTheme.accentSoft}`,
               backdropFilter: 'blur(1px)',
             }}
