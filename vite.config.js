@@ -114,7 +114,15 @@ export default defineConfig({
         ]
       },
       workbox: {
-        importScripts: ['/custom-sw.js']
+        importScripts: ['/custom-sw.js'],
+        navigateFallbackDenylist: [
+          /^\/assets\//,
+          /^\/api\//,
+          /^\/sw\.js$/,
+          /^\/workbox-.*\.js$/,
+          /^\/manifest\.webmanifest$/,
+          /^\/.*\.(?:js|css|map|png|jpg|jpeg|svg|webp|avif|woff2?|ttf|ico)$/,
+        ],
       }
     })
   ],
