@@ -5,6 +5,7 @@ import RichTextEditor from '../../components/admin/RichTextEditor';
 import AdminImageField from '../../components/admin/AdminImageField';
 import LivePreviewModal from '../../components/admin/LivePreviewModal';
 import { estimateReadTimeFromHtml, normalizeRichTextHtml } from '../../utils/richText';
+import { normalizeArticleAdminForm, trimArticleAdminText } from '../../utils/articleAdminForm';
 import { api } from '../../utils/api';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
@@ -590,12 +591,7 @@ export default function ManageArticles() {
 
   const restoreHistorySnapshot = (entry) => {
     if (!entry?.snapshot) return;
-    setForm({
-      ...emptyForm,
-      ...entry.snapshot,
-      publishAt: entry.snapshot.publishAt || '',
-      content: entry.snapshot.content || '<p></p>',
-    });
+    setForm(normalizeArticleAdminForm(entry.snapshot, emptyForm));
   };
 
   useEffect(() => {
@@ -730,8 +726,9 @@ export default function ManageArticles() {
     setValidationErrors({});
     loadHistoryForScope('new');
     if (draft) {
-      setForm(draft);
-      initialFormRef.current = draft;
+      const normalizedDraft = normalizeArticleAdminForm(draft, emptyForm);
+      setForm(normalizedDraft);
+      initialFormRef.current = normalizedDraft;
       setDraftSavedAt(draft._savedAt);
       return;
     }
@@ -752,8 +749,9 @@ export default function ManageArticles() {
         setAutosavedAt(null);
         setValidationErrors({});
         loadHistoryForScope('new');
-        setForm({ ...emptyForm, ...prefill });
-        initialFormRef.current = { ...emptyForm, ...prefill };
+        const normalizedPrefill = normalizeArticleAdminForm(prefill, emptyForm);
+        setForm(normalizedPrefill);
+        initialFormRef.current = normalizedPrefill;
         window.localStorage.removeItem('znews_tip_prefill');
       }
     } catch {
@@ -765,17 +763,19 @@ export default function ManageArticles() {
     const errors = {};
     const isPublishing = form.status === 'published';
     const normalizedContent = (form.content || '').replace(/<[^>]*>?/gm, '').trim();
+    const normalizedTitle = trimArticleAdminText(form.title);
+    const normalizedExcerpt = trimArticleAdminText(form.excerpt);
 
     if (isPublishing) {
-      if (!form.title.trim()) errors.title = 'Заглавието е задължително за публикувана статия';
-      if (!form.excerpt.trim()) errors.excerpt = 'Резюмето е задължително за публикувана статия';
+      if (!normalizedTitle) errors.title = 'Заглавието е задължително за публикувана статия';
+      if (!normalizedExcerpt) errors.excerpt = 'Резюмето е задължително за публикувана статия';
       if (!normalizedContent) errors.content = 'Съдържанието не може да е празно за публикувана статия';
       else if (normalizedContent.length < 50) errors.content = 'Съдържанието е твърде кратко за публикувана статия (минимум 50 символа чист текст)';
       if (!form.category || form.category === 'all') errors.category = 'Категорията е задължителна';
       if (!form.authorId) errors.authorId = 'Авторът е задължителен';
       if (!form.image) errors.image = 'Основната снимка е задължителна';
     } else {
-      if (!form.title.trim()) errors.title = 'Заглавието е задължително дори и за чернова';
+      if (!normalizedTitle) errors.title = 'Заглавието е задължително дори и за чернова';
     }
 
     return errors;
@@ -794,6 +794,8 @@ export default function ManageArticles() {
     try {
       const normalizedContent = normalizeRichTextHtml(form.content || '');
       const autoReadTime = estimateReadTimeFromHtml(normalizedContent || form.excerpt);
+      const normalizedTitle = trimArticleAdminText(form.title);
+      const normalizedExcerpt = trimArticleAdminText(form.excerpt);
 
       let finalSlug = form.slug;
       if (form.status === 'published' && !form.slug && form.title) {
@@ -807,9 +809,9 @@ export default function ManageArticles() {
 
       const data = {
         ...form,
-        title: form.title.trim(),
+        title: normalizedTitle,
         slug: finalSlug,
-        excerpt: form.excerpt.trim(),
+        excerpt: normalizedExcerpt,
         content: normalizedContent,
         authorId: Number(form.authorId),
         tags: typeof form.tags === 'string' ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : form.tags,
@@ -949,8 +951,14 @@ export default function ManageArticles() {
           resolvedArticle = { ...article, ...detailed };
         }
       } catch {
-        resolvedArticle = article;
+        toast.error('Не успяхме да заредим пълната статия за редакция. Опитайте отново.');
+        return;
       }
+    }
+
+    if (!resolvedArticle?.content) {
+      toast.error('Липсва пълното съдържание на статията и редакцията е спряна.');
+      return;
     }
 
     setEditing(article.id);
@@ -960,7 +968,7 @@ export default function ManageArticles() {
     setDraftSavedAt(null);
     setAutosavedAt(null);
     loadHistoryForScope(getHistoryScope(article.id));
-    const resolvedForm = {
+    const resolvedForm = normalizeArticleAdminForm({
       ...resolvedArticle,
       content: resolvedArticle.content || '<p></p>',
       tags: Array.isArray(resolvedArticle.tags) ? resolvedArticle.tags.join(', ') : resolvedArticle.tags || '',
@@ -971,7 +979,7 @@ export default function ManageArticles() {
       shareBadge: resolvedArticle.shareBadge || '',
       shareAccent: resolvedArticle.shareAccent || 'auto',
       shareImage: resolvedArticle.shareImage || '',
-    };
+    }, emptyForm);
     setForm(resolvedForm);
     initialFormRef.current = resolvedForm;
     setLastServerVersion(resolvedForm);
@@ -1012,7 +1020,7 @@ export default function ManageArticles() {
     try {
       const restored = await restoreArticleRevision(editing, revisionId);
       if (!restored) return;
-      setForm({
+      const normalizedRestoredForm = normalizeArticleAdminForm({
         ...restored,
         content: restored.content || '<p></p>',
         tags: Array.isArray(restored.tags) ? restored.tags.join(', ') : restored.tags || '',
@@ -1023,7 +1031,9 @@ export default function ManageArticles() {
         shareBadge: restored.shareBadge || '',
         shareAccent: restored.shareAccent || 'auto',
         shareImage: restored.shareImage || '',
-      });
+      }, emptyForm);
+      setForm(normalizedRestoredForm);
+      initialFormRef.current = normalizedRestoredForm;
       setSelectedRevisionIds([]);
       setRevisionDetailsById({});
       setLoadingRevisionDetails({});
@@ -1073,7 +1083,7 @@ export default function ManageArticles() {
     }
     const dup = {
       ...fullArticle,
-      title: `${fullArticle.title} (копие)`,
+      title: `${trimArticleAdminText(fullArticle.title) || 'Статия'} (копие)`,
       status: 'draft',
       featured: false,
       breaking: false,

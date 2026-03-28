@@ -64,6 +64,7 @@ import { runTetrisTests } from './tetris.test.mjs';
 import { runTouchSwipeTests } from './touchSwipe.test.mjs';
 import { runApiClientSessionTests } from './apiClientSession.test.mjs';
 import { runBlockBustTests } from './blockBust.test.mjs';
+import { runArticleAdminFormTests } from './articleAdminForm.test.mjs';
 
 async function runTest(name, fn) {
   try {
@@ -141,5 +142,6 @@ await runTest('tetris', runTetrisTests);
 await runTest('touchSwipe', runTouchSwipeTests);
 await runTest('apiClientSession', runApiClientSessionTests);
 await runTest('blockBust', runBlockBustTests);
+await runTest('articleAdminForm', runArticleAdminFormTests);
 
 console.log('All tests passed.');
