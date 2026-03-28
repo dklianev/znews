@@ -10,61 +10,82 @@ import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import { appCopy } from './content/uiCopy';
 
+// ─── Chunk-resilient lazy loader ───
+// After a deploy, old chunk hashes no longer exist on the server.
+// The SPA fallback returns index.html (text/html) instead of JS,
+// causing "Failed to load module script" errors.
+// This wrapper detects the failure and reloads the page once to
+// pick up the new HTML with correct chunk references.
+function lazyRetry(importFn) {
+  return lazy(() =>
+    importFn().catch((error) => {
+      const key = 'zn_chunk_reload';
+      const lastReload = Number(sessionStorage.getItem(key) || 0);
+      if (Date.now() - lastReload > 10000) {
+        sessionStorage.setItem(key, String(Date.now()));
+        window.location.reload();
+        return new Promise(() => {});
+      }
+      throw error;
+    })
+  );
+}
+
 // ─── Lazy-loaded pages (code-split) ───
-const HomePage = lazy(() => import('./pages/HomePage'));
-const ArticlePage = lazy(() => import('./pages/ArticlePage'));
-const CategoryPage = lazy(() => import('./pages/CategoryPage'));
-const AuthorPage = lazy(() => import('./pages/AuthorPage'));
-const SearchPage = lazy(() => import('./pages/SearchPage'));
-const LatestPage = lazy(() => import('./pages/LatestPage'));
-const AboutPage = lazy(() => import('./pages/AboutPage'));
-const JobsPage = lazy(() => import('./pages/JobsPage'));
-const GalleryPage = lazy(() => import('./pages/GalleryPage'));
-const CourtPage = lazy(() => import('./pages/CourtPage'));
-const EventsPage = lazy(() => import('./pages/EventsPage'));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
-const TipLine = lazy(() => import('./pages/TipLine'));
-const GamesPage = lazy(() => import('./pages/GamesPage'));
-const GameWordPage = lazy(() => import('./pages/GameWordPage'));
-const GameConnectionsPage = lazy(() => import('./pages/GameConnectionsPage'));
-const GameHangmanPage = lazy(() => import('./pages/GameHangmanPage'));
-const GameQuizPage = lazy(() => import('./pages/GameQuizPage'));
-const GameCrosswordPage = lazy(() => import('./pages/GameCrosswordPage'));
-const GameSpellingBeePage = lazy(() => import('./pages/GameSpellingBeePage'));
-const GameSudokuPage = lazy(() => import('./pages/GameSudokuPage'));
-const GameTetrisPage = lazy(() => import('./pages/GameTetrisPage'));
-const GameSnakePage = lazy(() => import('./pages/GameSnakePage'));
-const Game2048Page = lazy(() => import('./pages/Game2048Page'));
-const GameFlappyBirdPage = lazy(() => import('./pages/GameFlappyBirdPage'));
-const GameBlockBustPage = lazy(() => import('./pages/GameBlockBustPage'));
+const HomePage = lazyRetry(() => import('./pages/HomePage'));
+const ArticlePage = lazyRetry(() => import('./pages/ArticlePage'));
+const CategoryPage = lazyRetry(() => import('./pages/CategoryPage'));
+const AuthorPage = lazyRetry(() => import('./pages/AuthorPage'));
+const SearchPage = lazyRetry(() => import('./pages/SearchPage'));
+const LatestPage = lazyRetry(() => import('./pages/LatestPage'));
+const AboutPage = lazyRetry(() => import('./pages/AboutPage'));
+const JobsPage = lazyRetry(() => import('./pages/JobsPage'));
+const GalleryPage = lazyRetry(() => import('./pages/GalleryPage'));
+const CourtPage = lazyRetry(() => import('./pages/CourtPage'));
+const EventsPage = lazyRetry(() => import('./pages/EventsPage'));
+const NotFoundPage = lazyRetry(() => import('./pages/NotFoundPage'));
+const TipLine = lazyRetry(() => import('./pages/TipLine'));
+const GamesPage = lazyRetry(() => import('./pages/GamesPage'));
+const GameWordPage = lazyRetry(() => import('./pages/GameWordPage'));
+const GameConnectionsPage = lazyRetry(() => import('./pages/GameConnectionsPage'));
+const GameHangmanPage = lazyRetry(() => import('./pages/GameHangmanPage'));
+const GameQuizPage = lazyRetry(() => import('./pages/GameQuizPage'));
+const GameCrosswordPage = lazyRetry(() => import('./pages/GameCrosswordPage'));
+const GameSpellingBeePage = lazyRetry(() => import('./pages/GameSpellingBeePage'));
+const GameSudokuPage = lazyRetry(() => import('./pages/GameSudokuPage'));
+const GameTetrisPage = lazyRetry(() => import('./pages/GameTetrisPage'));
+const GameSnakePage = lazyRetry(() => import('./pages/GameSnakePage'));
+const Game2048Page = lazyRetry(() => import('./pages/Game2048Page'));
+const GameFlappyBirdPage = lazyRetry(() => import('./pages/GameFlappyBirdPage'));
+const GameBlockBustPage = lazyRetry(() => import('./pages/GameBlockBustPage'));
 
 // Admin (lazy — heavy, rarely visited)
-const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
-const AdminLayout = lazy(() => import('./pages/admin/AdminLayout'));
-const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
-const ManageProfiles = lazy(() => import('./pages/admin/ManageProfiles'));
-const ManageArticles = lazy(() => import('./pages/admin/ManageArticles'));
-const EditorialQueue = lazy(() => import('./pages/admin/EditorialQueue'));
-const ManageMedia = lazy(() => import('./pages/admin/ManageMedia'));
-const ManageAds = lazy(() => import('./pages/admin/ManageAds'));
-const ManageBreaking = lazy(() => import('./pages/admin/ManageBreaking'));
-const ManageHero = lazy(() => import('./pages/admin/ManageHero'));
-const ManageCategories = lazy(() => import('./pages/admin/ManageCategories'));
-const ManageMostWanted = lazy(() => import('./pages/admin/ManageMostWanted'));
-const ManageJobs = lazy(() => import('./pages/admin/ManageJobs'));
-const ManageCourt = lazy(() => import('./pages/admin/ManageCourt'));
-const ManageEvents = lazy(() => import('./pages/admin/ManageEvents'));
-const ManagePolls = lazy(() => import('./pages/admin/ManagePolls'));
-const ManageComments = lazy(() => import('./pages/admin/ManageComments'));
-const ManageGallery = lazy(() => import('./pages/admin/ManageGallery'));
-const ManagePermissions = lazy(() => import('./pages/admin/ManagePermissions'));
-const ManageAuditLog = lazy(() => import('./pages/admin/ManageAuditLog'));
-const ManageSiteSettings = lazy(() => import('./pages/admin/ManageSiteSettings'));
-const AdminDiagnostics = lazy(() => import('./pages/admin/AdminDiagnostics'));
-const ManageContactMessages = lazy(() => import('./pages/admin/ManageContactMessages'));
-const ManageTips = lazy(() => import('./pages/admin/ManageTips'));
-const ManageGames = lazy(() => import('./pages/admin/ManageGames'));
-const ManageGamePuzzles = lazy(() => import('./pages/admin/ManageGamePuzzles'));
+const AdminLogin = lazyRetry(() => import('./pages/admin/AdminLogin'));
+const AdminLayout = lazyRetry(() => import('./pages/admin/AdminLayout'));
+const Dashboard = lazyRetry(() => import('./pages/admin/Dashboard'));
+const ManageProfiles = lazyRetry(() => import('./pages/admin/ManageProfiles'));
+const ManageArticles = lazyRetry(() => import('./pages/admin/ManageArticles'));
+const EditorialQueue = lazyRetry(() => import('./pages/admin/EditorialQueue'));
+const ManageMedia = lazyRetry(() => import('./pages/admin/ManageMedia'));
+const ManageAds = lazyRetry(() => import('./pages/admin/ManageAds'));
+const ManageBreaking = lazyRetry(() => import('./pages/admin/ManageBreaking'));
+const ManageHero = lazyRetry(() => import('./pages/admin/ManageHero'));
+const ManageCategories = lazyRetry(() => import('./pages/admin/ManageCategories'));
+const ManageMostWanted = lazyRetry(() => import('./pages/admin/ManageMostWanted'));
+const ManageJobs = lazyRetry(() => import('./pages/admin/ManageJobs'));
+const ManageCourt = lazyRetry(() => import('./pages/admin/ManageCourt'));
+const ManageEvents = lazyRetry(() => import('./pages/admin/ManageEvents'));
+const ManagePolls = lazyRetry(() => import('./pages/admin/ManagePolls'));
+const ManageComments = lazyRetry(() => import('./pages/admin/ManageComments'));
+const ManageGallery = lazyRetry(() => import('./pages/admin/ManageGallery'));
+const ManagePermissions = lazyRetry(() => import('./pages/admin/ManagePermissions'));
+const ManageAuditLog = lazyRetry(() => import('./pages/admin/ManageAuditLog'));
+const ManageSiteSettings = lazyRetry(() => import('./pages/admin/ManageSiteSettings'));
+const AdminDiagnostics = lazyRetry(() => import('./pages/admin/AdminDiagnostics'));
+const ManageContactMessages = lazyRetry(() => import('./pages/admin/ManageContactMessages'));
+const ManageTips = lazyRetry(() => import('./pages/admin/ManageTips'));
+const ManageGames = lazyRetry(() => import('./pages/admin/ManageGames'));
+const ManageGamePuzzles = lazyRetry(() => import('./pages/admin/ManageGamePuzzles'));
 
 // ─── Inline loading fallback ───
 function PageFallback() {

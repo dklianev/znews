@@ -14,6 +14,23 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo);
+
+    // Chunk load failures after deploy — reload once to get fresh HTML
+    const msg = error?.message || '';
+    const isChunkError = msg.includes('Failed to fetch dynamically imported module')
+      || msg.includes('Loading chunk')
+      || msg.includes('Loading CSS chunk')
+      || (error?.name === 'TypeError' && msg.includes('text/html'));
+    if (isChunkError) {
+      const key = 'zn_chunk_reload';
+      const lastReload = Number(sessionStorage.getItem(key) || 0);
+      if (Date.now() - lastReload > 10000) {
+        sessionStorage.setItem(key, String(Date.now()));
+        window.location.reload();
+        return;
+      }
+    }
+
     api.monitoring.reportClientError({
       component: 'ErrorBoundary',
       message: error?.message || 'React render error',
