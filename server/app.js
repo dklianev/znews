@@ -175,6 +175,9 @@ const apiCacheInvalidationLog = [];
 const API_CACHE_INVALIDATION_LOG_LIMIT = 30;
 const API_CACHE_TAG_PATTERNS = Object.freeze({
   articles: ['/api/articles', '/api/search'],
+  'article-detail': ['/api/articles/'],
+  'article-list': ['/api/articles'],
+  'author-stats': ['/api/articles/author-stats/', '/api/authors/'],
   authors: ['/api/authors', '/api/bootstrap', '/api/homepage'],
   ads: ['/api/ads', '/api/bootstrap', '/api/homepage'],
   bootstrap: ['/api/bootstrap'],

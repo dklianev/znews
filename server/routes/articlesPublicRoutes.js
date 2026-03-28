@@ -158,16 +158,6 @@ export function createArticlesPublicRouter(deps) {
     });
   }
 
-  function setRouteCacheTags(res, tags) {
-    const normalized = [...new Set((Array.isArray(tags) ? tags : []).filter(Boolean))];
-    if (typeof res?.setCacheTags === 'function') {
-      res.setCacheTags(normalized);
-      return;
-    }
-    res.locals = res.locals || {};
-    res.locals.apiCacheTags = normalized;
-  }
-
   function getReactionHashCandidates(req, articleId, emoji = null) {
     const hashes = new Set([hashReactionFingerprint(req, `react:${articleId}`)]);
     if (emoji && VALID_REACTIONS.includes(emoji)) {
@@ -193,7 +183,7 @@ export function createArticlesPublicRouter(deps) {
   articlesRouter.get('/author-stats/:authorId', cacheMiddleware, asyncHandler(async (req, res) => {
     const authorId = Number.parseInt(req.params.authorId, 10);
     if (!Number.isInteger(authorId)) return res.status(400).json({ error: 'Invalid authorId' });
-    setRouteCacheTags(res, ['authors', 'author-stats']);
+    res.setCacheTags(['authors', 'author-stats']);
 
     const filter = { ...getPublishedFilter(), authorId };
     const [result] = await Article.aggregate([
@@ -249,7 +239,7 @@ export function createArticlesPublicRouter(deps) {
     const authorId = parsePositiveInt(req.query.authorId, null);
     if (authorId) filter.authorId = authorId;
     if (q) filter.$text = { $search: q };
-    setRouteCacheTags(res, q ? ['articles', 'article-list', 'search'] : ['articles', 'article-list']);
+    res.setCacheTags(q ? ['articles', 'article-list', 'search'] : ['articles', 'article-list']);
 
     let query = Article.find(filter);
     query = q
@@ -295,7 +285,7 @@ export function createArticlesPublicRouter(deps) {
   articlesRouter.get('/:id', cacheMiddleware, asyncHandler(async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
-    setRouteCacheTags(res, ['articles', 'article-detail']);
+    res.setCacheTags(['articles', 'article-detail']);
 
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;

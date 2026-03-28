@@ -6,11 +6,16 @@ function createResponse() {
     statusCode: 200,
     body: undefined,
     headers: {},
+    locals: {},
     getHeader(name) {
       return this.headers[name];
     },
     setHeader(name, value) {
       this.headers[name] = value;
+    },
+    setCacheTags(tags) {
+      this.locals.apiCacheTags = [...new Set((Array.isArray(tags) ? tags : []).filter(Boolean))];
+      return this;
     },
     status(code) {
       this.statusCode = code;
