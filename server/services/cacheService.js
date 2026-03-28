@@ -144,6 +144,13 @@ export function createCacheService(deps) {
       return next();
     }
 
+    if (typeof res.setCacheTags !== 'function') {
+      res.setCacheTags = (tags) => {
+        setResponseCacheTags(res, tags);
+        return res;
+      };
+    }
+
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return next();
@@ -153,13 +160,6 @@ export function createCacheService(deps) {
     const key = `api_cache_${url}`;
     const cachedBody = apiCache.get(key);
     const derivedTags = getCacheTagsForUrl(url);
-
-    if (typeof res.setCacheTags !== 'function') {
-      res.setCacheTags = (tags) => {
-        setResponseCacheTags(res, tags);
-        return res;
-      };
-    }
 
     if (cachedBody) {
       const cachedMeta = apiCacheMeta.get(key);

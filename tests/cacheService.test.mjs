@@ -75,4 +75,19 @@ export async function runCacheServiceTests() {
   assert.equal(invalidated, 1);
   assert.equal(apiCache.keys().length, 1);
   assert.deepEqual(service.getApiCacheStats().recentInvalidations[0].tags, ['article-detail']);
+
+  const authReq = {
+    method: 'GET',
+    originalUrl: '/api/articles/7',
+    headers: { authorization: 'Bearer token' },
+  };
+  const authRes = createResponse();
+  let authNextCalled = false;
+  service.cacheMiddleware(authReq, authRes, () => {
+    authNextCalled = true;
+  });
+  assert.equal(authNextCalled, true);
+  assert.equal(typeof authRes.setCacheTags, 'function');
+  authRes.setCacheTags(['articles', 'article-detail']);
+  assert.deepEqual(authRes.locals.apiCacheTags, ['articles', 'article-detail']);
 }
