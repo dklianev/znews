@@ -423,15 +423,21 @@ function canFitPieceAnywhere(board, piece) {
   return false;
 }
 
+// Check how many distinct piece families have at least one rotation that fits.
+// Must check ALL rotations per family — a horizontal bar may not fit but vertical might.
 function countFittablePieceFamilies(board) {
-  const checked = new Set();
-  let fittable = 0;
+  const familyResult = new Map(); // slug → boolean (any rotation fits?)
   for (const piece of BLOCK_BUST_PIECES) {
-    if (checked.has(piece.slug)) continue;
-    checked.add(piece.slug);
-    if (canFitPieceAnywhere(board, piece)) fittable += 1;
+    if (familyResult.get(piece.slug) === true) continue; // already confirmed fittable
+    if (canFitPieceAnywhere(board, piece)) {
+      familyResult.set(piece.slug, true);
+    } else if (!familyResult.has(piece.slug)) {
+      familyResult.set(piece.slug, false);
+    }
   }
-  return fittable;
+  let count = 0;
+  for (const fits of familyResult.values()) if (fits) count += 1;
+  return count;
 }
 
 function buildWeightedPieceCandidates(board, _level, currentTray = []) {
@@ -452,14 +458,11 @@ function buildWeightedPieceCandidates(board, _level, currentTray = []) {
     } else if (piece.size >= 5 && occupancy > 0.5) {
       weight *= 0.5;
     }
-    if (piece.tags.includes('line') && occupancy > 0.42) {
-      weight *= occupancy > 0.58 ? 1.45 : 1.18;
-    }
-    if (piece.tags.includes('rescue') && occupancy > 0.5) {
-      weight *= 1.28;
+    if (piece.tags.includes('rescue') && occupancy > 0.55) {
+      weight *= 1.15;
     }
     if (piece.slug === 'square3' && occupancy > 0.32) {
-      weight *= occupancy > 0.5 ? 0.18 : 0.5;
+      weight *= occupancy > 0.5 ? 0.2 : 0.5;
     }
 
     return { piece, weight };
@@ -617,49 +620,76 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
   const safeRng = typeof rng === 'function' ? rng : Math.random;
   const occupancy = getBlockBustBoardOccupancy(board);
 
-  // More candidates when board is full (harder to find good trios)
-  const N = occupancy > 0.5 ? 60 : 45;
-
-  // Phase 1: generate candidate trios using weighted random
-  const candidates = [];
-  for (let i = 0; i < N; i++) {
+  // ── Phase 0: generate a raw trio (pure weighted random, no simulation) ──
+  // This is what real Block Blast does: pick 3 pieces from the weighted pool.
+  function generateRawTrio() {
     const trio = [];
     for (let j = 0; j < 3; j++) {
       const wc = buildWeightedPieceCandidates(board, level, trio);
       trio.push(getWeightedRandom(wc, safeRng).piece);
     }
-    candidates.push(trio);
+    return trio;
   }
 
-  // Phase 2: simulate each trio, filter to solvable + survivable
+  // ── Level-based simulation mode ──
+  // Real Block Blast uses pure random from move 1 — no simulation at all.
+  // We add minimal training wheels for the first few trays only:
+  // Levels 1-2: full simulation (first ~16 lines / ~5 trays) — learn the game
+  // Levels 3-5: light simulation — safety net coming off
+  // Level 6+: pure random — authentic Block Blast feel
+  if (level >= 6) {
+    // Pure random: no simulation, no health check. Sink or swim.
+    return generateRawTrio();
+  }
+
+  if (level >= 3) {
+    // Light simulation: a few candidates, filter to solvable, no extras
+    const N = occupancy > 0.5 ? 8 : 5;
+    const candidates = [];
+    for (let i = 0; i < N; i++) candidates.push(generateRawTrio());
+
+    const viable = [];
+    for (const trio of candidates) {
+      const sim = evaluateTrio(board, trio);
+      if (sim) viable.push({ trio, health: trioHealthScore(sim.board) });
+    }
+    if (viable.length === 0) return candidates[0]; // natural game over
+
+    // Mild bias toward healthier trios
+    viable.sort((a, b) => b.health - a.health); // descending: healthiest first
+    // Pick from top half
+    const pickIdx = Math.floor(safeRng() * Math.ceil(viable.length * 0.6));
+    return viable[pickIdx].trio;
+  }
+
+  // ── Full simulation (levels 1-2): forgiving start ──
+  const N = occupancy > 0.5 ? 20 : 12;
+  const candidates = [];
+  for (let i = 0; i < N; i++) candidates.push(generateRawTrio());
+
   const viable = [];
   for (const trio of candidates) {
     const sim = evaluateTrio(board, trio);
     if (sim) {
-      // Hard survivability check: if board still has room, reject trios
-      // that leave too few piece shapes playable (death spiral prevention)
-      if (occupancy < 0.55) {
+      // Survivability check: reject trios that leave too few shapes playable
+      if (occupancy < 0.4) {
         const fittable = countFittablePieceFamilies(sim.board);
-        if (fittable < 8) continue; // reject - board is dying
+        if (fittable < 7) continue;
       }
       viable.push({ trio, health: trioHealthScore(sim.board), clears: sim.linesCleared });
     }
   }
 
-  // Fallback: if no trio is solvable, the board is nearly full — game over is natural
   if (viable.length === 0) return candidates[0];
 
-  // Phase 3: apply health floor — reject trios that leave the board dying
-  // Aggressive floor in early game ensures a good start; relaxes as board fills
-  const healthFloor = occupancy < 0.3 ? 46 : occupancy < 0.45 ? 30 : occupancy < 0.6 ? 14 : -Infinity;
+  // Health floor only for very early game
+  const healthFloor = occupancy < 0.3 ? 35 : occupancy < 0.45 ? 15 : -Infinity;
   const healthy = viable.filter(v => v.health >= healthFloor);
   const pool = healthy.length > 0 ? healthy : viable;
 
-  // Phase 4: select trio based on difficulty curve
-  // Asymptotic curve: never fully adversarial, always ~15% player bias remains
-  const difficulty = 0.85 * (1 - 1 / (1 + (level - 1) * 0.08));
-  pool.sort((a, b) => a.health - b.health); // ascending: index 0 = hardest
-
+  // Gentle difficulty — favor healthy trios in early game
+  const difficulty = 0.15 * level;
+  pool.sort((a, b) => a.health - b.health);
   const weights = pool.map((_, i) => {
     const t = pool.length > 1 ? i / (pool.length - 1) : 0.5;
     return 0.3 + (1 - difficulty) * t * 1.5;
