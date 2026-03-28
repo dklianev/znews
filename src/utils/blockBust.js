@@ -620,8 +620,7 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
   const safeRng = typeof rng === 'function' ? rng : Math.random;
   const occupancy = getBlockBustBoardOccupancy(board);
 
-  // ── Phase 0: generate a raw trio (pure weighted random, no simulation) ──
-  // This is what real Block Blast does: pick 3 pieces from the weighted pool.
+  // ── Generate a raw weighted-random trio ──
   function generateRawTrio() {
     const trio = [];
     for (let j = 0; j < 3; j++) {
@@ -631,39 +630,18 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
     return trio;
   }
 
-  // ── Level-based simulation mode ──
-  // Real Block Blast uses pure random from move 1 — no simulation at all.
-  // We add minimal training wheels for the first few trays only:
-  // Levels 1-2: full simulation (first ~16 lines / ~5 trays) — learn the game
-  // Levels 3-5: light simulation — safety net coming off
-  // Level 6+: pure random — authentic Block Blast feel
-  if (level >= 6) {
-    // Pure random: no simulation, no health check. Sink or swim.
+  // ── Tray generation strategy ──
+  // Level 1 (first ~8 lines / 2-3 trays): simulation-based — prevents
+  // frustrating instant deaths while the player learns the board.
+  // Level 2+: pure weighted random — authentic Block Blast feel.
+  // The weighted piece pool already provides natural balance (small pieces
+  // are more common, large pieces scale down at high occupancy).
+  if (level >= 2) {
     return generateRawTrio();
   }
 
-  if (level >= 3) {
-    // Light simulation: a few candidates, filter to solvable, no extras
-    const N = occupancy > 0.5 ? 8 : 5;
-    const candidates = [];
-    for (let i = 0; i < N; i++) candidates.push(generateRawTrio());
-
-    const viable = [];
-    for (const trio of candidates) {
-      const sim = evaluateTrio(board, trio);
-      if (sim) viable.push({ trio, health: trioHealthScore(sim.board) });
-    }
-    if (viable.length === 0) return candidates[0]; // natural game over
-
-    // Mild bias toward healthier trios
-    viable.sort((a, b) => b.health - a.health); // descending: healthiest first
-    // Pick from top half
-    const pickIdx = Math.floor(safeRng() * Math.ceil(viable.length * 0.6));
-    return viable[pickIdx].trio;
-  }
-
-  // ── Full simulation (levels 1-2): forgiving start ──
-  const N = occupancy > 0.5 ? 20 : 12;
+  // ── Level 1 only: forgiving start ──
+  const N = 15;
   const candidates = [];
   for (let i = 0; i < N; i++) candidates.push(generateRawTrio());
 
@@ -671,37 +649,26 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
   for (const trio of candidates) {
     const sim = evaluateTrio(board, trio);
     if (sim) {
-      // Survivability check: reject trios that leave too few shapes playable
-      if (occupancy < 0.4) {
-        const fittable = countFittablePieceFamilies(sim.board);
-        if (fittable < 7) continue;
-      }
-      viable.push({ trio, health: trioHealthScore(sim.board), clears: sim.linesCleared });
+      viable.push({ trio, health: trioHealthScore(sim.board) });
     }
   }
 
   if (viable.length === 0) return candidates[0];
 
-  // Health floor only for very early game
-  const healthFloor = occupancy < 0.3 ? 35 : occupancy < 0.45 ? 15 : -Infinity;
-  const healthy = viable.filter(v => v.health >= healthFloor);
-  const pool = healthy.length > 0 ? healthy : viable;
-
-  // Gentle difficulty — favor healthy trios in early game
-  const difficulty = 0.15 * level;
-  pool.sort((a, b) => a.health - b.health);
-  const weights = pool.map((_, i) => {
-    const t = pool.length > 1 ? i / (pool.length - 1) : 0.5;
-    return 0.3 + (1 - difficulty) * t * 1.5;
+  // Favor healthier trios during level 1 — bias toward good starts
+  viable.sort((a, b) => a.health - b.health); // ascending: hardest first
+  const weights = viable.map((_, i) => {
+    const t = viable.length > 1 ? i / (viable.length - 1) : 0.5;
+    return 0.3 + t * 1.4;
   });
 
   const total = weights.reduce((s, w) => s + w, 0);
   let roll = safeRng() * total;
-  for (let i = 0; i < pool.length; i++) {
+  for (let i = 0; i < viable.length; i++) {
     roll -= weights[i];
-    if (roll <= 0) return pool[i].trio;
+    if (roll <= 0) return viable[i].trio;
   }
-  return pool[pool.length - 1].trio;
+  return viable[viable.length - 1].trio;
 }
 
 // Check which rows/cols would clear if piece is placed at (row, col).
