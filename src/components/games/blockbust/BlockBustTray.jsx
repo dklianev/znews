@@ -2,7 +2,8 @@ import { motion, AnimatePresence } from 'motion/react';
 
 function getPieceCellSize(piece) {
   if (!piece) return 16;
-  if (piece.size >= 5) return 13;
+  if (piece.size >= 6) return 12;
+  if (piece.size === 5) return 13;
   if (piece.size === 4) return 15;
   return 17;
 }
@@ -23,7 +24,7 @@ export function PieceMiniBoard({ piece, selected, disabled, theme, cellOverride 
 
   return (
     <div
-      className={`relative mx-auto transition-transform duration-200 ${selected ? 'scale-110' : 'scale-100'}`}
+      className={`relative mx-auto transition-transform duration-150 will-change-transform ${selected ? 'scale-[1.14]' : 'scale-100'}`}
       style={{ width: w, height: h }}
     >
       {piece.cells.map(([row, col], i) => (
@@ -89,21 +90,29 @@ export default function BlockBustTray({
               onPointerMove={piece && controlMode === 'drag-tap' ? onDragPointerMove : undefined}
               onPointerUp={piece && controlMode === 'drag-tap' ? onDragPointerUp : undefined}
               onPointerCancel={piece && controlMode === 'drag-tap' ? onDragPointerCancel : undefined}
-              className={`touch-none relative rounded-xl border-[2px] px-2 py-3 transition-all duration-200 ${
+              className={`touch-none relative rounded-xl border-[2px] px-2 py-3 transition-all duration-150 will-change-transform ${
                 selected
-                  ? 'translate-y-[-4px] z-10'
-                  : 'translate-y-0 z-0 hover:translate-y-[-1px]'
+                  ? 'translate-y-[-5px] z-10 cursor-grabbing'
+                  : `translate-y-0 z-0 ${controlMode === 'drag-tap' ? 'cursor-grab active:cursor-grabbing hover:translate-y-[-2px]' : 'cursor-pointer hover:translate-y-[-1px]'}`
               }`}
               style={{
                 background: selected
-                  ? `linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.04) 100%), ${theme.boardBg}`
-                  : `linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.1) 100%), ${theme.boardBg}`,
+                  ? `linear-gradient(180deg, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0.06) 100%), ${theme.boardBg}`
+                  : `linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.1) 100%), ${theme.boardBg}`,
                 borderColor: selected ? `${theme.accent}90` : 'rgba(255,255,255,0.08)',
                 boxShadow: selected
-                  ? `0 12px 32px ${theme.fillShadow}, 0 0 0 2px ${theme.accent}50, 0 0 20px ${theme.accent}30`
-                  : '0 4px 12px rgba(0,0,0,0.2)',
+                  ? `0 16px 36px ${theme.fillShadow}, 0 0 0 2px ${theme.accent}50, 0 0 26px ${theme.accent}35`
+                  : '0 6px 16px rgba(0,0,0,0.22)',
               }}
             >
+              <span
+                className="pointer-events-none absolute inset-0 rounded-[0.9rem] opacity-0 transition-opacity duration-150"
+                style={{
+                  opacity: selected ? 1 : 0,
+                  boxShadow: `inset 0 0 0 1px rgba(255,255,255,0.15), inset 0 12px 24px rgba(255,255,255,0.08)`,
+                }}
+              />
+
               {/* Keyboard hint badge */}
               <span className="absolute left-1.5 top-1.5 rounded-md bg-white/8 px-1.5 py-0.5 font-display text-[9px] font-bold uppercase text-white/50">
                 {hint}

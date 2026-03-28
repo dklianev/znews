@@ -2,7 +2,7 @@ export const BLOCK_BUST_BOARD_SIZE = 8;
 export const BLOCK_BUST_RUN_SCOPE = 'run';
 export const BLOCK_BUST_META_SCOPE = 'meta';
 export const BLOCK_BUST_SETTINGS_KEY = 'zn_blockbust_settings_v1';
-export const BLOCK_BUST_RUN_VERSION = 1;
+export const BLOCK_BUST_RUN_VERSION = 2;
 
 export const BLOCK_BUST_THEMES = Object.freeze([
   {
@@ -143,31 +143,31 @@ export const BLOCK_BUST_DEFAULT_SETTINGS = Object.freeze({
   leftHanded: false,
 });
 
-// Block Blast piece set — all 19 base shapes (bars, squares, rectangles,
-// L-shapes, T, S, Z). Each base generates up to 4 rotations automatically.
-// All pieces available from level 1 — no band restriction.
-// Weights tuned to match real Block Blast feel:
-// - Bars (line pieces) are slightly boosted — key for clearing
-// - L-shapes per-variant weight reduced (4 rotations means high total)
-// - Dot is rarer (not exciting, used as filler)
-// - Large pieces stay infrequent but impactful
+// Block Blast-style piece set - 19 base families:
+// - 7 classic tetromino families (I/O/T/S/Z/J/L)
+// - 12 extra fillers and larger irregulars common to Block Blast-style runs
+// Each base generates its own rotations automatically, but mirrored families
+// stay separate so the tray can produce both S/Z and J/L style pieces.
 const BASE_PIECE_DEFINITIONS = Object.freeze([
-  // ── Small (1-2 cells) ──
-  { slug: 'dot',     weight: 10, tags: ['rescue'], cells: [[0, 0]] },
-  { slug: 'bar2',    weight: 18, tags: ['rescue'], cells: [[0, 0], [0, 1]] },
-  // ── Medium (3-4 cells) — bread and butter ──
-  { slug: 'bar3',    weight: 16, tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
-  { slug: 'square2', weight: 9,  tags: ['stable'], cells: [[0, 0], [0, 1], [1, 0], [1, 1]] },
-  { slug: 'corner3', weight: 7,  tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
-  { slug: 'bar4',    weight: 11, tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
-  { slug: 'corner4', weight: 6,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
-  { slug: 'tee4',    weight: 5,  tags: ['stable'], cells: [[0, 1], [1, 0], [1, 1], [1, 2]] },
-  { slug: 'zig4',    weight: 5,  tags: ['stable'], cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
-  // ── Large (5-9 cells) — clear enablers ──
-  { slug: 'bar5',    weight: 8,  tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
-  { slug: 'corner5', weight: 4,  tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
-  { slug: 'rect23',  weight: 5,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]] },
-  { slug: 'square3', weight: 3,  tags: ['stable'], cells: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]] },
+  { slug: 'dot',          weight: 9,   tags: ['rescue'], cells: [[0, 0]] },
+  { slug: 'bar2',         weight: 18,  tags: ['rescue'], cells: [[0, 0], [0, 1]] },
+  { slug: 'bar3',         weight: 16,  tags: ['rescue'], cells: [[0, 0], [0, 1], [0, 2]] },
+  { slug: 'corner3',      weight: 7,   tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1]] },
+  { slug: 'bar4',         weight: 11,  tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3]] },
+  { slug: 'square2',      weight: 9,   tags: ['stable'], cells: [[0, 0], [0, 1], [1, 0], [1, 1]] },
+  { slug: 'tee4',         weight: 5,   tags: ['stable'], cells: [[0, 1], [1, 0], [1, 1], [1, 2]] },
+  { slug: 'zig4-s',       weight: 3.8, tags: ['stable'], cells: [[0, 0], [0, 1], [1, 1], [1, 2]] },
+  { slug: 'zig4-z',       weight: 3.8, tags: ['stable'], cells: [[0, 1], [0, 2], [1, 0], [1, 1]] },
+  { slug: 'corner4-j',    weight: 4.2, tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1]] },
+  { slug: 'corner4-l',    weight: 4.2, tags: ['stable'], cells: [[0, 1], [1, 1], [2, 1], [2, 0]] },
+  { slug: 'bar5',         weight: 8.2, tags: ['line'],   cells: [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]] },
+  { slug: 'corner5-j',    weight: 2.6, tags: ['stable'], cells: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]] },
+  { slug: 'corner5-l',    weight: 2.6, tags: ['stable'], cells: [[0, 2], [1, 2], [2, 2], [2, 1], [2, 0]] },
+  { slug: 'tee5',         weight: 2.8, tags: ['stable'], cells: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]] },
+  { slug: 'zig5-s',       weight: 2.3, tags: ['stable'], cells: [[0, 0], [1, 0], [1, 1], [2, 1], [2, 2]] },
+  { slug: 'zig5-z',       weight: 2.3, tags: ['stable'], cells: [[0, 2], [1, 1], [1, 2], [2, 0], [2, 1]] },
+  { slug: 'rect23',       weight: 5,   tags: ['stable'], cells: [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]] },
+  { slug: 'square3',      weight: 3,   tags: ['stable'], cells: [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2]] },
 ]);
 
 function cloneBoard(board) {
@@ -423,6 +423,17 @@ function canFitPieceAnywhere(board, piece) {
   return false;
 }
 
+function countFittablePieceFamilies(board) {
+  const checked = new Set();
+  let fittable = 0;
+  for (const piece of BLOCK_BUST_PIECES) {
+    if (checked.has(piece.slug)) continue;
+    checked.add(piece.slug);
+    if (canFitPieceAnywhere(board, piece)) fittable += 1;
+  }
+  return fittable;
+}
+
 function buildWeightedPieceCandidates(board, _level, currentTray = []) {
   const existingIds = new Set((Array.isArray(currentTray) ? currentTray : []).map((piece) => piece.id));
   const existingSlugs = new Set((Array.isArray(currentTray) ? currentTray : []).map((p) => p.slug));
@@ -440,6 +451,15 @@ function buildWeightedPieceCandidates(board, _level, currentTray = []) {
       weight *= occupancy > 0.55 ? 0.15 : occupancy > 0.45 ? 0.4 : 0.7;
     } else if (piece.size >= 5 && occupancy > 0.5) {
       weight *= 0.5;
+    }
+    if (piece.tags.includes('line') && occupancy > 0.42) {
+      weight *= occupancy > 0.58 ? 1.45 : 1.18;
+    }
+    if (piece.tags.includes('rescue') && occupancy > 0.5) {
+      weight *= 1.28;
+    }
+    if (piece.slug === 'square3' && occupancy > 0.32) {
+      weight *= occupancy > 0.5 ? 0.18 : 0.5;
     }
 
     return { piece, weight };
@@ -510,9 +530,49 @@ function evaluateTrio(board, trio) {
   return best;
 }
 
+function getLongestEmptyRun(board) {
+  let best = 0;
+  for (let row = 0; row < BLOCK_BUST_BOARD_SIZE; row += 1) {
+    let run = 0;
+    for (let col = 0; col < BLOCK_BUST_BOARD_SIZE; col += 1) {
+      run = board[row][col] ? 0 : run + 1;
+      if (run > best) best = run;
+    }
+  }
+  for (let col = 0; col < BLOCK_BUST_BOARD_SIZE; col += 1) {
+    let run = 0;
+    for (let row = 0; row < BLOCK_BUST_BOARD_SIZE; row += 1) {
+      run = board[row][col] ? 0 : run + 1;
+      if (run > best) best = run;
+    }
+  }
+  return best;
+}
+
+function getLargestEmptySquare(board) {
+  for (let size = BLOCK_BUST_BOARD_SIZE; size >= 1; size -= 1) {
+    const limit = BLOCK_BUST_BOARD_SIZE - size;
+    for (let row = 0; row <= limit; row += 1) {
+      for (let col = 0; col <= limit; col += 1) {
+        let allEmpty = true;
+        for (let r = 0; r < size && allEmpty; r += 1) {
+          for (let c = 0; c < size; c += 1) {
+            if (board[row + r][col + c]) {
+              allEmpty = false;
+              break;
+            }
+          }
+        }
+        if (allEmpty) return size;
+      }
+    }
+  }
+  return 0;
+}
+
 // Board health: occupancy + near-complete lines - traps + survivability
 // Survivability: how many distinct piece shapes can still be placed?
-// This is the key metric that prevents early game-overs — if only 2-3
+// This is the key metric that prevents early game-overs - if only 2-3
 // shapes fit, the board is dying even if occupancy looks fine.
 function trioHealthScore(board) {
   let filled = 0, nearComplete = 0, trapped = 0;
@@ -538,16 +598,19 @@ function trioHealthScore(board) {
   }
 
   // Survivability: count distinct piece slugs that have valid placements
-  const checked = new Set();
-  let fittable = 0;
-  for (const piece of BLOCK_BUST_PIECES) {
-    if (checked.has(piece.slug)) continue;
-    checked.add(piece.slug);
-    if (canFitPieceAnywhere(board, piece)) fittable++;
-  }
+  const fittable = countFittablePieceFamilies(board);
 
-  // fittable ranges 0-13 (13 base shapes). Weight it heavily.
-  return (1 - filled / 64) * 40 + nearComplete * 15 - trapped * 6 + fittable * 4;
+  const longestRun = getLongestEmptyRun(board);
+  const largestSquare = getLargestEmptySquare(board);
+
+  return (
+    (1 - filled / 64) * 38
+    + nearComplete * 15
+    - trapped * 6
+    + fittable * 4
+    + longestRun * 2.8
+    + largestSquare * 6
+  );
 }
 
 export function createBlockBustTray(board, level = 1, rng = Math.random) {
@@ -576,14 +639,8 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
       // Hard survivability check: if board still has room, reject trios
       // that leave too few piece shapes playable (death spiral prevention)
       if (occupancy < 0.55) {
-        const checked = new Set();
-        let fittable = 0;
-        for (const p of BLOCK_BUST_PIECES) {
-          if (checked.has(p.slug)) continue;
-          checked.add(p.slug);
-          if (canFitPieceAnywhere(sim.board, p)) fittable++;
-        }
-        if (fittable < 6) continue; // reject — board is dying
+        const fittable = countFittablePieceFamilies(sim.board);
+        if (fittable < 8) continue; // reject - board is dying
       }
       viable.push({ trio, health: trioHealthScore(sim.board), clears: sim.linesCleared });
     }
@@ -594,7 +651,7 @@ export function createBlockBustTray(board, level = 1, rng = Math.random) {
 
   // Phase 3: apply health floor — reject trios that leave the board dying
   // Aggressive floor in early game ensures a good start; relaxes as board fills
-  const healthFloor = occupancy < 0.3 ? 40 : occupancy < 0.45 ? 25 : occupancy < 0.6 ? 10 : -Infinity;
+  const healthFloor = occupancy < 0.3 ? 46 : occupancy < 0.45 ? 30 : occupancy < 0.6 ? 14 : -Infinity;
   const healthy = viable.filter(v => v.health >= healthFloor);
   const pool = healthy.length > 0 ? healthy : viable;
 

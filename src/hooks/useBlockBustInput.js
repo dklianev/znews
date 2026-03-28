@@ -1,15 +1,30 @@
-import { useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
-const DRAG_OFFSET_ROWS = 2;
+const TOUCH_CURSOR_OFFSET_CELLS = 1.2;
+const PEN_CURSOR_OFFSET_CELLS = 0.4;
+const MOUSE_CURSOR_OFFSET_CELLS = 0;
 
 function createIdleDragState() {
   return {
     active: false,
     pointerId: null,
+    pointerType: 'mouse',
     pieceIndex: null,
     moved: false,
     anchorCell: null,
   };
+}
+
+function getCursorOffsetCells(pointerType) {
+  if (pointerType === 'touch') return TOUCH_CURSOR_OFFSET_CELLS;
+  if (pointerType === 'pen') return PEN_CURSOR_OFFSET_CELLS;
+  return MOUSE_CURSOR_OFFSET_CELLS;
+}
+
+function getGhostScale(pointerType) {
+  if (pointerType === 'touch') return 1.32;
+  if (pointerType === 'pen') return 1.24;
+  return 1.18;
 }
 
 export function useBlockBustInput({
@@ -27,22 +42,53 @@ export function useBlockBustInput({
 }) {
   const dragStateRef = useRef(createIdleDragState());
   const dragGhostRef = useRef(null);
+  const dragGhostFrameRef = useRef(0);
+  const dragGhostStyleRef = useRef({ x: 0, y: 0, scale: 1.18 });
   const [isDragging, setIsDragging] = useState(false);
 
   const hideGhost = useEffectEvent(() => {
+    if (dragGhostFrameRef.current) {
+      cancelAnimationFrame(dragGhostFrameRef.current);
+      dragGhostFrameRef.current = 0;
+    }
     if (dragGhostRef.current) {
       dragGhostRef.current.style.display = 'none';
     }
   });
 
-  const moveGhost = useEffectEvent((clientX, clientY) => {
+  const flushGhost = useEffectEvent(() => {
+    dragGhostFrameRef.current = 0;
     if (!dragGhostRef.current) return;
-    const grid = gridRef.current;
-    const cellPx = grid ? grid.getBoundingClientRect().height / 8 : 40;
-    const offsetPx = (DRAG_OFFSET_ROWS + 0.5) * cellPx;
 
+    const { x, y, scale } = dragGhostStyleRef.current;
     dragGhostRef.current.style.display = 'block';
-    dragGhostRef.current.style.transform = `translate(${clientX}px, ${clientY - offsetPx}px) translate(-50%, -50%) scale(1.4)`;
+    dragGhostRef.current.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%) scale(${scale})`;
+  });
+
+  const scheduleGhostFlush = useEffectEvent(() => {
+    if (!dragGhostFrameRef.current) {
+      dragGhostFrameRef.current = requestAnimationFrame(flushGhost);
+    }
+  });
+
+  const moveGhost = useEffectEvent((clientX, clientY, pieceOverride = null, pointerTypeOverride = null) => {
+    const grid = gridRef.current;
+    const dragPiece = pieceOverride
+      || (dragStateRef.current.active && typeof dragStateRef.current.pieceIndex === 'number'
+        ? tray[dragStateRef.current.pieceIndex]
+        : null);
+    const cellPx = grid ? grid.getBoundingClientRect().height / 8 : 40;
+    const pointerType = pointerTypeOverride || dragStateRef.current.pointerType || 'mouse';
+    const offsetPx = getCursorOffsetCells(pointerType) * cellPx;
+    const pieceHeight = dragPiece?.height || 1;
+    const visualLift = pointerType === 'touch' ? Math.max(0, pieceHeight - 1) * cellPx * 0.08 : 0;
+
+    dragGhostStyleRef.current = {
+      x: clientX,
+      y: clientY - offsetPx - visualLift,
+      scale: getGhostScale(pointerType),
+    };
+    scheduleGhostFlush();
   });
 
   const updateAnchor = useEffectEvent((clientX, clientY, pieceOverride = null) => {
@@ -71,13 +117,15 @@ export function useBlockBustInput({
       || (dragStateRef.current.active && typeof dragStateRef.current.pieceIndex === 'number'
         ? tray[dragStateRef.current.pieceIndex]
         : selectedPiece);
+    const pointerType = dragStateRef.current.pointerType || 'mouse';
+    const anchorClientY = clientY - getCursorOffsetCells(pointerType) * cellH;
 
     let row = Math.floor((clientY - rect.top) / cellH);
     let col = Math.floor((clientX - rect.left) / cellW);
 
     if (dragStateRef.current.active && dragPiece) {
       col -= Math.floor(dragPiece.width / 2);
-      row -= Math.floor(dragPiece.height / 2) + DRAG_OFFSET_ROWS;
+      row = Math.floor((anchorClientY - rect.top) / cellH) - Math.floor(dragPiece.height / 2);
     } else {
       row = Math.max(0, Math.min(7, row));
       col = Math.max(0, Math.min(7, col));
@@ -125,6 +173,7 @@ export function useBlockBustInput({
     dragStateRef.current = {
       active: true,
       pointerId: event.pointerId,
+      pointerType: event.pointerType || 'mouse',
       pieceIndex: index,
       moved: false,
       anchorCell: null,
@@ -132,7 +181,7 @@ export function useBlockBustInput({
     setIsDragging(true);
     setRun((current) => ({ ...current, selectedSlotIndex: index }));
     playTone('select');
-    moveGhost(event.clientX, event.clientY);
+    moveGhost(event.clientX, event.clientY, tray[index], event.pointerType || 'mouse');
     updateAnchor(event.clientX, event.clientY, tray[index]);
   });
 
@@ -141,7 +190,7 @@ export function useBlockBustInput({
     if (!state.active || state.pointerId !== event.pointerId) return;
 
     state.moved = true;
-    moveGhost(event.clientX, event.clientY);
+    moveGhost(event.clientX, event.clientY, tray[state.pieceIndex] || null, state.pointerType);
     updateAnchor(event.clientX, event.clientY, tray[state.pieceIndex] || null);
   });
 
@@ -176,6 +225,12 @@ export function useBlockBustInput({
       setAnchorCell(null);
     }
   });
+
+  useEffect(() => () => {
+    if (dragGhostFrameRef.current) {
+      cancelAnimationFrame(dragGhostFrameRef.current);
+    }
+  }, []);
 
   return {
     dragGhostRef,

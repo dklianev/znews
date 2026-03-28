@@ -642,10 +642,23 @@ export default function GameBlockBustPage() {
       <div
         ref={dragGhostRef}
         className="fixed left-0 top-0 z-[100] pointer-events-none hidden"
-        style={{ transition: 'transform 60ms linear' }}
+        style={{ willChange: 'transform, opacity' }}
       >
-        <div style={{ filter: 'drop-shadow(0 16px 28px rgba(0,0,0,0.5))' }}>
-          {selectedPiece && <PieceMiniBoard piece={selectedPiece} selected={false} theme={activeTheme} cellOverride={20} />}
+        <div className="relative">
+          <span
+            className="absolute inset-[-16px] rounded-[1.6rem] blur-xl"
+            style={{ background: activeTheme.fillShadow, opacity: 0.85 }}
+          />
+          <div
+            className="relative rounded-[1.4rem] border-[2px] border-white/18 px-3 py-3"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.04) 100%)',
+              boxShadow: `0 16px 34px rgba(0,0,0,0.34), 0 0 0 1px ${activeTheme.accentSoft}`,
+              backdropFilter: 'blur(1px)',
+            }}
+          >
+            {selectedPiece && <PieceMiniBoard piece={selectedPiece} selected={false} theme={activeTheme} cellOverride={20} />}
+          </div>
         </div>
       </div>
 

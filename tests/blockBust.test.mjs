@@ -29,6 +29,13 @@ export function runBlockBustTests() {
   assert.equal(board.length, 8, 'board should have 8 rows');
   assert.equal(board[0].length, 8, 'board should have 8 columns');
 
+  const uniqueSlugs = new Set(BLOCK_BUST_PIECES.map((piece) => piece.slug));
+  assert.equal(uniqueSlugs.size, 19, 'piece catalog should expose 19 Block Blast-style shape families');
+  assert.ok(getPiece('zig4-s'), 'catalog should include S-style zig tetromino');
+  assert.ok(getPiece('zig4-z'), 'catalog should include Z-style zig tetromino');
+  assert.ok(getPiece('corner4-j'), 'catalog should include J-style corner tetromino');
+  assert.ok(getPiece('corner4-l'), 'catalog should include L-style corner tetromino');
+
   const square = getPiece('square2');
   assert.equal(canPlaceBlockBustPiece(board, square, 0, 0), true, 'square should fit in empty top-left corner');
   assert.equal(canPlaceBlockBustPiece(board, square, 7, 7), false, 'square should not overflow the board');
@@ -91,6 +98,22 @@ export function runBlockBustTests() {
   const tray = createBlockBustTray(createEmptyBlockBustBoard(), 1, () => 0.25);
   assert.equal(tray.length, 3, 'fresh tray should generate three pieces');
   assert.ok(tray.every(p => p && p.id && p.cells), 'all tray pieces should be valid piece objects');
+
+  const constrainedBoard = createEmptyBlockBustBoard();
+  for (let row = 0; row < 8; row += 1) {
+    for (let col = 0; col < 8; col += 1) {
+      constrainedBoard[row][col] = 1;
+    }
+  }
+  constrainedBoard[2][2] = 0;
+  constrainedBoard[2][3] = 0;
+  constrainedBoard[3][2] = 0;
+  constrainedBoard[3][3] = 0;
+  constrainedBoard[3][4] = 0;
+  constrainedBoard[4][2] = 0;
+  constrainedBoard[4][3] = 0;
+  const constrainedTray = createBlockBustTray(constrainedBoard, 6, () => 0.37);
+  assert.equal(hasAnyBlockBustPlacement(constrainedBoard, constrainedTray), true, 'generated tray should stay playable on a constrained board');
 
   const serialized = serializeBlockBustRun({
     board: createEmptyBlockBustBoard(),
