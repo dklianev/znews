@@ -54,6 +54,9 @@ export default function BlockBustTray({
   selectedSlotIndex,
   onSelectPiece,
   onStartDragPiece,
+  onDragPointerMove,
+  onDragPointerUp,
+  onDragPointerCancel,
   theme,
   controlMode = 'drag-tap',
 }) {
@@ -77,8 +80,15 @@ export default function BlockBustTray({
               onClick={() => piece && onSelectPiece?.(index)}
               onPointerDown={(e) => {
                 if (!piece || controlMode !== 'drag-tap') return;
+                e.preventDefault();
+                try {
+                  e.currentTarget.setPointerCapture?.(e.pointerId);
+                } catch {}
                 onStartDragPiece?.(e, index);
               }}
+              onPointerMove={piece && controlMode === 'drag-tap' ? onDragPointerMove : undefined}
+              onPointerUp={piece && controlMode === 'drag-tap' ? onDragPointerUp : undefined}
+              onPointerCancel={piece && controlMode === 'drag-tap' ? onDragPointerCancel : undefined}
               className={`touch-none relative rounded-xl border-[2px] px-2 py-3 transition-all duration-200 ${
                 selected
                   ? 'translate-y-[-4px] z-10'

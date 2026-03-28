@@ -3,8 +3,12 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Palette, RotateCcw, Settings2, Share2, Undo2 } from 'lucide-react';
 import BlockBustBoard from '../components/games/blockbust/BlockBustBoard';
+import BlockBustGameOverSheet from '../components/games/blockbust/BlockBustGameOverSheet';
+import BlockBustHudPanel from '../components/games/blockbust/BlockBustHudPanel';
 import BlockBustTray, { PieceMiniBoard } from '../components/games/blockbust/BlockBustTray';
 import BlockBustSettings from '../components/games/blockbust/BlockBustSettings';
+import useBlockBustAudio from '../hooks/useBlockBustAudio';
+import useBlockBustInput from '../hooks/useBlockBustInput';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { getTodayStr } from '../utils/gameDate';
@@ -116,10 +120,7 @@ export default function GameBlockBustPage() {
   const [banner, setBanner] = useState(null);
   const [shareNotice, setShareNotice] = useState(null);
   const boardRef = useRef(null);
-  const dragStateRef = useRef({ active: false });
-  const [isDragging, setIsDragging] = useState(false);
-  const audioCtxRef = useRef(null);
-  const dragGhostRef = useRef(null);
+  const gridRef = useRef(null);
   const [floatingScores, setFloatingScores] = useState([]);
   const [clearFlash, setClearFlash] = useState(null);
   const clearFlashRef = useRef(null);
@@ -155,7 +156,7 @@ export default function GameBlockBustPage() {
       .filter(({ row, col }) => row >= 0 && col >= 0 && row < 8 && col < 8);
     const pendingClears = valid ? getBlockBustPendingClears(run.board, selectedPiece, anchorCell.row, anchorCell.col) : null;
     return { cells, valid, pendingClears };
-  }, [anchorCell, isDragging, run.board, selectedPiece]);
+  }, [anchorCell, run.board, selectedPiece]);
 
   /* ── Persistence ── */
   useEffect(() => { try { window.localStorage.setItem(BLOCK_BUST_SETTINGS_KEY, JSON.stringify(settings)); } catch {} }, [settings]);
@@ -165,14 +166,13 @@ export default function GameBlockBustPage() {
   /* ── Auto-snap on piece selection ── */
   const prevPieceRef = useRef(null);
   useEffect(() => {
-    if (isDragging) return;
     if (selectedPiece === prevPieceRef.current) return;
     prevPieceRef.current = selectedPiece;
     if (!selectedPiece) return;
     if (canPlaceBlockBustPiece(run.board, selectedPiece, focusCell.row, focusCell.col)) return;
     const first = getBlockBustValidPlacements(run.board, selectedPiece)[0];
     if (first) { setFocusCell(first); setAnchorCell(first); }
-  }, [focusCell, isDragging, run.board, selectedPiece]);
+  }, [focusCell, run.board, selectedPiece]);
 
   useEffect(() => { if (!banner) return; const t = setTimeout(() => setBanner(null), settings.animationLevel === 'reduced' ? 1200 : 1800); return () => clearTimeout(t); }, [banner, settings.animationLevel]);
   useEffect(() => { if (!shareNotice) return; const t = setTimeout(() => setShareNotice(null), 2200); return () => clearTimeout(t); }, [shareNotice]);
@@ -189,24 +189,7 @@ export default function GameBlockBustPage() {
   }, []);
 
   /* ── Sound ── */
-  const playTone = useEffectEvent((type, comboLvl = 0) => {
-    if (!settings.soundEnabled) return;
-    const Ctor = window.AudioContext || window.webkitAudioContext;
-    if (!Ctor) return;
-    try {
-      if (!audioCtxRef.current) audioCtxRef.current = new Ctor();
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      const t = { select: [320, 0.06, 0.03, 'triangle'], place: [220, 0.08, 0.05, 'square'], clear: [470, 0.11, 0.04, 'triangle'], perfect: [720, 0.18, 0.05, 'sine'], over: [145, 0.2, 0.045, 'sawtooth'], levelup: [660, 0.16, 0.045, 'sine'], undo: [180, 0.07, 0.03, 'triangle'], combo: [540, 0.09, 0.035, 'triangle'] }[type] || [240, 0.05, 0.02, 'triangle'];
-      osc.type = t[3]; osc.frequency.setValueAtTime(t[0] + (type === 'combo' ? Math.min(comboLvl, 6) * 60 : 0), now);
-      gain.gain.setValueAtTime(t[2], now); gain.gain.exponentialRampToValueAtTime(0.0001, now + t[1]);
-      osc.start(now); osc.stop(now + t[1]);
-    } catch {}
-  });
+  const playTone = useBlockBustAudio(settings.soundEnabled);
 
   /* ── Daily persistence ── */
   const persistDaily = useEffectEvent((nextRun, status = 'played') => {
@@ -290,18 +273,17 @@ export default function GameBlockBustPage() {
     // Banners & sounds
     if (nextLevel > prevLevel && !result.perfectClear && nextRun.status !== 'over') {
       playTone('levelup');
-      setBanner({ eyebrow: `Ниво ${nextLevel}`, title: 'Level Up!', accent: activeTheme.accent });
+      setBanner({ eyebrow: `Ниво ${nextLevel}`, title: 'Ново ниво!', accent: activeTheme.accent });
     } else if (result.perfectClear) {
       playTone('perfect');
-      setBanner({ eyebrow: 'Пълно изчистване', title: 'Perfect Clear!', accent: getBlockBustTheme(nextThemeId).accent });
+      setBanner({ eyebrow: 'Пълно изчистване', title: 'Пълно изчистване!', accent: getBlockBustTheme(nextThemeId).accent });
     } else if (result.hadClear) {
       playTone(result.nextCombo >= 3 ? 'combo' : 'clear', result.nextCombo);
-      setBanner({ eyebrow: result.nextCombo > 1 ? `Combo ×${result.nextCombo}` : 'Clear', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'}${result.comboMultiplier > 1 ? ` (×${result.comboMultiplier})` : ''}`, accent: activeTheme.accent });
+      setBanner({ eyebrow: result.nextCombo > 1 ? `Комбо ×${result.nextCombo}` : 'Изчистване', title: `${result.linesCleared > 1 ? `${result.linesCleared} линии` : '1 линия'}${result.comboMultiplier > 1 ? ` (×${result.comboMultiplier})` : ''}`, accent: activeTheme.accent });
     } else {
       playTone('place');
     }
-    if (nextRun.status === 'over') { playTone('over'); setBanner({ type: 'over', eyebrow: 'Game Over', title: fmt(nextRun.score) + ' точки', accent: '#cc0a1a' }); }
-    if (dragGhostRef.current) dragGhostRef.current.style.display = 'none';
+    if (nextRun.status === 'over') { playTone('over'); setBanner({ type: 'over', eyebrow: 'Край на играта', title: fmt(nextRun.score) + ' точки', accent: '#cc0a1a' }); }
     return true;
   });
 
@@ -327,107 +309,27 @@ export default function GameBlockBustPage() {
     setBanner({ eyebrow: 'Undo', title: 'Върнат ход', accent: activeTheme.accent });
   });
 
-  /* ── Drag system ── */
-  // Drag offset: ghost floats above finger so you can see it.
-  // The board anchor is computed to match the ghost position exactly.
-  const DRAG_OFFSET_ROWS = 2; // piece appears ~2 rows above the cursor cell
-
-  const handleStartDrag = useEffectEvent((event, index) => {
-    if (settings.controlMode !== 'drag-tap') return;
-    dragStateRef.current = { active: true, pieceIndex: index, moved: false };
-    setIsDragging(true);
-    setRun(c => ({ ...c, selectedSlotIndex: index }));
-    playTone('select');
-    if (dragGhostRef.current) {
-      const grid = document.getElementById('blockbust-grid');
-      const cellPx = grid ? grid.getBoundingClientRect().height / 8 : 40;
-      const offsetPx = (DRAG_OFFSET_ROWS + 0.5) * cellPx;
-      dragGhostRef.current.style.display = 'block';
-      dragGhostRef.current.style.transform = `translate(${event.clientX}px, ${event.clientY - offsetPx}px) translate(-50%, -50%) scale(1.4)`;
-    }
-  });
-
-  const updateAnchor = useEffectEvent((cx, cy) => {
-    const grid = document.getElementById('blockbust-grid');
-    if (!grid) return;
-    const rect = grid.getBoundingClientRect();
-    const cellW = rect.width / 8;
-    const cellH = rect.height / 8;
-    const mx = rect.width * 0.4;
-    const mt = rect.height * 0.4;
-    const mb = rect.height * 0.8;
-    if (cx < rect.left - mx || cx > rect.right + mx || cy < rect.top - mt || cy > rect.bottom + mb) {
-      setAnchorCell(null);
-      dragStateRef.current.anchorCell = null;
-      return;
-    }
-    let piece = selectedPiece;
-    if (dragStateRef.current.active && typeof dragStateRef.current.pieceIndex === 'number') {
-      piece = run.tray[dragStateRef.current.pieceIndex] || piece;
-    }
-    // Convert cursor position to grid cell
-    let rr = Math.floor((cy - rect.top) / cellH);
-    let rc = Math.floor((cx - rect.left) / cellW);
-    if (dragStateRef.current.active && piece) {
-      // Center piece horizontally on cursor, offset up to match ghost visual
-      rc -= Math.floor(piece.width / 2);
-      rr -= Math.floor(piece.height / 2) + DRAG_OFFSET_ROWS;
-    } else {
-      rr = Math.max(0, Math.min(7, rr));
-      rc = Math.max(0, Math.min(7, rc));
-    }
-    setAnchorCell(p => (p && p.row === rr && p.col === rc) ? p : { row: rr, col: rc });
-    setFocusCell(p => (p && p.row === rr && p.col === rc) ? p : { row: rr, col: rc });
-    dragStateRef.current.anchorCell = { row: rr, col: rc };
-  });
-
-  const handlePointerUp = useEffectEvent(() => {
-    const st = dragStateRef.current;
-    if (!st.active) return;
-    dragStateRef.current = { active: false };
-    setIsDragging(false);
-    if (dragGhostRef.current) dragGhostRef.current.style.display = 'none';
-    if (typeof st.pieceIndex === 'number') {
-      const p = run.tray[st.pieceIndex];
-      if (p && st.anchorCell) {
-        const placed = placeSelectedPiece(st.anchorCell.row, st.anchorCell.col, p, st.pieceIndex);
-        if (!placed && st.moved) {
-          setRun(c => ({ ...c, selectedSlotIndex: null }));
-          setAnchorCell(null);
-        }
-      } else if (st.moved) {
-        setRun(c => ({ ...c, selectedSlotIndex: null }));
-        setAnchorCell(null);
-      }
-    }
-  });
-
-  useEffect(() => {
-    function up() { handlePointerUp(); }
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
-    return () => { window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
-  }, [handlePointerUp]);
-
-  const handlePointerMove = useEffectEvent((e) => {
-    if (!dragStateRef.current.active || !dragGhostRef.current) return;
-    dragStateRef.current.moved = true;
-    const grid = document.getElementById('blockbust-grid');
-    const cellPx = grid ? grid.getBoundingClientRect().height / 8 : 40;
-    const offsetPx = (DRAG_OFFSET_ROWS + 0.5) * cellPx;
-    dragGhostRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY - offsetPx}px) translate(-50%, -50%) scale(1.4)`;
-    updateAnchor(e.clientX, e.clientY);
-  });
-
-  useEffect(() => {
-    window.addEventListener('pointermove', handlePointerMove);
-    return () => window.removeEventListener('pointermove', handlePointerMove);
-  }, [handlePointerMove]);
-
-  const handleBoardPointerMove = useEffectEvent((e) => {
-    if (settings.controlMode !== 'drag-tap' && !selectedPiece) return;
-    if (!dragStateRef.current.active && settings.controlMode === 'drag-tap') return;
-    updateAnchor(e.clientX, e.clientY);
+  const {
+    dragGhostRef,
+    isDragging,
+    handleStartDrag,
+    handleDragPointerMove,
+    handleDragPointerUp,
+    handleDragPointerCancel,
+    handleBoardCellEnter,
+    handleBoardLeave,
+  } = useBlockBustInput({
+    controlMode: settings.controlMode,
+    gridRef,
+    tray: run.tray,
+    run,
+    selectedPiece,
+    setRun,
+    setAnchorCell,
+    setFocusCell,
+    placeSelectedPiece,
+    playTone,
+    clearFlashActive: Boolean(clearFlashRef.current),
   });
 
   const handleShare = useEffectEvent(async () => {
@@ -484,11 +386,11 @@ export default function GameBlockBustPage() {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4">
+      <div className="mx-auto max-w-[74rem] px-4">
         <div className={`flex flex-col md:flex-row gap-4 items-start justify-center ${settings.leftHanded ? 'md:flex-row-reverse' : ''}`}>
 
           {/* Left panel — stats */}
-          <div className="hidden md:flex flex-col gap-3 w-32">
+          <div className="hidden md:flex w-28 shrink-0 flex-col gap-2.5 opacity-90">
             <div className={`comic-panel p-3 text-center transition-colors duration-300 ${scoreFlash ? 'bg-zn-gold/10 dark:bg-zn-gold/20' : 'bg-white dark:bg-zinc-900'}`}>
               <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-text/50 dark:text-zinc-400">Точки</span>
               <p className={`text-xl font-black font-display tabular-nums transition-transform duration-200 ${scoreFlash ? 'scale-110 text-zn-gold' : 'scale-100 text-zn-text dark:text-white'}`}>{fmt(animatedScore)}</p>
@@ -507,7 +409,7 @@ export default function GameBlockBustPage() {
             </div>
             {run.combo > 0 && (
               <div className="comic-panel bg-zn-hot/10 dark:bg-zn-hot/20 border-zn-hot/30 p-2 text-center">
-                <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-hot">Combo</span>
+                <span className="text-[10px] font-display uppercase tracking-[0.15em] text-zn-hot">Комбо</span>
                 <p className="text-lg font-black font-display text-zn-hot">{run.combo}x</p>
               </div>
             )}
@@ -539,7 +441,7 @@ export default function GameBlockBustPage() {
           </div>
 
           {/* Center — board + tray */}
-          <div className="flex flex-col items-center gap-3 w-full md:w-auto">
+          <div className="flex w-full flex-col items-center gap-3 md:max-w-[31rem] md:flex-1">
             {/* Mobile stats */}
             <div className="flex md:hidden gap-2 text-center flex-wrap justify-center">
               <div className={`comic-panel px-2.5 py-1.5 transition-colors duration-300 ${scoreFlash ? 'bg-zn-gold/10 dark:bg-zn-gold/20' : 'bg-white dark:bg-zinc-900'}`}>
@@ -556,14 +458,14 @@ export default function GameBlockBustPage() {
               </div>
               {run.combo > 0 && (
                 <div className="comic-panel bg-zn-hot/10 dark:bg-zn-hot/20 px-2.5 py-1.5">
-                  <span className="text-[8px] font-display uppercase tracking-widest text-zn-hot block">Combo</span>
+                  <span className="text-[8px] font-display uppercase tracking-widest text-zn-hot block">Комбо</span>
                   <span className="text-sm font-black font-display text-zn-hot">{run.combo}x</span>
                 </div>
               )}
             </div>
 
             {/* Board */}
-            <div className="relative w-full max-w-[22rem] md:max-w-[26rem]" ref={boardWrapRef}>
+            <div className="relative w-full max-w-[22rem] md:max-w-[31rem]" ref={boardWrapRef}>
               {/* Banner overlay */}
               <AnimatePresence>
                 {banner && (
@@ -597,6 +499,7 @@ export default function GameBlockBustPage() {
                     ref={boardRef}
                     board={run.board}
                     theme={activeTheme}
+                    gridRef={gridRef}
                     previewCells={previewState.cells}
                     invalidPreview={!previewState.valid && Boolean(selectedPiece) && Boolean(anchorCell) && !isDragging}
                     pendingClears={previewState.pendingClears}
@@ -606,23 +509,24 @@ export default function GameBlockBustPage() {
                     clearFlash={clearFlash}
                     rejectShake={rejectShake}
                     comboLevel={run.combo >= 3 ? Math.min(run.combo - 1, 5) : run.combo >= 2 ? 1 : 0}
-                    onCellEnter={(r, c) => { if (dragStateRef.current.active) return; setAnchorCell({ row: r, col: c }); setFocusCell({ row: r, col: c }); }}
+                    onCellEnter={handleBoardCellEnter}
                     onCellClick={handleCellClick}
-                    onBoardPointerMove={handleBoardPointerMove}
-                    onBoardPointerUp={handlePointerUp}
-                    onBoardLeave={() => { if (!dragStateRef.current.active) setAnchorCell(null); }}
+                    onBoardLeave={handleBoardLeave}
                   />
                 </div>
               </div>
             </div>
 
             {/* Tray — below board like Block Blast */}
-            <div className="w-full max-w-[22rem] md:max-w-[26rem]">
+            <div className="w-full max-w-[22rem] md:max-w-[31rem]">
               <BlockBustTray
                 pieces={run.tray}
                 selectedSlotIndex={run.selectedSlotIndex}
                 onSelectPiece={handleSelectPiece}
                 onStartDragPiece={handleStartDrag}
+                onDragPointerMove={handleDragPointerMove}
+                onDragPointerUp={handleDragPointerUp}
+                onDragPointerCancel={handleDragPointerCancel}
                 theme={activeTheme}
                 controlMode={settings.controlMode}
               />
@@ -631,7 +535,7 @@ export default function GameBlockBustPage() {
             {/* Action buttons — compact row */}
             <div className="flex flex-wrap items-center justify-center gap-2 mt-1">
               <button type="button" onClick={handleUndo} disabled={!prevRunForUndo} className={`comic-panel px-3 py-1.5 font-display text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${prevRunForUndo ? 'bg-white dark:bg-zinc-900 text-zn-text dark:text-white' : 'bg-zinc-100 dark:bg-zinc-800 text-zn-text/30 dark:text-zinc-600 cursor-not-allowed'}`}>
-                <Undo2 className="w-3.5 h-3.5" />Undo (Z)
+                <Undo2 className="w-3.5 h-3.5" />Върни (Z)
               </button>
               <button type="button" onClick={() => resetRun()} className="comic-panel bg-white dark:bg-zinc-900 px-3 py-1.5 font-display text-[10px] font-black uppercase tracking-widest text-zn-text dark:text-white flex items-center gap-1.5">
                 <RotateCcw className="w-3.5 h-3.5" />Нов (R)
@@ -646,7 +550,7 @@ export default function GameBlockBustPage() {
           </div>
 
           {/* Right panel */}
-          <div className={`hidden md:flex flex-col gap-3 w-44`}>
+          <div className="hidden md:flex w-40 shrink-0 flex-col gap-2.5 opacity-90">
             {/* Theme picker */}
             <div className="comic-panel bg-white dark:bg-zinc-900 p-3">
               <button
@@ -675,6 +579,13 @@ export default function GameBlockBustPage() {
               )}
             </div>
 
+            <BlockBustHudPanel
+              label="Тема / риск"
+              value={activeTheme.name}
+              helper={`${Math.round(occupancy * 100)}% запълване`}
+              accent={activeTheme.accent}
+            />
+
             {/* Daily best */}
             {dailyBest > 0 && (
               <div className="comic-panel bg-white dark:bg-zinc-900 p-3 text-center">
@@ -690,7 +601,7 @@ export default function GameBlockBustPage() {
                 <li><b className="text-zn-text dark:text-white">A/S/D</b> — избери фигура</li>
                 <li><b className="text-zn-text dark:text-white">Стрелки</b> — мести фокус</li>
                 <li><b className="text-zn-text dark:text-white">Space</b> — постави</li>
-                <li><b className="text-zn-text dark:text-white">Z</b> — undo</li>
+                <li><b className="text-zn-text dark:text-white">Z</b> — върни ход</li>
                 <li><b className="text-zn-text dark:text-white">R</b> — нов рън</li>
               </ul>
             </div>
@@ -752,9 +663,19 @@ export default function GameBlockBustPage() {
         )}
       </AnimatePresence>
 
+      <BlockBustGameOverSheet
+        open={run.status === 'over'}
+        run={run}
+        level={level}
+        bestScore={bestScore}
+        theme={activeTheme}
+        onRestart={() => resetRun(true)}
+        onShare={handleShare}
+      />
+
       {/* Game Over overlay */}
       <AnimatePresence>
-        {run.status === 'over' && (
+        {false && run.status === 'over' && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

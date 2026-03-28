@@ -12,6 +12,7 @@ function toKeySet(cells = []) {
 const BlockBustBoard = forwardRef(function BlockBustBoard({
   board,
   theme,
+  gridRef,
   previewCells,
   invalidPreview = false,
   pendingClears = null,
@@ -23,8 +24,6 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
   comboLevel = 0,
   onCellClick,
   onCellEnter,
-  onBoardPointerMove,
-  onBoardPointerUp,
   onBoardLeave,
 }, ref) {
   const previewSet = useMemo(() => toKeySet(previewCells), [previewCells]);
@@ -50,8 +49,6 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
   return (
     <div
       ref={ref}
-      onPointerMove={onBoardPointerMove}
-      onPointerUp={onBoardPointerUp}
       onPointerLeave={onBoardLeave}
       className={`relative overflow-hidden rounded-2xl border-[3px] p-1.5 sm:p-2 transition-shadow duration-300${rejectShake ? ' bb-reject-shake' : ''}`}
       style={{
@@ -61,7 +58,7 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
       }}
     >
       <div
-        id="blockbust-grid"
+        ref={gridRef}
         className="relative grid gap-[2px] sm:gap-[3px]"
         style={{ gridTemplateColumns: `repeat(${BLOCK_BUST_BOARD_SIZE}, 1fr)` }}
       >
