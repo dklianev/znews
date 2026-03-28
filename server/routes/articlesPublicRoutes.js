@@ -35,7 +35,7 @@ export function createArticlesPublicRouter(deps) {
 
   const articlesRouter = express.Router();
   const VALID_REACTIONS = ['fire', 'shock', 'laugh', 'skull', 'clap'];
-  const REACTION_CACHE_TAGS = ['articles', 'breaking', 'bootstrap', 'homepage', 'search'];
+  const REACTION_CACHE_TAGS = ['article-detail', 'author-stats'];
   const REACTION_CLIENT_COOKIE_NAME = 'zn_react_id';
   const REACTION_CLIENT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
   const ACTIVE_REACTION_FILTER = {
@@ -158,6 +158,16 @@ export function createArticlesPublicRouter(deps) {
     });
   }
 
+  function setRouteCacheTags(res, tags) {
+    const normalized = [...new Set((Array.isArray(tags) ? tags : []).filter(Boolean))];
+    if (typeof res?.setCacheTags === 'function') {
+      res.setCacheTags(normalized);
+      return;
+    }
+    res.locals = res.locals || {};
+    res.locals.apiCacheTags = normalized;
+  }
+
   function getReactionHashCandidates(req, articleId, emoji = null) {
     const hashes = new Set([hashReactionFingerprint(req, `react:${articleId}`)]);
     if (emoji && VALID_REACTIONS.includes(emoji)) {
@@ -183,6 +193,7 @@ export function createArticlesPublicRouter(deps) {
   articlesRouter.get('/author-stats/:authorId', cacheMiddleware, asyncHandler(async (req, res) => {
     const authorId = Number.parseInt(req.params.authorId, 10);
     if (!Number.isInteger(authorId)) return res.status(400).json({ error: 'Invalid authorId' });
+    setRouteCacheTags(res, ['authors', 'author-stats']);
 
     const filter = { ...getPublishedFilter(), authorId };
     const [result] = await Article.aggregate([
@@ -238,6 +249,7 @@ export function createArticlesPublicRouter(deps) {
     const authorId = parsePositiveInt(req.query.authorId, null);
     if (authorId) filter.authorId = authorId;
     if (q) filter.$text = { $search: q };
+    setRouteCacheTags(res, q ? ['articles', 'article-list', 'search'] : ['articles', 'article-list']);
 
     let query = Article.find(filter);
     query = q
@@ -283,6 +295,7 @@ export function createArticlesPublicRouter(deps) {
   articlesRouter.get('/:id', cacheMiddleware, asyncHandler(async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    setRouteCacheTags(res, ['articles', 'article-detail']);
 
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;

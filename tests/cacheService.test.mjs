@@ -6,6 +6,7 @@ function createResponse() {
   return {
     statusCode: 200,
     headers: {},
+    locals: {},
     body: undefined,
     setHeader(name, value) {
       this.headers[name] = value;
@@ -53,4 +54,25 @@ export async function runCacheServiceTests() {
   assert.equal(statsAfterHit.performance.hits, 1);
   assert.equal(statsAfterHit.performance.hitRate, 0.5);
   assert.equal(statsAfterHit.performance.hitsByTag.homepage, 1);
+
+  const detailReq = { method: 'GET', originalUrl: '/api/articles/7', headers: {} };
+  const detailRes1 = createResponse();
+  await new Promise((resolve) => service.cacheMiddleware(detailReq, detailRes1, resolve));
+  assert.equal(detailRes1.getHeader('X-Cache'), 'MISS');
+  detailRes1.setCacheTags(['articles', 'article-detail']);
+  detailRes1.json({ id: 7 });
+
+  const detailRes2 = createResponse();
+  service.cacheMiddleware(detailReq, detailRes2, () => {});
+  assert.equal(detailRes2.getHeader('X-Cache'), 'HIT');
+  assert.deepEqual(detailRes2.body, { id: 7 });
+
+  const statsAfterDetailHit = service.getApiCacheStats();
+  assert.equal(statsAfterDetailHit.performance.hitsByTag['article-detail'], 1);
+  assert.equal(statsAfterDetailHit.countsByTag['article-detail'], 1);
+
+  const invalidated = service.invalidateCacheTags(['article-detail'], { reason: 'reaction-test' });
+  assert.equal(invalidated, 1);
+  assert.equal(apiCache.keys().length, 1);
+  assert.deepEqual(service.getApiCacheStats().recentInvalidations[0].tags, ['article-detail']);
 }

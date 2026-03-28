@@ -25,7 +25,8 @@ import { getSwipeDirection } from '../utils/touchSwipe';
 const GAME_SLUG = 'snake';
 const STORAGE_SCOPE = 'session';
 const SPEED_BOOST_DURATION = 5000;
-const COMBO_TIMEOUT = 3000;
+const COMBO_TIMEOUT = 5000;
+const COMBO_TIMEOUT_SECONDS = Math.round(COMBO_TIMEOUT / 1000);
 
 const DIFFICULTY_LABELS = { easy: 'Лесно', medium: 'Средно', hard: 'Трудно' };
 const DEATH_LABELS = { wall: 'Удари стената!', self: 'Ухапа се!', obstacle: 'Удари препятствие!' };
@@ -520,7 +521,7 @@ export default function GameSnakePage() {
               <span className="font-mono bg-zn-paper dark:bg-zinc-800 px-2 py-1 text-center">P / Esc</span><span>Пауза</span>
             </div>
             <div className="mt-3 pt-3 border-t border-zn-text/10 dark:border-zinc-700 text-[11px] text-zn-text/60 dark:text-zinc-400 space-y-1">
-              <p><strong>Combo:</strong> Яж бързо — всяка поредна храна в рамките на 3 секунди увеличава множителя.</p>
+              <p><strong>Combo:</strong> Яж бързо — всяка поредна храна в рамките на {COMBO_TIMEOUT_SECONDS} секунди увеличава множителя.</p>
               <p><strong>Hard mode:</strong> На всеки 100 точки се появяват сиви препятствия.</p>
               <p><strong>Wrap:</strong> Стените стават портали — излизаш от другата страна.</p>
               <p><strong>Скоростта расте</strong> с всеки 5 сегмента — дългата змия е бърза змия!</p>

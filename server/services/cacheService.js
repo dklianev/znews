@@ -17,6 +17,32 @@ export function createCacheService(deps) {
     missesByTag: {},
   };
 
+  function normalizeCacheTags(tags) {
+    return [...new Set((Array.isArray(tags) ? tags : []).filter(Boolean))];
+  }
+
+  function ensureResponseLocals(res) {
+    if (!res.locals || typeof res.locals !== 'object') {
+      res.locals = {};
+    }
+    return res.locals;
+  }
+
+  function readResponseCacheTags(res) {
+    if (!res) return [];
+    if (Array.isArray(res.locals?.apiCacheTags)) return normalizeCacheTags(res.locals.apiCacheTags);
+    if (Array.isArray(res.__apiCacheTags)) return normalizeCacheTags(res.__apiCacheTags);
+    return [];
+  }
+
+  function setResponseCacheTags(res, tags) {
+    const normalized = normalizeCacheTags(tags);
+    if (!res) return normalized;
+    ensureResponseLocals(res).apiCacheTags = normalized;
+    res.__apiCacheTags = normalized;
+    return normalized;
+  }
+
   function normalizeCacheUrl(rawUrl) {
     return String(rawUrl || '').split('#')[0].trim();
   }
@@ -55,11 +81,11 @@ export function createCacheService(deps) {
     keys.filter(Boolean).forEach((key) => apiCacheMeta.delete(key));
   }
 
-  function rememberApiCacheEntry(key, url) {
+  function rememberApiCacheEntry(key, url, tagsOverride = null) {
     apiCacheMeta.set(key, {
       key,
       url,
-      tags: getCacheTagsForUrl(url),
+      tags: normalizeCacheTags(tagsOverride && tagsOverride.length > 0 ? tagsOverride : getCacheTagsForUrl(url)),
       cachedAt: new Date().toISOString(),
     });
   }
@@ -126,10 +152,18 @@ export function createCacheService(deps) {
     const url = req.originalUrl || req.url;
     const key = `api_cache_${url}`;
     const cachedBody = apiCache.get(key);
+    const derivedTags = getCacheTagsForUrl(url);
 
-    const tags = getCacheTagsForUrl(url);
+    if (typeof res.setCacheTags !== 'function') {
+      res.setCacheTags = (tags) => {
+        setResponseCacheTags(res, tags);
+        return res;
+      };
+    }
 
     if (cachedBody) {
+      const cachedMeta = apiCacheMeta.get(key);
+      const tags = normalizeCacheTags(cachedMeta?.tags?.length ? cachedMeta.tags : derivedTags);
       cachePerformance.hits += 1;
       countCacheEvent(tags, 'hits');
       res.setHeader('X-Cache', 'HIT');
@@ -137,14 +171,15 @@ export function createCacheService(deps) {
     }
 
     cachePerformance.misses += 1;
-    countCacheEvent(tags, 'misses');
+    countCacheEvent(derivedTags, 'misses');
     res.setHeader('X-Cache', 'MISS');
     const originalSend = res.json;
     res.json = function cacheResponse(body) {
       if (res.statusCode >= 200 && res.statusCode < 300) {
+        const responseTags = normalizeCacheTags(readResponseCacheTags(res).length > 0 ? readResponseCacheTags(res) : derivedTags);
         apiCache.set(key, JSON.stringify(body));
         cachePerformance.writes += 1;
-        rememberApiCacheEntry(key, url);
+        rememberApiCacheEntry(key, url, responseTags);
       }
       return originalSend.call(this, body);
     };

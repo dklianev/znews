@@ -366,7 +366,7 @@ export async function runArticlesPublicRoutesTests() {
       hasReacted: true,
     });
     assert.deepEqual(invalidations[0], {
-      tags: ['articles', 'breaking', 'bootstrap', 'homepage', 'search'],
+      tags: ['article-detail', 'author-stats'],
       options: { reason: 'article-reaction:7:shock' },
     });
   }
@@ -571,7 +571,7 @@ export async function runArticlesPublicRoutesTests() {
       hasReacted: true,
     });
     assert.deepEqual(invalidations[0], {
-      tags: ['articles', 'breaking', 'bootstrap', 'homepage', 'search'],
+      tags: ['article-detail', 'author-stats'],
       options: { reason: 'article-reaction:7:shock' },
     });
   }
