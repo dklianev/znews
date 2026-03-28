@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { api } from '../utils/api';
+import { shouldReloadForChunkError } from '../utils/chunkReload';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -21,14 +22,9 @@ export default class ErrorBoundary extends Component {
       || msg.includes('Loading chunk')
       || msg.includes('Loading CSS chunk')
       || (error?.name === 'TypeError' && msg.includes('text/html'));
-    if (isChunkError) {
-      const key = 'zn_chunk_reload';
-      const lastReload = Number(sessionStorage.getItem(key) || 0);
-      if (Date.now() - lastReload > 10000) {
-        sessionStorage.setItem(key, String(Date.now()));
-        window.location.reload();
-        return;
-      }
+    if (isChunkError && shouldReloadForChunkError()) {
+      window.location.reload();
+      return;
     }
 
     api.monitoring.reportClientError({

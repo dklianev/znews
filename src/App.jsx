@@ -9,6 +9,7 @@ import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import { appCopy } from './content/uiCopy';
+import { shouldReloadForChunkError } from './utils/chunkReload';
 
 // ─── Chunk-resilient lazy loader ───
 // After a deploy, old chunk hashes no longer exist on the server.
@@ -19,10 +20,7 @@ import { appCopy } from './content/uiCopy';
 function lazyRetry(importFn) {
   return lazy(() =>
     importFn().catch((error) => {
-      const key = 'zn_chunk_reload';
-      const lastReload = Number(sessionStorage.getItem(key) || 0);
-      if (Date.now() - lastReload > 10000) {
-        sessionStorage.setItem(key, String(Date.now()));
+      if (shouldReloadForChunkError()) {
         window.location.reload();
         return new Promise(() => {});
       }
