@@ -290,7 +290,7 @@ export default function ArticlePage() {
       })
       .sort((a, b) => b.score - a.score)
       .slice(0, 4);
-  }, [articles, article.category, article.date, article.id, article.tags]);
+  }, [articles, article?.category, article?.date, article?.id, article?.tags]);
 
   const nextArticle = useMemo(() => {
     if (!article) return null;
