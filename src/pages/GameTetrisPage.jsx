@@ -934,6 +934,25 @@ export default function GameTetrisPage() {
     });
   }, [stopAllDAS]);
 
+  // Auto-pause when tab/window loses visibility (laptop close, alt-tab, CEF iframe hide)
+  useEffect(() => {
+    function autoPause() {
+      if (statusRef.current === 'playing') {
+        stopAllDAS();
+        setGameStatus('paused');
+      }
+    }
+    function onVisibilityChange() { if (document.hidden) autoPause(); }
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('blur', autoPause);
+    window.addEventListener('pagehide', autoPause);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('blur', autoPause);
+      window.removeEventListener('pagehide', autoPause);
+    };
+  }, [stopAllDAS]);
+
   const returnToMenu = useCallback(() => {
     stopAllDAS();
     cancelLockTimer();
