@@ -1,7 +1,7 @@
 import { Component } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { api } from '../utils/api';
-import { shouldReloadForChunkError } from '../utils/chunkReload';
+import { isChunkLoadError, shouldReloadForChunkError } from '../utils/chunkReload';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -16,13 +16,7 @@ export default class ErrorBoundary extends Component {
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo);
 
-    // Chunk load failures after deploy — reload once to get fresh HTML
-    const msg = error?.message || '';
-    const isChunkError = msg.includes('Failed to fetch dynamically imported module')
-      || msg.includes('Loading chunk')
-      || msg.includes('Loading CSS chunk')
-      || (error?.name === 'TypeError' && msg.includes('text/html'));
-    if (isChunkError && shouldReloadForChunkError()) {
+    if (isChunkLoadError(error) && shouldReloadForChunkError()) {
       window.location.reload();
       return;
     }

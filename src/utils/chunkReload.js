@@ -10,6 +10,14 @@ function getSafeSessionStorage() {
   }
 }
 
+export function isChunkLoadError(error) {
+  const msg = error?.message || '';
+  return msg.includes('Failed to fetch dynamically imported module')
+    || msg.includes('Loading chunk')
+    || msg.includes('Loading CSS chunk')
+    || (error?.name === 'TypeError' && msg.includes('text/html'));
+}
+
 export function shouldReloadForChunkError(now = Date.now()) {
   const storage = getSafeSessionStorage();
   if (!storage) return false;

@@ -9,7 +9,7 @@ import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import { appCopy } from './content/uiCopy';
-import { shouldReloadForChunkError } from './utils/chunkReload';
+import { isChunkLoadError, shouldReloadForChunkError } from './utils/chunkReload';
 
 // ─── Chunk-resilient lazy loader ───
 // After a deploy, old chunk hashes no longer exist on the server.
@@ -20,7 +20,7 @@ import { shouldReloadForChunkError } from './utils/chunkReload';
 function lazyRetry(importFn) {
   return lazy(() =>
     importFn().catch((error) => {
-      if (shouldReloadForChunkError()) {
+      if (isChunkLoadError(error) && shouldReloadForChunkError()) {
         window.location.reload();
         return new Promise(() => {});
       }
