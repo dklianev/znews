@@ -222,7 +222,6 @@ export default function GameQuizPage() {
       } else {
         setTimeout(() => {
           setGameStatus('gameover');
-          recordGameWin(GAME_SLUG, getTodayStr());
         }, 2000);
       }
     }, 1600);
@@ -277,7 +276,7 @@ export default function GameQuizPage() {
     answers.forEach((ans, idx) => {
       text += (idx < questions.length && ans === questions[idx].correctIndex) ? '🟩' : '🟥';
     });
-    text += '\n\nhttps://znews.bg/games/quiz';
+    text += '\n\nhttps://znews.live/games/quiz';
     return text;
   }, [getFinalPoints, getScore, totalQ, answers, questions]);
 
