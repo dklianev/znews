@@ -446,6 +446,20 @@ async function runBrowserSmoke() {
       },
     },
     {
+      path: '/games/quiz',
+      assert(snapshot) {
+        if (snapshot.url !== '/games/quiz') {
+          throw new Error(`Expected /games/quiz to stay on the same route, received "${snapshot.url}"`);
+        }
+        if (snapshot.title.includes('404')) {
+          throw new Error('Expected quiz page to render a valid game view, not a 404 state.');
+        }
+        if (snapshot.text.trim().length < 80) {
+          throw new Error('Expected quiz page snapshot to include a valid game or empty-state layout.');
+        }
+      },
+    },
+    {
       path: '/does-not-exist',
       assert(snapshot) {
         if (!snapshot.title.includes('404')) {

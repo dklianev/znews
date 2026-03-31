@@ -3,6 +3,17 @@ import { api } from '../utils/api';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { loadGameProgress, saveGameProgress, recordGameWin } from '../utils/gameStorage';
 import { getTodayStr } from '../utils/gameDate';
+import {
+  buildQuizPointsLadder,
+  calculateQuizScore,
+  formatQuizPoints,
+  generateQuizAudienceVotes,
+  generateQuizFiftyFifty,
+  generateQuizPhoneHint,
+  generateQuizShareText,
+  getQuizFinalPoints,
+  getQuizSafetyNets,
+} from '../utils/quizGame';
 import QuizQuestionCard from '../components/games/quiz/QuizQuestionCard';
 import {
   Loader2,
@@ -21,92 +32,6 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 
 const GAME_SLUG = 'quiz';
-
-// ─── Points ladder (scales to question count) ───
-const POINTS_PRESETS = {
-  5: [10, 25, 50, 100, 250],
-  10: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000],
-  15: [5, 10, 15, 25, 50, 100, 150, 250, 500, 1000, 1500, 2500, 4000, 7500, 10000],
-};
-
-const PHONE_HINT_CONFIDENT = [
-  'Почти сигурен съм, че правилният е',
-  'Бих заложил на',
-  'Според мен това е',
-];
-
-const PHONE_HINT_UNCERTAIN = [
-  'Не съм напълно сигурен, но бих пробвал',
-  'Колебая се, но май е',
-  'Ако трябва да рискувам, бих избрал',
-];
-
-function buildPointsLadder(count) {
-  if (POINTS_PRESETS[count]) return POINTS_PRESETS[count];
-  const ladder = [];
-  for (let i = 0; i < count; i++) {
-    const t = i / (count - 1);
-    ladder.push(Math.round((5 + t * t * 9995) / 5) * 5);
-  }
-  return ladder;
-}
-
-// Safety net indices (0-based): the points you keep if you fail after passing them
-function getSafetyNets(count) {
-  if (count <= 5) return [];
-  if (count <= 10) return [4];
-  return [4, 9];
-}
-
-function formatPoints(amount) {
-  return `${amount.toLocaleString('bg-BG')} лв.`;
-}
-
-// ÄÄÄ Lifeline helpers ÄÄÄ
-function generateFiftyFifty(question) {
-  const correct = question.correctIndex;
-  const wrong = question.options
-    .map((_, i) => i)
-    .filter(i => i !== correct);
-  const keep = wrong[Math.floor(Math.random() * wrong.length)];
-  const eliminated = wrong.filter(i => i !== keep);
-  return new Set(eliminated);
-}
-
-function generateAudienceVotes(question, eliminated) {
-  const correct = question.correctIndex;
-  const active = question.options.map((_, i) => i).filter(i => !eliminated.has(i));
-  const votes = new Array(question.options.length).fill(0);
-
-  const correctWeight = 45 + Math.floor(Math.random() * 30);
-  votes[correct] = correctWeight;
-  let remaining = 100 - correctWeight;
-
-  const others = active.filter(i => i !== correct);
-  others.forEach((idx, i) => {
-    if (i === others.length - 1) {
-      votes[idx] = remaining;
-    } else {
-      const share = Math.floor(Math.random() * (remaining * 0.7));
-      votes[idx] = share;
-      remaining -= share;
-    }
-  });
-  return votes;
-}
-
-function generatePhoneHint(question) {
-  const isRight = Math.random() < 0.7;
-  const wrongOptions = question.options.map((_, i) => i).filter(i => i !== question.correctIndex);
-  const suggestedIdx = isRight
-    ? question.correctIndex
-    : wrongOptions[Math.floor(Math.random() * wrongOptions.length)];
-  const confidence = isRight
-    ? PHONE_HINT_CONFIDENT[Math.floor(Math.random() * PHONE_HINT_CONFIDENT.length)]
-    : PHONE_HINT_UNCERTAIN[Math.floor(Math.random() * PHONE_HINT_UNCERTAIN.length)];
-  const letter = String.fromCharCode(65 + suggestedIdx);
-  return `${confidence} ${letter}.`;
-}
 function LifelineButton({ icon: Icon, label, hint, active, onClick, accent = 'yellow' }) {
   const activeClasses = accent === 'emerald'
     ? 'border-emerald-400/45 bg-emerald-400/10 text-emerald-100 shadow-[0_18px_30px_rgba(16,185,129,0.14)]'
@@ -221,8 +146,8 @@ export default function GameQuizPage() {
 
   const questions = useMemo(() => puzzle?.payload?.questions || [], [puzzle]);
   const totalQ = questions.length;
-  const pointsLadder = useMemo(() => buildPointsLadder(totalQ), [totalQ]);
-  const safetyNets = useMemo(() => getSafetyNets(totalQ), [totalQ]);
+  const pointsLadder = useMemo(() => buildQuizPointsLadder(totalQ), [totalQ]);
+  const safetyNets = useMemo(() => getQuizSafetyNets(totalQ), [totalQ]);
 
   const currentPoints = currentQ > 0 ? pointsLadder[currentQ - 1] : 0;
   const guaranteedPoints = useMemo(() => {
@@ -344,49 +269,53 @@ export default function GameQuizPage() {
 
   const useFiftyFifty = useCallback(() => {
     if (!lifelines.fiftyFifty || gameStatus !== 'playing') return;
-    const elim = generateFiftyFifty(questions[currentQ]);
+    const elim = generateQuizFiftyFifty(questions[currentQ]);
     setEliminated(elim);
     setLifelines(prev => ({ ...prev, fiftyFifty: false }));
   }, [lifelines.fiftyFifty, gameStatus, questions, currentQ]);
 
   const useAudience = useCallback(() => {
     if (!lifelines.audience || gameStatus !== 'playing') return;
-    const votes = generateAudienceVotes(questions[currentQ], eliminated);
+    const votes = generateQuizAudienceVotes(questions[currentQ], eliminated);
     setAudienceVotes(votes);
     setLifelines(prev => ({ ...prev, audience: false }));
   }, [lifelines.audience, gameStatus, questions, currentQ, eliminated]);
 
   const usePhone = useCallback(() => {
     if (!lifelines.phone || gameStatus !== 'playing') return;
-    const hint = generatePhoneHint(questions[currentQ]);
+    const hint = generateQuizPhoneHint(questions[currentQ]);
     setPhoneHint(hint);
     setLifelines(prev => ({ ...prev, phone: false }));
   }, [lifelines.phone, gameStatus, questions, currentQ]);
 
   // ─── Share ───
   const getScore = useCallback(() => {
-    return answers.reduce((acc, ans, idx) => {
-      return acc + ((idx < questions.length && ans === questions[idx].correctIndex) ? 1 : 0);
-    }, 0);
+    return calculateQuizScore(answers, questions);
   }, [answers, questions]);
 
   const getFinalPoints = useCallback(() => {
-    if (gameStatus === 'won') return pointsLadder[totalQ - 1];
-    if (gameStatus === 'walkaway') return currentPoints;
-    // Game over — return guaranteed prize
-    return guaranteedPoints;
+    return getQuizFinalPoints({
+      gameStatus,
+      pointsLadder,
+      totalQ,
+      currentPoints,
+      guaranteedPoints,
+    });
   }, [gameStatus, pointsLadder, totalQ, currentPoints, guaranteedPoints]);
 
   const generateShareText = useCallback(() => {
-    const pts = getFinalPoints();
-    let text = `🏆 zNews Ерудит — ${getTodayStr()}\n`;
-    text += `Точки: ${formatPoints(pts)}\n`;
-    text += `Верни: ${getScore()}/${totalQ}\n\n`;
-    answers.forEach((ans, idx) => {
-      text += (idx < questions.length && ans === questions[idx].correctIndex) ? '🟩' : '🟥';
+    const origin = typeof window === 'object' && window.location?.origin
+      ? window.location.origin
+      : 'https://znews.live';
+    return generateQuizShareText({
+      todayStr: getTodayStr(),
+      finalPoints: getFinalPoints(),
+      score: getScore(),
+      totalQ,
+      answers,
+      questions,
+      origin,
     });
-    text += '\n\nhttps://znews.live/games/quiz';
-    return text;
   }, [getFinalPoints, getScore, totalQ, answers, questions]);
 
   const handleShare = useCallback(async () => {
@@ -547,7 +476,7 @@ export default function GameQuizPage() {
                     Въпрос <span className="text-white font-bold">{currentQ + 1}</span>/{totalQ}
                   </div>
                   <div className="text-sm font-bold">
-                    За <span className="text-yellow-400">{formatPoints(pointsLadder[currentQ])}</span>
+                    За <span className="text-yellow-400">{formatQuizPoints(pointsLadder[currentQ])}</span>
                   </div>
                 </div>
 
@@ -588,7 +517,7 @@ export default function GameQuizPage() {
                       </span>
                       <span>
                         <span className="block text-[11px] font-black uppercase tracking-[0.24em] text-indigo-400">Прибери точките</span>
-                        <span className="mt-1 block text-sm font-black text-white">{formatPoints(currentPoints)}</span>
+                        <span className="mt-1 block text-sm font-black text-white">{formatQuizPoints(currentPoints)}</span>
                       </span>
                     </button>
                   </div>
@@ -614,7 +543,7 @@ export default function GameQuizPage() {
                   revealPhase={revealPhase}
                   eliminated={eliminated}
                   onSelectAnswer={selectAnswer}
-                  points={formatPoints(pointsLadder[currentQ])}
+                  points={formatQuizPoints(pointsLadder[currentQ])}
                 />
               </motion.div>
             )}
@@ -769,7 +698,7 @@ function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose, varia
               </div>
               <div className="min-w-0 flex-1">
                 <div className={`text-sm font-black ${isCurrent ? 'text-white' : isPassed ? 'text-emerald-100' : 'text-indigo-200'}`}>
-                  {formatPoints(prize)}
+                  {formatQuizPoints(prize)}
                 </div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-indigo-400">
                   {isSafety ? 'Гарантирана сума' : isCurrent ? 'Текущ въпрос' : isPassed ? 'Преминато' : 'Следващо ниво'}
@@ -797,7 +726,7 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
     : isWalkaway
       ? 'Спря навреме и запази спечеленото.'
       : guaranteedPoints > 0
-        ? `Отпадна на въпрос ${currentQ + 1}, но си тръгваш с гарантираните ${formatPoints(guaranteedPoints)}.`
+        ? `Отпадна на въпрос ${currentQ + 1}, но си тръгваш с гарантираните ${formatQuizPoints(guaranteedPoints)}.`
         : `Отпадна на въпрос ${currentQ + 1} и не стигна до защитна сума.`;
   const accent = isWin ? 'yellow' : isWalkaway ? 'emerald' : 'red';
 
@@ -819,7 +748,7 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
         <p className="mb-7 leading-relaxed text-indigo-200">{subtitle}</p>
 
         <div className={`mb-3 text-5xl font-black md:text-6xl ${accent === 'yellow' ? 'text-yellow-300' : accent === 'emerald' ? 'text-emerald-300' : 'text-red-300'}`}>
-          {formatPoints(finalPoints)}
+          {formatQuizPoints(finalPoints)}
         </div>
         <p className="mb-7 text-sm text-indigo-400">Верни отговори: {score}/{totalQ}</p>
 
@@ -830,7 +759,7 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
           </div>
           <div className="rounded-2xl border border-indigo-800/45 bg-indigo-900/45 p-4 text-left">
             <div className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-400">Гарантирани</div>
-            <div className="mt-2 text-xl font-black text-white">{formatPoints(guaranteedPoints)}</div>
+            <div className="mt-2 text-xl font-black text-white">{formatQuizPoints(guaranteedPoints)}</div>
           </div>
           <div className="rounded-2xl border border-indigo-800/45 bg-indigo-900/45 p-4 text-left">
             <div className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-400">Резултат</div>
