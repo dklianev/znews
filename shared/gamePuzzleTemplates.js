@@ -4,7 +4,7 @@ import { analyzeSpellingBeeWords } from './spellingBee.js';
 const DEFAULT_WORD_LENGTH = 5;
 const DEFAULT_WORD_ATTEMPTS = 6;
 const DEFAULT_KEYBOARD_LAYOUT = 'bg';
-const DEFAULT_QUIZ_QUESTION_COUNT = 5;
+const DEFAULT_QUIZ_QUESTION_COUNT = 10;
 const DEFAULT_HANGMAN_MISTAKES = 7;
 const DEFAULT_SPELLING_BEE_MIN_WORD_LENGTH = 4;
 
@@ -170,15 +170,15 @@ export const GAME_EDITOR_GUIDES = Object.freeze({
     ],
   },
   quiz: {
-    title: 'Новинарски тест',
-    summary: 'Подготви кратък quiz с точни отговори и обяснения.',
+    title: 'Ерудит',
+    summary: 'Подготви въпроси с общи знания — 4 опции, верен отговор и обяснение.',
     checklist: [
       'Всеки въпрос има 4 смислени опции и правилен correctIndex.',
       'Explanation полетата са полезни, когато играчът сгреши.',
       'Няма placeholder текстове в prompt-ове, options или explanation.',
     ],
     workflow: [
-      '1. Добави поне един въпрос, а обичайният daily формат е 5.',
+      '1. Добави 10 въпроса (от лесни към трудни) за пълно изживяване.',
       '2. Провери всеки correctIndex и всички 4 опции.',
       '3. Публикувай едва когато въпросите и обясненията са финални.',
     ],

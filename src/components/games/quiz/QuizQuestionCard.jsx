@@ -1,89 +1,173 @@
 import { motion } from 'motion/react';
-import { CheckCircle2, XCircle } from 'lucide-react';
+
+const LETTERS = ['A', 'B', 'C', 'D'];
+
+// Diamond-shaped clip path for answer buttons
+const DIAMOND_CLIP = 'polygon(3% 50%, 50% 0%, 97% 50%, 50% 100%)';
+const HEX_CLIP = 'polygon(4% 50%, 12% 0%, 88% 0%, 96% 50%, 88% 100%, 12% 100%)';
+
+function getOptionStyle(idx, selectedAnswer, revealPhase, correctIndex, eliminated) {
+  const isEliminated = eliminated.has(idx);
+  const isSelected = selectedAnswer === idx;
+  const isCorrect = idx === correctIndex;
+  const isLocked = revealPhase === 'locked';
+  const isRevealed = revealPhase === 'revealed';
+
+  if (isEliminated) {
+    return {
+      bg: 'bg-indigo-950/30',
+      border: 'border-indigo-800/20',
+      text: 'text-indigo-800',
+      letterBg: 'bg-indigo-900/30',
+      glow: '',
+      cursor: 'cursor-default',
+    };
+  }
+
+  if (isRevealed) {
+    if (isCorrect) {
+      return {
+        bg: 'bg-emerald-500/20',
+        border: 'border-emerald-400',
+        text: 'text-emerald-300',
+        letterBg: 'bg-emerald-500/30',
+        glow: 'shadow-[0_0_20px_rgba(52,211,153,0.3)]',
+        cursor: '',
+      };
+    }
+    if (isSelected) {
+      return {
+        bg: 'bg-red-500/20',
+        border: 'border-red-400',
+        text: 'text-red-300',
+        letterBg: 'bg-red-500/30',
+        glow: 'shadow-[0_0_20px_rgba(248,113,113,0.3)]',
+        cursor: '',
+      };
+    }
+    return {
+      bg: 'bg-indigo-900/30',
+      border: 'border-indigo-700/30',
+      text: 'text-indigo-500',
+      letterBg: 'bg-indigo-800/30',
+      glow: '',
+      cursor: '',
+    };
+  }
+
+  if (isLocked && isSelected) {
+    return {
+      bg: 'bg-amber-500/20',
+      border: 'border-amber-400',
+      text: 'text-amber-300',
+      letterBg: 'bg-amber-500/30',
+      glow: 'shadow-[0_0_20px_rgba(251,191,36,0.25)]',
+      cursor: '',
+    };
+  }
+
+  // Default: interactive state
+  return {
+    bg: 'bg-indigo-900/40 hover:bg-indigo-800/50',
+    border: 'border-indigo-600/50 hover:border-yellow-500/60',
+    text: 'text-white',
+    letterBg: 'bg-indigo-700/40',
+    glow: '',
+    cursor: 'cursor-pointer',
+  };
+}
 
 export default function QuizQuestionCard({
-    question,
-    currentQ,
-    totalQ,
-    selectedOption,
-    onSelectOption,
-    onNext
+  question,
+  currentQ,
+  totalQ,
+  selectedAnswer,
+  revealPhase,
+  eliminated,
+  onSelectAnswer,
+  points,
 }) {
-    const hasAnswered = selectedOption !== null;
-    const isCorrect = hasAnswered && selectedOption === question.correctIndex;
+  const isInteractive = selectedAnswer === null;
 
-    return (
-        <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 rounded-2xl border border-stone-200 dark:border-zinc-800 shadow-xl overflow-hidden flex flex-col h-full animate-in fade-in slide-in-from-bottom-8 duration-500">
-            <div className="bg-orange-50 dark:bg-zinc-800/50 px-6 py-4 border-b border-orange-100 dark:border-zinc-800 flex justify-between items-center">
-                <span className="text-orange-700 dark:text-zinc-400 font-bold uppercase tracking-widest text-sm">
-                    Въпрос {currentQ + 1} от {totalQ}
-                </span>
-            </div>
+  return (
+    <div className="w-full">
+      {/* Question */}
+      <motion.div
+        key={`q-${currentQ}`}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="relative mb-6"
+      >
+        {/* Question container with hex shape feel */}
+        <div className="relative bg-indigo-900/50 border border-indigo-700/40 rounded-2xl p-5 md:p-7 backdrop-blur-sm overflow-hidden">
+          {/* Decorative side accents */}
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-gradient-to-b from-yellow-400 to-amber-500 rounded-r" />
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-gradient-to-b from-yellow-400 to-amber-500 rounded-l" />
 
-            <div className="p-6 md:p-8 flex-grow flex flex-col">
-                <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white leading-tight mb-8 font-condensed">
-                    {question.question}
-                </h2>
-
-                <div className="space-y-3 mb-8 flex-grow">
-                    {question.options.map((option, idx) => {
-                        let btnClass = 'bg-stone-50 border-stone-200 text-slate-800 hover:bg-stone-100 hover:border-stone-300 dark:bg-zinc-800/80 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:border-zinc-500';
-                        let Icon = null;
-
-                        if (hasAnswered) {
-                            if (idx === question.correctIndex) {
-                                btnClass = 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/20 dark:border-emerald-500/50 dark:text-emerald-400';
-                                Icon = CheckCircle2;
-                            } else if (idx === selectedOption) {
-                                btnClass = 'bg-red-50 border-red-200 text-red-700 dark:bg-red-500/20 dark:border-red-500/50 dark:text-red-400';
-                                Icon = XCircle;
-                            } else {
-                                btnClass = 'bg-stone-50/70 border-stone-100 text-stone-400 opacity-60 dark:bg-zinc-800/30 dark:border-zinc-800 dark:text-zinc-600';
-                            }
-                        } else if (selectedOption === idx) {
-                            btnClass = 'bg-orange-50 border-orange-300 text-orange-700 dark:bg-orange-500/20 dark:border-orange-500 dark:text-orange-400';
-                        }
-
-                        return (
-                            <button
-                                key={idx}
-                                onClick={() => !hasAnswered && onSelectOption(idx)}
-                                disabled={hasAnswered}
-                                className={`w-full text-left px-5 py-4 rounded-xl border-2 font-bold text-lg transition-all flex justify-between items-center ${btnClass}`}
-                            >
-                                <span>{option}</span>
-                                {Icon && <Icon className="w-6 h-6 shrink-0 ml-4" />}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                {hasAnswered && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`p-5 rounded-xl border mb-6 ${isCorrect ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20' : 'bg-red-50 border-red-200 dark:bg-red-500/10 dark:border-red-500/20'}`}
-                    >
-                        <p className="font-bold mb-2 flex items-center gap-2">
-                            {isCorrect ? (
-                                <><span className="text-emerald-700 dark:text-emerald-400">Правилен отговор!</span></>
-                            ) : (
-                                <><span className="text-red-700 dark:text-red-400">Грешен отговор!</span></>
-                            )}
-                        </p>
-                        <p className="text-slate-600 dark:text-zinc-300 text-sm">{question.explanation}</p>
-                    </motion.div>
-                )}
-
-                {hasAnswered && (
-                    <button
-                        onClick={onNext}
-                        className="w-full py-4 mt-auto bg-slate-900 text-white dark:bg-white dark:text-black font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-200 transition-colors"
-                    >
-                        {currentQ < totalQ - 1 ? 'Следващ въпрос' : 'Виж резултатите'}
-                    </button>
-                )}
-            </div>
+          <h2 className="text-xl md:text-2xl font-black text-white leading-tight text-center font-display">
+            {question.question}
+          </h2>
         </div>
-    );
+      </motion.div>
+
+      {/* Answer grid: 2x2 diamond buttons */}
+      <motion.div
+        key={`a-${currentQ}`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.15 }}
+        className="grid grid-cols-1 md:grid-cols-2 gap-2.5"
+      >
+        {question.options.map((option, idx) => {
+          const style = getOptionStyle(idx, selectedAnswer, revealPhase, question.correctIndex, eliminated);
+          const isElim = eliminated.has(idx);
+
+          return (
+            <motion.button
+              key={idx}
+              onClick={() => isInteractive && !isElim && onSelectAnswer(idx)}
+              disabled={!isInteractive || isElim}
+              whileTap={isInteractive && !isElim ? { scale: 0.97 } : undefined}
+              className={`relative w-full text-left transition-all duration-300 rounded-xl overflow-hidden
+                border-2 ${style.border} ${style.bg} ${style.text} ${style.glow} ${style.cursor}
+                ${isElim ? 'pointer-events-none' : ''}`}
+              style={{ clipPath: HEX_CLIP }}
+            >
+              <div className="flex items-center gap-3 px-8 py-4 md:py-5">
+                {/* Letter badge */}
+                <span className={`w-8 h-8 rounded-lg ${style.letterBg} flex items-center justify-center font-black text-sm shrink-0`}>
+                  {LETTERS[idx]}
+                </span>
+                <span className={`font-bold text-base md:text-lg leading-snug ${isElim ? 'opacity-20' : ''}`}>
+                  {option}
+                </span>
+              </div>
+
+              {/* Locked pulse animation */}
+              {revealPhase === 'locked' && selectedAnswer === idx && (
+                <motion.div
+                  className="absolute inset-0 bg-amber-400/10"
+                  animate={{ opacity: [0, 0.3, 0] }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
+                />
+              )}
+            </motion.button>
+          );
+        })}
+      </motion.div>
+
+      {/* Explanation after reveal */}
+      {revealPhase === 'revealed' && question.explanation && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mt-5 p-4 rounded-xl bg-indigo-900/40 border border-indigo-700/30"
+        >
+          <p className="text-indigo-300 text-sm">{question.explanation}</p>
+        </motion.div>
+      )}
+    </div>
+  );
 }

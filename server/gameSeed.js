@@ -4,7 +4,7 @@ import { createGamePuzzleTemplate } from '../shared/gamePuzzleTemplates.js';
 export const DEFAULT_GAME_DEFINITIONS = Object.freeze([
   { id: 1, slug: 'word', title: 'Намери точната дума', type: 'word', description: 'Познай точната дума за деня в до шест опита.', icon: 'Type', active: true, sortOrder: 1, theme: 'green' },
   { id: 2, slug: 'connections', title: 'Connections', type: 'connections', description: 'Свържи 16 думи в 4 правилни тематични групи.', icon: 'Link', active: true, sortOrder: 2, theme: 'indigo' },
-  { id: 3, slug: 'quiz', title: 'Новинарски quiz', type: 'quiz', description: 'Провери паметта си за най-големите истории на деня.', icon: 'HelpCircle', active: true, sortOrder: 3, theme: 'orange' },
+  { id: 3, slug: 'quiz', title: 'Ерудит', type: 'quiz', description: 'Отговаряй на въпроси, изкачвай стълбата и събирай точки!', icon: 'Trophy', active: true, sortOrder: 3, theme: 'indigo' },
   { id: 4, slug: 'sudoku', title: 'Судоку', type: 'sudoku', description: 'Реши числовата мрежа и дръж темпото до последната клетка.', icon: 'Grid3x3', active: true, sortOrder: 4, theme: 'purple' },
   { id: 5, slug: 'hangman', title: 'Бесеница', type: 'hangman', description: 'Познай скритата дума преди да свършат шансовете.', icon: 'Type', active: true, sortOrder: 5, theme: 'orange' },
   { id: 6, slug: 'spellingbee', title: 'Spelling Bee', type: 'spellingbee', description: 'Събирай български думи около централна буква и стигни панграма.', icon: 'Hexagon', active: true, sortOrder: 6, theme: 'orange' },
