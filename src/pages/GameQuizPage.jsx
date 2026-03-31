@@ -11,12 +11,7 @@ import {
   HelpCircle,
   Trophy,
   X,
-  Users,
-  PhoneCall,
-  Shield,
-  Wallet,
   Sparkles,
-  RotateCcw,
   CircleDollarSign,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -585,7 +580,6 @@ export default function GameQuizPage() {
                   guaranteedPoints={guaranteedPoints}
                   onShare={handleShare}
                   shareNotice={shareNotice}
-                  onPlayAgain={startGame}
                 />
               </motion.div>
             )}
@@ -641,12 +635,12 @@ export default function GameQuizPage() {
 }
 
 // ─── Prize Ladder component ───
-function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose, mobile = false }) {
+function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose }) {
   const isPlaying = gameStatus === 'playing' || gameStatus === 'answering' || gameStatus === 'revealed';
   const safetySet = useMemo(() => new Set(safetyNets), [safetyNets]);
 
   return (
-    <div className={`overflow-hidden rounded-[1.75rem] border border-indigo-700/50 bg-[linear-gradient(180deg,rgba(30,27,75,0.96),rgba(15,23,42,0.96))] backdrop-blur-sm shadow-[0_24px_70px_rgba(10,10,46,0.45)] ${mobile ? 'p-5' : 'p-4'}`}>
+    <div className="overflow-hidden rounded-[1.75rem] border border-indigo-700/50 bg-[linear-gradient(180deg,rgba(30,27,75,0.96),rgba(15,23,42,0.96))] p-4 backdrop-blur-sm shadow-[0_24px_70px_rgba(10,10,46,0.45)]">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Награди</h3>
         <button onClick={onClose} className="lg:hidden text-indigo-500 hover:text-white">
@@ -684,7 +678,7 @@ function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose, mobil
 }
 
 // ─── End Screen component ───
-function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions, answers, guaranteedPoints, onShare, shareNotice, onPlayAgain }) {
+function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions, answers, guaranteedPoints, onShare, shareNotice }) {
   const isWin = gameStatus === 'won';
   const isWalkaway = gameStatus === 'walkaway';
 
@@ -754,13 +748,6 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
         {/* Actions */}
         <div className="space-y-3">
           <button
-            onClick={onPlayAgain}
-            className="flex items-center justify-center gap-2 w-full py-4 rounded-xl border border-white/10 bg-white text-indigo-950 font-black uppercase tracking-widest hover:bg-amber-50 transition-all shadow-[0_18px_36px_rgba(255,255,255,0.08)]"
-          >
-            <RotateCcw className="w-5 h-5" />
-            Играй пак
-          </button>
-          <button
             onClick={onShare}
             className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-yellow-500 to-amber-600 text-indigo-950 rounded-xl font-black uppercase tracking-widest hover:from-yellow-400 hover:to-amber-500 transition-all"
           >
@@ -783,3 +770,4 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
     </div>
   );
 }
+
