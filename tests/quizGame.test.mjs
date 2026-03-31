@@ -32,7 +32,7 @@ export function runQuizGameTests() {
   assert.deepEqual(getQuizSafetyNets(10), [4], '10-question quiz should keep a single safety net');
   assert.deepEqual(getQuizSafetyNets(15), [4, 9], '15-question quiz should expose both safety nets');
 
-  assert.equal(formatQuizPoints(5000).endsWith(' лв.'), true, 'formatted quiz points should end with the Bulgarian currency label');
+  assert.equal(formatQuizPoints(5000).endsWith(' т.'), true, 'formatted quiz points should end with the Bulgarian points label');
   assert.equal(formatQuizPoints(5000).includes('5000') || formatQuizPoints(5000).includes('5 000') || formatQuizPoints(5000).includes(`5\u00A0000`), true, 'formatted quiz points should preserve the amount value');
 
   const eliminated = generateQuizFiftyFifty(SAMPLE_QUESTION, () => 0);
