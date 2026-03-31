@@ -2,8 +2,6 @@ import { motion } from 'motion/react';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
-// Diamond-shaped clip path for answer buttons
-const DIAMOND_CLIP = 'polygon(3% 50%, 50% 0%, 97% 50%, 50% 100%)';
 const HEX_CLIP = 'polygon(4% 50%, 12% 0%, 88% 0%, 96% 50%, 88% 100%, 12% 100%)';
 
 function getOptionStyle(idx, selectedAnswer, revealPhase, correctIndex, eliminated) {

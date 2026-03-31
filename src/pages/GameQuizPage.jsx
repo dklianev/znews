@@ -76,9 +76,10 @@ function generateAudienceVotes(question, eliminated) {
 function generatePhoneHint(question) {
   // "Friend" is 70% likely to suggest the correct answer
   const isRight = Math.random() < 0.7;
+  const wrongOptions = question.options.map((_, i) => i).filter(i => i !== question.correctIndex);
   const suggestedIdx = isRight
     ? question.correctIndex
-    : question.options.map((_, i) => i).filter(i => i !== question.correctIndex)[Math.floor(Math.random() * 3)];
+    : wrongOptions[Math.floor(Math.random() * wrongOptions.length)];
   const confidence = isRight
     ? ['Доста съм сигурен', 'Мисля, че знам', 'Почти съм убеден'][Math.floor(Math.random() * 3)]
     : ['Не съм сигурен, но мисля', 'Хммм, може би', 'Опитай с'][Math.floor(Math.random() * 3)];
@@ -142,11 +143,9 @@ export default function GameQuizPage() {
           setAnswers(saved.answers || []);
           setGameStatus(saved.gameStatus || 'idle');
           setLifelines(saved.lifelines || { fiftyFifty: true, audience: true, phone: true });
-          if (saved.gameStatus === 'idle' || saved.gameStatus === 'playing') {
-            setGameStatus(saved.gameStatus);
-          } else {
-            setGameStatus(saved.gameStatus);
-          }
+          if (Array.isArray(saved.eliminatedArr)) setEliminated(new Set(saved.eliminatedArr));
+          if (Array.isArray(saved.audienceVotes)) setAudienceVotes(saved.audienceVotes);
+          if (saved.phoneHint) setPhoneHint(saved.phoneHint);
         }
       })
       .catch(err => setError(err.message))
@@ -164,6 +163,9 @@ export default function GameQuizPage() {
       answers,
       gameStatus: (gameStatus === 'answering' || gameStatus === 'revealed') ? 'playing' : gameStatus,
       lifelines,
+      eliminatedArr: [...eliminated],
+      audienceVotes,
+      phoneHint,
     });
   }, [currentQ, answers, gameStatus, puzzle, lifelines]);
 
@@ -187,6 +189,7 @@ export default function GameQuizPage() {
 
   const selectAnswer = useCallback((idx) => {
     if (gameStatus !== 'playing' || eliminated.has(idx)) return;
+    setShowLadder(false);
     setSelectedAnswer(idx);
     setRevealPhase('locked');
     setGameStatus('answering');
@@ -552,7 +555,6 @@ export default function GameQuizPage() {
                   guaranteedPoints={guaranteedPoints}
                   onShare={handleShare}
                   shareNotice={shareNotice}
-                  onPlayAgain={startGame}
                 />
               </motion.div>
             )}
@@ -592,7 +594,7 @@ export default function GameQuizPage() {
               <ul className="text-sm text-indigo-200 space-y-3 mb-6">
                 <li>🎯 Отговаряй на въпроси и изкачвай стълбата с награди.</li>
                 <li>❌ Един грешен отговор — играта свършва.</li>
-                <li>🛡️ На нива {safetyNets.map(n => n + 1).join(' и ') || '(няма)'} има гарантирани суми.</li>
+                <li>🛡️ На нива {safetyNets.map(n => n + 1).join(' и ') || '(няма)'} има гарантирани точки.</li>
                 <li>💰 Можеш да запазиш точките и да спреш по всяко време.</li>
                 <li>🆘 Имаш 3 помощи: 50:50, Публика, Обаждане.</li>
               </ul>
@@ -651,7 +653,7 @@ function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose }) {
 }
 
 // ─── End Screen component ───
-function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions, answers, guaranteedPoints, onShare, shareNotice, onPlayAgain }) {
+function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions, answers, guaranteedPoints, onShare, shareNotice }) {
   const isWin = gameStatus === 'won';
   const isWalkaway = gameStatus === 'walkaway';
 
