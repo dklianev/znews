@@ -11,7 +11,10 @@ import {
   HelpCircle,
   Trophy,
   X,
-  Sparkles,
+  Users,
+  PhoneCall,
+  Shield,
+  Wallet,
   CircleDollarSign,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -25,6 +28,18 @@ const POINTS_PRESETS = {
   10: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000],
   15: [5, 10, 15, 25, 50, 100, 150, 250, 500, 1000, 1500, 2500, 4000, 7500, 10000],
 };
+
+const PHONE_HINT_CONFIDENT = [
+  'Почти сигурен съм, че правилният е',
+  'Бих заложил на',
+  'Според мен това е',
+];
+
+const PHONE_HINT_UNCERTAIN = [
+  'Не съм напълно сигурен, но бих пробвал',
+  'Колебая се, но май е',
+  'Ако трябва да рискувам, бих избрал',
+];
 
 function buildPointsLadder(count) {
   if (POINTS_PRESETS[count]) return POINTS_PRESETS[count];
@@ -44,16 +59,15 @@ function getSafetyNets(count) {
 }
 
 function formatPoints(amount) {
-  return amount.toLocaleString('bg-BG') + ' т.';
+  return `${amount.toLocaleString('bg-BG')} лв.`;
 }
 
-// ─── Lifeline helpers ───
+// ÄÄÄ Lifeline helpers ÄÄÄ
 function generateFiftyFifty(question) {
   const correct = question.correctIndex;
   const wrong = question.options
     .map((_, i) => i)
     .filter(i => i !== correct);
-  // Keep one random wrong answer
   const keep = wrong[Math.floor(Math.random() * wrong.length)];
   const eliminated = wrong.filter(i => i !== keep);
   return new Set(eliminated);
@@ -64,7 +78,6 @@ function generateAudienceVotes(question, eliminated) {
   const active = question.options.map((_, i) => i).filter(i => !eliminated.has(i));
   const votes = new Array(question.options.length).fill(0);
 
-  // Give correct answer 45-75% of remaining votes
   const correctWeight = 45 + Math.floor(Math.random() * 30);
   votes[correct] = correctWeight;
   let remaining = 100 - correctWeight;
@@ -83,17 +96,99 @@ function generateAudienceVotes(question, eliminated) {
 }
 
 function generatePhoneHint(question) {
-  // "Friend" is 70% likely to suggest the correct answer
   const isRight = Math.random() < 0.7;
   const wrongOptions = question.options.map((_, i) => i).filter(i => i !== question.correctIndex);
   const suggestedIdx = isRight
     ? question.correctIndex
     : wrongOptions[Math.floor(Math.random() * wrongOptions.length)];
   const confidence = isRight
-    ? ['Доста съм сигурен', 'Мисля, че знам', 'Почти съм убеден'][Math.floor(Math.random() * 3)]
-    : ['Не съм сигурен, но мисля', 'Хммм, може би', 'Опитай с'][Math.floor(Math.random() * 3)];
+    ? PHONE_HINT_CONFIDENT[Math.floor(Math.random() * PHONE_HINT_CONFIDENT.length)]
+    : PHONE_HINT_UNCERTAIN[Math.floor(Math.random() * PHONE_HINT_UNCERTAIN.length)];
   const letter = String.fromCharCode(65 + suggestedIdx);
-  return `"${confidence}, че отговорът е ${letter}."`;
+  return `${confidence} ${letter}.`;
+}
+function LifelineButton({ icon: Icon, label, hint, active, onClick, accent = 'yellow' }) {
+  const activeClasses = accent === 'emerald'
+    ? 'border-emerald-400/45 bg-emerald-400/10 text-emerald-100 shadow-[0_18px_30px_rgba(16,185,129,0.14)]'
+    : 'border-yellow-400/45 bg-yellow-400/10 text-yellow-100 shadow-[0_18px_30px_rgba(250,204,21,0.14)]';
+  const iconClasses = accent === 'emerald' ? 'text-emerald-300' : 'text-yellow-300';
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={!active}
+      className={`group flex min-w-0 flex-1 items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all duration-300 ${
+        active
+          ? `bg-indigo-950/78 hover:-translate-y-0.5 hover:bg-indigo-900/88 ${activeClasses}`
+          : 'border-indigo-800/40 bg-indigo-950/45 opacity-50'
+      }`}
+      title={label}
+    >
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 ${active ? 'bg-white/6' : 'bg-indigo-900/40'}`}>
+        <Icon className={`h-5 w-5 ${active ? iconClasses : 'text-indigo-500'}`} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[11px] font-black uppercase tracking-[0.24em] text-white">{label}</span>
+        <span className="mt-1 block text-xs text-indigo-300">{active ? hint : 'Използвана'}</span>
+      </span>
+    </button>
+  );
+}
+
+function AudiencePanel({ votes, eliminated }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      className="mb-5 overflow-hidden rounded-[1.6rem] border border-indigo-700/40 bg-indigo-950/72 p-4 shadow-[0_18px_44px_rgba(8,8,36,0.34)]"
+    >
+      <p className="mb-4 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.32em] text-indigo-300">
+        <Users className="h-4 w-4 text-yellow-300" />
+        Глас на публиката
+      </p>
+      <div className="grid grid-cols-4 gap-3">
+        {votes.map((pct, i) => {
+          const letter = String.fromCharCode(65 + i);
+          const hidden = eliminated.has(i);
+          return (
+            <div key={letter} className={`rounded-2xl border border-indigo-800/40 bg-indigo-900/40 p-3 text-center ${hidden ? 'opacity-25' : ''}`}>
+              <div className="mb-2 text-[11px] font-black uppercase tracking-[0.24em] text-indigo-400">{letter}</div>
+              <div className="mx-auto mb-2 flex h-24 w-full max-w-[60px] items-end rounded-2xl bg-indigo-950/70 p-1">
+                <motion.div
+                  initial={{ height: 0 }}
+                  animate={{ height: `${pct}%` }}
+                  transition={{ duration: 0.7, ease: 'easeOut' }}
+                  className="w-full rounded-xl bg-[linear-gradient(180deg,#fcd34d,#f59e0b)] shadow-[0_8px_18px_rgba(245,158,11,0.25)]"
+                />
+              </div>
+              <div className="text-sm font-black text-yellow-300">{pct}%</div>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
+function PhoneHintPanel({ hint }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      className="mb-5 overflow-hidden rounded-[1.6rem] border border-indigo-700/40 bg-[linear-gradient(180deg,rgba(30,41,59,0.92),rgba(15,23,42,0.96))] p-4 shadow-[0_18px_44px_rgba(8,8,36,0.34)]"
+    >
+      <p className="mb-4 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.32em] text-indigo-300">
+        <PhoneCall className="h-4 w-4 text-emerald-300" />
+        Обади се на приятел
+      </p>
+      <div className="relative rounded-[1.35rem] border border-emerald-400/25 bg-emerald-400/10 px-4 py-4 text-left shadow-[0_10px_24px_rgba(16,185,129,0.12)]">
+        <div className="absolute left-6 top-full h-4 w-4 -translate-y-2 rotate-45 border-b border-r border-emerald-400/25 bg-emerald-400/10" />
+        <p className="text-sm font-semibold leading-relaxed text-emerald-50">{hint}</p>
+      </div>
+    </motion.div>
+  );
 }
 
 export default function GameQuizPage() {
@@ -357,7 +452,7 @@ export default function GameQuizPage() {
 
       {/* Header */}
       <header className="relative z-10 w-full border-b border-indigo-800/40 bg-indigo-950/55 backdrop-blur-sm">
-        <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 p-3 md:p-4">
+        <div className="w-full max-w-7xl mx-auto flex items-center justify-between gap-3 p-3 md:p-4">
           <Link to="/games" className="text-indigo-400 hover:text-white transition-colors shrink-0">
             <ArrowLeft className="w-6 h-6" />
           </Link>
@@ -369,7 +464,7 @@ export default function GameQuizPage() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setShowLadder((prev) => !prev)}
+              onClick={() => setShowLadder(true)}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-indigo-700/60 bg-indigo-900/50 text-indigo-300 transition-colors hover:border-yellow-400/60 hover:text-yellow-300 md:hidden"
               aria-label="Покажи стълбата"
             >
@@ -386,7 +481,7 @@ export default function GameQuizPage() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-5 lg:gap-8 p-4 md:p-6">
+      <main className="relative z-10 flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row gap-5 lg:gap-8 p-4 md:p-6">
 
         {/* Left: Game area */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
@@ -457,95 +552,59 @@ export default function GameQuizPage() {
                 </div>
 
                 {/* Lifelines */}
-                <div className="flex items-center justify-center gap-3 mb-5">
-                  <button
+                <div className="mb-5 grid gap-3 md:grid-cols-3">
+                  <LifelineButton
+                    icon={Shield}
+                    label="50:50"
+                    hint="Премахва два грешни отговора"
+                    active={lifelines.fiftyFifty && gameStatus === 'playing'}
                     onClick={useFiftyFifty}
-                    disabled={!lifelines.fiftyFifty || gameStatus !== 'playing'}
-                    className={`w-12 h-12 rounded-full border-2 flex items-center justify-center font-black text-sm transition-all
-                      ${lifelines.fiftyFifty
-                        ? 'border-yellow-400/60 bg-indigo-900/80 text-yellow-400 hover:bg-indigo-800 hover:border-yellow-400'
-                        : 'border-indigo-800/40 bg-indigo-950/50 text-indigo-700 line-through'}`}
-                    title="50:50"
-                  >
-                    50
-                  </button>
-                  <button
+                  />
+                  <LifelineButton
+                    icon={Users}
+                    label="Публиката"
+                    hint="Показва ориентировъчни гласове"
+                    active={lifelines.audience && gameStatus === 'playing'}
                     onClick={useAudience}
-                    disabled={!lifelines.audience || gameStatus !== 'playing'}
-                    className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-lg transition-all
-                      ${lifelines.audience
-                        ? 'border-yellow-400/60 bg-indigo-900/80 hover:bg-indigo-800 hover:border-yellow-400'
-                        : 'border-indigo-800/40 bg-indigo-950/50 opacity-40'}`}
-                    title="Попитай публиката"
-                  >
-                    👥
-                  </button>
-                  <button
+                  />
+                  <LifelineButton
+                    icon={PhoneCall}
+                    label="Приятел"
+                    hint="Чуй бърз съвет по телефона"
+                    active={lifelines.phone && gameStatus === 'playing'}
                     onClick={usePhone}
-                    disabled={!lifelines.phone || gameStatus !== 'playing'}
-                    className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-lg transition-all
-                      ${lifelines.phone
-                        ? 'border-yellow-400/60 bg-indigo-900/80 hover:bg-indigo-800 hover:border-yellow-400'
-                        : 'border-indigo-800/40 bg-indigo-950/50 opacity-40'}`}
-                    title="Обади се на приятел"
-                  >
-                    📞
-                  </button>
-
-                  {/* Walk away */}
-                  {currentQ > 0 && gameStatus === 'playing' && (
-                    <button
-                      onClick={walkAway}
-                      className="ml-4 px-4 py-2 rounded-lg border border-indigo-700/60 bg-indigo-900/50 text-indigo-300 text-sm font-bold hover:bg-indigo-800/70 hover:text-white transition-all"
-                    >
-                      Запази {formatPoints(currentPoints)}
-                    </button>
-                  )}
+                    accent="emerald"
+                  />
                 </div>
 
+                {currentQ > 0 && gameStatus === 'playing' && (
+                  <div className="mb-5 flex justify-center">
+                    <button
+                      onClick={walkAway}
+                      className="flex items-center gap-3 rounded-2xl border border-indigo-700/55 bg-indigo-900/58 px-5 py-3 text-left transition-all hover:border-yellow-400/40 hover:bg-indigo-900/82"
+                    >
+                      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-yellow-400/12 text-yellow-300">
+                        <Wallet className="h-5 w-5" />
+                      </span>
+                      <span>
+                        <span className="block text-[11px] font-black uppercase tracking-[0.24em] text-indigo-400">Прибери точките</span>
+                        <span className="mt-1 block text-sm font-black text-white">{formatPoints(currentPoints)}</span>
+                      </span>
+                    </button>
+                  </div>
+                )}
                 {/* Audience votes overlay */}
                 <AnimatePresence>
                   {audienceVotes && gameStatus === 'playing' && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="mb-4 p-4 rounded-xl bg-indigo-900/60 border border-indigo-700/40"
-                    >
-                      <p className="text-xs uppercase tracking-widest text-indigo-400 mb-3 font-bold">Публиката казва:</p>
-                      <div className="flex items-end gap-3 h-20">
-                        {audienceVotes.map((pct, i) => (
-                          <div key={i} className={`flex-1 flex flex-col items-center ${eliminated.has(i) ? 'opacity-20' : ''}`}>
-                            <span className="text-xs font-bold text-yellow-400 mb-1">{pct}%</span>
-                            <div className="w-full bg-indigo-800/60 rounded-t overflow-hidden" style={{ height: '48px' }}>
-                              <div
-                                className="w-full bg-gradient-to-t from-yellow-500 to-amber-400 rounded-t transition-all duration-700"
-                                style={{ height: `${pct}%`, marginTop: `${100 - pct}%` }}
-                              />
-                            </div>
-                            <span className="text-xs font-bold text-indigo-300 mt-1">{String.fromCharCode(65 + i)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
+                    <AudiencePanel votes={audienceVotes} eliminated={eliminated} />
                   )}
                 </AnimatePresence>
-
                 {/* Phone hint */}
                 <AnimatePresence>
                   {phoneHint && gameStatus === 'playing' && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="mb-4 p-4 rounded-xl bg-indigo-900/60 border border-indigo-700/40"
-                    >
-                      <p className="text-xs uppercase tracking-widest text-indigo-400 mb-2 font-bold">📞 Приятелят ти казва:</p>
-                      <p className="text-yellow-300 italic">{phoneHint}</p>
-                    </motion.div>
+                    <PhoneHintPanel hint={phoneHint} />
                   )}
                 </AnimatePresence>
-
                 {/* Question card */}
                 <QuizQuestionCard
                   question={questions[currentQ]}
@@ -587,7 +646,7 @@ export default function GameQuizPage() {
         </div>
 
         {/* Right: Prize ladder (desktop always visible, mobile toggle) */}
-        <div className={`lg:w-64 shrink-0 ${showLadder ? 'block' : 'hidden'} lg:block`}>
+        <div className="hidden w-72 shrink-0 lg:block">
           <PointsLadder
             ladder={pointsLadder}
             currentQ={currentQ}
@@ -597,6 +656,36 @@ export default function GameQuizPage() {
           />
         </div>
       </main>
+
+      <AnimatePresence>
+        {showLadder && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 flex items-end bg-black/70 px-4 pb-4 pt-20 backdrop-blur-sm lg:hidden"
+            onClick={() => setShowLadder(false)}
+          >
+            <motion.div
+              initial={{ y: 30, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 30, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="w-full"
+              onClick={e => e.stopPropagation()}
+            >
+              <PointsLadder
+                variant="sheet"
+                ladder={pointsLadder}
+                currentQ={currentQ}
+                safetyNets={safetyNets}
+                gameStatus={gameStatus}
+                onClose={() => setShowLadder(false)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Help modal */}
       <AnimatePresence>
@@ -635,40 +724,62 @@ export default function GameQuizPage() {
 }
 
 // ─── Prize Ladder component ───
-function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose }) {
+function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose, variant = 'sidebar' }) {
   const isPlaying = gameStatus === 'playing' || gameStatus === 'answering' || gameStatus === 'revealed';
   const safetySet = useMemo(() => new Set(safetyNets), [safetyNets]);
+  const isSheet = variant === 'sheet';
 
   return (
-    <div className="overflow-hidden rounded-[1.75rem] border border-indigo-700/50 bg-[linear-gradient(180deg,rgba(30,27,75,0.96),rgba(15,23,42,0.96))] p-4 backdrop-blur-sm shadow-[0_24px_70px_rgba(10,10,46,0.45)]">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Награди</h3>
-        <button onClick={onClose} className="lg:hidden text-indigo-500 hover:text-white">
-          <X className="w-4 h-4" />
+    <div className={`overflow-hidden rounded-[1.75rem] border border-indigo-700/50 bg-[linear-gradient(180deg,rgba(30,27,75,0.96),rgba(15,23,42,0.96))] backdrop-blur-sm shadow-[0_24px_70px_rgba(10,10,46,0.45)] ${isSheet ? 'p-5' : 'p-4'}`}>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h3 className="text-xs font-black uppercase tracking-[0.32em] text-indigo-300">Награди</h3>
+          <p className="mt-1 text-xs text-indigo-400">Качваш се нагоре с всеки верен отговор.</p>
+        </div>
+        <button onClick={onClose} className={`${isSheet ? 'flex' : 'lg:hidden flex'} h-10 w-10 items-center justify-center rounded-full border border-indigo-700/50 bg-indigo-900/50 text-indigo-300`}>
+          <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="space-y-0.5">
+      <div className="space-y-1.5">
         {[...ladder].reverse().map((prize, reverseIdx) => {
           const idx = ladder.length - 1 - reverseIdx;
           const isCurrent = isPlaying && idx === currentQ;
           const isPassed = idx < currentQ;
           const isSafety = safetySet.has(idx);
 
-          let rowClass = 'text-indigo-600';
-          if (isCurrent) rowClass = 'text-white bg-yellow-500/20 border-yellow-500/50';
-          else if (isPassed) rowClass = 'text-indigo-400';
-
           return (
             <div
               key={idx}
-              className={`flex items-center justify-between px-3 py-1.5 rounded-lg text-sm font-bold transition-all border border-transparent ${rowClass}`}
+              className={`flex items-center gap-3 rounded-xl border px-3 py-2 transition-all ${
+                isCurrent
+                  ? 'border-yellow-400/55 bg-yellow-400/12 shadow-[0_12px_26px_rgba(250,204,21,0.14)]'
+                  : isPassed
+                    ? 'border-emerald-400/25 bg-emerald-400/8'
+                    : 'border-indigo-800/40 bg-indigo-950/30'
+              }`}
             >
-              <span className={`w-5 text-right mr-3 ${isSafety ? 'text-yellow-400' : ''}`}>
+              <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-xs font-black ${
+                isCurrent
+                  ? 'border-yellow-300/50 bg-yellow-400/18 text-yellow-200'
+                  : isPassed
+                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'
+                    : 'border-indigo-800/40 bg-indigo-900/60 text-indigo-400'
+              }`}>
                 {idx + 1}
-              </span>
-              <span className={`flex-1 text-right ${isCurrent ? 'text-yellow-400' : ''} ${isSafety && !isCurrent ? 'text-yellow-500/70' : ''}`}>
-                {formatPoints(prize)}
-              </span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className={`text-sm font-black ${isCurrent ? 'text-white' : isPassed ? 'text-emerald-100' : 'text-indigo-200'}`}>
+                  {formatPoints(prize)}
+                </div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-indigo-400">
+                  {isSafety ? 'Гарантирана сума' : isCurrent ? 'Текущ въпрос' : isPassed ? 'Преминато' : 'Следващо ниво'}
+                </div>
+              </div>
+              {isSafety && (
+                <div className="rounded-full border border-yellow-400/35 bg-yellow-400/12 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-yellow-200">
+                  Сейф
+                </div>
+              )}
             </div>
           );
         })}
@@ -676,68 +787,68 @@ function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose }) {
     </div>
   );
 }
-
 // ─── End Screen component ───
 function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions, answers, guaranteedPoints, onShare, shareNotice }) {
   const isWin = gameStatus === 'won';
   const isWalkaway = gameStatus === 'walkaway';
-
-  const title = isWin ? 'ЕРУДИТ!' : isWalkaway ? 'Запази точките!' : 'Край на играта';
+  const title = isWin ? 'Ерудит!' : isWalkaway ? 'Прибра точките!' : 'Край на играта';
   const subtitle = isWin
-    ? 'Невероятно! Отговори правилно на всички въпроси!'
+    ? 'Мина през всички въпроси и взе голямата награда.'
     : isWalkaway
-      ? 'Умен избор — запази точките навреме.'
+      ? 'Спря навреме и запази спечеленото.'
       : guaranteedPoints > 0
-        ? `Грешка на въпрос ${currentQ + 1}. Запазваш гарантираните ${formatPoints(guaranteedPoints)}.`
-        : `Грешка на въпрос ${currentQ + 1}. За жалост не печелиш точки.`;
-
-  const bgGradient = isWin
-    ? 'from-yellow-500/20 via-amber-500/10 to-transparent'
-    : isWalkaway
-      ? 'from-emerald-500/15 via-emerald-500/5 to-transparent'
-      : 'from-red-500/15 via-red-500/5 to-transparent';
+        ? `Отпадна на въпрос ${currentQ + 1}, но си тръгваш с гарантираните ${formatPoints(guaranteedPoints)}.`
+        : `Отпадна на въпрос ${currentQ + 1} и не стигна до защитна сума.`;
+  const accent = isWin ? 'yellow' : isWalkaway ? 'emerald' : 'red';
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-indigo-700/50 bg-indigo-950/80 p-8 shadow-[0_32px_90px_rgba(10,10,46,0.5)] backdrop-blur-sm">
-      <div className={`absolute inset-0 rounded-3xl bg-gradient-to-b ${bgGradient} pointer-events-none`} />
+    <div className="relative overflow-hidden rounded-[2rem] border border-indigo-700/50 bg-indigo-950/86 p-8 shadow-[0_32px_90px_rgba(10,10,46,0.5)] backdrop-blur-sm">
+      <div className={`pointer-events-none absolute inset-0 rounded-[2rem] bg-gradient-to-b ${accent === 'yellow' ? 'from-yellow-500/20 via-amber-500/10 to-transparent' : accent === 'emerald' ? 'from-emerald-500/20 via-emerald-400/10 to-transparent' : 'from-red-500/20 via-red-400/10 to-transparent'}`} />
       <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/80 to-transparent" />
-      <div className="absolute -left-10 top-12 h-32 w-32 rounded-full bg-amber-400/10 blur-3xl" />
-      <div className="absolute -right-6 bottom-12 h-24 w-24 rounded-full bg-indigo-400/12 blur-3xl" />
       <div className="relative">
-        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-700/50 bg-indigo-900/60 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.35em] text-indigo-300">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-700/50 bg-indigo-900/60 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.35em] text-indigo-300">
           <CircleDollarSign className="h-3.5 w-3.5 text-amber-300" />
-          Резултат
+          Финал
         </div>
 
-        {/* Trophy / icon */}
-        <div className={`w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center shadow-lg
-          ${isWin ? 'bg-gradient-to-br from-yellow-400 to-amber-600 shadow-yellow-500/30' : isWalkaway ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-emerald-500/20' : 'bg-gradient-to-br from-red-400 to-red-600 shadow-red-500/20'}`}
-        >
-          {isWin ? <Trophy className="w-10 h-10 text-indigo-950" /> : isWalkaway ? <span className="text-3xl">💰</span> : <span className="text-3xl">💔</span>}
+        <div className={`mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br ${accent === 'yellow' ? 'from-yellow-400 to-amber-600' : accent === 'emerald' ? 'from-emerald-400 to-emerald-600' : 'from-red-400 to-red-600'} shadow-lg`}>
+          {isWin ? <Trophy className="h-10 w-10 text-indigo-950" /> : <CircleDollarSign className="h-10 w-10 text-indigo-950" />}
         </div>
 
-        <h2 className={`text-3xl md:text-4xl font-black font-display uppercase mb-2
-          ${isWin ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500' : 'text-white'}`}>
-          {title}
-        </h2>
-        <p className="text-indigo-200 mb-6 leading-relaxed">{subtitle}</p>
+        <h2 className="mb-2 text-3xl font-black uppercase font-display md:text-4xl">{title}</h2>
+        <p className="mb-7 leading-relaxed text-indigo-200">{subtitle}</p>
 
-        {/* Prize display */}
-        <div className={`text-5xl md:text-6xl font-black mb-2
-          ${isWin ? 'text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-amber-500' : isWalkaway ? 'text-emerald-400' : 'text-red-400'}`}>
+        <div className={`mb-3 text-5xl font-black md:text-6xl ${accent === 'yellow' ? 'text-yellow-300' : accent === 'emerald' ? 'text-emerald-300' : 'text-red-300'}`}>
           {formatPoints(finalPoints)}
         </div>
-        <p className="text-indigo-500 text-sm mb-8">Верни отговора: {score}/{totalQ}</p>
+        <p className="mb-7 text-sm text-indigo-400">Верни отговори: {score}/{totalQ}</p>
 
-        {/* Answer breakdown */}
-        <div className="flex justify-center gap-1.5 mb-8">
+        <div className="mb-8 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-indigo-800/45 bg-indigo-900/45 p-4 text-left">
+            <div className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-400">Спря на</div>
+            <div className="mt-2 text-xl font-black text-white">Въпрос {Math.min(currentQ + 1, totalQ)}</div>
+          </div>
+          <div className="rounded-2xl border border-indigo-800/45 bg-indigo-900/45 p-4 text-left">
+            <div className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-400">Гарантирани</div>
+            <div className="mt-2 text-xl font-black text-white">{formatPoints(guaranteedPoints)}</div>
+          </div>
+          <div className="rounded-2xl border border-indigo-800/45 bg-indigo-900/45 p-4 text-left">
+            <div className="text-[11px] font-black uppercase tracking-[0.28em] text-indigo-400">Резултат</div>
+            <div className="mt-2 text-xl font-black text-white">{score}/{totalQ}</div>
+          </div>
+        </div>
+
+        <div className="mb-8 flex flex-wrap justify-center gap-2">
           {answers.map((ans, idx) => {
             const correct = idx < questions.length && ans === questions[idx].correctIndex;
             return (
               <div
                 key={idx}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black
-                  ${correct ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}
+                className={`flex h-9 w-9 items-center justify-center rounded-xl border text-xs font-black ${
+                  correct
+                    ? 'border-emerald-400/35 bg-emerald-400/14 text-emerald-200'
+                    : 'border-red-400/30 bg-red-400/14 text-red-200'
+                }`}
               >
                 {idx + 1}
               </div>
@@ -745,13 +856,12 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
           })}
         </div>
 
-        {/* Actions */}
         <div className="space-y-3">
           <button
             onClick={onShare}
-            className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-yellow-500 to-amber-600 text-indigo-950 rounded-xl font-black uppercase tracking-widest hover:from-yellow-400 hover:to-amber-500 transition-all"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 py-4 font-black uppercase tracking-widest text-indigo-950 transition-all hover:from-yellow-400 hover:to-amber-500"
           >
-            <Share2 className="w-5 h-5" />
+            <Share2 className="h-5 w-5" />
             Сподели
           </button>
           {shareNotice && (
@@ -761,7 +871,7 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
           )}
           <Link
             to="/games"
-            className="block w-full py-3 text-center border border-indigo-700/50 rounded-xl text-indigo-300 font-bold hover:bg-indigo-900/50 transition-colors"
+            className="block w-full rounded-xl border border-indigo-700/50 py-3 text-center font-bold text-indigo-300 transition-colors hover:bg-indigo-900/50"
           >
             Обратно към игрите
           </Link>
