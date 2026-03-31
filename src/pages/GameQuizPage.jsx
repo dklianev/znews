@@ -4,7 +4,21 @@ import { copyToClipboard } from '../utils/copyToClipboard';
 import { loadGameProgress, saveGameProgress, recordGameWin } from '../utils/gameStorage';
 import { getTodayStr } from '../utils/gameDate';
 import QuizQuestionCard from '../components/games/quiz/QuizQuestionCard';
-import { Loader2, ArrowLeft, Share2, HelpCircle, Trophy, X } from 'lucide-react';
+import {
+  Loader2,
+  ArrowLeft,
+  Share2,
+  HelpCircle,
+  Trophy,
+  X,
+  Users,
+  PhoneCall,
+  Shield,
+  Wallet,
+  Sparkles,
+  RotateCcw,
+  CircleDollarSign,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -167,7 +181,7 @@ export default function GameQuizPage() {
       audienceVotes,
       phoneHint,
     });
-  }, [currentQ, answers, gameStatus, puzzle, lifelines]);
+  }, [currentQ, answers, gameStatus, puzzle, lifelines, eliminated, audienceVotes, phoneHint]);
 
   // ─── Cleanup timers ───
   useEffect(() => {
@@ -184,6 +198,8 @@ export default function GameQuizPage() {
     setPhoneHint(null);
     setSelectedAnswer(null);
     setRevealPhase(null);
+    setShareNotice(null);
+    setShowLadder(false);
     setGameStatus('playing');
   }, []);
 
@@ -327,33 +343,47 @@ export default function GameQuizPage() {
 
   // ─── Render: Main ───
   return (
-    <div className="min-h-screen bg-[#0a0a2e] text-white flex flex-col">
-      {/* Ambient background effects */}
+    <div className="min-h-screen bg-[#07071f] text-white flex flex-col overflow-x-hidden">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120vmax] h-[120vmax] rounded-full opacity-[0.07]"
-          style={{ background: 'radial-gradient(circle, #4338ca 0%, transparent 60%)' }} />
-        <div className="absolute top-0 left-0 w-full h-full opacity-[0.03]"
-          style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px)' }} />
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120vmax] h-[120vmax] rounded-full opacity-[0.08]"
+          style={{ background: 'radial-gradient(circle, #312e81 0%, transparent 58%)' }}
+        />
+        <div
+          className="absolute -top-16 left-1/2 -translate-x-1/2 w-[70vmax] h-[35vmax] opacity-[0.14]"
+          style={{ background: 'radial-gradient(ellipse at center, rgba(250,204,21,0.35) 0%, transparent 62%)' }}
+        />
+        <div
+          className="absolute bottom-0 left-0 w-full h-full opacity-[0.035]"
+          style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.03) 2px, rgba(255,255,255,0.03) 4px)' }}
+        />
+        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-amber-400/8 via-amber-300/3 to-transparent" />
       </div>
 
       {/* Header */}
-      <header className="relative z-10 w-full border-b border-indigo-800/40 bg-indigo-950/60 backdrop-blur-sm">
-        <div className="w-full max-w-6xl mx-auto flex items-center justify-between p-3 md:p-4">
-          <Link to="/games" className="text-indigo-400 hover:text-white transition-colors">
+      <header className="relative z-10 w-full border-b border-indigo-800/40 bg-indigo-950/55 backdrop-blur-sm">
+        <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-3 p-3 md:p-4">
+          <Link to="/games" className="text-indigo-400 hover:text-white transition-colors shrink-0">
             <ArrowLeft className="w-6 h-6" />
           </Link>
-          <h1 className="text-lg md:text-xl font-black uppercase tracking-[0.15em] font-display text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500">
+          <div className="flex-1 min-w-0 text-center">
+            <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.45em] text-indigo-400">Дневна игра</p>
+            <h1 className="text-lg md:text-2xl font-black uppercase tracking-[0.18em] font-display text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500">
             Ерудит
-          </h1>
-          <div className="flex items-center gap-2">
+            </h1>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setShowLadder(prev => !prev)}
-              className="text-indigo-400 hover:text-yellow-400 transition-colors md:hidden"
+              onClick={() => setShowLadder((prev) => !prev)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-indigo-700/60 bg-indigo-900/50 text-indigo-300 transition-colors hover:border-yellow-400/60 hover:text-yellow-300 md:hidden"
               aria-label="Покажи стълбата"
             >
               <Trophy className="w-5 h-5" />
             </button>
-            <button onClick={() => setShowHelp(true)} className="text-indigo-400 hover:text-white transition-colors">
+            <button
+              onClick={() => setShowHelp(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-indigo-700/60 bg-indigo-900/50 text-indigo-300 transition-colors hover:border-white/60 hover:text-white"
+            >
               <HelpCircle className="w-5 h-5" />
             </button>
           </div>
@@ -361,7 +391,7 @@ export default function GameQuizPage() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-4 p-4 md:p-6">
+      <main className="relative z-10 flex-1 w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-5 lg:gap-8 p-4 md:p-6">
 
         {/* Left: Game area */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-0">
@@ -419,7 +449,7 @@ export default function GameQuizPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="w-full max-w-2xl flex flex-col"
+                className="w-full max-w-3xl flex flex-col"
               >
                 {/* Points info bar */}
                 <div className="flex items-center justify-between mb-4 px-1">
@@ -542,7 +572,7 @@ export default function GameQuizPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
-                className="w-full max-w-lg text-center"
+                className="w-full max-w-2xl text-center"
               >
                 <EndScreen
                   gameStatus={gameStatus}
@@ -555,6 +585,7 @@ export default function GameQuizPage() {
                   guaranteedPoints={guaranteedPoints}
                   onShare={handleShare}
                   shareNotice={shareNotice}
+                  onPlayAgain={startGame}
                 />
               </motion.div>
             )}
@@ -562,7 +593,7 @@ export default function GameQuizPage() {
         </div>
 
         {/* Right: Prize ladder (desktop always visible, mobile toggle) */}
-        <div className={`lg:w-56 shrink-0 ${showLadder ? 'block' : 'hidden'} lg:block`}>
+        <div className={`lg:w-64 shrink-0 ${showLadder ? 'block' : 'hidden'} lg:block`}>
           <PointsLadder
             ladder={pointsLadder}
             currentQ={currentQ}
@@ -610,13 +641,13 @@ export default function GameQuizPage() {
 }
 
 // ─── Prize Ladder component ───
-function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose }) {
+function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose, mobile = false }) {
   const isPlaying = gameStatus === 'playing' || gameStatus === 'answering' || gameStatus === 'revealed';
   const safetySet = useMemo(() => new Set(safetyNets), [safetyNets]);
 
   return (
-    <div className="bg-indigo-950/80 border border-indigo-800/40 rounded-2xl p-4 backdrop-blur-sm">
-      <div className="flex items-center justify-between mb-3 lg:mb-4">
+    <div className={`overflow-hidden rounded-[1.75rem] border border-indigo-700/50 bg-[linear-gradient(180deg,rgba(30,27,75,0.96),rgba(15,23,42,0.96))] backdrop-blur-sm shadow-[0_24px_70px_rgba(10,10,46,0.45)] ${mobile ? 'p-5' : 'p-4'}`}>
+      <div className="flex items-center justify-between mb-4">
         <h3 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Награди</h3>
         <button onClick={onClose} className="lg:hidden text-indigo-500 hover:text-white">
           <X className="w-4 h-4" />
@@ -653,7 +684,7 @@ function PointsLadder({ ladder, currentQ, safetyNets, gameStatus, onClose }) {
 }
 
 // ─── End Screen component ───
-function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions, answers, guaranteedPoints, onShare, shareNotice }) {
+function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions, answers, guaranteedPoints, onShare, shareNotice, onPlayAgain }) {
   const isWin = gameStatus === 'won';
   const isWalkaway = gameStatus === 'walkaway';
 
@@ -673,9 +704,17 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
       : 'from-red-500/15 via-red-500/5 to-transparent';
 
   return (
-    <div className="relative">
+    <div className="relative overflow-hidden rounded-[2rem] border border-indigo-700/50 bg-indigo-950/80 p-8 shadow-[0_32px_90px_rgba(10,10,46,0.5)] backdrop-blur-sm">
       <div className={`absolute inset-0 rounded-3xl bg-gradient-to-b ${bgGradient} pointer-events-none`} />
-      <div className="relative bg-indigo-950/80 border border-indigo-800/50 rounded-3xl p-8 backdrop-blur-sm">
+      <div className="absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/80 to-transparent" />
+      <div className="absolute -left-10 top-12 h-32 w-32 rounded-full bg-amber-400/10 blur-3xl" />
+      <div className="absolute -right-6 bottom-12 h-24 w-24 rounded-full bg-indigo-400/12 blur-3xl" />
+      <div className="relative">
+        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-700/50 bg-indigo-900/60 px-4 py-1.5 text-[11px] font-bold uppercase tracking-[0.35em] text-indigo-300">
+          <CircleDollarSign className="h-3.5 w-3.5 text-amber-300" />
+          Резултат
+        </div>
+
         {/* Trophy / icon */}
         <div className={`w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center shadow-lg
           ${isWin ? 'bg-gradient-to-br from-yellow-400 to-amber-600 shadow-yellow-500/30' : isWalkaway ? 'bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-emerald-500/20' : 'bg-gradient-to-br from-red-400 to-red-600 shadow-red-500/20'}`}
@@ -687,7 +726,7 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
           ${isWin ? 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-amber-500' : 'text-white'}`}>
           {title}
         </h2>
-        <p className="text-indigo-300 mb-6">{subtitle}</p>
+        <p className="text-indigo-200 mb-6 leading-relaxed">{subtitle}</p>
 
         {/* Prize display */}
         <div className={`text-5xl md:text-6xl font-black mb-2
@@ -714,6 +753,13 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
 
         {/* Actions */}
         <div className="space-y-3">
+          <button
+            onClick={onPlayAgain}
+            className="flex items-center justify-center gap-2 w-full py-4 rounded-xl border border-white/10 bg-white text-indigo-950 font-black uppercase tracking-widest hover:bg-amber-50 transition-all shadow-[0_18px_36px_rgba(255,255,255,0.08)]"
+          >
+            <RotateCcw className="w-5 h-5" />
+            Играй пак
+          </button>
           <button
             onClick={onShare}
             className="flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-yellow-500 to-amber-600 text-indigo-950 rounded-xl font-black uppercase tracking-widest hover:from-yellow-400 hover:to-amber-500 transition-all"
