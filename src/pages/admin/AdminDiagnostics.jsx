@@ -9,6 +9,21 @@ function formatDateTime(value) {
   return date.toLocaleString('bg-BG', { dateStyle: 'short', timeStyle: 'short' });
 }
 
+function formatMonitoringPathname(value) {
+  const pathname = String(value || '').trim();
+  return pathname || '-';
+}
+
+function getMonitoringComponentStack(event) {
+  const stack = event?.metadata?.extra?.componentStack;
+  return typeof stack === 'string' ? stack.trim() : '';
+}
+
+function getMonitoringErrorStack(event) {
+  const stack = event?.metadata?.stack;
+  return typeof stack === 'string' ? stack.trim() : '';
+}
+
 function formatUptime(seconds) {
   const total = Math.max(0, Number(seconds) || 0);
   const hours = Math.floor(total / 3600);
@@ -431,6 +446,21 @@ export default function AdminDiagnostics() {
                 </div>
                 <p className="mt-2 text-sm font-sans text-gray-700">{event.message}</p>
                 <p className="mt-1 text-[11px] font-sans text-gray-500">Seen {event.count || 1} times</p>
+                <div className="mt-2 space-y-1 text-[11px] font-sans text-gray-500">
+                  <p><span className="font-semibold text-gray-700">Път:</span> {formatMonitoringPathname(event?.metadata?.pathname)}</p>
+                  {getMonitoringComponentStack(event) ? (
+                    <details className="rounded border border-gray-200 bg-gray-50 px-2 py-1.5">
+                      <summary className="cursor-pointer font-semibold text-gray-700">Компонентен стек</summary>
+                      <pre className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600">{getMonitoringComponentStack(event)}</pre>
+                    </details>
+                  ) : null}
+                  {getMonitoringErrorStack(event) ? (
+                    <details className="rounded border border-gray-200 bg-gray-50 px-2 py-1.5">
+                      <summary className="cursor-pointer font-semibold text-gray-700">JS стек</summary>
+                      <pre className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600">{getMonitoringErrorStack(event)}</pre>
+                    </details>
+                  ) : null}
+                </div>
               </div>
             ))}
             {(payload?.monitoring?.recentErrors || []).length === 0 ? <p className="text-sm font-sans text-gray-400">No recent monitoring events.</p> : null}
