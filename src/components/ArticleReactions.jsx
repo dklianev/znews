@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { api } from '../utils/api';
+import {
+  areArticleReactionCountsEqual,
+  buildArticleReactionCounts,
+  buildArticleReactionState,
+  normalizeArticleReactionsInput,
+} from '../utils/articleReactions';
 
 const REACTIONS = [
   { key: 'fire', emoji: '🔥', label: 'ГОРЕЩО!', color: '#CC0A1A', bg: 'bg-red-500/10', activeBg: 'bg-red-500/20' },
@@ -16,56 +22,42 @@ function formatCount(n) {
   return String(n);
 }
 
-function buildCounts(reactions) {
-  return {
-    fire: reactions?.fire || 0,
-    shock: reactions?.shock || 0,
-    laugh: reactions?.laugh || 0,
-    skull: reactions?.skull || 0,
-    clap: reactions?.clap || 0,
-  };
-}
-
-function buildReacted(value) {
-  return {
-    fire: Boolean(value?.fire),
-    shock: Boolean(value?.shock),
-    laugh: Boolean(value?.laugh),
-    skull: Boolean(value?.skull),
-    clap: Boolean(value?.clap),
-  };
-}
-
-export default function ArticleReactions({ articleId, reactions = {} }) {
-  const [counts, setCounts] = useState(() => buildCounts(reactions));
-  const [reacted, setReacted] = useState(() => buildReacted({}));
+export default function ArticleReactions({ articleId, reactions }) {
+  const safeReactions = normalizeArticleReactionsInput(reactions);
+  const [counts, setCounts] = useState(() => buildArticleReactionCounts(safeReactions));
+  const [reacted, setReacted] = useState(() => buildArticleReactionState({}));
   const [popping, setPopping] = useState(null);
   const [busyKey, setBusyKey] = useState(null);
   const [stateLoading, setStateLoading] = useState(Boolean(articleId));
   const busyRef = useRef(false);
-  const prevReactionsRef = useRef(reactions);
+  const prevReactionsRef = useRef(safeReactions);
+
+  const syncCountsFromReactions = (nextReactions) => {
+    const nextCounts = buildArticleReactionCounts(nextReactions);
+    setCounts((prev) => (areArticleReactionCountsEqual(prev, nextCounts) ? prev : nextCounts));
+  };
 
   useEffect(() => {
-    setCounts(buildCounts(reactions));
-    setReacted(buildReacted({}));
+    syncCountsFromReactions(safeReactions);
+    setReacted(buildArticleReactionState({}));
     setPopping(null);
     setBusyKey(null);
     setStateLoading(Boolean(articleId));
     busyRef.current = false;
-    prevReactionsRef.current = reactions;
+    prevReactionsRef.current = safeReactions;
   }, [articleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (prevReactionsRef.current === reactions || busyRef.current) return;
-    prevReactionsRef.current = reactions;
-    setCounts(buildCounts(reactions));
-  }, [reactions]);
+    if (prevReactionsRef.current === safeReactions || busyRef.current) return;
+    prevReactionsRef.current = safeReactions;
+    syncCountsFromReactions(safeReactions);
+  }, [safeReactions]);
 
   useEffect(() => {
     let cancelled = false;
 
     if (!articleId) {
-      setReacted(buildReacted({}));
+      setReacted(buildArticleReactionState({}));
       setStateLoading(false);
       return undefined;
     }
@@ -75,7 +67,7 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
       .then((payload) => {
         if (cancelled || busyRef.current) return;
         setReacted((prev) => {
-          const serverReacted = buildReacted(payload?.reacted);
+          const serverReacted = buildArticleReactionState(payload?.reacted);
           return {
             fire: serverReacted.fire || prev.fire,
             shock: serverReacted.shock || prev.shock,
@@ -117,17 +109,17 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
       const res = removing
         ? await api.articles.removeReaction(articleId, key)
         : await api.articles.react(articleId, key);
-      if (res?.reactions) setCounts(buildCounts(res.reactions));
-      if (res?.reacted) setReacted(buildReacted(res.reacted));
+      if (res?.reactions) syncCountsFromReactions(res.reactions);
+      if (res?.reacted) setReacted(buildArticleReactionState(res.reacted));
     } catch (err) {
       if (removing) {
         if (err?.payload?.reactions) {
-          setCounts(buildCounts(err.payload.reactions));
+          syncCountsFromReactions(err.payload.reactions);
         } else {
           setCounts((prev) => ({ ...prev, [key]: prev[key] + 1 }));
         }
         if (err?.payload?.reacted) {
-          setReacted(buildReacted(err.payload.reacted));
+          setReacted(buildArticleReactionState(err.payload.reacted));
         } else {
           setReacted((prev) => ({ ...prev, [key]: true }));
         }
@@ -136,10 +128,10 @@ export default function ArticleReactions({ articleId, reactions = {} }) {
         const isDuplicate = status === 429 && err?.payload?.error === 'Already reacted';
         setCounts((prev) => ({ ...prev, [key]: Math.max(0, prev[key] - 1) }));
         if (err?.payload?.reactions) {
-          setCounts(buildCounts(err.payload.reactions));
+          syncCountsFromReactions(err.payload.reactions);
         }
         if (err?.payload?.reacted) {
-          setReacted(buildReacted(err.payload.reacted));
+          setReacted(buildArticleReactionState(err.payload.reacted));
         } else if (isDuplicate) {
           setReacted((prev) => ({ ...prev, [key]: true }));
         } else {

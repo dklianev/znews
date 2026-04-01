@@ -66,6 +66,7 @@ import { runTouchSwipeTests } from './touchSwipe.test.mjs';
 import { runApiClientSessionTests } from './apiClientSession.test.mjs';
 import { runBlockBustTests } from './blockBust.test.mjs';
 import { runArticleAdminFormTests } from './articleAdminForm.test.mjs';
+import { runArticleReactionsTests } from './articleReactions.test.mjs';
 import { runQuizGameTests } from './quizGame.test.mjs';
 
 async function runTest(name, fn) {
@@ -146,6 +147,7 @@ await runTest('touchSwipe', runTouchSwipeTests);
 await runTest('apiClientSession', runApiClientSessionTests);
 await runTest('blockBust', runBlockBustTests);
 await runTest('articleAdminForm', runArticleAdminFormTests);
+await runTest('articleReactions', runArticleReactionsTests);
 await runTest('quizGame', runQuizGameTests);
 
 console.log('All tests passed.');
