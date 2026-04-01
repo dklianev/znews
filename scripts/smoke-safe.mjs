@@ -496,7 +496,20 @@ async function runBrowserSmoke() {
     const snapshotPath = snapshotPathMatch
       ? path.resolve(repoRoot, snapshotPathMatch[1].replaceAll('\\', path.sep))
       : null;
-    const snapshotText = snapshotPath ? await readFile(snapshotPath, 'utf8') : '';
+    const inlineSnapshotMatch = snapshotResult.stdout.match(/```yaml\s*([\s\S]*?)```/);
+    let snapshotText = '';
+
+    if (snapshotPath) {
+      try {
+        snapshotText = await readFile(snapshotPath, 'utf8');
+      } catch {
+        snapshotText = '';
+      }
+    }
+
+    if (!snapshotText && inlineSnapshotMatch) {
+      snapshotText = inlineSnapshotMatch[1];
+    }
 
     return {
       title: titleMatches.length > 0 ? titleMatches.at(-1)[1].trim() : '',
