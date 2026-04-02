@@ -70,9 +70,9 @@ import { runArticleReactionsTests } from './articleReactions.test.mjs';
 import { runQuizGameTests } from './quizGame.test.mjs';
 
 export const testSuites = [
-  { name: 'comicCardDesign', run: runComicCardDesignTests },
-  { name: 'homepageSelectors', run: runHomepageSelectorTests },
-  { name: 'heroTitleScale', run: runHeroTitleScaleTests },
+  { name: 'comicCardDesign', run: runComicCardDesignTests, vitestNative: true },
+  { name: 'homepageSelectors', run: runHomepageSelectorTests, vitestNative: true },
+  { name: 'heroTitleScale', run: runHeroTitleScaleTests, vitestNative: true },
   { name: 'sudoku', run: runSudokuTests },
   { name: 'adResolver', run: runAdResolverTests },
   { name: 'adMigration', run: runAdMigrationTests },
@@ -131,7 +131,7 @@ export const testSuites = [
   { name: 'tipRoutes', run: runTipRoutesTests },
   { name: 'uploadRoutes', run: runUploadRoutesTests },
   { name: 'publicFeedRoutes', run: runPublicFeedRoutesTests },
-  { name: 'newsDate', run: runNewsDateTests },
+  { name: 'newsDate', run: runNewsDateTests, vitestNative: true },
   { name: 'webSpaRoutes', run: runWebSpaRoutesTests },
   { name: 'tetris', run: runTetrisTests },
   { name: 'touchSwipe', run: runTouchSwipeTests, vitestNative: true },
