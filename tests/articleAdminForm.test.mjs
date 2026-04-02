@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { normalizeArticleAdminForm, trimArticleAdminText } from '../src/utils/articleAdminForm.js';
 
 describe('articleAdminForm', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps articleAdminForm legacy coverage green', async () => {
       const fallback = {
         title: '',
         slug: '',

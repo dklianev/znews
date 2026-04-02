@@ -87,7 +87,7 @@ function createModel(items = []) {
 }
 
 describe('numericCrudFactory', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps numericCrudFactory legacy coverage green', async () => {
       const cacheMiddleware = function cacheMiddleware(_req, _res, next) { if (next) next(); };
       const requireAuth = function requireAuth(_req, _res, next) { if (next) next(); };
       const requireAdmin = function requireAdmin(_req, _res, next) { if (next) next(); };

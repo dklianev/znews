@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequestHelpers } from '../server/services/requestHelpersService.js';
 
 describe('requestHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps requestHelpersService legacy coverage green', async () => {
       const helpers = createRequestHelpers({
         getTrustedClientIp(req) {
           return req.ip || '0.0.0.0';

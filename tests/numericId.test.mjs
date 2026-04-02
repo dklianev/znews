@@ -45,7 +45,7 @@ function createCounterModel(responses) {
 }
 
 describe('numericId', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps numericId legacy coverage green', async () => {
       {
         const Model = createModel(3, 'Article');
         const CounterModel = createCounterModel([{ seq: 5 }]);

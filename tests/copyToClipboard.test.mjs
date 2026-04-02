@@ -35,7 +35,7 @@ function createDocumentMock(copyResult = true) {
 }
 
 describe('copyToClipboard', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps copyToClipboard legacy coverage green', async () => {
       const originalNavigator = globalThis.navigator;
       const originalDocument = globalThis.document;
     

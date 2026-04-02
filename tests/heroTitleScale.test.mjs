@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildScaledClamp, normalizeHeroTitleScale } from '../src/utils/heroTitleScale.js';
 
 describe('heroTitleScale', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps heroTitleScale legacy coverage green', async () => {
       assert.equal(normalizeHeroTitleScale(undefined), 100);
       assert.equal(normalizeHeroTitleScale('abc'), 100);
       assert.equal(normalizeHeroTitleScale(50), 70);

@@ -18,7 +18,7 @@ function assert(condition, message) {
 }
 
 describe('searchUtils', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps searchUtils legacy coverage green', async () => {
       assert(normalizeSearchTerm('  Работа!!! ') === 'работа', 'normalizeSearchTerm strips punctuation');
       assert(normalizeSearchType('jobs') === 'jobs', 'normalizeSearchType keeps valid types');
       assert(normalizeSearchType('unknown') === 'all', 'normalizeSearchType falls back to all');

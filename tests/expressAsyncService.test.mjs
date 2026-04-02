@@ -19,7 +19,7 @@ function createResponse() {
 }
 
 describe('expressAsyncService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps expressAsyncService legacy coverage green', async () => {
       const apiErrorHandler = createApiErrorHandler({
         publicError(error, fallback) {
           return error?.message || fallback;

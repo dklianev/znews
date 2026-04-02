@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createContentSanitizers } from '../server/services/contentSanitizersService.js';
 
 describe('contentSanitizersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps contentSanitizersService legacy coverage green', async () => {
       const helpers = createContentSanitizers();
     
       assert.equal(helpers.normalizeText('  hello  ', 10), 'hello');

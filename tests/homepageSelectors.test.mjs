@@ -24,7 +24,7 @@ function flattenSectionIds(sections) {
 }
 
 describe('homepageSelectors', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps homepageSelectors legacy coverage green', async () => {
       const sorted = sortArticlesByRecency([
         { id: 1, date: '2026-02-10' },
         { id: 2, publishAt: '2026-02-15T12:00:00.000Z' },

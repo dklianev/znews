@@ -59,7 +59,7 @@ function createBaseDeps(overrides = {}) {
 }
 
 describe('shareCardObjectService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps shareCardObjectService legacy coverage green', async () => {
       const objectHelpers = createShareCardObjectHelpers(createBaseDeps({
         getShareSourceUrl() {
           return '/uploads/share.png';

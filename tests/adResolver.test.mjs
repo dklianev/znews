@@ -11,7 +11,7 @@ import {
 } from '../shared/adResolver.js';
 
 describe('adResolver', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps adResolver legacy coverage green', async () => {
       const baseAds = [
         {
           id: 1,

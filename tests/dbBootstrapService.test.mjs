@@ -93,7 +93,7 @@ function createHelpers(overrides = {}) {
 }
 
 describe('dbBootstrapService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps dbBootstrapService legacy coverage green', async () => {
       {
         const { helpers } = createHelpers();
         assert.deepEqual(helpers.sanitizePermissionMap({ articles: 1, categories: 0, ignored: true }), {

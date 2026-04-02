@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createFramePolicyHelpers } from '../server/services/framePolicyService.js';
 
 describe('framePolicyService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps framePolicyService legacy coverage green', async () => {
       {
         const helpers = createFramePolicyHelpers();
         assert.deepEqual(helpers.publicFrameAncestors, ["'self'", 'http:', 'https:', 'nui:']);

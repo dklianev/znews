@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildArticleRecencyPipeline } from '../server/app.js';
 
 describe('articleRecencyPipeline', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps articleRecencyPipeline legacy coverage green', async () => {
       {
         const pipeline = buildArticleRecencyPipeline(
           { status: 'published' },

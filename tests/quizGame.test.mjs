@@ -19,7 +19,7 @@ const SAMPLE_QUESTION = {
 };
 
 describe('quizGame', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps quizGame legacy coverage green', async () => {
       assert.deepEqual(
         buildQuizPointsLadder(10),
         [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000],

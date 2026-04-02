@@ -15,7 +15,7 @@ function createStorageMock() {
 }
 
 describe('chunkReload', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps chunkReload legacy coverage green', async () => {
       const originalWindow = globalThis.window;
     
       try {

@@ -65,7 +65,7 @@ function createHelpers() {
 }
 
 describe('gamePuzzleHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps gamePuzzleHelpersService legacy coverage green', async () => {
       const helpers = createHelpers();
     
       assert.deepEqual(

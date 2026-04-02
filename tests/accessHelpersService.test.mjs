@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createAccessHelpers } from '../server/services/accessHelpersService.js';
 
 describe('accessHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps accessHelpersService legacy coverage green', async () => {
       const permissionLookups = [];
       const roleExistChecks = [];
       const allocateCalls = [];

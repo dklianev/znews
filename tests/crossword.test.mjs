@@ -21,7 +21,7 @@ function assertDeepEqual(actual, expected, label) {
 }
 
 describe('crossword', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps crossword legacy coverage green', async () => {
       const layout = ['..#', '...', '#..'];
     
       assert(normalizeCrosswordPatternRow('a#c', 5) === '.#...', 'normalizeCrosswordPatternRow should coerce to blocks and fills');

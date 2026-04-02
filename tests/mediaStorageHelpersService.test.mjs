@@ -30,7 +30,7 @@ function createHelpers(overrides = {}) {
 }
 
 describe('mediaStorageHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps mediaStorageHelpersService legacy coverage green', async () => {
       const helpers = createHelpers({
         dateNow: () => 1700000000000,
         random: () => 0.123456,

@@ -19,7 +19,7 @@ function assertDeepEqual(actual, expected, label) {
 }
 
 describe('hangman', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps hangman legacy coverage green', async () => {
       assert(normalizeHangmanLetter(' a ') === 'A', 'normalizeHangmanLetter should trim and uppercase letters');
       assert(normalizeHangmanLetter('7') === '7', 'normalizeHangmanLetter should allow digits');
       assert(normalizeHangmanLetter('!') === '', 'normalizeHangmanLetter should reject punctuation');

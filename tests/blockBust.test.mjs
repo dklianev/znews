@@ -26,7 +26,7 @@ function getPiece(slug, { width = null, height = null } = {}) {
 }
 
 describe('blockBust', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps blockBust legacy coverage green', async () => {
       const board = createEmptyBlockBustBoard();
       assert.equal(board.length, 8, 'board should have 8 rows');
       assert.equal(board[0].length, 8, 'board should have 8 columns');

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createWebArticleMetaHelpers } from '../server/services/webArticleMetaHelpersService.js';
 
 describe('webArticleMetaHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps webArticleMetaHelpersService legacy coverage green', async () => {
       const helpers = createWebArticleMetaHelpers({
         clampText(value, maxLen) {
           const text = String(value ?? '').trim();

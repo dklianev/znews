@@ -39,7 +39,7 @@ function createHelpers(overrides = {}) {
 }
 
 describe('rateLimitHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps rateLimitHelpersService legacy coverage green', async () => {
       const { hashCalls, helpers } = createHelpers();
     
       assert.equal(helpers.getClientIpForRateLimit({ trustedIp: '1.2.3.4' }), '1.2.3.4');

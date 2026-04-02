@@ -54,7 +54,7 @@ function createDefaults() {
 }
 
 describe('settingsPayloadHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps settingsPayloadHelpersService legacy coverage green', async () => {
       const defaults = createDefaults();
       const helpers = createSettingsPayloadHelpers({
         BREAKING_CATEGORY_LABEL: 'Извънредни',

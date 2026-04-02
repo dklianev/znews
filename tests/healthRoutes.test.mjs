@@ -33,7 +33,7 @@ function createResponse() {
 }
 
 describe('healthRoutes', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps healthRoutes legacy coverage green', async () => {
       const app = createMockApp();
       const seenModes = [];
       registerHealthRoutes(app, {

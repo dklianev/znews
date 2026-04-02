@@ -91,7 +91,7 @@ function createBaseDeps(overrides = {}) {
 }
 
 describe('uploadRoutes', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps uploadRoutes legacy coverage green', async () => {
       {
         const app = createMockApp();
         registerUploadRoutes(app, createBaseDeps());

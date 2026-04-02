@@ -205,7 +205,7 @@ function createDeps(adOptionsSeen) {
 }
 
 describe('publicFeedRoutes', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps publicFeedRoutes legacy coverage green', async () => {
       {
         const app = createMockApp();
         const adOptionsSeen = [];

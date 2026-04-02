@@ -56,7 +56,7 @@ async function runHandlers(handlers, req, res) {
 }
 
 describe('tipRoutes', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps tipRoutes legacy coverage green', async () => {
       const saved = [];
       const tipsList = [{ id: 2, text: 'older' }, { id: 1, text: 'newer' }];
       const updatedTips = [];

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { getIntrinsicImageDimensions, getOptimizedImageSources } from '../src/utils/imageOptimization.js';
 
 describe('imageOptimization', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps imageOptimization legacy coverage green', async () => {
       assert.deepEqual(
         getIntrinsicImageDimensions({ width: 1280, height: 720, placeholder: '/uploads/x.webp' }),
         { width: 1280, height: 720 }

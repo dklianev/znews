@@ -10,7 +10,7 @@ function createLeanResult(value) {
 }
 
 describe('adHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps adHelpersService legacy coverage green', async () => {
       const helpers = createAdHelpers({
         Ad: {
           find() {

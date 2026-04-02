@@ -7,7 +7,7 @@ function normalizeText(value, maxLen = 255) {
 }
 
 describe('settingsHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps settingsHelpersService legacy coverage green', async () => {
       let revisionStore = [];
       let uuidCounter = 0;
     

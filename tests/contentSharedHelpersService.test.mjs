@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createContentSharedHelpers } from '../server/services/contentSharedHelpersService.js';
 
 describe('contentSharedHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps contentSharedHelpersService legacy coverage green', async () => {
       const helpers = createContentSharedHelpers({
         normalizeText(value, maxLen = 255) {
           return String(value ?? '').trim().slice(0, maxLen);

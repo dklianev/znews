@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createDocumentHelpers } from '../server/services/documentHelpersService.js';
 
 describe('documentHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps documentHelpersService legacy coverage green', async () => {
       const helpers = createDocumentHelpers();
     
       const source = { _id: 'abc', __v: 7, id: 5, title: 'Hello', nested: { ok: true }, password: 'secret' };

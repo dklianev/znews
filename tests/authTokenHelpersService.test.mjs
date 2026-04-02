@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import { createAuthTokenHelpers } from '../server/services/authTokenHelpersService.js';
 
 describe('authTokenHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps authTokenHelpersService legacy coverage green', async () => {
       const helpers = createAuthTokenHelpers({
         ACCESS_TOKEN_EXPIRES_IN: '15m',
         JWT_SECRET: 'test-access-secret-1234567890',

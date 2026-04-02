@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createArticlePushHelpers } from '../server/services/articlePushHelpersService.js';
 
 describe('articlePushHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps articlePushHelpersService legacy coverage green', async () => {
       const deletedIds = [];
       const sentPayloads = [];
       let subscriptions = [];

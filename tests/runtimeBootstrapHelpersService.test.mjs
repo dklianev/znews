@@ -52,7 +52,7 @@ function createHelpers(overrides = {}) {
 }
 
 describe('runtimeBootstrapHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps runtimeBootstrapHelpersService legacy coverage green', async () => {
       {
         const harness = createHelpers();
         const env = harness.helpers.applyMongoDnsServers({ nodeEnv: 'development', mongoDnsServersEnv: '' });

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createCommentsHelpers } from '../server/services/commentsHelpersService.js';
 
 describe('commentsHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps commentsHelpersService legacy coverage green', async () => {
       const findCalls = [];
       const updateCalls = [];
     

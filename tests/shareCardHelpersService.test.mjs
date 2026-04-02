@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createShareCardHelpers } from '../server/services/shareCardHelpersService.js';
 
 describe('shareCardHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps shareCardHelpersService legacy coverage green', async () => {
       const helpers = createShareCardHelpers({
         normalizeText(value, maxLen = 255) {
           return String(value ?? '').trim().slice(0, maxLen);

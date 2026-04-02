@@ -9,7 +9,7 @@ import {
 } from '../src/utils/articleReactions.js';
 
 describe('articleReactions', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps articleReactions legacy coverage green', async () => {
       const firstMissing = normalizeArticleReactionsInput(undefined);
       const secondMissing = normalizeArticleReactionsInput(undefined);
     

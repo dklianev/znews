@@ -23,7 +23,7 @@ function createResponse() {
 }
 
 describe('cacheService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps cacheService legacy coverage green', async () => {
       const apiCache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
       const service = createCacheService({
         apiCache,

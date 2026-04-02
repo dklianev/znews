@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createArticleCollectionHelpers } from '../server/services/articleCollectionHelpersService.js';
 
 describe('articleCollectionHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps articleCollectionHelpersService legacy coverage green', async () => {
       const helpers = createArticleCollectionHelpers({
         ARTICLE_FIELD_ALLOWLIST: new Set(['id', 'title', 'excerpt', 'views']),
         ARTICLE_SECTION_FILTERS: {

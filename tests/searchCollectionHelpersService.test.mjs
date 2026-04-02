@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createSearchCollectionHelpers } from '../server/services/searchCollectionHelpersService.js';
 
 describe('searchCollectionHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps searchCollectionHelpersService legacy coverage green', async () => {
       const queries = [];
       const datasets = {
         text: [{ _id: 'a', __v: 0, id: 2, title: 'Text hit' }],

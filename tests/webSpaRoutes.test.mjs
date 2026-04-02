@@ -40,7 +40,7 @@ async function withServer(app, run) {
 }
 
 describe('webSpaRoutes', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps webSpaRoutes legacy coverage green', async () => {
       await withTempSpaFixture(async ({ serverDir }) => {
         const app = express();
         registerWebSpaRoutes(app, {

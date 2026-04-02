@@ -23,7 +23,7 @@ function assertDeepEqual(actual, expected, label) {
 }
 
 describe('spellingBee', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps spellingBee legacy coverage green', async () => {
       const config = {
         centerLetter: 'A',
         outerLetters: ['P', 'R', 'E', 'N', 'T', 'L'],

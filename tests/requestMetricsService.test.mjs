@@ -4,7 +4,7 @@ import { EventEmitter } from 'node:events';
 import { createRequestMetricsService } from '../server/services/requestMetricsService.js';
 
 describe('requestMetricsService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps requestMetricsService legacy coverage green', async () => {
       const service = createRequestMetricsService({ slowRequestThresholdMs: 500, maxRecentEntries: 3, maxSlowEntries: 2 });
     
       service.recordRequestMetric({ method: 'GET', path: '/api/homepage?compact=1', statusCode: 200, durationMs: 120, cacheStatus: 'HIT' });

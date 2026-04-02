@@ -26,7 +26,7 @@ function assertGridShape(grid, label) {
 }
 
 describe('sudoku', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps sudoku legacy coverage green', async () => {
       const medium = generateSudokuPuzzle('medium');
       assertGridShape(medium.puzzleGrid, 'medium puzzle');
       assertGridShape(medium.solutionGrid, 'medium solution');

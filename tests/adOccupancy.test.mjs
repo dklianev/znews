@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildAdSlotOccupancy } from '../shared/adOccupancy.js';
 
 describe('adOccupancy', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps adOccupancy legacy coverage green', async () => {
       const homeRotation = buildAdSlotOccupancy([
         {
           id: 1,

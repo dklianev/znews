@@ -158,7 +158,7 @@ function createHelpers(overrides = {}) {
 }
 
 describe('serverLifecycleService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps serverLifecycleService legacy coverage green', async () => {
       {
         const helpers = createHelpers({
           processEnv: {

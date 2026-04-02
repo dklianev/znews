@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createArticleRecencyHelpers } from '../server/services/articleRecencyHelpersService.js';
 
 describe('articleRecencyHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps articleRecencyHelpersService legacy coverage green', async () => {
       const aggregateCalls = [];
       const sortCalls = [];
     

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createAuthSessionHelpers } from '../server/services/authSessionHelpersService.js';
 
 describe('authSessionHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps authSessionHelpersService legacy coverage green', async () => {
       const created = [];
       const deleted = [];
       const signRefreshCalls = [];

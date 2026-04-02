@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { getComicCardStyle } from '../src/utils/comicCardDesign.js';
 
 describe('comicCardDesign', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps comicCardDesign legacy coverage green', async () => {
       const article = { id: 42, cardSticker: '' };
       const first = getComicCardStyle('homeFeatured', 0, article, 'default');
       const second = getComicCardStyle('homeFeatured', 0, article, 'default');

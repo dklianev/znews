@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createDiagnosticsService } from '../server/services/diagnosticsService.js';
 
 describe('diagnosticsService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps diagnosticsService legacy coverage green', async () => {
       const service = createDiagnosticsService({
         AdAnalyticsAggregate: {
           aggregate: async () => [{ impressions: 10, clicks: 2, rows: 1 }],

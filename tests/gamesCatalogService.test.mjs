@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createGamesCatalogService } from '../server/services/gamesCatalogService.js';
 
 describe('gamesCatalogService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps gamesCatalogService legacy coverage green', async () => {
       const calls = [];
       const helpers = createGamesCatalogService({
         GameDefinition: {

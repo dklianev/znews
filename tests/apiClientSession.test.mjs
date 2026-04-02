@@ -21,7 +21,7 @@ function createStorage() {
 }
 
 describe('apiClientSession', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps apiClientSession legacy coverage green', async () => {
       const originalWindow = globalThis.window;
       const originalCustomEvent = globalThis.CustomEvent;
     

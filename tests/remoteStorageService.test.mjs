@@ -3,7 +3,7 @@ import assert from 'assert';
 import { createRemoteStorageService } from '../server/services/remoteStorageService.js';
 
 describe('remoteStorageService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps remoteStorageService legacy coverage green', async () => {
       await testAzureBlobListingParsesKeysAndMetadata();
       await testAzureBlobListingSupportsPagination();
       await testAzureBlobListingIncludesResponseTextOnFailure();

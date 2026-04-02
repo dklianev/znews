@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createCoreHelpers } from '../server/services/coreHelpersService.js';
 
 describe('coreHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps coreHelpersService legacy coverage green', async () => {
       const devHelpers = createCoreHelpers({ isProd: false });
       const prodHelpers = createCoreHelpers({ isProd: true });
       const now = new Date('2026-03-11T12:00:00.000Z');

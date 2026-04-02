@@ -59,7 +59,7 @@ function createBaseDeps(overrides = {}) {
 }
 
 describe('shareCardRuntimeService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps shareCardRuntimeService legacy coverage green', async () => {
       const originalBaseUrl = process.env.PUBLIC_BASE_URL;
       try {
         const baseHelpers = createShareCardRuntimeHelpers(createBaseDeps());

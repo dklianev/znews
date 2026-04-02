@@ -19,7 +19,7 @@ function createHelpers() {
 }
 
 describe('gameSharedHelpersService', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps gameSharedHelpersService legacy coverage green', async () => {
       const helpers = createHelpers();
     
       const blockBustPayload = helpers.sanitizeGameDefinitionInput({

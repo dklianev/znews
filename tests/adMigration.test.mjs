@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { buildAdMigrationPatch, buildAdMigrationPlan } from '../shared/adMigration.js';
 
 describe('adMigration', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps adMigration legacy coverage green', async () => {
       const legacySidePatch = buildAdMigrationPatch({
         id: 11,
         type: 'side',

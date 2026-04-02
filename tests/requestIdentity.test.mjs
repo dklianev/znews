@@ -10,7 +10,7 @@ import {
 } from '../server/requestIdentity.js';
 
 describe('requestIdentity', () => {
-  it('covers legacy scenarios', async () => {
+  it('keeps requestIdentity legacy coverage green', async () => {
       assert.equal(stripPortFromIpMaybe('198.51.100.10:443'), '198.51.100.10');
       assert.equal(stripPortFromIpMaybe('[2001:db8::10]:8443'), '2001:db8::10');
       assert.equal(stripPortFromIpMaybe('for="[2001:db8::20]:1234"'), '2001:db8::20');
