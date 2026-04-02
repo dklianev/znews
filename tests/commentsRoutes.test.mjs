@@ -206,112 +206,110 @@ function createCommentsDeps(overrides = {}) {
 }
 
 describe('commentsRoutes', () => {
-  it('covers legacy scenarios', async () => {
-      {
-        const { deps } = createCommentsDeps();
-        const router = createCommentsRouter(deps);
-        const handlers = getRouteHandlers(router, 'post', '/');
-        const res = createResponse();
-    
-        await runHandlers(handlers, {
-          body: { articleId: 'oops', author: '   ', text: '' },
-          query: {},
-        }, res);
-    
-        assert.equal(res.statusCode, 400);
-        assert.equal(res.body?.error, '\u041f\u043e\u043f\u044a\u043b\u043d\u0438 \u0438\u043c\u0435 \u0438 \u0442\u0435\u043a\u0441\u0442, \u0437\u0430 \u0434\u0430 \u0438\u0437\u043f\u0440\u0430\u0442\u0438\u0448 \u043a\u043e\u043c\u0435\u043d\u0442\u0430\u0440.');
-        assert.deepEqual(res.body?.fieldErrors, {
-          articleId: '\u0421\u0442\u0430\u0442\u0438\u044f\u0442\u0430 \u043d\u0435 \u0435 \u0432\u0430\u043b\u0438\u0434\u043d\u0430.',
-          author: '\u0418\u043c\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.',
-          text: '\u041a\u043e\u043c\u0435\u043d\u0442\u0430\u0440\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.',
-        });
-      }
-    
-      {
-        const { deps, createdComments } = createCommentsDeps();
-        const router = createCommentsRouter(deps);
-        const handlers = getRouteHandlers(router, 'post', '/');
-        const res = createResponse();
-    
-        await runHandlers(handlers, {
-          body: {
-            articleId: '77',
-            parentId: 'missing',
-            author: 'Reporter',
-            text: 'New reply',
-          },
-          query: {},
-        }, res);
-    
-        assert.equal(res.statusCode, 400);
-        assert.equal(createdComments.length, 0);
-        assert.equal(res.body?.error, '\u0420\u043e\u0434\u0438\u0442\u0435\u043b\u0441\u043a\u0438\u044f\u0442 \u043a\u043e\u043c\u0435\u043d\u0442\u0430\u0440 \u043d\u0435 \u0435 \u0432\u0430\u043b\u0438\u0434\u0435\u043d.');
-        assert.deepEqual(res.body?.fieldErrors, {
-          parentId: '\u0420\u043e\u0434\u0438\u0442\u0435\u043b\u0441\u043a\u0438\u044f\u0442 \u043a\u043e\u043c\u0435\u043d\u0442\u0430\u0440 \u043d\u0435 \u0435 \u0432\u0430\u043b\u0438\u0434\u0435\u043d.',
-        });
-      }
-    
-      {
-        const { deps, createdComments, articleLookups } = createCommentsDeps();
-        const router = createCommentsRouter(deps);
-        const handlers = getRouteHandlers(router, 'post', '/');
-        const res = createResponse();
-    
-        await runHandlers(handlers, {
-          body: {
-            articleId: '77',
-            parentId: '700',
-            author: 'Reporter',
-            text: 'Legit reply',
-          },
-          query: {},
-        }, res);
-    
-        assert.equal(res.statusCode, 201);
-        assert.equal(createdComments.length, 1);
-        assert.deepEqual(articleLookups, [{ id: 77, status: 'published' }]);
-        assert.equal(createdComments[0].parentId, 700);
-        assert.equal(res.body?.author, 'Reporter');
-        assert.equal(res.body?.text, 'Legit reply');
-      }
-    
-      {
-        const { deps, updatedComments } = createCommentsDeps();
-        const router = createCommentsRouter(deps);
-        const handlers = getRouteHandlers(router, 'put', '/:id');
-        const res = createResponse();
-    
-        await runHandlers(handlers, {
-          params: { id: '12' },
-          body: { text: '   ' },
-        }, res);
-    
-        assert.equal(res.statusCode, 400);
-        assert.equal(updatedComments.length, 0);
-        assert.equal(res.body?.error, '\u041f\u043e\u043f\u044a\u043b\u043d\u0438 \u0438\u043c\u0435 \u0438 \u0442\u0435\u043a\u0441\u0442, \u0437\u0430 \u0434\u0430 \u0438\u0437\u043f\u0440\u0430\u0442\u0438\u0448 \u043a\u043e\u043c\u0435\u043d\u0442\u0430\u0440.');
-        assert.deepEqual(res.body?.fieldErrors, {
-          text: '\u041a\u043e\u043c\u0435\u043d\u0442\u0430\u0440\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.',
-        });
-      }
-    
-      {
-        const { deps, updatedComments } = createCommentsDeps();
-        const router = createCommentsRouter(deps);
-        const handlers = getRouteHandlers(router, 'put', '/:id');
-        const res = createResponse();
-    
-        await runHandlers(handlers, {
-          params: { id: '12' },
-          body: { text: 'Updated moderator copy' },
-        }, res);
-    
-        assert.equal(res.statusCode, 200);
-        assert.deepEqual(updatedComments, [{
-          query: { id: 12 },
-          update: { $set: { text: 'Updated moderator copy' } },
-          options: { returnDocument: 'after' },
-        }]);
-        assert.equal(res.body?.text, 'Updated moderator copy');
-      }
+  it('validates required fields when creating comments', async () => {
+    const { deps } = createCommentsDeps();
+    const router = createCommentsRouter(deps);
+    const handlers = getRouteHandlers(router, 'post', '/');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      body: { articleId: 'oops', author: '   ', text: '' },
+      query: {},
+    }, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.body?.error, '\u041f\u043e\u043f\u044a\u043b\u043d\u0438 \u0438\u043c\u0435 \u0438 \u0442\u0435\u043a\u0441\u0442, \u0437\u0430 \u0434\u0430 \u0438\u0437\u043f\u0440\u0430\u0442\u0438\u0448 \u043a\u043e\u043c\u0435\u043d\u0442\u0430\u0440.');
+    assert.deepEqual(res.body?.fieldErrors, {
+      articleId: '\u0421\u0442\u0430\u0442\u0438\u044f\u0442\u0430 \u043d\u0435 \u0435 \u0432\u0430\u043b\u0438\u0434\u043d\u0430.',
+      author: '\u0418\u043c\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.',
+      text: '\u041a\u043e\u043c\u0435\u043d\u0442\u0430\u0440\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.',
+    });
+  });
+
+  it('rejects replies with invalid parent comments', async () => {
+    const { deps, createdComments } = createCommentsDeps();
+    const router = createCommentsRouter(deps);
+    const handlers = getRouteHandlers(router, 'post', '/');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      body: {
+        articleId: '77',
+        parentId: 'missing',
+        author: 'Reporter',
+        text: 'New reply',
+      },
+      query: {},
+    }, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(createdComments.length, 0);
+    assert.equal(res.body?.error, '\u0420\u043e\u0434\u0438\u0442\u0435\u043b\u0441\u043a\u0438\u044f\u0442 \u043a\u043e\u043c\u0435\u043d\u0442\u0430\u0440 \u043d\u0435 \u0435 \u0432\u0430\u043b\u0438\u0434\u0435\u043d.');
+    assert.deepEqual(res.body?.fieldErrors, {
+      parentId: '\u0420\u043e\u0434\u0438\u0442\u0435\u043b\u0441\u043a\u0438\u044f\u0442 \u043a\u043e\u043c\u0435\u043d\u0442\u0430\u0440 \u043d\u0435 \u0435 \u0432\u0430\u043b\u0438\u0434\u0435\u043d.',
+    });
+  });
+
+  it('creates replies for published articles with valid parents', async () => {
+    const { deps, createdComments, articleLookups } = createCommentsDeps();
+    const router = createCommentsRouter(deps);
+    const handlers = getRouteHandlers(router, 'post', '/');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      body: {
+        articleId: '77',
+        parentId: '700',
+        author: 'Reporter',
+        text: 'Legit reply',
+      },
+      query: {},
+    }, res);
+
+    assert.equal(res.statusCode, 201);
+    assert.equal(createdComments.length, 1);
+    assert.deepEqual(articleLookups, [{ id: 77, status: 'published' }]);
+    assert.equal(createdComments[0].parentId, 700);
+    assert.equal(res.body?.author, 'Reporter');
+    assert.equal(res.body?.text, 'Legit reply');
+  });
+
+  it('validates moderator edits before updating comments', async () => {
+    const { deps, updatedComments } = createCommentsDeps();
+    const router = createCommentsRouter(deps);
+    const handlers = getRouteHandlers(router, 'put', '/:id');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      params: { id: '12' },
+      body: { text: '   ' },
+    }, res);
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(updatedComments.length, 0);
+    assert.equal(res.body?.error, '\u041f\u043e\u043f\u044a\u043b\u043d\u0438 \u0438\u043c\u0435 \u0438 \u0442\u0435\u043a\u0441\u0442, \u0437\u0430 \u0434\u0430 \u0438\u0437\u043f\u0440\u0430\u0442\u0438\u0448 \u043a\u043e\u043c\u0435\u043d\u0442\u0430\u0440.');
+    assert.deepEqual(res.body?.fieldErrors, {
+      text: '\u041a\u043e\u043c\u0435\u043d\u0442\u0430\u0440\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.',
+    });
+  });
+
+  it('updates moderator comment copy when the payload is valid', async () => {
+    const { deps, updatedComments } = createCommentsDeps();
+    const router = createCommentsRouter(deps);
+    const handlers = getRouteHandlers(router, 'put', '/:id');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      params: { id: '12' },
+      body: { text: 'Updated moderator copy' },
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(updatedComments, [{
+      query: { id: 12 },
+      update: { $set: { text: 'Updated moderator copy' } },
+      options: { returnDocument: 'after' },
+    }]);
+    assert.equal(res.body?.text, 'Updated moderator copy');
   });
 });
