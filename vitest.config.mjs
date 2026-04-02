@@ -5,6 +5,10 @@ export default defineConfig({
   plugins: [react()],
   test: {
     passWithNoTests: true,
+    restoreMocks: true,
+    clearMocks: true,
+    testTimeout: 30000,
+    hookTimeout: 30000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
@@ -30,6 +34,7 @@ export default defineConfig({
           include: ['tests/vitest/**/*.node.test.mjs'],
           environment: 'node',
           fileParallelism: false,
+          setupFiles: ['tests/vitest/setup/node.setup.mjs'],
         },
       },
       {
@@ -38,6 +43,7 @@ export default defineConfig({
           include: ['tests/vitest/**/*.dom.test.{js,jsx,mjs,ts,tsx}'],
           environment: 'jsdom',
           fileParallelism: false,
+          setupFiles: ['tests/vitest/setup/jsdom.setup.mjs'],
         },
       },
     ],
