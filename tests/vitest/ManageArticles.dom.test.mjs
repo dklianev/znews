@@ -8,6 +8,8 @@ const toast = {
   error: vi.fn(),
 };
 const confirm = vi.fn(() => Promise.resolve(true));
+const loadArticleRevisions = vi.fn();
+const getById = vi.fn();
 
 let listMode = 'initial';
 
@@ -31,13 +33,25 @@ const restoredDraft = {
   status: 'draft',
 };
 
+const detailFallbackArticle = {
+  id: 88,
+  title: 'Статия без съдържание',
+  category: 'crime',
+  authorId: 1,
+  date: '2026-04-02',
+  readTime: 5,
+  status: 'draft',
+};
+
+const baseListItems = [publishedArticle, detailFallbackArticle];
+
 const listAdmin = vi.fn(async () => (listMode === 'restored'
-  ? { items: [publishedArticle, restoredDraft], total: 2, totalPages: 1, page: 1 }
-  : { items: [publishedArticle], total: 1, totalPages: 1, page: 1 }));
+  ? { items: [...baseListItems, restoredDraft], total: 3, totalPages: 1, page: 1 }
+  : { items: baseListItems, total: 2, totalPages: 1, page: 1 }));
 
 const getAdminMeta = vi.fn(async () => ({
-  total: listMode === 'restored' ? 2 : 1,
-  byCategory: { crime: listMode === 'restored' ? 2 : 1 },
+  total: listMode === 'restored' ? 3 : 2,
+  byCategory: { crime: listMode === 'restored' ? 3 : 2 },
   popularTags: [],
 }));
 
@@ -58,7 +72,7 @@ vi.mock('../../src/context/DataContext', () => ({
   }),
   useAdminData: () => ({
     articleRevisions: {},
-    loadArticleRevisions: vi.fn(),
+    loadArticleRevisions,
     autosaveArticleRevision: vi.fn(),
     restoreArticleRevision: vi.fn(),
   }),
@@ -73,7 +87,7 @@ vi.mock('../../src/utils/api', () => ({
       restore,
       permanentDelete: vi.fn(),
       searchRelatedAdmin: vi.fn(() => Promise.resolve({ items: [] })),
-      getById: vi.fn(),
+      getById,
       getRevision: vi.fn(),
     },
   },
@@ -137,6 +151,18 @@ function findButton(container, label) {
   return Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes(label)) || null;
 }
 
+function findArticleRow(container, title) {
+  const heading = Array.from(container.querySelectorAll('h3')).find((node) => node.textContent?.includes(title));
+  return heading?.closest('div.bg-white') || null;
+}
+
+function findEditButtonForArticle(container, title) {
+  const row = findArticleRow(container, title);
+  if (!row) return null;
+  const buttons = Array.from(row.querySelectorAll('button'));
+  return buttons[3] || null;
+}
+
 async function flush() {
   await Promise.resolve();
   await Promise.resolve();
@@ -180,6 +206,8 @@ describe('ManageArticles', () => {
     getAdminMeta.mockClear();
     listArchived.mockClear();
     restore.mockClear();
+    loadArticleRevisions.mockClear();
+    getById.mockReset();
 
     if (root) {
       act(() => {
@@ -218,6 +246,7 @@ describe('ManageArticles', () => {
     await flush();
 
     expect(container.textContent).toContain('Публикувана статия');
+    expect(container.textContent).toContain('Статия без съдържание');
     expect(container.textContent).not.toContain('Върната чернова');
 
     act(() => {
@@ -247,5 +276,34 @@ describe('ManageArticles', () => {
 
     expect(container.textContent).toContain('Върната чернова');
     expect(listAdmin.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('keeps the editor closed when loading the full article for edit fails', async () => {
+    main = document.createElement('main');
+    container = document.createElement('div');
+    main.appendChild(container);
+    document.body.appendChild(main);
+    root = createRoot(container);
+    installLocalStorageStub();
+    getById.mockRejectedValueOnce(new Error('detail failed'));
+
+    act(() => {
+      root.render(createElement(ManageArticles));
+    });
+    await flush();
+
+    const editButton = findEditButtonForArticle(container, 'Статия без съдържание');
+    expect(editButton).not.toBeNull();
+
+    act(() => {
+      editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flush();
+
+    expect(getById).toHaveBeenCalledWith(88);
+    expect(loadArticleRevisions).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith('Не успяхме да заредим пълната статия за редакция. Опитайте отново.');
+    expect(container.textContent).not.toContain('Редактирай статия');
+    expect(container.textContent).not.toContain('Запази');
   });
 });
