@@ -82,7 +82,7 @@ export const testSuites = [
   { name: 'crossword', run: runCrosswordTests },
   { name: 'spellingBee', run: runSpellingBeeTests },
   { name: 'copyToClipboard', run: runCopyToClipboardTests },
-  { name: 'chunkReload', run: runChunkReloadTests },
+  { name: 'chunkReload', run: runChunkReloadTests, vitestNative: true },
   { name: 'requestIdentity', run: runRequestIdentityTests },
   { name: 'cacheService', run: runCacheServiceTests },
   { name: 'diagnosticsService', run: runDiagnosticsServiceTests },
@@ -138,6 +138,6 @@ export const testSuites = [
   { name: 'apiClientSession', run: runApiClientSessionTests },
   { name: 'blockBust', run: runBlockBustTests },
   { name: 'articleAdminForm', run: runArticleAdminFormTests },
-  { name: 'articleReactions', run: runArticleReactionsTests },
-  { name: 'quizGame', run: runQuizGameTests },
+  { name: 'articleReactions', run: runArticleReactionsTests, vitestNative: true },
+  { name: 'quizGame', run: runQuizGameTests, vitestNative: true },
 ];
