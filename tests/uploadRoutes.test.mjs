@@ -1,3 +1,4 @@
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { registerUploadRoutes } from '../server/routes/uploadRoutes.js';
 
@@ -89,41 +90,43 @@ function createBaseDeps(overrides = {}) {
   };
 }
 
-export async function runUploadRoutesTests() {
-  {
-    const app = createMockApp();
-    registerUploadRoutes(app, createBaseDeps());
-    const handlers = app.routes.get('POST /api/upload');
-    const res = createResponse();
-
-    await runHandlers(handlers, { body: {} }, res);
-
-    assert.equal(res.statusCode, 400);
-    assert.equal(res.body?.error, 'Качи изображение, за да продължиш.');
-    assert.deepEqual(res.body?.fieldErrors, {
-      image: 'Качи изображение, за да продължиш.',
-    });
-  }
-
-  {
-    const app = createMockApp();
-    registerUploadRoutes(app, createBaseDeps({
-      upload: {
-        single() {
-          return (_req, _res, callback) => callback({ code: 'LIMIT_FILE_SIZE', message: 'File too large' });
-        },
-      },
-      uploadMaxFileSizeMb: 12,
-    }));
-    const handlers = app.routes.get('POST /api/upload');
-    const res = createResponse();
-
-    await runHandlers(handlers, { body: {} }, res);
-
-    assert.equal(res.statusCode, 400);
-    assert.equal(res.body?.error, 'Файлът е твърде голям.');
-    assert.deepEqual(res.body?.fieldErrors, {
-      image: 'Качи изображение до 12 MB.',
-    });
-  }
-}
+describe('uploadRoutes', () => {
+  it('covers legacy scenarios', async () => {
+      {
+        const app = createMockApp();
+        registerUploadRoutes(app, createBaseDeps());
+        const handlers = app.routes.get('POST /api/upload');
+        const res = createResponse();
+    
+        await runHandlers(handlers, { body: {} }, res);
+    
+        assert.equal(res.statusCode, 400);
+        assert.equal(res.body?.error, 'Качи изображение, за да продължиш.');
+        assert.deepEqual(res.body?.fieldErrors, {
+          image: 'Качи изображение, за да продължиш.',
+        });
+      }
+    
+      {
+        const app = createMockApp();
+        registerUploadRoutes(app, createBaseDeps({
+          upload: {
+            single() {
+              return (_req, _res, callback) => callback({ code: 'LIMIT_FILE_SIZE', message: 'File too large' });
+            },
+          },
+          uploadMaxFileSizeMb: 12,
+        }));
+        const handlers = app.routes.get('POST /api/upload');
+        const res = createResponse();
+    
+        await runHandlers(handlers, { body: {} }, res);
+    
+        assert.equal(res.statusCode, 400);
+        assert.equal(res.body?.error, 'Файлът е твърде голям.');
+        assert.deepEqual(res.body?.fieldErrors, {
+          image: 'Качи изображение до 12 MB.',
+        });
+      }
+  });
+});

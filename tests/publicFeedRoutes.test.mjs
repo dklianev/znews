@@ -1,3 +1,4 @@
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { registerPublicFeedRoutes } from '../server/routes/publicFeedRoutes.js';
 
@@ -203,99 +204,101 @@ function createDeps(adOptionsSeen) {
   };
 }
 
-export async function runPublicFeedRoutesTests() {
-  {
-    const app = createMockApp();
-    const adOptionsSeen = [];
-    registerPublicFeedRoutes(app, createDeps(adOptionsSeen));
-
-    const handlers = app.routes.get('GET /api/homepage');
-    const res = createResponse();
-    await runHandlers(handlers, { query: { compact: '1' } }, res);
-
-    assert.equal(res.statusCode, 200);
-    assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
-    assert.deepEqual(adOptionsSeen, [{ compact: true }]);
-    assert.ok(Array.isArray(res.body.articlePool));
-    assert.equal(Object.prototype.hasOwnProperty.call(res.body, 'articles'), false);
-    assert.deepEqual(res.body.ads, [{ id: 1, title: 'Ad', placements: ['home.top'] }]);
-  }
-
-  {
-    const app = createMockApp();
-    const adOptionsSeen = [];
-    registerPublicFeedRoutes(app, createDeps(adOptionsSeen));
-
-    const handlers = app.routes.get('GET /api/homepage');
-    const res = createResponse();
-    await runHandlers(handlers, { query: {} }, res);
-
-    assert.equal(res.statusCode, 200);
-    assert.deepEqual(adOptionsSeen, [{ compact: false }]);
-    assert.ok(Array.isArray(res.body.articlePool));
-    assert.deepEqual(res.body.articles, res.body.articlePool);
-  }
-
-  {
-    const app = createMockApp();
-    const adOptionsSeen = [];
-    registerPublicFeedRoutes(app, createDeps(adOptionsSeen));
-
-    const handlers = app.routes.get('GET /api/bootstrap');
-    const res = createResponse();
-    await runHandlers(handlers, { query: { compact: '1' } }, res);
-
-    assert.equal(res.statusCode, 200);
-    assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
-    assert.deepEqual(adOptionsSeen, [{ compact: true }]);
-    assert.ok(Array.isArray(res.body.articles));
-    assert.deepEqual(res.body.ads, [{ id: 1, title: 'Ad', placements: ['home.top'] }]);
-  }
-
-  // Authenticated user with article permissions should still exclude archived articles
-  {
-    const app = createMockApp();
-    const adOptionsSeen = [];
-    const capturedFilters = [];
-    const deps = createDeps(adOptionsSeen);
-    deps.decodeTokenFromRequest = () => ({ userId: 1, name: 'Editor' });
-    deps.hasPermissionForSection = async () => true;
-    deps.fetchHomepageArticleCandidates = async ({ articleFilter }) => {
-      capturedFilters.push(articleFilter);
-      return [{ id: 11, title: 'Lead', excerpt: 'Deck', category: 'crime', publishAt: '2026-03-12T00:00:00.000Z' }];
-    };
-    registerPublicFeedRoutes(app, deps);
-
-    const handlers = app.routes.get('GET /api/homepage');
-    const res = createResponse();
-    await runHandlers(handlers, { query: {} }, res);
-
-    assert.equal(res.statusCode, 200);
-    assert.equal(capturedFilters.length, 1);
-    assert.deepEqual(capturedFilters[0], { status: { $ne: 'archived' } },
-      'authenticated homepage must exclude archived articles');
-  }
-
-  {
-    const app = createMockApp();
-    const adOptionsSeen = [];
-    const capturedFilters = [];
-    const deps = createDeps(adOptionsSeen);
-    deps.decodeTokenFromRequest = () => ({ userId: 1, name: 'Editor' });
-    deps.hasPermissionForSection = async () => true;
-    deps.findArticlesByRecency = async (filter) => {
-      capturedFilters.push(filter);
-      return [{ id: 22, title: 'Story' }];
-    };
-    registerPublicFeedRoutes(app, deps);
-
-    const handlers = app.routes.get('GET /api/bootstrap');
-    const res = createResponse();
-    await runHandlers(handlers, { query: {} }, res);
-
-    assert.equal(res.statusCode, 200);
-    assert.equal(capturedFilters.length, 1);
-    assert.deepEqual(capturedFilters[0], { status: { $ne: 'archived' } },
-      'authenticated bootstrap must exclude archived articles');
-  }
-}
+describe('publicFeedRoutes', () => {
+  it('covers legacy scenarios', async () => {
+      {
+        const app = createMockApp();
+        const adOptionsSeen = [];
+        registerPublicFeedRoutes(app, createDeps(adOptionsSeen));
+    
+        const handlers = app.routes.get('GET /api/homepage');
+        const res = createResponse();
+        await runHandlers(handlers, { query: { compact: '1' } }, res);
+    
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
+        assert.deepEqual(adOptionsSeen, [{ compact: true }]);
+        assert.ok(Array.isArray(res.body.articlePool));
+        assert.equal(Object.prototype.hasOwnProperty.call(res.body, 'articles'), false);
+        assert.deepEqual(res.body.ads, [{ id: 1, title: 'Ad', placements: ['home.top'] }]);
+      }
+    
+      {
+        const app = createMockApp();
+        const adOptionsSeen = [];
+        registerPublicFeedRoutes(app, createDeps(adOptionsSeen));
+    
+        const handlers = app.routes.get('GET /api/homepage');
+        const res = createResponse();
+        await runHandlers(handlers, { query: {} }, res);
+    
+        assert.equal(res.statusCode, 200);
+        assert.deepEqual(adOptionsSeen, [{ compact: false }]);
+        assert.ok(Array.isArray(res.body.articlePool));
+        assert.deepEqual(res.body.articles, res.body.articlePool);
+      }
+    
+      {
+        const app = createMockApp();
+        const adOptionsSeen = [];
+        registerPublicFeedRoutes(app, createDeps(adOptionsSeen));
+    
+        const handlers = app.routes.get('GET /api/bootstrap');
+        const res = createResponse();
+        await runHandlers(handlers, { query: { compact: '1' } }, res);
+    
+        assert.equal(res.statusCode, 200);
+        assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
+        assert.deepEqual(adOptionsSeen, [{ compact: true }]);
+        assert.ok(Array.isArray(res.body.articles));
+        assert.deepEqual(res.body.ads, [{ id: 1, title: 'Ad', placements: ['home.top'] }]);
+      }
+    
+      // Authenticated user with article permissions should still exclude archived articles
+      {
+        const app = createMockApp();
+        const adOptionsSeen = [];
+        const capturedFilters = [];
+        const deps = createDeps(adOptionsSeen);
+        deps.decodeTokenFromRequest = () => ({ userId: 1, name: 'Editor' });
+        deps.hasPermissionForSection = async () => true;
+        deps.fetchHomepageArticleCandidates = async ({ articleFilter }) => {
+          capturedFilters.push(articleFilter);
+          return [{ id: 11, title: 'Lead', excerpt: 'Deck', category: 'crime', publishAt: '2026-03-12T00:00:00.000Z' }];
+        };
+        registerPublicFeedRoutes(app, deps);
+    
+        const handlers = app.routes.get('GET /api/homepage');
+        const res = createResponse();
+        await runHandlers(handlers, { query: {} }, res);
+    
+        assert.equal(res.statusCode, 200);
+        assert.equal(capturedFilters.length, 1);
+        assert.deepEqual(capturedFilters[0], { status: { $ne: 'archived' } },
+          'authenticated homepage must exclude archived articles');
+      }
+    
+      {
+        const app = createMockApp();
+        const adOptionsSeen = [];
+        const capturedFilters = [];
+        const deps = createDeps(adOptionsSeen);
+        deps.decodeTokenFromRequest = () => ({ userId: 1, name: 'Editor' });
+        deps.hasPermissionForSection = async () => true;
+        deps.findArticlesByRecency = async (filter) => {
+          capturedFilters.push(filter);
+          return [{ id: 22, title: 'Story' }];
+        };
+        registerPublicFeedRoutes(app, deps);
+    
+        const handlers = app.routes.get('GET /api/bootstrap');
+        const res = createResponse();
+        await runHandlers(handlers, { query: {} }, res);
+    
+        assert.equal(res.statusCode, 200);
+        assert.equal(capturedFilters.length, 1);
+        assert.deepEqual(capturedFilters[0], { status: { $ne: 'archived' } },
+          'authenticated bootstrap must exclude archived articles');
+      }
+  });
+});

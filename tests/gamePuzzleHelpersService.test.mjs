@@ -1,3 +1,4 @@
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { createGamePuzzleHelpers } from '../server/services/gamePuzzleHelpersService.js';
 
@@ -63,43 +64,45 @@ function createHelpers() {
   });
 }
 
-export async function runGamePuzzleHelpersTests() {
-  const helpers = createHelpers();
-
-  assert.deepEqual(
-    helpers.normalizeCrosswordSubmissionGrid([
-      ['a', 'b'],
-      ['#', ''],
-    ], ['..', '#.']),
-    ['AB', '#.']
-  );
-
-  const publishedWord = helpers.sanitizeGamePuzzleInput(
-    { slug: 'word', type: 'word' },
-    {
-      puzzleDate: '2026-03-11',
-      activeUntilDate: '2026-03-11',
-      status: 'published',
-      difficulty: 'easy',
-      payload: { wordLength: 5, maxAttempts: 6, keyboardLayout: 'bg' },
-      solution: { answer: 'теста', allowedWords: ['теста'] },
-    }
-  );
-  assert.equal(publishedWord.gameSlug, 'word');
-  assert.equal(publishedWord.status, 'published');
-  assert.ok(publishedWord.publishAt instanceof Date);
-
-  assert.throws(() => {
-    helpers.sanitizeGamePuzzleInput(
-      { slug: 'word', type: 'word' },
-      {
-        puzzleDate: '2026-03-11',
-        activeUntilDate: '2026-03-11',
-        status: 'published',
-        difficulty: 'easy',
-        payload: { wordLength: 5, maxAttempts: 6 },
-        solution: { answer: 'ДУМА1', allowedWords: ['ДУМА1'] },
-      }
-    );
-  }, /Replace the placeholder game content before publishing\./);
-}
+describe('gamePuzzleHelpersService', () => {
+  it('covers legacy scenarios', async () => {
+      const helpers = createHelpers();
+    
+      assert.deepEqual(
+        helpers.normalizeCrosswordSubmissionGrid([
+          ['a', 'b'],
+          ['#', ''],
+        ], ['..', '#.']),
+        ['AB', '#.']
+      );
+    
+      const publishedWord = helpers.sanitizeGamePuzzleInput(
+        { slug: 'word', type: 'word' },
+        {
+          puzzleDate: '2026-03-11',
+          activeUntilDate: '2026-03-11',
+          status: 'published',
+          difficulty: 'easy',
+          payload: { wordLength: 5, maxAttempts: 6, keyboardLayout: 'bg' },
+          solution: { answer: 'теста', allowedWords: ['теста'] },
+        }
+      );
+      assert.equal(publishedWord.gameSlug, 'word');
+      assert.equal(publishedWord.status, 'published');
+      assert.ok(publishedWord.publishAt instanceof Date);
+    
+      assert.throws(() => {
+        helpers.sanitizeGamePuzzleInput(
+          { slug: 'word', type: 'word' },
+          {
+            puzzleDate: '2026-03-11',
+            activeUntilDate: '2026-03-11',
+            status: 'published',
+            difficulty: 'easy',
+            payload: { wordLength: 5, maxAttempts: 6 },
+            solution: { answer: 'ДУМА1', allowedWords: ['ДУМА1'] },
+          }
+        );
+      }, /Replace the placeholder game content before publishing\./);
+  });
+});

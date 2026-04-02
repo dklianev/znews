@@ -1,11 +1,14 @@
+import { describe, it } from 'vitest';
 import assert from 'assert';
 import { createRemoteStorageService } from '../server/services/remoteStorageService.js';
 
-export async function runRemoteStorageServiceTests() {
-  await testAzureBlobListingParsesKeysAndMetadata();
-  await testAzureBlobListingSupportsPagination();
-  await testAzureBlobListingIncludesResponseTextOnFailure();
-}
+describe('remoteStorageService', () => {
+  it('covers legacy scenarios', async () => {
+      await testAzureBlobListingParsesKeysAndMetadata();
+      await testAzureBlobListingSupportsPagination();
+      await testAzureBlobListingIncludesResponseTextOnFailure();
+  });
+});
 
 async function testAzureBlobListingParsesKeysAndMetadata() {
   const responses = [

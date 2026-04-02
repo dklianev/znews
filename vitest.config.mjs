@@ -30,8 +30,9 @@ export default defineConfig({
     projects: [
       {
         test: {
-          name: 'legacy-node',
-          include: ['tests/vitest/**/*.node.test.mjs'],
+          name: 'node',
+          include: ['tests/**/*.test.mjs'],
+          exclude: ['tests/vitest/**/*.dom.test.{js,jsx,mjs,ts,tsx}'],
           environment: 'node',
           fileParallelism: false,
           setupFiles: ['tests/vitest/setup/node.setup.mjs'],

@@ -1,3 +1,4 @@
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import { createGameSharedHelpers } from '../server/services/gameSharedHelpersService.js';
 
@@ -17,45 +18,47 @@ function createHelpers() {
   });
 }
 
-export async function runGameSharedHelpersServiceTests() {
-  const helpers = createHelpers();
-
-  const blockBustPayload = helpers.sanitizeGameDefinitionInput({
-    slug: 'blockbust',
-    type: 'blockbust',
-    title: 'ZBlast',
-    description: 'Поставяй три фигури върху 8x8 полето.',
-    icon: 'Blocks',
-    active: true,
-    sortOrder: 12,
-    theme: 'orange',
+describe('gameSharedHelpersService', () => {
+  it('covers legacy scenarios', async () => {
+      const helpers = createHelpers();
+    
+      const blockBustPayload = helpers.sanitizeGameDefinitionInput({
+        slug: 'blockbust',
+        type: 'blockbust',
+        title: 'ZBlast',
+        description: 'Поставяй три фигури върху 8x8 полето.',
+        icon: 'Blocks',
+        active: true,
+        sortOrder: 12,
+        theme: 'orange',
+      });
+    
+      assert.equal(blockBustPayload.slug, 'blockbust');
+      assert.equal(blockBustPayload.type, 'blockbust');
+      assert.equal(blockBustPayload.title, 'ZBlast');
+    
+      const updatedTetris = helpers.sanitizeGameDefinitionInput(
+        {
+          title: 'Тетрис Класик',
+          description: 'Обновено описание',
+          active: false,
+        },
+        {
+          slug: 'tetris',
+          type: 'tetris',
+          title: 'Тетрис',
+          description: 'Старо описание',
+          icon: 'Blocks',
+          active: true,
+          sortOrder: 8,
+          theme: 'purple',
+        }
+      );
+    
+      assert.equal(updatedTetris.slug, 'tetris');
+      assert.equal(updatedTetris.type, 'tetris');
+      assert.equal(updatedTetris.title, 'Тетрис Класик');
+      assert.equal(updatedTetris.description, 'Обновено описание');
+      assert.equal(updatedTetris.active, false);
   });
-
-  assert.equal(blockBustPayload.slug, 'blockbust');
-  assert.equal(blockBustPayload.type, 'blockbust');
-  assert.equal(blockBustPayload.title, 'ZBlast');
-
-  const updatedTetris = helpers.sanitizeGameDefinitionInput(
-    {
-      title: 'Тетрис Класик',
-      description: 'Обновено описание',
-      active: false,
-    },
-    {
-      slug: 'tetris',
-      type: 'tetris',
-      title: 'Тетрис',
-      description: 'Старо описание',
-      icon: 'Blocks',
-      active: true,
-      sortOrder: 8,
-      theme: 'purple',
-    }
-  );
-
-  assert.equal(updatedTetris.slug, 'tetris');
-  assert.equal(updatedTetris.type, 'tetris');
-  assert.equal(updatedTetris.title, 'Тетрис Класик');
-  assert.equal(updatedTetris.description, 'Обновено описание');
-  assert.equal(updatedTetris.active, false);
-}
+});
