@@ -32,10 +32,10 @@ export default function ArticleReactions({ articleId, reactions }) {
   const busyRef = useRef(false);
   const prevReactionsRef = useRef(safeReactions);
 
-  const syncCountsFromReactions = (nextReactions) => {
+  const syncCountsFromReactions = useCallback((nextReactions) => {
     const nextCounts = buildArticleReactionCounts(nextReactions);
     setCounts((prev) => (areArticleReactionCountsEqual(prev, nextCounts) ? prev : nextCounts));
-  };
+  }, []);
 
   useEffect(() => {
     syncCountsFromReactions(safeReactions);
@@ -77,9 +77,7 @@ export default function ArticleReactions({ articleId, reactions }) {
           };
         });
       })
-      .catch(() => {
-        if (!cancelled) setReacted((prev) => prev);
-      })
+      .catch(() => {})
       .finally(() => {
         if (!cancelled) setStateLoading(false);
       });
@@ -142,7 +140,7 @@ export default function ArticleReactions({ articleId, reactions }) {
       busyRef.current = false;
       setBusyKey(null);
     }
-  }, [articleId, reacted, stateLoading]);
+  }, [articleId, reacted, stateLoading, syncCountsFromReactions]);
 
   const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
 

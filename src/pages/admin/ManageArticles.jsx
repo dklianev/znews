@@ -907,7 +907,7 @@ export default function ManageArticles() {
       setShowArchived(false);
       setCurrentPage(1);
       refreshList();
-      void refresh().catch(() => {});
+      void refresh().catch((err) => { console.warn('Refresh after restore failed:', err); });
       toast.success('Статията е възстановена като чернова');
     } catch {
       toast.error('Грешка при възстановяване');

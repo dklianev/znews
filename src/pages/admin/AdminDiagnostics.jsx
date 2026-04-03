@@ -79,7 +79,7 @@ function formatJobStatus(job) {
 }
 
 function extractReactErrorCode(message) {
-  const match = String(message || '').match(/React error #(\d+)|#(\d+)/i);
+  const match = String(message || '').match(/React error #(\d+)|Minified React error #(\d+)/i);
   const code = match?.[1] || match?.[2];
   return code ? `React #${code}` : '';
 }
@@ -504,18 +504,18 @@ export default function AdminDiagnostics() {
                       <pre className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600">{getMonitoringComponentStack(event)}</pre>
                     </details>
                   ) : null}
-                  {getMonitoringErrorStack(event) ? (
+                  {(() => { const stack = getMonitoringErrorStack(event); return stack ? (
                     <details className="rounded border border-gray-200 bg-gray-50 px-2 py-1.5">
                       <summary className="cursor-pointer font-semibold text-gray-700">JS стек</summary>
-                      <pre className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600">{getMonitoringErrorStack(event)}</pre>
+                      <pre className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600">{stack}</pre>
                     </details>
-                  ) : null}
-                  {getMonitoringContext(event) ? (
+                  ) : null; })()}
+                  {(() => { const ctx = getMonitoringContext(event); return ctx ? (
                     <details className="rounded border border-gray-200 bg-gray-50 px-2 py-1.5">
                       <summary className="cursor-pointer font-semibold text-gray-700">Контекст</summary>
-                      <pre className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600">{getMonitoringContext(event)}</pre>
+                      <pre className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600">{ctx}</pre>
                     </details>
-                  ) : null}
+                  ) : null; })()}
                 </div>
               </div>
             ))}
