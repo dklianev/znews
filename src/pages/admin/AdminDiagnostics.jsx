@@ -53,8 +53,56 @@ function formatPercent(value) {
 
 function formatCacheStatus(value) {
   const normalized = String(value || '').trim().toUpperCase();
-  if (!normalized || normalized === 'SKIP') return 'not cached';
+  if (!normalized || normalized === 'SKIP') return 'без кеш';
+  if (normalized === 'HIT') return 'от кеш';
+  if (normalized === 'MISS') return 'пропуск';
+  if (normalized === 'WRITE') return 'запис';
   return normalized.toLowerCase();
+}
+
+function formatMongoState(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return '-';
+  if (normalized === 'unknown') return 'непознат';
+  if (normalized === 'connected') return 'свързан';
+  if (normalized === 'connecting') return 'свързване';
+  if (normalized === 'disconnected') return 'разкачен';
+  if (normalized === 'disconnecting') return 'разкачане';
+  if (normalized === 'error') return 'грешка';
+  return normalized;
+}
+
+function formatJobStatus(job) {
+  if (job?.running) return 'работи';
+  if (Number(job?.failureCount || 0) > 0) return 'с проблеми';
+  return 'изчаква';
+}
+
+function extractReactErrorCode(message) {
+  const match = String(message || '').match(/React error #(\d+)|#(\d+)/i);
+  const code = match?.[1] || match?.[2];
+  return code ? `React #${code}` : '';
+}
+
+function formatMonitoringFingerprint(value) {
+  const fingerprint = String(value || '').trim();
+  if (!fingerprint) return '-';
+  return fingerprint.slice(0, 12);
+}
+
+function getMonitoringContext(event) {
+  const metadata = event?.metadata && typeof event.metadata === 'object' ? event.metadata : {};
+  const extra = metadata?.extra && typeof metadata.extra === 'object' ? { ...metadata.extra } : {};
+  delete extra.componentStack;
+
+  const context = {};
+
+  if (metadata.userAgent) context.userAgent = metadata.userAgent;
+  if (Object.keys(extra).length > 0) context.extra = extra;
+
+  return Object.keys(context).length > 0
+    ? JSON.stringify(context, null, 2)
+    : '';
 }
 
 function StatusPill({ tone = 'neutral', children }) {
@@ -100,7 +148,7 @@ export default function AdminDiagnostics() {
       const next = await api.diagnostics.get();
       setPayload(next);
     } catch (fetchError) {
-      setError(fetchError?.message || 'Failed to load diagnostics data.');
+      setError(fetchError?.message || 'Не успяхме да заредим диагностичните данни.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -153,7 +201,7 @@ export default function AdminDiagnostics() {
       <div className="p-8">
         <div className="flex items-center gap-3 text-sm font-sans text-gray-500">
           <RefreshCw className="h-4 w-4 animate-spin" />
-          Loading diagnostics...
+          Зареждане на диагностика...
         </div>
       </div>
     );
@@ -163,8 +211,8 @@ export default function AdminDiagnostics() {
     <div className="p-8 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Diagnostics</h1>
-          <p className="mt-1 text-sm font-sans text-gray-500">Health, cache, jobs, media pipeline, and recent error activity.</p>
+          <h1 className="text-2xl font-display font-bold text-gray-900">Диагностика</h1>
+          <p className="mt-1 text-sm font-sans text-gray-500">Здраве на системата, кеша, фоновите задачи, медийната опашка и последните грешки.</p>
         </div>
         <button
           type="button"
@@ -172,7 +220,7 @@ export default function AdminDiagnostics() {
           className="inline-flex items-center gap-2 border border-gray-200 px-4 py-2 text-sm font-sans font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
         >
           <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : 'Refresh'}
+          {refreshing ? 'Обновяване...' : 'Обнови'}
         </button>
       </div>
 
@@ -184,46 +232,46 @@ export default function AdminDiagnostics() {
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={Database} label="Mongo" value={mongoState} hint={payload?.mongo?.name || 'database'} tone={mongoTone} />
-        <StatCard icon={Activity} label="Uptime" value={formatUptime(payload?.app?.uptimeSeconds)} hint={`Env: ${payload?.app?.env || 'unknown'}`} tone="neutral" />
-        <StatCard icon={HardDrive} label="Cache Keys" value={String(payload?.cache?.keyCount ?? 0)} hint={`TTL ${payload?.cache?.ttlSeconds ?? 0}s`} tone="neutral" />
-        <StatCard icon={ShieldAlert} label="Job Failures" value={String(jobFailures)} hint={`${(payload?.jobs || []).length || 0} jobs tracked`} tone={jobFailures > 0 ? 'warn' : 'good'} />
+        <StatCard icon={Database} label="Mongo" value={formatMongoState(mongoState)} hint={payload?.mongo?.name || 'база данни'} tone={mongoTone} />
+        <StatCard icon={Activity} label="Време онлайн" value={formatUptime(payload?.app?.uptimeSeconds)} hint={`Среда: ${payload?.app?.env || 'непозната'}`} tone="neutral" />
+        <StatCard icon={HardDrive} label="Кеш ключове" value={String(payload?.cache?.keyCount ?? 0)} hint={`TTL ${payload?.cache?.ttlSeconds ?? 0} сек.`} tone="neutral" />
+        <StatCard icon={ShieldAlert} label="Проблемни задачи" value={String(jobFailures)} hint={`${(payload?.jobs || []).length || 0} следени задачи`} tone={jobFailures > 0 ? 'warn' : 'good'} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <section className="bg-white border border-gray-200 p-5 xl:col-span-1">
-          <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Service</h2>
+          <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Услуга</h2>
           <div className="mt-4 space-y-3 text-sm font-sans text-gray-700">
             <div className="flex items-center justify-between gap-4">
-              <span>Generated</span>
+              <span>Генерирано</span>
               <span className="font-semibold">{formatDateTime(payload?.generatedAt)}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span>Heap Used</span>
+              <span>Използван heap</span>
               <span className="font-semibold">{formatMemory(payload?.app?.memory?.heapUsed)}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span>Storage Driver</span>
+              <span>Драйвер за файлове</span>
               <span className="font-semibold">{payload?.storage?.driver || '-'}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span>Remote Storage</span>
-              <StatusPill tone={payload?.storage?.remote ? 'good' : 'neutral'}>{payload?.storage?.remote ? 'Yes' : 'No'}</StatusPill>
+              <span>Отдалечено съхранение</span>
+              <StatusPill tone={payload?.storage?.remote ? 'good' : 'neutral'}>{payload?.storage?.remote ? 'Да' : 'Не'}</StatusPill>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span>Media Pipeline</span>
-              <StatusPill tone={mediaPending > 0 ? 'warn' : 'good'}>{mediaReady} ready / {mediaPending} pending</StatusPill>
+              <span>Медийна опашка</span>
+              <StatusPill tone={mediaPending > 0 ? 'warn' : 'good'}>{mediaReady} готови / {mediaPending} чакащи</StatusPill>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span>Upload Dedup Cache</span>
+              <span>Кеш за дедупликация</span>
               <span className="font-semibold">{payload?.storage?.uploadDedupCacheSize ?? 0}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span>Inflight Uploads</span>
+              <span>Активни качвания</span>
               <span className="font-semibold">{payload?.storage?.uploadInFlight ?? 0}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span>Request Metrics Since</span>
+              <span>Метрики на заявките от</span>
               <span className="font-semibold">{formatDateTime(payload?.requestMetrics?.startedAt)}</span>
             </div>
           </div>
@@ -231,18 +279,18 @@ export default function AdminDiagnostics() {
 
         <section className="bg-white border border-gray-200 p-5 xl:col-span-2">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Background Jobs</h2>
-            <StatusPill tone={(payload?.jobs || []).some((job) => job.running) ? 'warn' : 'neutral'}>{(payload?.jobs || []).filter((job) => job.running).length} running</StatusPill>
+            <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Фонови задачи</h2>
+            <StatusPill tone={(payload?.jobs || []).some((job) => job.running) ? 'warn' : 'neutral'}>{(payload?.jobs || []).filter((job) => job.running).length} активни</StatusPill>
           </div>
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full text-sm font-sans">
               <thead>
                 <tr className="border-b border-gray-200 text-left text-[11px] uppercase tracking-wider text-gray-500">
-                  <th className="pb-2 pr-4">Job</th>
-                  <th className="pb-2 pr-4">Status</th>
-                  <th className="pb-2 pr-4">Last Success</th>
-                  <th className="pb-2 pr-4">Runs</th>
-                  <th className="pb-2">Message</th>
+                  <th className="pb-2 pr-4">Задача</th>
+                  <th className="pb-2 pr-4">Статус</th>
+                  <th className="pb-2 pr-4">Последен успех</th>
+                  <th className="pb-2 pr-4">Пускания</th>
+                  <th className="pb-2">Съобщение</th>
                 </tr>
               </thead>
               <tbody>
@@ -251,7 +299,7 @@ export default function AdminDiagnostics() {
                     <td className="py-3 pr-4 font-semibold text-gray-900">{job.name}</td>
                     <td className="py-3 pr-4">
                       <StatusPill tone={job.running ? 'warn' : Number(job.failureCount || 0) > 0 ? 'warn' : 'good'}>
-                        {job.running ? 'running' : 'idle'}
+                        {formatJobStatus(job)}
                       </StatusPill>
                     </td>
                     <td className="py-3 pr-4 text-gray-600">{formatDateTime(job.lastSuccessAt)}</td>
@@ -261,7 +309,7 @@ export default function AdminDiagnostics() {
                 ))}
                 {(payload?.jobs || []).length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-4 text-center text-sm text-gray-400">No background jobs tracked yet.</td>
+                    <td colSpan={5} className="py-4 text-center text-sm text-gray-400">Все още няма регистрирани фонови задачи.</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -272,43 +320,43 @@ export default function AdminDiagnostics() {
 
       <section className="bg-white border border-gray-200 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Request Metrics</h2>
-          <StatusPill tone={slowRequests.length > 0 ? 'warn' : 'good'}>{formatInteger(requestSummary.requests ?? 0)} tracked</StatusPill>
+          <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Метрики на заявките</h2>
+          <StatusPill tone={slowRequests.length > 0 ? 'warn' : 'good'}>{formatInteger(requestSummary.requests ?? 0)} проследени</StatusPill>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div className="border border-gray-100 bg-gray-50 px-4 py-3">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Requests</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Заявки</p>
             <p className="mt-2 text-xl font-display font-black text-gray-900">{formatInteger(requestSummary.requests ?? 0)}</p>
           </div>
           <div className="border border-gray-100 bg-gray-50 px-4 py-3">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Errors</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Грешки</p>
             <p className="mt-2 text-xl font-display font-black text-gray-900">{formatInteger(requestSummary.errors ?? 0)}</p>
           </div>
           <div className="border border-gray-100 bg-gray-50 px-4 py-3">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Cache Hit Rate</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Кеш успеваемост</p>
             <p className="mt-2 text-xl font-display font-black text-gray-900">{formatPercent(requestSummary.hitRate)}</p>
           </div>
           <div className="border border-gray-100 bg-gray-50 px-4 py-3">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Slow Requests</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Бавни заявки</p>
             <p className="mt-2 text-xl font-display font-black text-gray-900">{formatInteger(slowRequests.length)}</p>
           </div>
           <div className="border border-gray-100 bg-gray-50 px-4 py-3">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Slow Threshold</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Праг за бавна заявка</p>
             <p className="mt-2 text-xl font-display font-black text-gray-900">{payload?.requestMetrics?.slowRequestThresholdMs ?? 0} ms</p>
           </div>
         </div>
         <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
           <div className="overflow-x-auto">
-            <p className="mb-2 text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Slowest Groups</p>
+            <p className="mb-2 text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Най-бавни групи</p>
             <table className="min-w-full text-sm font-sans">
               <thead>
                 <tr className="border-b border-gray-200 text-left text-[11px] uppercase tracking-wider text-gray-500">
-                  <th className="pb-2 pr-4">Group</th>
-                  <th className="pb-2 pr-4">Count</th>
-                  <th className="pb-2 pr-4">Avg</th>
-                  <th className="pb-2 pr-4">Max</th>
-                  <th className="pb-2 pr-4">Errors</th>
-                  <th className="pb-2">Cache</th>
+                  <th className="pb-2 pr-4">Група</th>
+                  <th className="pb-2 pr-4">Брой</th>
+                  <th className="pb-2 pr-4">Средно</th>
+                  <th className="pb-2 pr-4">Макс</th>
+                  <th className="pb-2 pr-4">Грешки</th>
+                  <th className="pb-2">Кеш</th>
                 </tr>
               </thead>
               <tbody>
@@ -319,26 +367,26 @@ export default function AdminDiagnostics() {
                     <td className="py-3 pr-4 text-gray-600">{group.avgDurationMs} ms</td>
                     <td className="py-3 pr-4 text-gray-600">{group.maxDurationMs} ms</td>
                     <td className="py-3 pr-4 text-gray-600">{group.errorCount || 0}</td>
-                    <td className="py-3 text-gray-600">{group.cacheHits || 0} hit / {group.cacheMisses || 0} miss</td>
+                    <td className="py-3 text-gray-600">{group.cacheHits || 0} хита / {group.cacheMisses || 0} пропуска</td>
                   </tr>
                 ))}
                 {requestGroups.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-4 text-center text-sm text-gray-400">No request metrics captured yet.</td>
+                    <td colSpan={6} className="py-4 text-center text-sm text-gray-400">Все още няма събрани метрики за заявки.</td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
           </div>
           <div className="overflow-x-auto">
-            <p className="mb-2 text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Top Error Groups</p>
+            <p className="mb-2 text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Групи с най-много грешки</p>
             <table className="min-w-full text-sm font-sans">
               <thead>
                 <tr className="border-b border-gray-200 text-left text-[11px] uppercase tracking-wider text-gray-500">
-                  <th className="pb-2 pr-4">Group</th>
-                  <th className="pb-2 pr-4">Errors</th>
-                  <th className="pb-2 pr-4">Last Error</th>
-                  <th className="pb-2">Last Error Path</th>
+                  <th className="pb-2 pr-4">Група</th>
+                  <th className="pb-2 pr-4">Грешки</th>
+                  <th className="pb-2 pr-4">Последен статус</th>
+                  <th className="pb-2">Последен път</th>
                 </tr>
               </thead>
               <tbody>
@@ -352,7 +400,7 @@ export default function AdminDiagnostics() {
                 ))}
                 {topErrorGroups.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-4 text-center text-sm text-gray-400">No error groups captured.</td>
+                    <td colSpan={4} className="py-4 text-center text-sm text-gray-400">Няма групи с грешки.</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -361,7 +409,7 @@ export default function AdminDiagnostics() {
         </div>
         <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
           <div className="space-y-2">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Recent Slow Requests</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Последни бавни заявки</p>
             {slowRequests.map((entry, index) => (
               <div key={`${entry.at}-${index}`} className="border border-gray-100 px-3 py-2 text-xs font-sans text-gray-600">
                 <div className="flex items-center justify-between gap-3">
@@ -371,10 +419,10 @@ export default function AdminDiagnostics() {
                 <p className="mt-1">{entry.method} {entry.path} | {entry.statusCode} | {formatCacheStatus(entry.cacheStatus)}</p>
               </div>
             ))}
-            {slowRequests.length === 0 ? <p className="text-sm font-sans text-gray-400">No slow requests captured.</p> : null}
+            {slowRequests.length === 0 ? <p className="text-sm font-sans text-gray-400">Няма записани бавни заявки.</p> : null}
           </div>
           <div className="space-y-2">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Recent Error Requests</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Последни грешни заявки</p>
             {recentErrorRequests.map((entry, index) => (
               <div key={`${entry.at}-${index}`} className="border border-gray-100 px-3 py-2 text-xs font-sans text-gray-600">
                 <div className="flex items-center justify-between gap-3">
@@ -384,27 +432,27 @@ export default function AdminDiagnostics() {
                 <p className="mt-1">{entry.method} {entry.path} | {entry.durationMs} ms | {formatCacheStatus(entry.cacheStatus)}</p>
               </div>
             ))}
-            {recentErrorRequests.length === 0 ? <p className="text-sm font-sans text-gray-400">No recent error requests captured.</p> : null}
+            {recentErrorRequests.length === 0 ? <p className="text-sm font-sans text-gray-400">Няма последни грешни заявки.</p> : null}
           </div>
         </div>
       </section>
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <section className="bg-white border border-gray-200 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Cache Tags</h2>
+            <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Кеш тагове</h2>
             <StatusPill tone={Number(cachePerformance.hitRate || 0) >= 0.6 ? 'good' : Number(cachePerformance.hitRate || 0) > 0 ? 'warn' : 'neutral'}>{formatPercent(cachePerformance.hitRate)}</StatusPill>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-sans text-gray-700">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Hits</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Хитове</span>
               <p className="mt-1 font-semibold text-gray-900">{cachePerformance.hits ?? 0}</p>
             </div>
             <div className="border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-sans text-gray-700">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Misses</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Пропуски</span>
               <p className="mt-1 font-semibold text-gray-900">{cachePerformance.misses ?? 0}</p>
             </div>
             <div className="border border-gray-100 bg-gray-50 px-3 py-2 text-sm font-sans text-gray-700">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Writes</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Записи</span>
               <p className="mt-1 font-semibold text-gray-900">{cachePerformance.writes ?? 0}</p>
             </div>
           </div>
@@ -415,39 +463,41 @@ export default function AdminDiagnostics() {
                 <span className="font-semibold">{count}</span>
               </div>
             ))}
-            {cacheTagRows.length === 0 ? <p className="text-sm font-sans text-gray-400">No cache tag data yet.</p> : null}
+            {cacheTagRows.length === 0 ? <p className="text-sm font-sans text-gray-400">Все още няма данни за кеш тагове.</p> : null}
           </div>
           <div className="mt-5 space-y-2">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Recent Invalidations</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Последни инвалидирания</p>
             {(payload?.cache?.recentInvalidations || []).map((entry, index) => (
               <div key={`${entry.at}-${index}`} className="border border-gray-100 px-3 py-2 text-xs font-sans text-gray-600">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="font-semibold text-gray-800">{entry.reason || 'manual'}</span>
+                  <span className="font-semibold text-gray-800">{entry.reason || 'ръчно'}</span>
                   <span>{formatDateTime(entry.at)}</span>
                 </div>
-                <p className="mt-1">{entry.keyCount || 0} keys via {(entry.tags || []).join(', ') || 'pattern'}</p>
+                <p className="mt-1">{entry.keyCount || 0} ключа през {(entry.tags || []).join(', ') || 'шаблон'}</p>
               </div>
             ))}
-            {(payload?.cache?.recentInvalidations || []).length === 0 ? <p className="text-sm font-sans text-gray-400">No recent invalidations recorded.</p> : null}
+            {(payload?.cache?.recentInvalidations || []).length === 0 ? <p className="text-sm font-sans text-gray-400">Няма последни инвалидирания.</p> : null}
           </div>
         </section>
 
         <section className="bg-white border border-gray-200 p-5">
-          <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Monitoring</h2>
+          <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Мониторинг</h2>
           <div className="mt-4 space-y-3">
             {(payload?.monitoring?.recentErrors || []).map((event) => (
               <div key={event.fingerprint} className="border border-gray-100 px-3 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <StatusPill tone={event.level === 'error' ? 'bad' : event.level === 'warn' ? 'warn' : 'neutral'}>{event.level}</StatusPill>
-                    <span className="text-xs font-sans font-semibold text-gray-800">{event.source} / {event.component || 'general'}</span>
+                    <span className="text-xs font-sans font-semibold text-gray-800">{event.source} / {event.component || 'общо'}</span>
+                    {extractReactErrorCode(event?.message) ? <StatusPill tone="warn">{extractReactErrorCode(event?.message)}</StatusPill> : null}
                   </div>
                   <span className="text-[11px] font-sans text-gray-500">{formatDateTime(event.lastSeenAt)}</span>
                 </div>
                 <p className="mt-2 text-sm font-sans text-gray-700">{event.message}</p>
-                <p className="mt-1 text-[11px] font-sans text-gray-500">Seen {event.count || 1} times</p>
+                <p className="mt-1 text-[11px] font-sans text-gray-500">Видяна {event.count || 1} пъти</p>
                 <div className="mt-2 space-y-1 text-[11px] font-sans text-gray-500">
                   <p><span className="font-semibold text-gray-700">Път:</span> {formatMonitoringPathname(event?.metadata?.pathname)}</p>
+                  <p><span className="font-semibold text-gray-700">ID:</span> {formatMonitoringFingerprint(event?.fingerprint)}</p>
                   {getMonitoringComponentStack(event) ? (
                     <details className="rounded border border-gray-200 bg-gray-50 px-2 py-1.5">
                       <summary className="cursor-pointer font-semibold text-gray-700">Компонентен стек</summary>
@@ -460,30 +510,36 @@ export default function AdminDiagnostics() {
                       <pre className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600">{getMonitoringErrorStack(event)}</pre>
                     </details>
                   ) : null}
+                  {getMonitoringContext(event) ? (
+                    <details className="rounded border border-gray-200 bg-gray-50 px-2 py-1.5">
+                      <summary className="cursor-pointer font-semibold text-gray-700">Контекст</summary>
+                      <pre className="mt-2 whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-600">{getMonitoringContext(event)}</pre>
+                    </details>
+                  ) : null}
                 </div>
               </div>
             ))}
-            {(payload?.monitoring?.recentErrors || []).length === 0 ? <p className="text-sm font-sans text-gray-400">No recent monitoring events.</p> : null}
+            {(payload?.monitoring?.recentErrors || []).length === 0 ? <p className="text-sm font-sans text-gray-400">Няма последни събития от мониторинга.</p> : null}
           </div>
         </section>
       </div>
 
       <section className="bg-white border border-gray-200 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Ad Analytics Rollup</h2>
-          <StatusPill tone="neutral">{payload?.adAnalytics?.latestBucket?.bucketDate || 'no buckets yet'}</StatusPill>
+          <h2 className="text-sm font-sans font-bold uppercase tracking-wider text-gray-500">Рекламна аналитика</h2>
+          <StatusPill tone="neutral">{payload?.adAnalytics?.latestBucket?.bucketDate || 'няма последен агрегиран ден'}</StatusPill>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
           <div className="border border-gray-100 bg-gray-50 px-4 py-3">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Impressions (7d)</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Импресии (7 дни)</p>
             <p className="mt-2 text-2xl font-display font-black text-gray-900">{payload?.adAnalytics?.last7Days?.impressions ?? 0}</p>
           </div>
           <div className="border border-gray-100 bg-gray-50 px-4 py-3">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Clicks (7d)</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Кликове (7 дни)</p>
             <p className="mt-2 text-2xl font-display font-black text-gray-900">{payload?.adAnalytics?.last7Days?.clicks ?? 0}</p>
           </div>
           <div className="border border-gray-100 bg-gray-50 px-4 py-3">
-            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Aggregate Rows</p>
+            <p className="text-[11px] font-sans font-bold uppercase tracking-wider text-gray-500">Агрегирани редове</p>
             <p className="mt-2 text-2xl font-display font-black text-gray-900">{payload?.adAnalytics?.last7Days?.rows ?? 0}</p>
           </div>
         </div>

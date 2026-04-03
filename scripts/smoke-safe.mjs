@@ -35,6 +35,10 @@ function quoteForCmd(value) {
   return `"${normalized.replace(/"/g, '""')}"`;
 }
 
+function escapeRegExp(value) {
+  return String(value ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function spawnTask(command, args, options = {}) {
   const shouldUseShell = process.platform === 'win32' && /\.(cmd|bat)$/i.test(command);
   const spawnCommand = shouldUseShell ? (process.env.ComSpec || 'cmd.exe') : command;
@@ -478,18 +482,32 @@ async function runBrowserSmoke() {
       stdoutPrefix: '[smoke:browser]',
       stderrPrefix: '[smoke:browser]',
     });
-    const warmupSnapshotResult = await runCommand(npxBin, [...cliArgs, 'snapshot'], {
-      cwd: repoRoot,
-      stdoutPrefix: '[smoke:browser]',
-      stderrPrefix: '[smoke:browser]',
-    });
+    const snapshot = await captureCurrentCliSnapshot({ warmup: true });
+
+    return {
+      title: snapshot.title,
+      url: snapshot.url,
+      text: snapshot.text,
+      pageInfoText: `${gotoResult.stdout}\n${snapshot.pageInfoText}`,
+    };
+  }
+
+  async function captureCurrentCliSnapshot({ warmup = true } = {}) {
+    let warmupSnapshotResult = { stdout: '', stderr: '' };
+    if (warmup) {
+      warmupSnapshotResult = await runCommand(npxBin, [...cliArgs, 'snapshot'], {
+        cwd: repoRoot,
+        stdoutPrefix: '[smoke:browser]',
+        stderrPrefix: '[smoke:browser]',
+      });
+    }
     const snapshotResult = await runCommand(npxBin, [...cliArgs, 'snapshot'], {
       cwd: repoRoot,
       stdoutPrefix: '[smoke:browser]',
       stderrPrefix: '[smoke:browser]',
     });
 
-    const pageInfoText = `${gotoResult.stdout}\n${warmupSnapshotResult.stdout}\n${snapshotResult.stdout}`;
+    const pageInfoText = `${warmupSnapshotResult.stdout}\n${snapshotResult.stdout}`;
     const titleMatches = [...pageInfoText.matchAll(/Page Title:\s*(.+)/g)];
     const urlMatches = [...pageInfoText.matchAll(/Page URL:\s*(.+)/g)];
     const snapshotPathMatch = snapshotResult.stdout.match(/\[Snapshot\]\((.+?)\)/);
@@ -515,7 +533,144 @@ async function runBrowserSmoke() {
       title: titleMatches.length > 0 ? titleMatches.at(-1)[1].trim() : '',
       url: urlMatches.length > 0 ? new URL(urlMatches.at(-1)[1].trim()).pathname : '',
       text: snapshotText,
+      pageInfoText,
     };
+  }
+
+  async function clickSnapshotRef(ref, label) {
+    await runCommand(npxBin, [...cliArgs, 'click', ref], {
+      cwd: repoRoot,
+      stdoutPrefix: '[smoke:browser]',
+      stderrPrefix: '[smoke:browser]',
+    });
+    if (label) console.log(`[smoke:browser] CLICK ${label} (${ref})`);
+  }
+
+  async function fillSnapshotRef(ref, value, label) {
+    await runCommand(npxBin, [...cliArgs, 'fill', ref, value], {
+      cwd: repoRoot,
+      stdoutPrefix: '[smoke:browser]',
+      stderrPrefix: '[smoke:browser]',
+    });
+    if (label) console.log(`[smoke:browser] FILL ${label} (${ref})`);
+  }
+
+  async function pressBrowserKey(key, label) {
+    await runCommand(npxBin, [...cliArgs, 'press', key], {
+      cwd: repoRoot,
+      stdoutPrefix: '[smoke:browser]',
+      stderrPrefix: '[smoke:browser]',
+    });
+    if (label) console.log(`[smoke:browser] PRESS ${label}`);
+  }
+
+  function findSnapshotRef(snapshotText, role, label) {
+    const rolePattern = new RegExp(`-\\s+${escapeRegExp(role)}\\b`, 'u');
+    const labelPattern = new RegExp(`"${escapeRegExp(label)}"`, 'u');
+
+    for (const line of String(snapshotText || '').split(/\r?\n/)) {
+      if (!rolePattern.test(line) || !labelPattern.test(line)) continue;
+      const refMatch = line.match(/\[ref=(e\d+)\]/);
+      if (refMatch) return refMatch[1];
+    }
+
+    return '';
+  }
+
+  function requireSnapshotRef(snapshotText, role, label, contextLabel) {
+    const ref = findSnapshotRef(snapshotText, role, label);
+    if (ref) return ref;
+    throw new Error(`Could not find ${role} "${label}" in ${contextLabel}.`);
+  }
+
+  async function waitForSnapshot(check, { timeoutMs = 12000, intervalMs = 500, label = 'snapshot state' } = {}) {
+    let lastSnapshot = null;
+    return await waitFor(async () => {
+      lastSnapshot = await captureCurrentCliSnapshot({ warmup: false });
+      return check(lastSnapshot) ? lastSnapshot : false;
+    }, { timeoutMs, intervalMs, label: `${label}${lastSnapshot ? ` (last route ${lastSnapshot.url || 'unknown'})` : ''}` });
+  }
+
+  async function runCriticalFlows() {
+    await runCommand(npxBin, [...cliArgs, 'goto', new URL('/admin/login', baseUrl).toString()], {
+      cwd: repoRoot,
+      stdoutPrefix: '[smoke:browser]',
+      stderrPrefix: '[smoke:browser]',
+    });
+    await waitForSnapshot(
+      (snapshot) => snapshot.url === '/admin/login' && snapshot.text.includes('Вход'),
+      { label: 'admin login screen' },
+    );
+    await runCommand(npxBin, [...cliArgs, 'type', 'admin'], {
+      cwd: repoRoot,
+      stdoutPrefix: '[smoke:browser]',
+      stderrPrefix: '[smoke:browser]',
+    });
+    await pressBrowserKey('Tab', 'admin password field');
+    await runCommand(npxBin, [...cliArgs, 'type', 'admin123'], {
+      cwd: repoRoot,
+      stdoutPrefix: '[smoke:browser]',
+      stderrPrefix: '[smoke:browser]',
+    });
+    await pressBrowserKey('Tab', 'admin submit button');
+    await pressBrowserKey('Enter', 'submit admin login');
+    await waitForSnapshot(
+      (snapshot) => snapshot.url === '/admin' || snapshot.url === '/admin/articles',
+      { label: 'admin authenticated shell' },
+    );
+    await runCommand(npxBin, [...cliArgs, 'goto', new URL('/admin/articles', baseUrl).toString()], {
+      cwd: repoRoot,
+      stdoutPrefix: '[smoke:browser]',
+      stderrPrefix: '[smoke:browser]',
+    });
+    await waitForSnapshot(
+      (snapshot) => snapshot.url === '/admin/articles' && snapshot.text.includes('Архив'),
+      { label: 'admin articles screen' },
+    );
+    console.log('[smoke:safe] PASS /admin/login -> authenticated admin articles flow');
+
+    await runCommand(npxBin, [...cliArgs, 'goto', new URL('/tipline', baseUrl).toString()], {
+      cwd: repoRoot,
+      stdoutPrefix: '[smoke:browser]',
+      stderrPrefix: '[smoke:browser]',
+    });
+    let tiplineSnapshot = await waitForSnapshot(
+      (snapshot) => snapshot.url === '/tipline' && snapshot.text.includes('Изпрати сигнала'),
+      { label: 'tipline form' },
+    );
+    if (!tiplineSnapshot.text.includes('button "Изпрати сигнала" [disabled]')) {
+      throw new Error('Expected the tipline submit button to stay disabled before any text or image is provided.');
+    }
+    const descriptionRef = requireSnapshotRef(tiplineSnapshot.text, 'textbox', 'Описание на сигнала', 'tipline validation state');
+    await fillSnapshotRef(descriptionRef, 'safe-smoke-tipline-test', 'tipline description');
+    tiplineSnapshot = await captureCurrentCliSnapshot({ warmup: false });
+    const submitRef = requireSnapshotRef(tiplineSnapshot.text, 'button', 'Изпрати сигнала', 'tipline ready state');
+    await clickSnapshotRef(submitRef, 'tipline submit after fill');
+    await waitForSnapshot(
+      (snapshot) => snapshot.url === '/tipline' && snapshot.text.includes('Сигналът е предаден!'),
+      { label: 'tipline success state' },
+    );
+    console.log('[smoke:safe] PASS /tipline -> validation and submit flow');
+
+    await runCommand(npxBin, [...cliArgs, 'goto', new URL('/games/quiz', baseUrl).toString()], {
+      cwd: repoRoot,
+      stdoutPrefix: '[smoke:browser]',
+      stderrPrefix: '[smoke:browser]',
+    });
+    let quizSnapshot = await waitForSnapshot(
+      (snapshot) => snapshot.url === '/games/quiz' && snapshot.text.includes('Играй'),
+      { label: 'quiz intro screen' },
+    );
+    const startRef = requireSnapshotRef(quizSnapshot.text, 'button', 'Играй', 'quiz intro screen');
+    await clickSnapshotRef(startRef, 'quiz start');
+    quizSnapshot = await waitForSnapshot(
+      (snapshot) => snapshot.url === '/games/quiz' && snapshot.text.includes('50:50') && /Въпрос\s+1(?:\/|\b)/u.test(snapshot.text),
+      { label: 'quiz first question state' },
+    );
+    if (!quizSnapshot.text.includes('50:50')) {
+      throw new Error('Quiz lifelines did not render after starting the game.');
+    }
+    console.log('[smoke:safe] PASS /games/quiz -> start flow');
   }
 
   await runCommand(npxBin, [...cliArgs, 'open', baseUrl], {
@@ -544,6 +699,8 @@ async function runBrowserSmoke() {
       check.assert(snapshot);
       console.log(`[smoke:safe] PASS ${check.path} -> ${snapshot.title}`);
     }
+
+    await runCriticalFlows();
 
     const hangmanRes = await fetch(`${baseUrl}/api/games/hangman/today`);
     if (![200, 404].includes(hangmanRes.status)) {

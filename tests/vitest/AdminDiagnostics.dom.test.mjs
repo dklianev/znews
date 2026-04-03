@@ -76,9 +76,11 @@ describe('AdminDiagnostics', () => {
             lastSeenAt: '2026-04-02T11:59:00.000Z',
             metadata: {
               pathname: '/article/27',
+              userAgent: 'Mozilla/5.0 Codex Safe Smoke',
               stack: 'Error: Minified React error #185\n at renderArticle',
               extra: {
                 componentStack: 'at ArticlePage\nat ErrorBoundary',
+                requestId: 'req_123',
               },
             },
           },
@@ -96,13 +98,16 @@ describe('AdminDiagnostics', () => {
     });
 
     expect(getDiagnostics).toHaveBeenCalledTimes(1);
-    expect(container.textContent).toContain('Diagnostics');
+    expect(container.textContent).toContain('Диагностика');
     expect(container.textContent).toContain('Minified React error #185');
+    expect(container.textContent).toContain('React #185');
     expect(container.textContent).toContain('/article/27');
     expect(container.textContent).toContain('client / ErrorBoundary');
-    expect(container.querySelectorAll('details')).toHaveLength(2);
+    expect(container.textContent).toContain('Видяна 10 пъти');
+    expect(container.querySelectorAll('details')).toHaveLength(3);
     expect(container.textContent).toContain('at ArticlePage');
     expect(container.textContent).toContain('Error: Minified React error #185');
+    expect(container.textContent).toContain('Mozilla/5.0 Codex Safe Smoke');
   });
 
   it('shows an inline error banner when diagnostics loading fails', async () => {
@@ -119,6 +124,6 @@ describe('AdminDiagnostics', () => {
 
     expect(getDiagnostics).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain('request failed');
-    expect(container.textContent).toContain('Diagnostics');
+    expect(container.textContent).toContain('Диагностика');
   });
 });
