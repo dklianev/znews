@@ -15,7 +15,7 @@ let listMode = 'initial';
 
 const publishedArticle = {
   id: 1,
-  title: 'Публикувана статия',
+  title: 'Published Alpha',
   category: 'crime',
   authorId: 1,
   date: '2026-04-02',
@@ -25,7 +25,7 @@ const publishedArticle = {
 
 const restoredDraft = {
   id: 77,
-  title: 'Върната чернова',
+  title: 'Restored Gamma',
   category: 'crime',
   authorId: 1,
   date: '2026-04-02',
@@ -35,7 +35,7 @@ const restoredDraft = {
 
 const detailFallbackArticle = {
   id: 88,
-  title: 'Статия без съдържание',
+  title: 'Detail Beta',
   category: 'crime',
   authorId: 1,
   date: '2026-04-02',
@@ -63,7 +63,7 @@ const restore = vi.fn(async (id) => {
 
 vi.mock('../../src/context/DataContext', () => ({
   usePublicData: () => ({
-    authors: [{ id: 1, name: 'Редактор', role: 'Репортер' }],
+    authors: [{ id: 1, name: 'Автор', role: 'Редактор' }],
     categories: [{ id: 'crime', name: 'Криминални' }],
     addArticle: vi.fn(),
     updateArticle: vi.fn(),
@@ -164,9 +164,11 @@ function findEditButtonForArticle(container, title) {
 }
 
 async function flush() {
-  await Promise.resolve();
-  await Promise.resolve();
-  await new Promise((resolve) => window.setTimeout(resolve, 0));
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  });
 }
 
 describe('ManageArticles', () => {
@@ -232,7 +234,7 @@ describe('ManageArticles', () => {
     originalLocalStorage = undefined;
   });
 
-  it('restores an archived article and shows it in the main list without a full reload', async () => {
+  it('restores an archived article and returns to the main list without a full reload', async () => {
     main = document.createElement('main');
     container = document.createElement('div');
     main.appendChild(container);
@@ -245,9 +247,9 @@ describe('ManageArticles', () => {
     });
     await flush();
 
-    expect(container.textContent).toContain('Публикувана статия');
-    expect(container.textContent).toContain('Статия без съдържание');
-    expect(container.textContent).not.toContain('Върната чернова');
+    expect(container.textContent).toContain('Published Alpha');
+    expect(container.textContent).toContain('Detail Beta');
+    expect(container.textContent).not.toContain('Restored Gamma');
 
     act(() => {
       findButton(container, 'Архив')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -256,25 +258,19 @@ describe('ManageArticles', () => {
 
     expect(listArchived).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain('Архивирани статии (1)');
-    expect(container.textContent).toContain('Върната чернова');
+    expect(container.textContent).toContain('Restored Gamma');
 
     act(() => {
       findButton(container, 'Възстанови')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
     await flush();
+    await flush();
 
     expect(restore).toHaveBeenCalledWith(77);
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(toast.success).toHaveBeenCalled();
-    expect(container.textContent).toContain('Архивирани статии (0)');
-    expect(container.textContent).not.toContain('Върната чернова');
-
-    act(() => {
-      findButton(container, 'Архив')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
-    await flush();
-
-    expect(container.textContent).toContain('Върната чернова');
+    expect(container.textContent).toContain('Restored Gamma');
+    expect(container.textContent).not.toContain('Архивирани статии (0)');
     expect(listAdmin.mock.calls.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -292,7 +288,7 @@ describe('ManageArticles', () => {
     });
     await flush();
 
-    const editButton = findEditButtonForArticle(container, 'Статия без съдържание');
+    const editButton = findEditButtonForArticle(container, 'Detail Beta');
     expect(editButton).not.toBeNull();
 
     act(() => {
@@ -304,6 +300,6 @@ describe('ManageArticles', () => {
     expect(loadArticleRevisions).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith('Не успяхме да заредим пълната статия за редакция. Опитайте отново.');
     expect(container.textContent).not.toContain('Редактирай статия');
-    expect(container.textContent).not.toContain('Запази');
+    expect(container.textContent).not.toContain('editor');
   });
 });

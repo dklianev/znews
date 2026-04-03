@@ -904,8 +904,10 @@ export default function ManageArticles() {
     try {
       await api.articles.restore(id);
       setArchivedArticles(prev => prev.filter(a => a.id !== id));
-      await refresh();
+      setShowArchived(false);
+      setCurrentPage(1);
       refreshList();
+      void refresh().catch(() => {});
       toast.success('Статията е възстановена като чернова');
     } catch {
       toast.error('Грешка при възстановяване');
