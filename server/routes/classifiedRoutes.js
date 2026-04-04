@@ -19,7 +19,16 @@ const CATEGORY_LABELS = {
 };
 
 function generatePaymentRef() {
-  return 'ZN-' + randomBytes(4).toString('hex').toUpperCase();
+  return 'ZN-' + randomBytes(8).toString('hex').toUpperCase();
+}
+
+// Fields to exclude from ALL public responses (security)
+const PUBLIC_EXCLUDE = { _id: 0, __v: 0, ipHash: 0, paymentRef: 0, paidBy: 0, amountDue: 0, sortWeight: 0, imagesMeta: 0 };
+
+// Strip bidi overrides, zero-width chars, and normalize Unicode
+const BIDI_RE = /[\u200E\u200F\u200B-\u200D\u2028\u2029\u202A-\u202E\u2060-\u2069\uFEFF]/g;
+function sanitizeUserText(text, maxLen) {
+  return text.replace(BIDI_RE, '').normalize('NFC').slice(0, maxLen).trim();
 }
 
 export function registerClassifiedRoutes(app, deps) {
@@ -67,6 +76,26 @@ export function registerClassifiedRoutes(app, deps) {
   const classifiedRateLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
     max: 5,
+    message: { error: 'Твърде много заявки. Опитайте отново по-късно.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: shouldSkipRateLimit,
+    keyGenerator: rateLimitKeyGenerator,
+  });
+
+  const classifiedLookupLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 15,
+    message: { error: 'Твърде много заявки. Опитайте отново по-късно.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: shouldSkipRateLimit,
+    keyGenerator: rateLimitKeyGenerator,
+  });
+
+  const classifiedShareLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
     message: { error: 'Твърде много заявки. Опитайте отново по-късно.' },
     standardHeaders: true,
     legacyHeaders: false,
@@ -344,7 +373,7 @@ export function registerClassifiedRoutes(app, deps) {
 
     // Sort: VIP first (sortWeight DESC), then bumpedAt/approvedAt DESC
     const [items, total] = await Promise.all([
-      Classified.find(filter).sort({ sortWeight: -1, bumpedAt: -1, approvedAt: -1, id: -1 }).skip(skip).limit(limit).lean(),
+      Classified.find(filter).select(PUBLIC_EXCLUDE).sort({ sortWeight: -1, bumpedAt: -1, approvedAt: -1, id: -1 }).skip(skip).limit(limit).lean(),
       Classified.countDocuments(filter),
     ]);
 
@@ -367,7 +396,7 @@ export function registerClassifiedRoutes(app, deps) {
   });
 
   // ─── Public: check status by payment reference (MUST be before /:id) ───
-  app.get('/api/classifieds/status/:ref', async (req, res) => {
+  app.get('/api/classifieds/status/:ref', classifiedLookupLimiter, async (req, res) => {
     const ref = normalizeText(req.params.ref || '', 20).toUpperCase();
     if (!ref) return res.status(400).json({ error: 'Invalid reference' });
 
@@ -387,12 +416,12 @@ export function registerClassifiedRoutes(app, deps) {
       status: 'active',
       tier: 'vip',
       expiresAt: { $gt: now },
-    }).sort({ bumpedAt: -1, approvedAt: -1, id: -1 }).limit(3).lean();
+    }).select(PUBLIC_EXCLUDE).sort({ bumpedAt: -1, approvedAt: -1, id: -1 }).limit(3).lean();
     res.json(items);
   });
 
   // ─── Public: get single classified (with view count increment) ───
-  app.get('/api/classifieds/:id', async (req, res) => {
+  app.get('/api/classifieds/:id', classifiedLookupLimiter, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -400,7 +429,7 @@ export function registerClassifiedRoutes(app, deps) {
     const doc = await Classified.findOneAndUpdate(
       { id, status: 'active', expiresAt: { $gt: now } },
       { $inc: { viewCount: 1 } },
-      { returnDocument: 'after' }
+      { returnDocument: 'after', projection: PUBLIC_EXCLUDE }
     ).lean();
 
     if (!doc) return res.status(404).json({ error: 'Not found' });
@@ -408,7 +437,7 @@ export function registerClassifiedRoutes(app, deps) {
   });
 
   // ─── Public: get share card PNG ───
-  app.get('/api/classifieds/:id/share.png', async (req, res) => {
+  app.get('/api/classifieds/:id/share.png', classifiedShareLimiter, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -436,12 +465,12 @@ export function registerClassifiedRoutes(app, deps) {
       return res.status(400).json(buildUploadErrorPayload(error));
     }
 
-    const title = normalizeText(req.body.title || '', 120);
-    const description = normalizeText(req.body.description || '', 1000);
+    const title = sanitizeUserText(normalizeText(req.body.title || '', 120), 120);
+    const description = sanitizeUserText(normalizeText(req.body.description || '', 1000), 1000);
     const category = String(req.body.category || '').trim();
-    const price = normalizeText(req.body.price || '', 60);
-    const phone = normalizeText(req.body.phone || '', 30);
-    const contactName = normalizeText(req.body.contactName || '', 80);
+    const price = sanitizeUserText(normalizeText(req.body.price || '', 60), 60);
+    const phone = sanitizeUserText(normalizeText(req.body.phone || '', 30), 30);
+    const contactName = sanitizeUserText(normalizeText(req.body.contactName || '', 80), 80);
     const tier = String(req.body.tier || 'standard').trim();
 
     const fieldErrors = {};

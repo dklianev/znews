@@ -771,6 +771,16 @@ const upload = multer({
   },
 });
 
+// Multi-file upload instance for classifieds (up to 5 images)
+const uploadMulti = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: uploadMaxFileSizeBytes, files: 5 },
+  fileFilter: (_req, file, cb) => {
+    if (allowedImageMimeTypes.has(file.mimetype)) cb(null, true);
+    else cb(new Error('Only JPEG, PNG, GIF, and WebP files are allowed'));
+  },
+});
+
 if (!isRemoteStorage) {
   app.use('/uploads', express.static(uploadsDir, {
     maxAge: isProd ? '30d' : '1d',
@@ -2033,7 +2043,7 @@ registerClassifiedRoutes(app, {
   storageObjectExists,
   toImageMetaFromManifest,
   toUploadsUrlFromRelative,
-  upload,
+  upload: uploadMulti,
   uploadMaxFileSizeMb,
   wrapTextLines,
 });
