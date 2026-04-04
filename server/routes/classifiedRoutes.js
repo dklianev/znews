@@ -492,6 +492,8 @@ export function registerClassifiedRoutes(app, deps) {
     const files = Array.isArray(req.files) ? req.files.slice(0, tierCfg.maxImages) : [];
     for (const file of files) {
       const result = await processUploadedFile(file);
+      // Release raw buffer after processing to reduce memory pressure
+      file.buffer = null;
       if (result) {
         images.push(result.url);
         imagesMeta.push(result.meta);
