@@ -1,5 +1,4 @@
 import express from 'express';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function createCategoriesRouter(deps) {
   const {
@@ -14,16 +13,16 @@ export function createCategoriesRouter(deps) {
 
   const catRouter = express.Router();
 
-  catRouter.get('/', asyncHandler(async (_req, res) => {
+  catRouter.get('/', async (_req, res) => {
     const items = await Category.find().lean();
     items.forEach((item) => {
       delete item._id;
       delete item.__v;
     });
     return res.json(items);
-  }));
+  });
 
-  catRouter.post('/', requireAuth, requirePermission('categories'), asyncHandler(async (req, res) => {
+  catRouter.post('/', requireAuth, requirePermission('categories'), async (req, res) => {
     const id = normalizeText(req.body.id, 64);
     const name = normalizeText(req.body.name, 80);
     const icon = normalizeText(req.body.icon, 16);
@@ -38,9 +37,9 @@ export function createCategoriesRouter(deps) {
     invalidateCacheGroup('categories', 'categories-mutation');
 
     return res.json(item.toJSON());
-  }));
+  });
 
-  catRouter.put('/:id', requireAuth, requirePermission('categories'), asyncHandler(async (req, res) => {
+  catRouter.put('/:id', requireAuth, requirePermission('categories'), async (req, res) => {
     const updates = {};
     if (hasOwn(req.body, 'name')) {
       const normalizedName = normalizeText(req.body.name, 80);
@@ -65,9 +64,9 @@ export function createCategoriesRouter(deps) {
     invalidateCacheGroup('categories', 'categories-mutation');
 
     return res.json(item.toJSON());
-  }));
+  });
 
-  catRouter.delete('/:id', requireAuth, requirePermission('categories'), asyncHandler(async (req, res) => {
+  catRouter.delete('/:id', requireAuth, requirePermission('categories'), async (req, res) => {
     if (req.params.id === 'all') return res.json({ ok: false });
     const categoryId = normalizeText(req.params.id, 64);
     if (!categoryId) return res.status(400).json({ error: 'Invalid category id' });
@@ -83,7 +82,7 @@ export function createCategoriesRouter(deps) {
     invalidateCacheGroup('categories', 'categories-mutation');
 
     return res.json({ ok: true });
-  }));
+  });
 
   return catRouter;
 }

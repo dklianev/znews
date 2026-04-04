@@ -1,4 +1,3 @@
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function registerArticlesAdminRoutes(articlesRouter, deps) {
   const {
@@ -50,7 +49,7 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     .filter((item, index, list) => Number.isInteger(item) && item > 0 && list.indexOf(item) === index)
     .slice(0, maxItems);
 
-  articlesRouter.get('/admin/list', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.get('/admin/list', requireAuth, requirePermission('articles'), async (req, res) => {
     const page = parsePositiveInt(req.query.page, 1, { min: 1, max: 5000 });
     const limit = parsePositiveInt(req.query.limit, 15, { min: 1, max: 100 });
     const category = normalizeText(req.query.category, 64);
@@ -81,9 +80,9 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       total,
       totalPages,
     });
-  }));
+  });
 
-  articlesRouter.get('/admin/meta', requireAuth, requirePermission('articles'), asyncHandler(async (_req, res) => {
+  articlesRouter.get('/admin/meta', requireAuth, requirePermission('articles'), async (_req, res) => {
     const filter = { status: { $ne: 'archived' } };
     const [total, categoryCounts, popularTagsRaw] = await Promise.all([
       Article.countDocuments(filter),
@@ -144,9 +143,9 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       byCategory,
       popularTags,
     });
-  }));
+  });
 
-  articlesRouter.get('/admin/related', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.get('/admin/related', requireAuth, requirePermission('articles'), async (req, res) => {
     const limit = parsePositiveInt(req.query.limit, 20, { min: 1, max: 50 });
     const q = normalizeText(req.query.q, 160);
     const requestedIds = parseIdList(req.query.ids, 50);
@@ -180,9 +179,9 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
 
     res.setHeader('Cache-Control', 'no-store');
     return res.json({ items });
-  }));
+  });
 
-  articlesRouter.post('/', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.post('/', requireAuth, requirePermission('articles'), async (req, res) => {
     const data = sanitizeArticlePayload(req.body, { partial: false });
     await enrichArticlePayloadWithImageMeta(data, { partial: false });
     if (!data.title || !data.excerpt || !data.content || !data.category) {
@@ -220,9 +219,9 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     invalidateCacheGroup('articles', 'article-mutation');
 
     res.json(obj);
-  }));
+  });
 
-  articlesRouter.put('/:id', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.put('/:id', requireAuth, requirePermission('articles'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -261,9 +260,9 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     invalidateCacheGroup('articles', 'article-mutation');
 
     res.json(updated);
-  }));
+  });
 
-  articlesRouter.get('/:id/revisions', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.get('/:id/revisions', requireAuth, requirePermission('articles'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -286,9 +285,9 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     }));
 
     res.json(formatted);
-  }));
+  });
 
-  articlesRouter.get('/:id/revisions/:revisionId', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.get('/:id/revisions/:revisionId', requireAuth, requirePermission('articles'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -307,9 +306,9 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       createdAt: revision.createdAt,
       snapshot: buildArticleSnapshot(revision.snapshot),
     });
-  }));
+  });
 
-  articlesRouter.post('/:id/revisions/autosave', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.post('/:id/revisions/autosave', requireAuth, requirePermission('articles'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -333,9 +332,9 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
         }
         : null,
     });
-  }));
+  });
 
-  articlesRouter.post('/:id/revisions/restore', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.post('/:id/revisions/restore', requireAuth, requirePermission('articles'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -369,10 +368,10 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     invalidateCacheGroup('articles', 'article-mutation');
 
     res.json(restoredObj);
-  }));
+  });
 
   // Soft delete — moves article to archived status
-  articlesRouter.delete('/:id', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.delete('/:id', requireAuth, requirePermission('articles'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -395,10 +394,10 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     invalidateCacheGroup('articles', 'article-mutation');
 
     res.json({ ok: true });
-  }));
+  });
 
   // Restore archived article back to draft
-  articlesRouter.post('/:id/restore', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.post('/:id/restore', requireAuth, requirePermission('articles'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -421,10 +420,10 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     invalidateCacheGroup('articles', 'article-mutation');
 
     res.json(article.toObject());
-  }));
+  });
 
   // Permanent delete — only for archived articles
-  articlesRouter.delete('/:id/permanent', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  articlesRouter.delete('/:id/permanent', requireAuth, requirePermission('articles'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -444,5 +443,5 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     invalidateCacheGroup('articles', 'article-mutation');
 
     res.json({ ok: true });
-  }));
+  });
 }

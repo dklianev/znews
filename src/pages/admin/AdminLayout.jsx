@@ -1,7 +1,7 @@
 import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAdminData, useSessionData } from '../../context/DataContext';
 import { api } from '../../utils/api';
-import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3, Mail, Gamepad2, Puzzle, Activity } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3, Mail, Gamepad2, Puzzle, Activity, Tag } from 'lucide-react';
 import { useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { makeTitle, useDocumentTitle } from '../../hooks/useDocumentTitle';
@@ -22,6 +22,7 @@ const navItems = [
   { type: 'divider', label: 'RP Секции' },
   { to: '/admin/wanted', label: 'Най-издирвани', icon: Crosshair, permission: 'wanted' },
   { to: '/admin/jobs', label: 'Обяви за работа', icon: Briefcase, permission: 'jobs' },
+  { to: '/admin/classifieds', label: 'Малки обяви', icon: Tag, permission: 'classifieds' },
   { to: '/admin/court', label: 'Съдебна хроника', icon: Scale, permission: 'court' },
   { to: '/admin/events', label: 'Събития', icon: CalendarDays, permission: 'events' },
   { to: '/admin/polls', label: 'Анкети', icon: BarChart3, permission: 'polls' },

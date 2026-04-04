@@ -1,4 +1,4 @@
-import { forwardRef, useMemo } from 'react';
+import { useMemo } from 'react';
 import { BLOCK_BUST_BOARD_SIZE } from '../../../utils/blockBust';
 
 function toKeySet(cells = []) {
@@ -9,7 +9,7 @@ function toKeySet(cells = []) {
  * Lightweight 8×8 board — uses CSS transitions instead of per-cell
  * AnimatePresence/motion to eliminate layout thrashing and jank.
  */
-const BlockBustBoard = forwardRef(function BlockBustBoard({
+function BlockBustBoard({
   board,
   theme,
   gridRef,
@@ -25,7 +25,8 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
   onCellClick,
   onCellEnter,
   onBoardLeave,
-}, ref) {
+  ref,
+}) {
   const previewSet = useMemo(() => toKeySet(previewCells), [previewCells]);
   const pendingClearSet = useMemo(() => {
     if (!pendingClears || (!pendingClears.rows.length && !pendingClears.cols.length)) return null;
@@ -150,6 +151,6 @@ const BlockBustBoard = forwardRef(function BlockBustBoard({
       </div>
     </div>
   );
-});
+}
 
 export default BlockBustBoard;

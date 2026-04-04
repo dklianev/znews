@@ -1,4 +1,3 @@
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function registerPushRoutes(app, deps) {
   const {
@@ -10,7 +9,7 @@ export function registerPushRoutes(app, deps) {
     res.send(vapidPublicKey || '');
   });
 
-  app.post('/api/push/subscribe', asyncHandler(async (req, res) => {
+  app.post('/api/push/subscribe', async (req, res) => {
     const subscription = req.body;
     if (!subscription || !subscription.endpoint) {
       return res.status(400).json({ error: 'Invalid subscription' });
@@ -23,12 +22,12 @@ export function registerPushRoutes(app, deps) {
     );
 
     res.status(201).json({ success: true });
-  }));
+  });
 
-  app.post('/api/push/unsubscribe', asyncHandler(async (req, res) => {
+  app.post('/api/push/unsubscribe', async (req, res) => {
     const { endpoint } = req.body;
     if (!endpoint) return res.status(400).json({ error: 'Invalid operation' });
     await PushSubscription.findOneAndDelete({ endpoint });
     res.json({ success: true });
-  }));
+  });
 }

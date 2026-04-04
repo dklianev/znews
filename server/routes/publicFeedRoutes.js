@@ -1,5 +1,4 @@
 import { buildHomepageSectionIdPayload, buildHomepageSections } from '../../shared/homepageSelectors.js';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 const BOOTSTRAP_OPTIONAL_SECTIONS = new Set(['jobs', 'court', 'events', 'gallery']);
 
@@ -59,7 +58,7 @@ export function registerPublicFeedRoutes(app, deps) {
     stripDocumentList,
   } = deps;
 
-  app.get('/api/homepage', cacheMiddleware, asyncHandler(async (req, res) => {
+  app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
     const articleFilter = canSeeDrafts ? { status: { $ne: 'archived' } } : getPublishedFilter();
@@ -180,9 +179,9 @@ export function registerPublicFeedRoutes(app, deps) {
     };
     if (!compactPayload) responsePayload.articles = articlePool;
     return res.json(responsePayload);
-  }));
+  });
 
-  app.get('/api/bootstrap', cacheMiddleware, asyncHandler(async (req, res) => {
+  app.get('/api/bootstrap', cacheMiddleware, async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
     const articleFilter = canSeeDrafts ? { status: { $ne: 'archived' } } : getPublishedFilter();
@@ -282,5 +281,5 @@ export function registerPublicFeedRoutes(app, deps) {
       } : {}),
       ...(Object.keys(errors).length ? { errors } : {}),
     });
-  }));
+  });
 }

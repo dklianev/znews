@@ -1,4 +1,3 @@
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function registerSearchRoutes(app, deps) {
   const {
@@ -27,7 +26,7 @@ export function registerSearchRoutes(app, deps) {
     stripDocumentList,
   } = deps;
 
-  app.get('/api/search', cacheMiddleware, asyncHandler(async (req, res) => {
+  app.get('/api/search', cacheMiddleware, async (req, res) => {
     const startedAt = Date.now();
     const q = normalizeText(req.query.q, 160);
     const trimmedQuery = q.trim();
@@ -118,9 +117,9 @@ export function registerSearchRoutes(app, deps) {
       tookMs: Math.max(0, Date.now() - startedAt),
       ...payload,
     });
-  }));
+  });
 
-  app.get('/api/search/suggest', cacheMiddleware, asyncHandler(async (req, res) => {
+  app.get('/api/search/suggest', cacheMiddleware, async (req, res) => {
     const q = normalizeText(req.query.q, 120).trim();
     const limit = parsePositiveInt(req.query.limit, 8, { min: 1, max: 20 });
     if (!q) {
@@ -130,12 +129,12 @@ export function registerSearchRoutes(app, deps) {
     const suggestions = await getSearchSuggestions(q, { limit });
     res.setHeader('Cache-Control', 'public, max-age=30');
     return res.json({ query: q, suggestions });
-  }));
+  });
 
-  app.get('/api/search/trending', cacheMiddleware, asyncHandler(async (req, res) => {
+  app.get('/api/search/trending', cacheMiddleware, async (req, res) => {
     const limit = parsePositiveInt(req.query.limit, 8, { min: 1, max: 20 });
     const items = await getTrendingSearches(limit);
     res.setHeader('Cache-Control', 'public, max-age=300');
     return res.json({ items });
-  }));
+  });
 }

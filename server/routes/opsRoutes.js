@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function registerOpsRoutes(app, deps) {
   const {
@@ -28,7 +27,7 @@ export function registerOpsRoutes(app, deps) {
     };
   }
 
-  app.get('/api/audit-log', requireAuth, requirePermission('permissions'), asyncHandler(async (req, res) => {
+  app.get('/api/audit-log', requireAuth, requirePermission('permissions'), async (req, res) => {
     const limit = parsePositiveInt(req.query.limit, 200, { min: 1, max: 200 });
     const cursor = parseAuditLogCursor(req.query.cursor);
     const filter = {};
@@ -55,7 +54,7 @@ export function registerOpsRoutes(app, deps) {
       delete item.__v;
     });
     res.json({ items, nextCursor });
-  }));
+  });
 
   app.get('/api/backup', requireAuth, requireAdmin, async (_req, res) => {
     try {
@@ -69,12 +68,12 @@ export function registerOpsRoutes(app, deps) {
     }
   });
 
-  app.post('/api/reset', requireAuth, requireAdmin, asyncHandler(async (_req, res) => {
+  app.post('/api/reset', requireAuth, requireAdmin, async (_req, res) => {
     if (process.env.NODE_ENV === 'production' && process.env.ALLOW_PRODUCTION_RESET !== 'true') {
       return res.status(403).json({ error: 'Production reset is disabled.' });
     }
     const { seedAll } = await import('../seed.js');
     await seedAll();
     res.json({ ok: true });
-  }));
+  });
 }

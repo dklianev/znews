@@ -1,5 +1,4 @@
 import express from 'express';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function createContactMessagesRouter(deps) {
   const {
@@ -25,7 +24,7 @@ export function createContactMessagesRouter(deps) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
-  contactMessagesRouter.post('/', contactMessageLimiter, asyncHandler(async (req, res) => {
+  contactMessagesRouter.post('/', contactMessageLimiter, async (req, res) => {
     const name = normalizeText(req.body?.name, 80);
     const email = normalizeEmail(req.body?.email);
     const message = normalizeText(req.body?.message, 4000);
@@ -61,9 +60,9 @@ export function createContactMessagesRouter(deps) {
     });
 
     return res.json({ ok: true, id: item.id });
-  }));
+  });
 
-  contactMessagesRouter.get('/', requireAuth, requirePermission('contact'), asyncHandler(async (req, res) => {
+  contactMessagesRouter.get('/', requireAuth, requirePermission('contact'), async (req, res) => {
     const limit = parsePositiveInt(req.query.limit, 200, { min: 1, max: 200 });
     const status = normalizeText(req.query.status, 20);
     const filter = {};
@@ -81,9 +80,9 @@ export function createContactMessagesRouter(deps) {
       delete item.__v;
     });
     return res.json(items);
-  }));
+  });
 
-  contactMessagesRouter.put('/:id', requireAuth, requirePermission('contact'), asyncHandler(async (req, res) => {
+  contactMessagesRouter.put('/:id', requireAuth, requirePermission('contact'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -103,15 +102,15 @@ export function createContactMessagesRouter(deps) {
     delete updated._id;
     delete updated.__v;
     return res.json(updated);
-  }));
+  });
 
-  contactMessagesRouter.delete('/:id', requireAuth, requirePermission('contact'), asyncHandler(async (req, res) => {
+  contactMessagesRouter.delete('/:id', requireAuth, requirePermission('contact'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
     const result = await ContactMessage.deleteOne({ id });
     if (!result.deletedCount) return res.status(404).json({ error: 'Not found' });
     return res.json({ ok: true });
-  }));
+  });
 
   return contactMessagesRouter;
 }

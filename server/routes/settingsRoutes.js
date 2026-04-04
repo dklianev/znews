@@ -1,4 +1,3 @@
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function registerSettingsRoutes(app, deps) {
   const {
@@ -23,12 +22,12 @@ export function registerSettingsRoutes(app, deps) {
     SiteSettings,
   } = deps;
 
-  app.get('/api/breaking', cacheMiddleware, asyncHandler(async (_req, res) => {
+  app.get('/api/breaking', cacheMiddleware, async (_req, res) => {
     const doc = await Breaking.findOne().lean();
     return res.json(doc?.items || []);
-  }));
+  });
 
-  app.put('/api/breaking', requireAuth, requirePermission('breaking'), asyncHandler(async (req, res) => {
+  app.put('/api/breaking', requireAuth, requirePermission('breaking'), async (req, res) => {
     const items = Array.isArray(req.body)
       ? req.body.map((i) => normalizeText(i, 140)).filter(Boolean).slice(0, 20)
       : [];
@@ -38,14 +37,14 @@ export function registerSettingsRoutes(app, deps) {
     invalidateCacheGroup('breaking', 'breaking-mutation');
 
     return res.json(doc.items);
-  }));
+  });
 
-  app.get('/api/hero-settings', asyncHandler(async (_req, res) => {
+  app.get('/api/hero-settings', async (_req, res) => {
     const doc = await HeroSettings.findOne({ key: 'main' }).lean();
     return res.json(serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS));
-  }));
+  });
 
-  app.put('/api/hero-settings', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  app.put('/api/hero-settings', requireAuth, requirePermission('articles'), async (req, res) => {
     const settings = sanitizeHeroSettingsPayload(req.body);
     const updated = await HeroSettings.findOneAndUpdate(
       { key: 'main' },
@@ -67,17 +66,17 @@ export function registerSettingsRoutes(app, deps) {
     invalidateCacheGroup('hero', 'hero-settings-mutation');
 
     return res.json(serialized);
-  }));
+  });
 
-  app.get('/api/hero-settings/revisions', requireAuth, requirePermission('articles'), asyncHandler(async (_req, res) => {
+  app.get('/api/hero-settings/revisions', requireAuth, requirePermission('articles'), async (_req, res) => {
     const revisions = await SettingsRevision.find({ scope: 'hero' })
       .sort({ createdAt: -1 })
       .limit(60)
       .lean();
     return res.json(formatSettingsRevisionList(revisions));
-  }));
+  });
 
-  app.post('/api/hero-settings/revisions/restore', requireAuth, requirePermission('articles'), asyncHandler(async (req, res) => {
+  app.post('/api/hero-settings/revisions/restore', requireAuth, requirePermission('articles'), async (req, res) => {
     const revisionId = normalizeText(req.body?.revisionId, 80);
     if (!revisionId) return res.status(400).json({ error: 'revisionId is required' });
 
@@ -105,17 +104,17 @@ export function registerSettingsRoutes(app, deps) {
     invalidateCacheGroup('hero', 'hero-settings-mutation');
 
     return res.json(serialized);
-  }));
+  });
 
-  app.get('/api/site-settings/revisions', requireAuth, requirePermission('permissions'), asyncHandler(async (_req, res) => {
+  app.get('/api/site-settings/revisions', requireAuth, requirePermission('permissions'), async (_req, res) => {
     const revisions = await SettingsRevision.find({ scope: 'site' })
       .sort({ createdAt: -1 })
       .limit(60)
       .lean();
     return res.json(formatSettingsRevisionList(revisions));
-  }));
+  });
 
-  app.post('/api/site-settings/revisions/restore', requireAuth, requirePermission('permissions'), asyncHandler(async (req, res) => {
+  app.post('/api/site-settings/revisions/restore', requireAuth, requirePermission('permissions'), async (req, res) => {
     const revisionId = normalizeText(req.body?.revisionId, 80);
     if (!revisionId) return res.status(400).json({ error: 'revisionId is required' });
 
@@ -143,14 +142,14 @@ export function registerSettingsRoutes(app, deps) {
     invalidateCacheGroup('settings', 'site-settings-mutation');
 
     return res.json(serialized);
-  }));
+  });
 
-  app.get('/api/site-settings', asyncHandler(async (_req, res) => {
+  app.get('/api/site-settings', async (_req, res) => {
     const doc = await SiteSettings.findOne({ key: 'main' }).lean();
     return res.json(serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS));
-  }));
+  });
 
-  app.put('/api/site-settings', requireAuth, requirePermission('permissions'), asyncHandler(async (req, res) => {
+  app.put('/api/site-settings', requireAuth, requirePermission('permissions'), async (req, res) => {
     const settings = sanitizeSiteSettingsPayload(req.body);
     const updated = await SiteSettings.findOneAndUpdate(
       { key: 'main' },
@@ -172,9 +171,9 @@ export function registerSettingsRoutes(app, deps) {
     invalidateCacheGroup('settings', 'site-settings-mutation');
 
     return res.json(serialized);
-  }));
+  });
 
-  app.post('/api/site-settings/cache/homepage/refresh', requireAuth, requirePermission('permissions'), asyncHandler(async (req, res) => {
+  app.post('/api/site-settings/cache/homepage/refresh', requireAuth, requirePermission('permissions'), async (req, res) => {
     const homepageCleared = invalidateCacheTags(['homepage'], { reason: 'manual-homepage-refresh:homepage' });
     const bootstrapCleared = invalidateCacheTags(['bootstrap'], { reason: 'manual-homepage-refresh:bootstrap' });
     const totalCleared = homepageCleared + bootstrapCleared;
@@ -197,5 +196,5 @@ export function registerSettingsRoutes(app, deps) {
         total: totalCleared,
       },
     });
-  }));
+  });
 }

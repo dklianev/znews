@@ -1,5 +1,4 @@
 import express from 'express';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function createUsersRouter(deps) {
   const {
@@ -19,12 +18,12 @@ export function createUsersRouter(deps) {
 
   const usersRouter = express.Router();
 
-  usersRouter.get('/', requireAuth, requirePermission('profiles'), asyncHandler(async (_req, res) => {
+  usersRouter.get('/', requireAuth, requirePermission('profiles'), async (_req, res) => {
     const items = await User.find().select('-password -_id -__v').sort({ id: -1 }).lean();
     res.json(items);
-  }));
+  });
 
-  usersRouter.post('/', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  usersRouter.post('/', requireAuth, requireAdmin, async (req, res) => {
     const fieldErrors = {};
     const name = normalizeText(req.body.name, 80);
     const username = normalizeText(req.body.username, 40).toLowerCase();
@@ -78,9 +77,9 @@ export function createUsersRouter(deps) {
       details: obj.name || '',
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
     res.json(obj);
-  }));
+  });
 
-  usersRouter.put('/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  usersRouter.put('/:id', requireAuth, requireAdmin, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -164,9 +163,9 @@ export function createUsersRouter(deps) {
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     res.json(item.toJSON());
-  }));
+  });
 
-  usersRouter.delete('/:id', requireAuth, requireAdmin, asyncHandler(async (req, res) => {
+  usersRouter.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
     if (id === 1) return res.status(403).json({ error: 'Cannot delete main admin' });
@@ -184,7 +183,7 @@ export function createUsersRouter(deps) {
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     res.json({ ok: true });
-  }));
+  });
 
   return usersRouter;
 }

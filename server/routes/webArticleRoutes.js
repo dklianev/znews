@@ -1,5 +1,4 @@
 import { createWebArticleMetaHelpers } from '../services/webArticleMetaHelpersService.js';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function registerWebArticleRoutes(app, deps) {
   const {
@@ -30,7 +29,7 @@ export function registerWebArticleRoutes(app, deps) {
   // with per-article meta and let real browsers fall back to the SPA entrypoint.
   // Express 5 no longer supports regexp sub-expressions in string paths.
   // We keep numeric validation inside the handler to preserve behavior.
-  app.get('/article/:id', asyncHandler(async (req, res, next) => {
+  app.get('/article/:id', async (req, res, next) => {
     try {
       if (!isBotUserAgent(req)) return next();
 
@@ -52,9 +51,9 @@ export function registerWebArticleRoutes(app, deps) {
     } catch (_error) {
       return next();
     }
-  }));
+  });
 
-  app.get('/share/article/:id', asyncHandler(async (req, res) => {
+  app.get('/share/article/:id', async (req, res) => {
     try {
       const id = Number.parseInt(req.params.id, 10);
       if (!Number.isInteger(id)) return res.status(400).send('Invalid article id');
@@ -76,5 +75,5 @@ export function registerWebArticleRoutes(app, deps) {
     } catch (_error) {
       return res.status(500).send('Share page error');
     }
-  }));
+  });
 }

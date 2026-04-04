@@ -1,4 +1,3 @@
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function registerMonitoringRoutes(app, deps) {
   const {
@@ -12,7 +11,7 @@ export function registerMonitoringRoutes(app, deps) {
     truncateMonitoringText,
   } = deps;
 
-  app.post('/api/monitoring/client-error', clientMonitoringLimiter, asyncHandler(async (req, res) => {
+  app.post('/api/monitoring/client-error', clientMonitoringLimiter, async (req, res) => {
     const payload = req.body && typeof req.body === 'object' ? req.body : {};
     await recordSystemEvent({
       level: 'error',
@@ -27,9 +26,9 @@ export function registerMonitoringRoutes(app, deps) {
       },
     });
     res.status(201).json({ ok: true });
-  }));
+  });
 
-  app.get('/api/admin/diagnostics', requireAuth, requirePermission('permissions'), asyncHandler(async (_req, res) => {
+  app.get('/api/admin/diagnostics', requireAuth, requirePermission('permissions'), async (_req, res) => {
     let payload;
     try {
       payload = await buildDiagnosticsPayload();
@@ -40,5 +39,5 @@ export function registerMonitoringRoutes(app, deps) {
 
     res.set('Cache-Control', 'no-store');
     res.json(payload);
-  }));
+  });
 }

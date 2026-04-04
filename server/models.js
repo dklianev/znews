@@ -495,6 +495,7 @@ const permissionSchema = new mongoose.Schema({
     profiles: { type: Boolean, default: false },
     permissions: { type: Boolean, default: false },
     games: { type: Boolean, default: false },
+    classifieds: { type: Boolean, default: false },
   },
 }, opts);
 
@@ -671,6 +672,62 @@ const tipSchema = new mongoose.Schema({
 
 tipSchema.index({ status: 1, createdAt: -1 }, { name: 'tip_status_createdAt' });
 
+// ─── Classifieds (Малки обяви) ───
+const classifiedSchema = new mongoose.Schema({
+  id: { type: Number, required: true, unique: true },
+  title: {
+    type: String,
+    required: [true, 'Заглавието е задължително.'],
+    trim: true,
+    maxlength: [120, 'Заглавието трябва да е до 120 символа.'],
+  },
+  description: {
+    type: String,
+    required: [true, 'Описанието е задължително.'],
+    trim: true,
+    maxlength: [1000, 'Описанието трябва да е до 1000 символа.'],
+  },
+  category: {
+    type: String,
+    required: [true, 'Категорията е задължителна.'],
+    enum: ['cars', 'properties', 'services', 'looking-for', 'selling', 'other'],
+  },
+  price: { type: String, trim: true, maxlength: [60, 'Цената трябва да е до 60 символа.'] },
+  phone: {
+    type: String,
+    required: [true, 'Телефонът е задължителен.'],
+    trim: true,
+    maxlength: [30, 'Телефонът трябва да е до 30 символа.'],
+  },
+  contactName: {
+    type: String,
+    required: [true, 'Името за контакт е задължително.'],
+    trim: true,
+    maxlength: [80, 'Името трябва да е до 80 символа.'],
+  },
+  images: { type: [String], default: [] },
+  imagesMeta: { type: [mongoose.Schema.Types.Mixed], default: [] },
+  tier: { type: String, default: 'standard', enum: ['standard', 'highlighted', 'vip'] },
+  status: { type: String, default: 'awaiting_payment', enum: ['awaiting_payment', 'active', 'rejected'] },
+  paymentRef: { type: String, required: true, unique: true, index: true },
+  amountDue: { type: Number, default: 0 },
+  paidBy: { type: String, default: '' },
+  ipHash: { type: String, index: true },
+  viewCount: { type: Number, default: 0 },
+  sortWeight: { type: Number, default: 1 },
+  bumpedAt: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now },
+  approvedAt: { type: Date, default: null },
+  expiresAt: { type: Date, default: null },
+}, opts);
+
+classifiedSchema.index(
+  { title: 'text', description: 'text', contactName: 'text' },
+  { name: 'classified_text', weights: { title: 8, description: 4, contactName: 2 }, default_language: 'none' }
+);
+classifiedSchema.index({ status: 1, expiresAt: -1, id: -1 }, { name: 'classified_status_expiry' });
+classifiedSchema.index({ status: 1, category: 1, id: -1 }, { name: 'classified_status_category' });
+
 // ─── Web Push Subscription ───
 const pushSubscriptionSchema = new mongoose.Schema({
   endpoint: { type: String, required: true, unique: true },
@@ -807,6 +864,7 @@ export const ArticleReaction = mongoose.model('ArticleReaction', articleReaction
 export const AuthSession = mongoose.model('AuthSession', authSessionSchema);
 export const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 export const Tip = mongoose.model('Tip', tipSchema);
+export const Classified = mongoose.model('Classified', classifiedSchema);
 export const PushSubscription = mongoose.model('PushSubscription', pushSubscriptionSchema);
 export const GameDefinition = mongoose.model('GameDefinition', gameDefinitionSchema);
 export const GamePuzzle = mongoose.model('GamePuzzle', gamePuzzleSchema);

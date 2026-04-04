@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { motion } from 'motion/react';
 import ArticleCard from '../components/ArticleCard';
 import TrendingSidebar from '../components/TrendingSidebar';
+import VipClassifiedsWidget from '../components/VipClassifiedsWidget';
 import MostWanted from '../components/MostWanted';
 import PollWidget from '../components/PollWidget';
 import AdSlot from '../components/ads/AdSlot';
@@ -765,6 +766,7 @@ export default function HomePage() {
 
         <div className="space-y-5">
           <ErrorBoundary fallback={null}><TrendingSidebar /></ErrorBoundary>
+          <ErrorBoundary fallback={null}><VipClassifiedsWidget /></ErrorBoundary>
           <ErrorBoundary fallback={null}><MostWanted /></ErrorBoundary>
           <ErrorBoundary fallback={null}><PollWidget /></ErrorBoundary>
           <AdSlot ads={ads} slot="home.sidebar.1" pageType="home" />

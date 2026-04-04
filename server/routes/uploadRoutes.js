@@ -1,4 +1,3 @@
-import { asyncHandler } from '../services/expressAsyncService.js';
 import { createImageUploadErrorHelpers } from '../services/imageUploadErrorsService.js';
 
 const MEDIA_UPLOAD_PERMISSIONS = ['articles', 'ads', 'gallery', 'events'];
@@ -41,7 +40,7 @@ export function registerUploadRoutes(app, deps) {
     });
   }
 
-  app.post('/api/upload', requireAuth, requireAnyPermission(MEDIA_UPLOAD_PERMISSIONS), asyncHandler(async (req, res) => {
+  app.post('/api/upload', requireAuth, requireAnyPermission(MEDIA_UPLOAD_PERMISSIONS), async (req, res) => {
     let uploadFingerprint = null;
 
     try {
@@ -134,5 +133,5 @@ export function registerUploadRoutes(app, deps) {
     } finally {
       if (uploadFingerprint) uploadRequestInFlight.delete(uploadFingerprint);
     }
-  }));
+  });
 }

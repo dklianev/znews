@@ -30,7 +30,7 @@ import { randomUUID, createHash } from 'crypto';
 
 import {
   Article, Author, Category, Ad, AdEvent, Breaking, User,
-  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, ArticleReaction, PollVote, AuthSession, AuditLog, Tip, PushSubscription, GameDefinition, GamePuzzle, Counter, SystemEvent, BackgroundJobState, AdAnalyticsAggregate, SearchQueryStat
+  Wanted, Job, Court, Event, Poll, Comment, CommentReaction, ContactMessage, Gallery, Permission, HeroSettings, SiteSettings, ArticleRevision, SettingsRevision, ArticleView, ArticleReaction, PollVote, AuthSession, AuditLog, Tip, Classified, PushSubscription, GameDefinition, GamePuzzle, Counter, SystemEvent, BackgroundJobState, AdAnalyticsAggregate, SearchQueryStat
 } from './models.js';
 import { ensureGameDefinitions, seedGamesOnly } from './gameSeed.js';
 import { sortArticlesByRecency } from '../shared/articleRecency.js';
@@ -48,6 +48,7 @@ import { registerMonitoringRoutes } from './routes/monitoringRoutes.js';
 import { registerMediaRoutes } from './routes/mediaRoutes.js';
 import { registerUploadRoutes } from './routes/uploadRoutes.js';
 import { registerTipRoutes } from './routes/tipRoutes.js';
+import { registerClassifiedRoutes } from './routes/classifiedRoutes.js';
 import { registerPushRoutes } from './routes/pushRoutes.js';
 import { registerOpsRoutes } from './routes/opsRoutes.js';
 import { registerAuthRoutes } from './routes/authRoutes.js';
@@ -196,6 +197,7 @@ const API_CACHE_TAG_PATTERNS = Object.freeze({
   polls: ['/api/polls', '/api/bootstrap', '/api/homepage'],
   search: ['/api/search'],
   'site-settings': ['/api/site-settings', '/api/bootstrap', '/api/homepage'],
+  classifieds: ['/api/classifieds'],
   tips: ['/api/tips'],
   users: ['/api/users'],
   wanted: ['/api/wanted', '/api/bootstrap', '/api/homepage'],
@@ -1199,6 +1201,7 @@ const PERMISSION_KEYS = Object.freeze([
   'profiles',
   'permissions',
   'games',
+  'classifieds',
 ]);
 
 const DEFAULT_PERMISSION_DOCS = Object.freeze({
@@ -1999,6 +2002,40 @@ registerTipRoutes(app, {
   toImageMetaFromManifest,
   upload,
   uploadMaxFileSizeMb,
+});
+
+registerClassifiedRoutes(app, {
+  Classified,
+  brandLogoPng,
+  buildShareCardOverlaySvg,
+  cacheMiddleware,
+  ensureImagePipeline,
+  getOriginalUploadUrl,
+  getShareRelativePath,
+  getTrustedClientIp,
+  imageMimeToExt,
+  invalidateCacheTags,
+  loadSharp,
+  nextNumericId,
+  normalizeText,
+  persistShareCardObject,
+  publicError,
+  putStorageObject,
+  rateLimit,
+  rateLimitKeyGenerator,
+  readOriginalUploadBuffer,
+  renderTextImage,
+  requireAnyPermission,
+  requireAuth,
+  shareCardHeight,
+  shareCardWidth,
+  shouldSkipRateLimit,
+  storageObjectExists,
+  toImageMetaFromManifest,
+  toUploadsUrlFromRelative,
+  upload,
+  uploadMaxFileSizeMb,
+  wrapTextLines,
 });
 
 registerPushRoutes(app, {

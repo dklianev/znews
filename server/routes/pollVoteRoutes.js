@@ -1,4 +1,3 @@
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function registerPollVoteRoutes(app, deps) {
   const {
@@ -11,7 +10,7 @@ export function registerPollVoteRoutes(app, deps) {
     pollVoteWindowMs,
   } = deps;
 
-  app.post('/api/polls/:id/vote', pollVoteLimiter, asyncHandler(async (req, res) => {
+  app.post('/api/polls/:id/vote', pollVoteLimiter, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     const optionIndex = Number.parseInt(req.body.optionIndex, 10);
     if (!Number.isInteger(id) || !Number.isInteger(optionIndex)) {
@@ -51,5 +50,5 @@ export function registerPollVoteRoutes(app, deps) {
     delete updated._id;
     delete updated.__v;
     return res.json(updated);
-  }));
+  });
 }

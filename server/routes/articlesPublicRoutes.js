@@ -1,5 +1,4 @@
 import express from 'express';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function createArticlesPublicRouter(deps) {
   const {
@@ -180,7 +179,7 @@ export function createArticlesPublicRouter(deps) {
       .filter((value, index, list) => list.indexOf(value) === index);
   }
 
-  articlesRouter.get('/author-stats/:authorId', cacheMiddleware, asyncHandler(async (req, res) => {
+  articlesRouter.get('/author-stats/:authorId', cacheMiddleware, async (req, res) => {
     const authorId = Number.parseInt(req.params.authorId, 10);
     if (!Number.isInteger(authorId)) return res.status(400).json({ error: 'Invalid authorId' });
     res.setCacheTags(['authors', 'author-stats']);
@@ -215,9 +214,9 @@ export function createArticlesPublicRouter(deps) {
       totalReactions: result?.totalReactions || 0,
       categoryCount: result?.categories?.length || 0,
     });
-  }));
+  });
 
-  articlesRouter.get('/', cacheMiddleware, asyncHandler(async (req, res) => {
+  articlesRouter.get('/', cacheMiddleware, async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
     const includeArchived = canSeeDrafts && req.query.status === 'archived';
@@ -278,11 +277,11 @@ export function createArticlesPublicRouter(deps) {
       total,
       totalPages: Math.max(1, Math.ceil(total / limit)),
     });
-  }));
+  });
 
   // Express 5 no longer supports regexp sub-expressions in string paths.
   // We keep numeric validation inside the handler to preserve behavior.
-  articlesRouter.get('/:id', cacheMiddleware, asyncHandler(async (req, res) => {
+  articlesRouter.get('/:id', cacheMiddleware, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
     res.setCacheTags(['articles', 'article-detail']);
@@ -304,9 +303,9 @@ export function createArticlesPublicRouter(deps) {
     delete item._id;
     delete item.__v;
     return res.json(item);
-  }));
+  });
 
-  articlesRouter.get('/:id/reactions/me', asyncHandler(async (req, res) => {
+  articlesRouter.get('/:id/reactions/me', async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -317,9 +316,9 @@ export function createArticlesPublicRouter(deps) {
     ensureReactionClientId(req, res);
     const windowKey = getWindowKey(articleReactionWindowMs);
     return res.json(await loadReactionState(req, id, windowKey));
-  }));
+  });
 
-  articlesRouter.get('/:id/share.png', asyncHandler(async (req, res) => {
+  articlesRouter.get('/:id/share.png', async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -353,9 +352,9 @@ export function createArticlesPublicRouter(deps) {
     res.setHeader('Content-Type', 'image/png');
     res.setHeader('Cache-Control', 'public, max-age=120');
     return res.send(transparentPng1x1);
-  }));
+  });
 
-  articlesRouter.post('/:id/view', asyncHandler(async (req, res) => {
+  articlesRouter.post('/:id/view', async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -385,9 +384,9 @@ export function createArticlesPublicRouter(deps) {
     delete item._id;
     delete item.__v;
     return res.json({ ...item, deduped });
-  }));
+  });
 
-  articlesRouter.post('/:id/react', articleReactionLimiter, asyncHandler(async (req, res) => {
+  articlesRouter.post('/:id/react', articleReactionLimiter, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -450,9 +449,9 @@ export function createArticlesPublicRouter(deps) {
     const reactionState = await loadReactionState(req, id, windowKey);
     invalidateReactionCache(id, emoji);
     return res.json({ reactions: item.reactions, emoji, ...reactionState });
-  }));
+  });
 
-  articlesRouter.delete('/:id/react', asyncHandler(async (req, res) => {
+  articlesRouter.delete('/:id/react', async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -497,7 +496,7 @@ export function createArticlesPublicRouter(deps) {
     const reactionState = await loadReactionState(req, id, windowKey);
     invalidateReactionCache(id, emoji);
     return res.json({ reactions: item.reactions, emoji, removed: true, ...reactionState });
-  }));
+  });
 
   return articlesRouter;
 }

@@ -1,5 +1,4 @@
 import express from 'express';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 const COMMENT_COPY = Object.freeze({
   invalidPayload: '\u041f\u043e\u043f\u044a\u043b\u043d\u0438 \u0438\u043c\u0435 \u0438 \u0442\u0435\u043a\u0441\u0442, \u0437\u0430 \u0434\u0430 \u0438\u0437\u043f\u0440\u0430\u0442\u0438\u0448 \u043a\u043e\u043c\u0435\u043d\u0442\u0430\u0440.',
@@ -56,7 +55,7 @@ export function createCommentsRouter(deps) {
   const COMMENT_AUTHOR_MAX_LEN = 50;
   const COMMENT_TEXT_MAX_LEN = 1200;
 
-  commentsRouter.get('/', asyncHandler(async (req, res) => {
+  commentsRouter.get('/', async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canModerate = maybeUser ? await hasPermissionForSection(maybeUser, 'comments') : false;
     const filter = canModerate ? {} : { approved: true };
@@ -103,9 +102,9 @@ export function createCommentsRouter(deps) {
       total,
       totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
     });
-  }));
+  });
 
-  commentsRouter.post('/', commentCreateLimiter, asyncHandler(async (req, res) => {
+  commentsRouter.post('/', commentCreateLimiter, async (req, res) => {
     const articleId = Number.parseInt(req.body.articleId, 10);
     const parentIdRaw = hasOwn(req.body, 'parentId') ? Number.parseInt(req.body.parentId, 10) : null;
     const authorRaw = typeof req.body.author === 'string'
@@ -207,9 +206,9 @@ export function createCommentsRouter(deps) {
     });
 
     res.status(201).json(item.toJSON());
-  }));
+  });
 
-  commentsRouter.post('/:id/reaction', commentReactionLimiter, asyncHandler(async (req, res) => {
+  commentsRouter.post('/:id/reaction', commentReactionLimiter, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -257,9 +256,9 @@ export function createCommentsRouter(deps) {
     const asJson = updated.toJSON();
     asJson.userReaction = reaction;
     return res.json(asJson);
-  }));
+  });
 
-  commentsRouter.put('/:id', requireAuth, requirePermission('comments'), asyncHandler(async (req, res) => {
+  commentsRouter.put('/:id', requireAuth, requirePermission('comments'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -316,9 +315,9 @@ export function createCommentsRouter(deps) {
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     res.json(item.toJSON());
-  }));
+  });
 
-  commentsRouter.delete('/:id', requireAuth, requirePermission('comments'), asyncHandler(async (req, res) => {
+  commentsRouter.delete('/:id', requireAuth, requirePermission('comments'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -341,7 +340,7 @@ export function createCommentsRouter(deps) {
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     res.json({ ok: true });
-  }));
+  });
 
   return commentsRouter;
 }

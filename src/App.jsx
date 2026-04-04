@@ -43,6 +43,10 @@ const CourtPage = lazyRetry(() => import('./pages/CourtPage'));
 const EventsPage = lazyRetry(() => import('./pages/EventsPage'));
 const NotFoundPage = lazyRetry(() => import('./pages/NotFoundPage'));
 const TipLine = lazyRetry(() => import('./pages/TipLine'));
+const ClassifiedsPage = lazyRetry(() => import('./pages/ClassifiedsPage'));
+const ClassifiedSubmitPage = lazyRetry(() => import('./pages/ClassifiedSubmitPage'));
+const ClassifiedDetailPage = lazyRetry(() => import('./pages/ClassifiedDetailPage'));
+const ClassifiedStatusPage = lazyRetry(() => import('./pages/ClassifiedStatusPage'));
 const GamesPage = lazyRetry(() => import('./pages/GamesPage'));
 const GameWordPage = lazyRetry(() => import('./pages/GameWordPage'));
 const GameConnectionsPage = lazyRetry(() => import('./pages/GameConnectionsPage'));
@@ -84,6 +88,7 @@ const ManageContactMessages = lazyRetry(() => import('./pages/admin/ManageContac
 const ManageTips = lazyRetry(() => import('./pages/admin/ManageTips'));
 const ManageGames = lazyRetry(() => import('./pages/admin/ManageGames'));
 const ManageGamePuzzles = lazyRetry(() => import('./pages/admin/ManageGamePuzzles'));
+const ManageClassifieds = lazyRetry(() => import('./pages/admin/ManageClassifieds'));
 
 // ─── Inline loading fallback ───
 function PageFallback() {
@@ -251,9 +256,12 @@ function PublicLayout() {
   const location = useLocation();
   return (
     <div className="min-h-screen flex flex-col">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-zn-purple focus:text-white focus:font-display focus:font-bold focus:text-sm focus:uppercase focus:tracking-wider" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
+        Към съдържанието
+      </a>
       <Navbar />
       <BreakingTicker />
-      <main className="flex-1 comic-stage">
+      <main id="main-content" className="flex-1 comic-stage">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
@@ -341,6 +349,7 @@ function AppContent() {
           <Route path="audit-log" element={<AdminPermissionRoute permission="permissions"><Suspense fallback={<PageFallback />}><ManageAuditLog /></Suspense></AdminPermissionRoute>} />
           <Route path="games" element={<AdminPermissionRoute permission="games"><Suspense fallback={<PageFallback />}><ManageGames /></Suspense></AdminPermissionRoute>} />
           <Route path="games/puzzles" element={<AdminPermissionRoute permission="games"><Suspense fallback={<PageFallback />}><ManageGamePuzzles /></Suspense></AdminPermissionRoute>} />
+          <Route path="classifieds" element={<AdminPermissionRoute permission="classifieds"><Suspense fallback={<PageFallback />}><ManageClassifieds /></Suspense></AdminPermissionRoute>} />
         </Route>
 
         {/* Public site — Suspense is in PublicLayout */}
@@ -357,6 +366,10 @@ function AppContent() {
           <Route path="/events" element={<EventsPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/tipline" element={<TipLine />} />
+          <Route path="/obiavi" element={<ClassifiedsPage />} />
+          <Route path="/obiavi/submit" element={<ClassifiedSubmitPage />} />
+          <Route path="/obiavi/status/:ref?" element={<ClassifiedStatusPage />} />
+          <Route path="/obiavi/:id" element={<ClassifiedDetailPage />} />
           <Route path="/games" element={<GamesPage />} />
           <Route path="/games/word" element={<PublicGameRoute slug="word"><GameWordPage /></PublicGameRoute>} />
           <Route path="/games/connections" element={<PublicGameRoute slug="connections"><GameConnectionsPage /></PublicGameRoute>} />

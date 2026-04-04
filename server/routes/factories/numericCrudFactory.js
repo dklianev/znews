@@ -1,5 +1,4 @@
 import express from 'express';
-import { asyncHandler } from '../../services/expressAsyncService.js';
 
 export function createNumericCrudFactory({
   AuditLog,
@@ -25,7 +24,7 @@ export function createNumericCrudFactory({
       return next;
     };
 
-    router.get('/', cacheMiddleware, asyncHandler(async (req, res) => {
+    router.get('/', cacheMiddleware, async (req, res) => {
       const pagination = parseCollectionPagination(req.query, { defaultLimit: 50, maxLimit: 250 });
       let query = Model.find().sort(defaultSort);
       if (pagination.shouldPaginate) {
@@ -56,9 +55,9 @@ export function createNumericCrudFactory({
         total,
         totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
       });
-    }));
+    });
 
-    router.post('/', ...writeGuards, asyncHandler(async (req, res) => {
+    router.post('/', ...writeGuards, async (req, res) => {
       const id = await nextNumericId(Model);
       const data = sanitizeWritePayload(req.body);
       const item = await Model.create({ ...data, id });
@@ -75,9 +74,9 @@ export function createNumericCrudFactory({
       invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 
       return res.status(201).json(obj);
-    }));
+    });
 
-    router.put('/:id', ...writeGuards, asyncHandler(async (req, res) => {
+    router.put('/:id', ...writeGuards, async (req, res) => {
       const id = Number.parseInt(req.params.id, 10);
       if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
       const data = sanitizeWritePayload(req.body);
@@ -98,9 +97,9 @@ export function createNumericCrudFactory({
       invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 
       return res.json(item.toJSON());
-    }));
+    });
 
-    router.delete('/:id', ...writeGuards, asyncHandler(async (req, res) => {
+    router.delete('/:id', ...writeGuards, async (req, res) => {
       const id = Number.parseInt(req.params.id, 10);
       if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
       const result = await Model.deleteOne({ id });
@@ -117,7 +116,7 @@ export function createNumericCrudFactory({
       invalidateCacheTags([resourceName, 'bootstrap', 'homepage'], { reason: `${resourceName}-mutation` });
 
       return res.json({ ok: true });
-    }));
+    });
 
     return router;
   };

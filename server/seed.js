@@ -104,11 +104,11 @@ const DEFAULT_GALLERY = [
 ];
 
 const DEFAULT_PERMISSIONS = [
-  { role: 'admin', permissions: { articles: true, categories: true, ads: true, breaking: true, wanted: true, jobs: true, court: true, events: true, polls: true, comments: true, contact: true, gallery: true, profiles: true, permissions: true, games: true } },
-  { role: 'editor', permissions: { articles: true, categories: true, ads: true, breaking: true, wanted: false, jobs: false, court: false, events: true, polls: true, comments: true, contact: true, gallery: true, profiles: false, permissions: false, games: true } },
-  { role: 'reporter', permissions: { articles: true, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: true, profiles: false, permissions: false, games: false } },
-  { role: 'photographer', permissions: { articles: false, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: true, profiles: false, permissions: false, games: false } },
-  { role: 'intern', permissions: { articles: false, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: false, profiles: false, permissions: false, games: false } },
+  { role: 'admin', permissions: { articles: true, categories: true, ads: true, breaking: true, wanted: true, jobs: true, court: true, events: true, polls: true, comments: true, contact: true, gallery: true, profiles: true, permissions: true, games: true, classifieds: true } },
+  { role: 'editor', permissions: { articles: true, categories: true, ads: true, breaking: true, wanted: false, jobs: false, court: false, events: true, polls: true, comments: true, contact: true, gallery: true, profiles: false, permissions: false, games: true, classifieds: true } },
+  { role: 'reporter', permissions: { articles: true, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: true, profiles: false, permissions: false, games: false, classifieds: false } },
+  { role: 'photographer', permissions: { articles: false, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: true, profiles: false, permissions: false, games: false, classifieds: false } },
+  { role: 'intern', permissions: { articles: false, categories: false, ads: false, breaking: false, wanted: false, jobs: false, court: false, events: false, polls: false, comments: false, contact: false, gallery: false, profiles: false, permissions: false, games: false, classifieds: false } },
 ];
 
 const DEFAULT_HERO_SETTINGS = {

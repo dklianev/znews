@@ -1,5 +1,4 @@
 import express from 'express';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function createAdsRouter(deps) {
   const {
@@ -25,12 +24,12 @@ export function createAdsRouter(deps) {
 
   const adsRouter = express.Router();
 
-  adsRouter.get('/analytics/summary', requireAuth, requirePermission('ads'), asyncHandler(async (req, res) => {
+  adsRouter.get('/analytics/summary', requireAuth, requirePermission('ads'), async (req, res) => {
     const summary = await buildAdAnalyticsSummary({ days: req.query.days });
     res.json(summary);
-  }));
+  });
 
-  adsRouter.post('/:id/impression', adTrackingLimiter, asyncHandler(async (req, res) => {
+  adsRouter.post('/:id/impression', adTrackingLimiter, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -42,9 +41,9 @@ export function createAdsRouter(deps) {
 
     const result = await recordAdAnalyticsEvent({ req, adId: id, eventType: 'impression', context });
     res.status(result.deduped ? 200 : 201).json({ ok: true, deduped: result.deduped });
-  }));
+  });
 
-  adsRouter.post('/:id/click', adTrackingLimiter, asyncHandler(async (req, res) => {
+  adsRouter.post('/:id/click', adTrackingLimiter, async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -56,14 +55,14 @@ export function createAdsRouter(deps) {
 
     await recordAdAnalyticsEvent({ req, adId: id, eventType: 'click', context });
     res.status(201).json({ ok: true });
-  }));
+  });
 
-  adsRouter.get('/', cacheMiddleware, asyncHandler(async (req, res) => {
+  adsRouter.get('/', cacheMiddleware, async (req, res) => {
     const items = await listAdsForRequest(req);
     res.json(items);
-  }));
+  });
 
-  adsRouter.post('/', requireAuth, requirePermission('ads'), asyncHandler(async (req, res) => {
+  adsRouter.post('/', requireAuth, requirePermission('ads'), async (req, res) => {
     const patch = sanitizeAdPayload(req.body, { partial: false });
     const candidate = buildAdCandidate(null, patch);
     const errors = validateAdCandidate(candidate);
@@ -85,9 +84,9 @@ export function createAdsRouter(deps) {
     invalidateCacheGroup('ads', 'ads-mutation');
 
     res.status(201).json(obj);
-  }));
+  });
 
-  adsRouter.put('/:id', requireAuth, requirePermission('ads'), asyncHandler(async (req, res) => {
+  adsRouter.put('/:id', requireAuth, requirePermission('ads'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -118,9 +117,9 @@ export function createAdsRouter(deps) {
     invalidateCacheGroup('ads', 'ads-mutation');
 
     res.json(obj);
-  }));
+  });
 
-  adsRouter.delete('/:id', requireAuth, requirePermission('ads'), asyncHandler(async (req, res) => {
+  adsRouter.delete('/:id', requireAuth, requirePermission('ads'), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
 
@@ -139,7 +138,7 @@ export function createAdsRouter(deps) {
     invalidateCacheGroup('ads', 'ads-mutation');
 
     res.json({ ok: true });
-  }));
+  });
 
   return adsRouter;
 }

@@ -1,5 +1,4 @@
 import path from 'path';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 const MEDIA_PERMISSIONS = ['articles', 'ads', 'gallery', 'events'];
 
@@ -27,12 +26,12 @@ export function registerMediaRoutes(app, deps) {
 
   const mediaAccess = [requireAuth, requireAnyPermission(MEDIA_PERMISSIONS)];
 
-  app.get('/api/media', ...mediaAccess, asyncHandler(async (_req, res) => {
+  app.get('/api/media', ...mediaAccess, async (_req, res) => {
     const files = await listMediaFiles();
     return res.json(files);
-  }));
+  });
 
-  app.get('/api/media/source/:fileName', ...mediaAccess, asyncHandler(async (req, res) => {
+  app.get('/api/media/source/:fileName', ...mediaAccess, async (req, res) => {
     try {
       const decoded = decodeURIComponent(req.params.fileName || '');
       const fileName = path.basename(decoded);
@@ -50,14 +49,14 @@ export function registerMediaRoutes(app, deps) {
       }
       throw error;
     }
-  }));
+  });
 
-  app.get('/api/media/pipeline/status', ...mediaAccess, asyncHandler(async (_req, res) => {
+  app.get('/api/media/pipeline/status', ...mediaAccess, async (_req, res) => {
     const status = await getImagePipelineStatus();
     return res.json(status);
-  }));
+  });
 
-  app.post('/api/media/pipeline/backfill', ...mediaAccess, asyncHandler(async (req, res) => {
+  app.post('/api/media/pipeline/backfill', ...mediaAccess, async (req, res) => {
     const force = Boolean(req.body?.force);
     const parsedLimit = Number.parseInt(req.body?.limit, 10);
     const limit = Number.isInteger(parsedLimit) && parsedLimit > 0
@@ -65,9 +64,9 @@ export function registerMediaRoutes(app, deps) {
       : 0;
     const summary = await backfillImagePipeline({ force, limit });
     return res.json(summary);
-  }));
+  });
 
-  app.delete('/api/media/:fileName', ...mediaAccess, asyncHandler(async (req, res) => {
+  app.delete('/api/media/:fileName', ...mediaAccess, async (req, res) => {
     try {
       const decoded = decodeURIComponent(req.params.fileName || '');
       const fileName = path.basename(decoded);
@@ -108,5 +107,5 @@ export function registerMediaRoutes(app, deps) {
       }
       throw error;
     }
-  }));
+  });
 }

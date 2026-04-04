@@ -1,4 +1,3 @@
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function registerPermissionRoutes(app, deps) {
   const {
@@ -21,7 +20,7 @@ export function registerPermissionRoutes(app, deps) {
     return /^[a-z][a-z0-9_-]{1,31}$/.test(role);
   }
 
-  app.post('/api/roles', requireAuth, requirePermission('permissions'), asyncHandler(async (req, res) => {
+  app.post('/api/roles', requireAuth, requirePermission('permissions'), async (req, res) => {
     const role = normalizeRoleKey(req.body?.role);
     if (!role) return res.status(400).json({ error: 'Invalid role' });
     if (!isValidRoleKey(role)) {
@@ -44,9 +43,9 @@ export function registerPermissionRoutes(app, deps) {
     delete doc._id;
     delete doc.__v;
     return res.json(doc);
-  }));
+  });
 
-  app.get('/api/permissions', requireAuth, asyncHandler(async (req, res) => {
+  app.get('/api/permissions', requireAuth, async (req, res) => {
     const canManage = req.user.role === 'admin' || await hasPermissionForSection(req.user, 'permissions');
 
     if (canManage) {
@@ -61,9 +60,9 @@ export function registerPermissionRoutes(app, deps) {
     delete own._id;
     delete own.__v;
     return res.json([own]);
-  }));
+  });
 
-  app.put('/api/permissions/:role', requireAuth, requirePermission('permissions'), asyncHandler(async (req, res) => {
+  app.put('/api/permissions/:role', requireAuth, requirePermission('permissions'), async (req, res) => {
     const role = normalizeText(req.params.role, 32);
     if (!role) return res.status(400).json({ error: 'Invalid role' });
 
@@ -74,5 +73,5 @@ export function registerPermissionRoutes(app, deps) {
       { returnDocument: 'after', upsert: true }
     );
     return res.json(perm.toJSON());
-  }));
+  });
 }

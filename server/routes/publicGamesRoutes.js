@@ -1,5 +1,4 @@
 import express from 'express';
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 export function createPublicGamesRouter(deps) {
   const {
@@ -28,12 +27,12 @@ export function createPublicGamesRouter(deps) {
 
   const gamesRouter = express.Router();
 
-  gamesRouter.get('/', asyncHandler(async (_req, res) => {
+  gamesRouter.get('/', async (_req, res) => {
     const games = await listPublicGames();
     return res.json(games);
-  }));
+  });
 
-  gamesRouter.get('/:slug/today', asyncHandler(async (req, res) => {
+  gamesRouter.get('/:slug/today', async (req, res) => {
     const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
     if (!game) return res.status(404).json({ error: 'Not found' });
     if (!isPubliclyAvailable && !canManageGames) {
@@ -47,9 +46,9 @@ export function createPublicGamesRouter(deps) {
     }
 
     return res.json(stripPuzzleForPublic(puzzle));
-  }));
+  });
 
-  gamesRouter.get('/:slug/archive', asyncHandler(async (req, res) => {
+  gamesRouter.get('/:slug/archive', async (req, res) => {
     const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
     if (!game) return res.status(404).json({ error: 'Not found' });
     if (!isPubliclyAvailable && !canManageGames) {
@@ -74,9 +73,9 @@ export function createPublicGamesRouter(deps) {
             return safePuzzle;
           })
     );
-  }));
+  });
 
-  gamesRouter.get('/:slug/:date', asyncHandler(async (req, res) => {
+  gamesRouter.get('/:slug/:date', async (req, res) => {
     const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
     if (!game) return res.status(404).json({ error: 'Not found' });
     if (!isPubliclyAvailable && !canManageGames) {
@@ -96,9 +95,9 @@ export function createPublicGamesRouter(deps) {
     }
 
     return res.json(canManageGames ? puzzle : stripPuzzleForPublic(puzzle));
-  }));
+  });
 
-  gamesRouter.post('/:slug/:date/validate', asyncHandler(async (req, res) => {
+  gamesRouter.post('/:slug/:date/validate', async (req, res) => {
     try {
       const { slug, game, canManageGames, isPubliclyAvailable } = await resolveGameAccess(req, req.params.slug);
       if (!game) return res.status(404).json({ error: 'Not found' });
@@ -277,7 +276,7 @@ export function createPublicGamesRouter(deps) {
     } catch (error) {
       return res.status(error.status || 500).json({ error: statusAwarePublicError(error) });
     }
-  }));
+  });
 
   return gamesRouter;
 }

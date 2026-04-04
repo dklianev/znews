@@ -1,5 +1,4 @@
 import { createHash } from 'crypto';
-import { asyncHandler } from '../services/expressAsyncService.js';
 import { createImageUploadErrorHelpers } from '../services/imageUploadErrorsService.js';
 
 const TIP_ADMIN_PERMISSIONS = ['articles'];
@@ -51,12 +50,12 @@ export function registerTipRoutes(app, deps) {
     });
   }
 
-  app.get('/api/tips', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), asyncHandler(async (_req, res) => {
+  app.get('/api/tips', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), async (_req, res) => {
     const tips = await Tip.find().sort({ createdAt: -1 }).lean();
     res.json(tips);
-  }));
+  });
 
-  app.post('/api/tips', tipRateLimiter, asyncHandler(async (req, res) => {
+  app.post('/api/tips', tipRateLimiter, async (req, res) => {
     try {
       await runSingleUpload(req, res);
     } catch (error) {
@@ -118,9 +117,9 @@ export function registerTipRoutes(app, deps) {
     await newTip.save();
 
     return res.json({ ok: true, id: newTip.id });
-  }));
+  });
 
-  app.patch('/api/tips/:id', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), asyncHandler(async (req, res) => {
+  app.patch('/api/tips/:id', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), async (req, res) => {
     const { status } = req.body;
     if (!['new', 'processed', 'rejected'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
@@ -134,13 +133,13 @@ export function registerTipRoutes(app, deps) {
     );
     if (!tip) return res.status(404).json({ error: 'Not found' });
     res.json(tip);
-  }));
+  });
 
-  app.delete('/api/tips/:id', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), asyncHandler(async (req, res) => {
+  app.delete('/api/tips/:id', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), async (req, res) => {
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
     const tip = await Tip.findOneAndDelete({ id });
     if (!tip) return res.status(404).json({ error: 'Not found' });
     res.json({ ok: true });
-  }));
+  });
 }

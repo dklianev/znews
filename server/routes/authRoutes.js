@@ -1,4 +1,3 @@
-import { asyncHandler } from '../services/expressAsyncService.js';
 
 async function findUserByNormalizedUsername(User, normalizeText, username) {
   const exactUser = await User.findOne({ username }).lean();
@@ -31,7 +30,7 @@ export function registerAuthRoutes(app, deps) {
     User,
   } = deps;
 
-  app.post('/api/auth/login', authLimiter, asyncHandler(async (req, res) => {
+  app.post('/api/auth/login', authLimiter, async (req, res) => {
     const username = normalizeText(req.body.username, 40).toLowerCase();
     const password = typeof req.body.password === 'string' ? req.body.password : '';
     if (!username || !password) return res.status(401).json({ error: 'Invalid credentials' });
@@ -57,9 +56,9 @@ export function registerAuthRoutes(app, deps) {
       token: accessToken,
       accessTokenExpiresIn: Math.floor(accessTokenMaxAgeMs / 1000),
     });
-  }));
+  });
 
-  app.post('/api/auth/refresh', asyncHandler(async (req, res) => {
+  app.post('/api/auth/refresh', async (req, res) => {
     try {
       const cookies = parseCookies(req);
       const refreshToken = cookies[REFRESH_COOKIE_NAME];
@@ -103,9 +102,9 @@ export function registerAuthRoutes(app, deps) {
       clearRefreshCookie(res);
       throw error;
     }
-  }));
+  });
 
-  app.post('/api/auth/logout', asyncHandler(async (req, res) => {
+  app.post('/api/auth/logout', async (req, res) => {
     try {
       const cookies = parseCookies(req);
       const refreshToken = cookies[REFRESH_COOKIE_NAME];
@@ -120,5 +119,5 @@ export function registerAuthRoutes(app, deps) {
       clearRefreshCookie(res);
       throw error;
     }
-  }));
+  });
 }

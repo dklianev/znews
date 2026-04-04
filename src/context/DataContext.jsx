@@ -7,7 +7,7 @@ const PublicDataContext = createContext();
 const AdminDataContext = createContext();
 const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 const HOMEPAGE_ARTICLE_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,status,publishAt,cardSticker';
-const EMPTY_PUBLIC_SECTION_STATUS = Object.freeze({ jobs: 'idle', court: 'idle', events: 'idle', gallery: 'idle', games: 'idle' });
+const EMPTY_PUBLIC_SECTION_STATUS = Object.freeze({ jobs: 'idle', court: 'idle', events: 'idle', gallery: 'idle', games: 'idle', classifieds: 'idle' });
 const MEDIA_PERMISSION_KEYS = Object.freeze(['articles', 'ads', 'gallery', 'events']);
 
 function collectCommentThreadIdsLocal(items, rootId) {
@@ -74,6 +74,8 @@ export function DataProvider({ children }) {
   const [permissions, setPermissions] = useState([]);
   const [tips, setTips] = useState([]);
   const [tipsReady, setTipsReady] = useState(false);
+  const [classifieds, setClassifieds] = useState([]);
+  const [classifiedsReady, setClassifiedsReady] = useState(false);
   const [publicSectionStatus, setPublicSectionStatus] = useState(EMPTY_PUBLIC_SECTION_STATUS);
   const publicSectionStatusRef = useRef(EMPTY_PUBLIC_SECTION_STATUS);
   const publicLoadersRef = useRef({ jobs: null, court: null, events: null, gallery: null, games: null });
@@ -154,6 +156,38 @@ export function DataProvider({ children }) {
   const loadGallery = useCallback((options = {}) => {
     return runPublicSectionLoader('gallery', () => api.gallery.getAll(), setGallery, options);
   }, [runPublicSectionLoader]);
+
+  const loadClassifieds = useCallback(async (params) => {
+    setPublicSectionStatus(prev => ({ ...prev, classifieds: 'loading' }));
+    try {
+      const data = await api.classifieds.getPublic(params);
+      setPublicSectionStatus(prev => ({ ...prev, classifieds: 'loaded' }));
+      return data;
+    } catch (err) {
+      setPublicSectionStatus(prev => ({ ...prev, classifieds: 'error' }));
+      throw err;
+    }
+  }, []);
+
+  const loadClassifiedDetail = useCallback(async (id) => {
+    return api.classifieds.getOne(id);
+  }, []);
+
+  const loadClassifiedStatus = useCallback(async (ref) => {
+    return api.classifieds.getStatus(ref);
+  }, []);
+
+  const loadVipClassifieds = useCallback(async () => {
+    return api.classifieds.getVipWidget();
+  }, []);
+
+  const requestClassifiedBump = useCallback(async (id) => {
+    return api.classifieds.requestBump(id);
+  }, []);
+
+  const requestClassifiedRenew = useCallback(async (id) => {
+    return api.classifieds.requestRenew(id);
+  }, []);
 
   const buildPublicBootstrapInclude = useCallback(() => {
     if (session?.token) return 'jobs,court,events,gallery';
@@ -958,6 +992,65 @@ export function DataProvider({ children }) {
   const createTip = useCallback(async (formData) => {
     return await api.tips.create(formData);
   }, []);
+
+  // Classifieds admin
+  const classifiedsLoadedRef = useRef(false);
+  const classifiedsLoaderRef = useRef(null);
+  const refreshClassifieds = useCallback(async () => {
+    const task = api.classifieds.getAll()
+      .then((data) => {
+        const items = Array.isArray(data) ? data : [];
+        classifiedsLoadedRef.current = true;
+        setClassifiedsReady(true);
+        setClassifieds(items);
+        return items;
+      });
+    classifiedsLoaderRef.current = task;
+    return task;
+  }, []);
+  const ensureClassifiedsLoaded = useCallback(async () => {
+    const canLoad = session?.role === 'admin' || permissions.some((item) => item?.role === session?.role && item?.permissions?.classifieds);
+    if (!session?.token || !canLoad) return [];
+    if (classifiedsLoadedRef.current) return classifieds;
+    return await refreshClassifieds();
+  }, [permissions, refreshClassifieds, session?.role, session?.token, classifieds]);
+  const submitClassified = useCallback(async (formData, tier) => {
+    return await api.classifieds.submit(formData, tier);
+  }, []);
+  const approveClassified = useCallback(async (id, paidBy) => {
+    const updated = await api.classifieds.approve(id, paidBy);
+    classifiedsLoadedRef.current = true;
+    setClassifiedsReady(true);
+    setClassifieds(prev => prev.map(c => c.id === id ? updated : c));
+    return updated;
+  }, []);
+  const rejectClassified = useCallback(async (id) => {
+    const updated = await api.classifieds.reject(id);
+    classifiedsLoadedRef.current = true;
+    setClassifiedsReady(true);
+    setClassifieds(prev => prev.map(c => c.id === id ? updated : c));
+    return updated;
+  }, []);
+  const deleteClassified = useCallback(async (id) => {
+    await api.classifieds.delete(id);
+    classifiedsLoadedRef.current = true;
+    setClassifiedsReady(true);
+    setClassifieds(prev => prev.filter(c => c.id !== id));
+  }, []);
+  const bumpClassified = useCallback(async (id) => {
+    const updated = await api.classifieds.bump(id);
+    classifiedsLoadedRef.current = true;
+    setClassifiedsReady(true);
+    setClassifieds(prev => prev.map(c => c.id === id ? updated : c));
+    return updated;
+  }, []);
+  const renewClassified = useCallback(async (id, paidBy) => {
+    const updated = await api.classifieds.renew(id, paidBy);
+    classifiedsLoadedRef.current = true;
+    setClassifiedsReady(true);
+    setClassifieds(prev => prev.map(c => c.id === id ? updated : c));
+    return updated;
+  }, []);
   const sessionValue = useMemo(() => ({
     session, login, logout,
   }), [session, login, logout]);
@@ -976,10 +1069,10 @@ export function DataProvider({ children }) {
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
     polls, addPoll, updatePoll, deletePoll, votePoll,
-    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
+    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery, loadClassifieds,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
-    createTip,
+    createTip, submitClassified, loadClassifiedDetail, loadClassifiedStatus, loadVipClassifieds, requestClassifiedBump, requestClassifiedRenew,
     refresh: fetchAll,
   }), [
     loading, loadError, homepage,
@@ -995,10 +1088,10 @@ export function DataProvider({ children }) {
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
     polls, addPoll, updatePoll, deletePoll, votePoll,
-    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
+    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery, loadClassifieds,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
-    createTip,
+    createTip, submitClassified, loadClassifiedDetail, loadClassifiedStatus, loadVipClassifieds, requestClassifiedBump, requestClassifiedRenew,
     fetchAll,
   ]);
 
@@ -1010,6 +1103,7 @@ export function DataProvider({ children }) {
     users, usersReady, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
     tips, tipsReady, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
+    classifieds, classifiedsReady, refreshClassifieds, ensureClassifiedsLoaded, approveClassified, rejectClassified, deleteClassified, bumpClassified, renewClassified,
     resetAll,
   }), [
     articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
@@ -1019,6 +1113,7 @@ export function DataProvider({ children }) {
     users, usersReady, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
     permissions, hasPermission, updatePermission, createRole,
     tips, tipsReady, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
+    classifieds, classifiedsReady, refreshClassifieds, ensureClassifiedsLoaded, approveClassified, rejectClassified, deleteClassified, bumpClassified, renewClassified,
     resetAll,
   ]);
 

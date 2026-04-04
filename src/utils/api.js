@@ -637,6 +637,32 @@ export const api = {
     }, { skipRefresh: true, skipRetry: true }),
   },
 
+  classifieds: {
+    getPublic: (params) => request(`/classifieds${toQuery(params)}`),
+    getOne: (id) => request(`/classifieds/${id}`),
+    getPrices: () => request('/classifieds/prices'),
+    getStatus: (ref) => request(`/classifieds/status/${encodeURIComponent(ref)}`),
+    getVipWidget: () => request('/classifieds/vip-widget'),
+    submit: (formData, tier) => request(`/classifieds?tier=${encodeURIComponent(tier || 'standard')}`, {
+      method: 'POST',
+      body: formData,
+    }),
+    requestBump: (id) => request(`/classifieds/${id}/bump`, { method: 'POST' }),
+    requestRenew: (id) => request(`/classifieds/${id}/renew`, { method: 'POST' }),
+    getAll: () => request('/admin/classifieds'),
+    approve: (id, paidBy) => request(`/admin/classifieds/${id}/approve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ paidBy }),
+    }),
+    bump: (id) => request(`/admin/classifieds/${id}/bump`, { method: 'PATCH' }),
+    renew: (id, paidBy) => request(`/admin/classifieds/${id}/renew`, {
+      method: 'PATCH',
+      body: JSON.stringify({ paidBy }),
+    }),
+    reject: (id) => request(`/admin/classifieds/${id}/reject`, { method: 'PATCH' }),
+    delete: (id) => request(`/admin/classifieds/${id}`, { method: 'DELETE' }),
+  },
+
   tips: {
     getAll: () => request('/tips'),
     create: (formData) => request('/tips', {
