@@ -38,9 +38,12 @@ export default function ClassifiedStatusPage() {
     }
   };
 
-  // Auto-search if URL has ref
+  // Sync input with URL param on route change
   useEffect(() => {
-    if (urlRef) doSearch(urlRef);
+    if (urlRef) {
+      setInputRef(urlRef);
+      doSearch(urlRef);
+    }
   }, [urlRef]);
 
   const handleSubmit = (e) => {

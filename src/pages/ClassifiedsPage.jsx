@@ -169,9 +169,11 @@ export default function ClassifiedsPage() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const fetchData = useCallback(async (params) => {
     setLoading(true);
+    setLoadError('');
     try {
       const data = await loadClassifieds(params);
       setItems(data.items || []);
@@ -179,6 +181,7 @@ export default function ClassifiedsPage() {
       setPages(data.pages || 1);
     } catch (err) {
       console.error('Failed to load classifieds:', err);
+      setLoadError('Грешка при зареждане на обявите. Опитайте отново.');
     } finally {
       setLoading(false);
     }
@@ -293,7 +296,15 @@ export default function ClassifiedsPage() {
       )}
 
       {/* Listings */}
-      {loading && items.length === 0 ? (
+      {loadError ? (
+        <div className="newspaper-page comic-panel comic-dots p-10 text-center relative">
+          <div className="comic-stamp-circle absolute -top-5 -right-3 z-20 text-[10px]">ГРЕШКА!</div>
+          <p className="font-display font-bold uppercase tracking-wider text-zn-hot relative z-[2]">{loadError}</p>
+          <button type="button" onClick={() => fetchData({ page, limit: 20, ...(category && { category }), ...(search && { search }) })} className="inline-block mt-4 comic-button text-sm relative z-[2]">
+            Опитай пак
+          </button>
+        </div>
+      ) : loading && items.length === 0 ? (
         <div className="newspaper-page comic-panel p-10 text-center">
           <div className="w-8 h-8 border-3 border-zn-hot border-t-transparent rounded-full animate-spin mx-auto" />
         </div>

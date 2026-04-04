@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 export const DEFAULT_TITLE = 'zNews — Горещи Новини и Скандали';
 
 export function makeTitle(pageTitle) {
@@ -19,9 +21,8 @@ export function DocumentTitle({ title }) {
  * Kept for backward compat with tests and admin pages.
  */
 export function useDocumentTitle(title) {
-  // React 19: just set it — pages should migrate to <DocumentTitle> over time.
-  // Kept as a no-op-safe imperative fallback.
-  if (typeof document !== 'undefined') {
-    document.title = title || DEFAULT_TITLE;
-  }
+  const value = title || DEFAULT_TITLE;
+  // useEffect ensures title is only set after commit, not during render/retries
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- always runs in browser
+  useEffect(() => { document.title = value; }, [value]);
 }
