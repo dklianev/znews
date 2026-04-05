@@ -80,6 +80,8 @@ function ClassifiedCard({ item }) {
   const hot = isHot(item);
   const mainImage = item.images?.[0] || null;
   const imageCount = item.images?.length || 0;
+  const isVip = item.tier === 'vip';
+  const isHighlighted = item.tier === 'highlighted';
 
   return (
     <motion.div
@@ -88,69 +90,144 @@ function ClassifiedCard({ item }) {
     >
       <Link
         to={`/obiavi/${item.id}`}
-        className={`block relative ${tier.bg} border-3 ${tier.border} p-4 transition-all hover:-translate-y-0.5 hover:shadow-lg`}
+        className={`block relative ${tier.bg} border-3 ${tier.border} transition-all hover:-translate-y-0.5 hover:shadow-lg overflow-hidden ${isVip ? 'p-0' : 'p-4'}`}
         style={{ boxShadow: `4px 4px 0 ${tier.shadow}` }}
       >
-        {/* Badges */}
-        <div className="flex items-center gap-2 mb-2 flex-wrap">
-          <span className="px-2 py-0.5 bg-zinc-800 text-white text-[10px] font-display font-black uppercase tracking-wider">
-            {CATEGORY_LABELS[item.category] || item.category}
-          </span>
-          {tier.badge && (
-            <span className="px-2 py-0.5 bg-zn-purple text-white text-[10px] font-display font-black uppercase tracking-wider flex items-center gap-1">
-              <Star className="w-3 h-3" /> {tier.badge}
-            </span>
-          )}
-          {hot && (
-            <span className="px-2 py-0.5 bg-zn-hot text-white text-[10px] font-display font-black uppercase tracking-wider animate-pulse">
-              ГОРЕЩО!
-            </span>
-          )}
-        </div>
+        {/* VIP: hero layout with large image */}
+        {isVip ? (
+          <>
+            {/* VIP accent strip */}
+            <div className="h-1.5 bg-gradient-to-r from-zn-purple via-zn-hot to-zn-purple" />
 
-        <div className="flex gap-3">
-          {/* Image thumbnail */}
-          {mainImage && (
-            <div className="w-24 h-24 flex-shrink-0 border-2 border-[#1C1428] bg-black overflow-hidden relative">
-              <img src={mainImage} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
-              {imageCount > 1 && (
-                <div className="absolute bottom-0 right-0 bg-black/70 text-white text-[9px] font-mono px-1 py-0.5 flex items-center gap-0.5">
-                  <Camera className="w-2.5 h-2.5" />{imageCount}
+            <div className="flex flex-col sm:flex-row">
+              {/* VIP large image */}
+              {mainImage && (
+                <div className="sm:w-48 md:w-56 flex-shrink-0 bg-black relative">
+                  <img src={mainImage} alt="" className="w-full aspect-[4/3] sm:aspect-auto sm:h-full object-cover" loading="lazy" decoding="async" />
+                  {imageCount > 1 && (
+                    <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-mono px-1.5 py-0.5 flex items-center gap-0.5 rounded-sm">
+                      <Camera className="w-2.5 h-2.5" />{imageCount}
+                    </div>
+                  )}
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-zn-purple text-white text-[10px] font-display font-black uppercase tracking-wider flex items-center gap-1" style={{ boxShadow: '1px 1px 0 rgba(0,0,0,0.4)' }}>
+                    <Star className="w-3 h-3" /> VIP
+                  </div>
                 </div>
               )}
+
+              <div className="flex-1 min-w-0 p-4">
+                {/* Badges */}
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <span className="px-2 py-0.5 bg-zinc-800 text-white text-[10px] font-display font-black uppercase tracking-wider">
+                    {CATEGORY_LABELS[item.category] || item.category}
+                  </span>
+                  {!mainImage && (
+                    <span className="px-2 py-0.5 bg-zn-purple text-white text-[10px] font-display font-black uppercase tracking-wider flex items-center gap-1">
+                      <Star className="w-3 h-3" /> VIP
+                    </span>
+                  )}
+                  {hot && (
+                    <span className="px-2 py-0.5 bg-zn-hot text-white text-[10px] font-display font-black uppercase tracking-wider animate-pulse">
+                      ГОРЕЩО!
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="font-display font-black uppercase tracking-wide text-zn-text dark:text-[#EDE4D0] text-xl leading-tight mb-2">
+                  {item.title}
+                </h3>
+                <p className="font-sans text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+                  {item.description}
+                </p>
+
+                {/* Footer inline */}
+                <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-purple-200/30 dark:border-purple-500/20">
+                  <div className="flex items-center gap-3 text-xs font-sans text-gray-500 dark:text-gray-400">
+                    {item.price && (
+                      <span className="flex items-center gap-1 font-bold text-green-700 dark:text-green-400 text-base">
+                        <DollarSign className="w-4 h-4" />
+                        {item.price}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      {item.contactName}
+                    </span>
+                    <CopyPhoneButton phone={item.phone} />
+                  </div>
+                  <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                    <Clock className="w-3 h-3" />
+                    {timeAgo(item.bumpedAt || item.approvedAt || item.createdAt)}
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
-
-          <div className="flex-1 min-w-0">
-            <h3 className={`font-display font-black uppercase tracking-wide text-zn-text dark:text-[#EDE4D0] mb-1 leading-tight ${item.tier === 'highlighted' || item.tier === 'vip' ? 'text-lg' : 'text-base'}`}>
-              {item.title}
-            </h3>
-            <p className="font-sans text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
-              {item.description}
-            </p>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between flex-wrap gap-2 pt-2 mt-2 border-t border-black/10 dark:border-white/10">
-          <div className="flex items-center gap-3 text-xs font-sans text-gray-500 dark:text-gray-400">
-            {item.price && (
-              <span className="flex items-center gap-1 font-bold text-green-700 dark:text-green-400 text-sm">
-                <DollarSign className="w-3.5 h-3.5" />
-                {item.price}
+          </>
+        ) : (
+          /* Standard + Highlighted: original compact layout */
+          <>
+            {/* Badges */}
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="px-2 py-0.5 bg-zinc-800 text-white text-[10px] font-display font-black uppercase tracking-wider">
+                {CATEGORY_LABELS[item.category] || item.category}
               </span>
-            )}
-            <span className="flex items-center gap-1">
-              <User className="w-3 h-3" />
-              {item.contactName}
-            </span>
-            <CopyPhoneButton phone={item.phone} />
-          </div>
-          <span className="flex items-center gap-1 text-[10px] text-gray-400">
-            <Clock className="w-3 h-3" />
-            {timeAgo(item.bumpedAt || item.approvedAt || item.createdAt)}
-          </span>
-        </div>
+              {tier.badge && (
+                <span className="px-2 py-0.5 bg-zn-purple text-white text-[10px] font-display font-black uppercase tracking-wider flex items-center gap-1">
+                  <Star className="w-3 h-3" /> {tier.badge}
+                </span>
+              )}
+              {hot && (
+                <span className="px-2 py-0.5 bg-zn-hot text-white text-[10px] font-display font-black uppercase tracking-wider animate-pulse">
+                  ГОРЕЩО!
+                </span>
+              )}
+            </div>
+
+            <div className="flex gap-3">
+              {/* Image thumbnail */}
+              {mainImage && (
+                <div className={`${isHighlighted ? 'w-28 h-28' : 'w-24 h-24'} flex-shrink-0 border-2 border-[#1C1428] bg-black overflow-hidden relative`}>
+                  <img src={mainImage} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                  {imageCount > 1 && (
+                    <div className="absolute bottom-0 right-0 bg-black/70 text-white text-[9px] font-mono px-1 py-0.5 flex items-center gap-0.5">
+                      <Camera className="w-2.5 h-2.5" />{imageCount}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex-1 min-w-0">
+                <h3 className={`font-display font-black uppercase tracking-wide text-zn-text dark:text-[#EDE4D0] mb-1 leading-tight ${isHighlighted ? 'text-lg' : 'text-base'}`}>
+                  {item.title}
+                </h3>
+                <p className="font-sans text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+                  {item.description}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between flex-wrap gap-2 pt-2 mt-2 border-t border-black/10 dark:border-white/10">
+              <div className="flex items-center gap-3 text-xs font-sans text-gray-500 dark:text-gray-400">
+                {item.price && (
+                  <span className="flex items-center gap-1 font-bold text-green-700 dark:text-green-400 text-sm">
+                    <DollarSign className="w-3.5 h-3.5" />
+                    {item.price}
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  {item.contactName}
+                </span>
+                <CopyPhoneButton phone={item.phone} />
+              </div>
+              <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                <Clock className="w-3 h-3" />
+                {timeAgo(item.bumpedAt || item.approvedAt || item.createdAt)}
+              </span>
+            </div>
+          </>
+        )}
       </Link>
     </motion.div>
   );

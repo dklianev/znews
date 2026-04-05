@@ -88,18 +88,18 @@ function ImageGallery({ images }) {
         </div>
       )}
 
-      {/* Lightbox */}
-      {lightbox && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setLightbox(false)}>
+      {/* Lightbox — portalled to body so it renders above everything */}
+      {lightbox && createPortal(
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4" style={{ zIndex: 9999 }} onClick={() => setLightbox(false)}>
           <button type="button" className="absolute top-4 right-4 text-white/70 hover:text-white" onClick={() => setLightbox(false)}>
             <X className="w-8 h-8" />
           </button>
           {images.length > 1 && (
             <>
-              <button type="button" onClick={(e) => { e.stopPropagation(); prev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors">
+              <button type="button" onClick={(e) => { e.stopPropagation(); prev(); }} className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors rounded-full">
                 <ChevronLeft className="w-8 h-8" />
               </button>
-              <button type="button" onClick={(e) => { e.stopPropagation(); next(); }} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors">
+              <button type="button" onClick={(e) => { e.stopPropagation(); next(); }} className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/10 text-white flex items-center justify-center hover:bg-white/20 transition-colors rounded-full">
                 <ChevronRight className="w-8 h-8" />
               </button>
             </>
@@ -113,7 +113,8 @@ function ImageGallery({ images }) {
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/70 text-sm font-mono">
             {current + 1} / {images.length}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
@@ -358,16 +359,17 @@ export default function ClassifiedDetailPage() {
             </div>
 
             {/* Contact section */}
-            <div className="border-3 border-[#1C1428] bg-gray-50 dark:bg-[#1C1828] p-4 space-y-3" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
-              <h3 className="font-display font-black uppercase tracking-wider text-sm text-zn-text dark:text-[#EDE4D0]">Контакт</h3>
-              <div className="flex items-center gap-3">
-                <User className="w-5 h-5 text-gray-400" />
-                <span className="font-sans font-bold text-zn-text dark:text-[#EDE4D0]">{item.contactName}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Phone className="w-5 h-5 text-gray-400" />
-                <span className="font-mono font-bold text-zn-text dark:text-[#EDE4D0]">{item.phone}</span>
-                <CopyButton text={item.phone} label="Копирай" />
+            <div className="border-3 border-[#1C1428] bg-gray-50 dark:bg-[#1C1828] px-4 py-3" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-gray-400 shrink-0" />
+                  <span className="font-sans font-bold text-sm text-zn-text dark:text-[#EDE4D0]">{item.contactName}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-400 shrink-0" />
+                  <span className="font-mono font-bold text-sm text-zn-text dark:text-[#EDE4D0]">{item.phone}</span>
+                  <CopyButton text={item.phone} label="Копирай" />
+                </div>
               </div>
             </div>
 
