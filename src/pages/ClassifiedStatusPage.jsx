@@ -43,6 +43,10 @@ export default function ClassifiedStatusPage() {
     if (urlRef) {
       setInputRef(urlRef);
       doSearch(urlRef);
+    } else {
+      setInputRef('');
+      setResult(null);
+      setError('');
     }
   }, [urlRef]);
 
