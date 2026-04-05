@@ -41,28 +41,42 @@ async function withServer(app, run) {
 
 describe('webSpaRoutes', () => {
   it('keeps webSpaRoutes legacy coverage green', async () => {
-      await withTempSpaFixture(async ({ serverDir }) => {
-        const app = express();
-        registerWebSpaRoutes(app, {
-          __dirname: serverDir,
-          isProd: false,
-        });
-    
-        await withServer(app, async (baseUrl) => {
-          const rootResponse = await fetch(`${baseUrl}/`);
-          assert.equal(rootResponse.status, 200);
-          assert.match(await rootResponse.text(), /spa shell/);
-          assert.equal(rootResponse.headers.get('cache-control'), 'no-store');
-    
-          const nestedResponse = await fetch(`${baseUrl}/category/crime`);
-          assert.equal(nestedResponse.status, 200);
-          assert.match(await nestedResponse.text(), /spa shell/);
-          assert.equal(nestedResponse.headers.get('cache-control'), 'no-store');
-    
-          const assetResponse = await fetch(`${baseUrl}/app.js`);
-          assert.equal(assetResponse.status, 200);
-          assert.match(await assetResponse.text(), /console\.log/);
-        });
+    await withTempSpaFixture(async ({ serverDir }) => {
+      const app = express();
+      registerWebSpaRoutes(app, {
+        __dirname: serverDir,
+        isProd: false,
       });
+
+      await withServer(app, async (baseUrl) => {
+        const rootResponse = await fetch(`${baseUrl}/`);
+        assert.equal(rootResponse.status, 200);
+        assert.match(await rootResponse.text(), /spa shell/);
+        assert.equal(rootResponse.headers.get('cache-control'), 'no-store');
+
+        const nestedResponse = await fetch(`${baseUrl}/category/crime`);
+        assert.equal(nestedResponse.status, 200);
+        assert.match(await nestedResponse.text(), /spa shell/);
+        assert.equal(nestedResponse.headers.get('cache-control'), 'no-store');
+
+        const assetResponse = await fetch(`${baseUrl}/app.js`);
+        assert.equal(assetResponse.status, 200);
+        assert.match(await assetResponse.text(), /console\.log/);
+
+        const missingCssResponse = await fetch(`${baseUrl}/assets/index-missing.css`);
+        assert.equal(missingCssResponse.status, 404);
+        assert.equal(missingCssResponse.headers.get('cache-control'), 'no-store');
+        assert.doesNotMatch(await missingCssResponse.text(), /spa shell/);
+
+        const missingJsResponse = await fetch(`${baseUrl}/triangle-alert-missing.js`);
+        assert.equal(missingJsResponse.status, 404);
+        assert.equal(missingJsResponse.headers.get('cache-control'), 'no-store');
+        assert.doesNotMatch(await missingJsResponse.text(), /spa shell/);
+
+        const adminResponse = await fetch(`${baseUrl}/admin`);
+        assert.equal(adminResponse.status, 200);
+        assert.match(await adminResponse.text(), /spa shell/);
+      });
+    });
   });
 });

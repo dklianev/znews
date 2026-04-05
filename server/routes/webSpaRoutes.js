@@ -9,6 +9,11 @@ export function registerWebSpaRoutes(app, deps) {
 
   const distPath = path.join(__dirname, '..', 'dist');
 
+  function isStaticAssetRequest(requestPath) {
+    if (requestPath.startsWith('/assets/')) return true;
+    return path.posix.extname(requestPath) !== '';
+  }
+
   app.use(express.static(distPath, {
     // Never let express.static serve index.html with long cache headers.
     // The SPA entrypoint should be revalidated, while fingerprinted assets can be cached for 1y.
@@ -25,5 +30,12 @@ export function registerWebSpaRoutes(app, deps) {
   }
 
   app.get('/', sendSpaEntrypoint);
-  app.get('/{*splat}', sendSpaEntrypoint);
+  app.get('/{*splat}', (req, res) => {
+    if (isStaticAssetRequest(req.path)) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(404).type('text/plain').send('Not Found');
+    }
+
+    return sendSpaEntrypoint(req, res);
+  });
 }
