@@ -136,7 +136,7 @@ function PaymentInfoPanel({ info }) {
 }
 
 export default function ClassifiedSubmitPage() {
-  useDocumentTitle(makeTitle('Подай обява'));
+  useDocumentTitle(makeTitle('Пусни обява'));
   const { submitClassified } = usePublicData();
 
   const [tiers, setTiers] = useState(FALLBACK_TIERS);
@@ -287,7 +287,7 @@ export default function ClassifiedSubmitPage() {
               <Tag className="w-8 h-8 md:w-10 md:h-10 text-white" />
             </div>
             <div>
-              <h1 className="text-4xl md:text-5xl font-heading text-zn-black dark:text-[#EDE4D0] uppercase italic tracking-wide mb-2">Подай обява</h1>
+              <h1 className="text-4xl md:text-5xl font-heading text-zn-black dark:text-[#EDE4D0] uppercase italic tracking-wide mb-2">Пусни обява</h1>
               <p className="font-sans text-gray-700 dark:text-gray-300 text-lg">
                 Попълнете данните и изберете пакет. След подаване ще получите данни за плащане.
               </p>
