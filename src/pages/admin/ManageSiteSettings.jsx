@@ -98,7 +98,7 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-const SPOTLIGHT_ICON_OPTIONS = ['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'Newspaper', 'ShieldAlert', 'Gamepad2'];
+const SPOTLIGHT_ICON_OPTIONS = ['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'Newspaper', 'ShieldAlert', 'Gamepad2', 'Tag'];
 
 function resolveSettings(raw) {
   const input = raw && typeof raw === 'object' ? raw : {};
