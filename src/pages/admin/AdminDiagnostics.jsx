@@ -24,6 +24,16 @@ function getMonitoringErrorStack(event) {
   return typeof stack === 'string' ? stack.trim() : '';
 }
 
+function getMonitoringAssetUrl(event) {
+  const assetUrl = event?.metadata?.extra?.assetUrl;
+  return typeof assetUrl === 'string' ? assetUrl.trim() : '';
+}
+
+function getMonitoringPhase(event) {
+  const phase = event?.metadata?.extra?.phase;
+  return typeof phase === 'string' ? phase.trim() : '';
+}
+
 function formatUptime(seconds) {
   const total = Math.max(0, Number(seconds) || 0);
   const hours = Math.floor(total / 3600);
@@ -498,6 +508,12 @@ export default function AdminDiagnostics() {
                 <div className="mt-2 space-y-1 text-[11px] font-sans text-gray-500">
                   <p><span className="font-semibold text-gray-700">Път:</span> {formatMonitoringPathname(event?.metadata?.pathname)}</p>
                   <p><span className="font-semibold text-gray-700">ID:</span> {formatMonitoringFingerprint(event?.fingerprint)}</p>
+                  {getMonitoringAssetUrl(event) ? (
+                    <p><span className="font-semibold text-gray-700">Ресурс:</span> {getMonitoringAssetUrl(event)}</p>
+                  ) : null}
+                  {getMonitoringPhase(event) ? (
+                    <p><span className="font-semibold text-gray-700">Фаза:</span> {getMonitoringPhase(event)}</p>
+                  ) : null}
                   {getMonitoringComponentStack(event) ? (
                     <details className="rounded border border-gray-200 bg-gray-50 px-2 py-1.5">
                       <summary className="cursor-pointer font-semibold text-gray-700">Компонентен стек</summary>

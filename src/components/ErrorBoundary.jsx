@@ -2,6 +2,8 @@ import { Component } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { api } from '../utils/api';
 import { isChunkLoadError, shouldReloadForChunkError } from '../utils/chunkReload';
+import { reportChunkLoadIssue } from '../utils/clientMonitoring';
+import { showChunkReloadToast } from '../utils/systemToasts';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -17,7 +19,12 @@ export default class ErrorBoundary extends Component {
     console.error('ErrorBoundary caught:', error, errorInfo);
 
     if (isChunkLoadError(error) && shouldReloadForChunkError()) {
-      window.location.reload();
+      reportChunkLoadIssue(error, {
+        component: 'ErrorBoundary',
+        phase: 'react-boundary',
+        autoReload: true,
+      }).catch(() => {});
+      showChunkReloadToast(() => window.location.reload());
       return;
     }
 

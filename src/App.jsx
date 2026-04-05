@@ -10,6 +10,8 @@ import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import { appCopy } from './content/uiCopy';
 import { isChunkLoadError, shouldReloadForChunkError } from './utils/chunkReload';
+import { reportChunkLoadIssue } from './utils/clientMonitoring';
+import { showChunkReloadToast } from './utils/systemToasts';
 
 // ─── Chunk-resilient lazy loader ───
 // After a deploy, old chunk hashes no longer exist on the server.
@@ -21,7 +23,12 @@ function lazyRetry(importFn) {
   return lazy(() =>
     importFn().catch((error) => {
       if (isChunkLoadError(error) && shouldReloadForChunkError()) {
-        window.location.reload();
+        reportChunkLoadIssue(error, {
+          component: 'App.lazyRetry',
+          phase: 'lazy-import',
+          autoReload: true,
+        }).catch(() => {});
+        showChunkReloadToast(() => window.location.reload());
         return new Promise(() => {});
       }
       throw error;

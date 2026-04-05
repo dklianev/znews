@@ -4244,7 +4244,9 @@
 /* ═══════════════════════════════════════
    PWA UPDATE TOAST
    ═══════════════════════════════════════ */
-.pwa-update-toast {
+.pwa-update-toast,
+.pwa-offline-toast,
+.pwa-reload-toast {
   position: fixed;
   bottom: 1.5rem;
   left: 50%;
@@ -4265,7 +4267,9 @@
   animation: slideUp 0.3s ease-out;
 }
 
-.pwa-update-toast .pwa-refresh-btn {
+.pwa-update-toast .pwa-refresh-btn,
+.pwa-offline-toast .pwa-refresh-btn,
+.pwa-reload-toast .pwa-refresh-btn {
   background: #CC0A1A;
   color: #fff;
   border: 2px solid #1C1428;
@@ -4280,12 +4284,16 @@
   transition: transform 0.1s;
 }
 
-.pwa-update-toast .pwa-refresh-btn:hover {
+.pwa-update-toast .pwa-refresh-btn:hover,
+.pwa-offline-toast .pwa-refresh-btn:hover,
+.pwa-reload-toast .pwa-refresh-btn:hover {
   transform: translate(1px, 1px);
   box-shadow: 1px 1px 0 #1C1428;
 }
 
-.pwa-update-toast .pwa-dismiss-btn {
+.pwa-update-toast .pwa-dismiss-btn,
+.pwa-offline-toast .pwa-dismiss-btn,
+.pwa-reload-toast .pwa-dismiss-btn {
   background: transparent;
   color: #666;
   border: none;
