@@ -41,10 +41,11 @@ describe('clientMonitoring', () => {
     }));
   });
 
-  it('captures asset load failures and deduplicates repeated reports for the same URL', async () => {
+  it('captures same-origin asset load failures, strips query/hash, and deduplicates', async () => {
     const cleanup = installClientAssetMonitoring();
     const script = document.createElement('script');
-    script.src = 'https://znews.live/assets/index-old.js';
+    // Same-origin URL (jsdom defaults to http://localhost:3000)
+    script.src = `${window.location.origin}/assets/index-old.js?v=123#hash`;
     document.body.appendChild(script);
 
     script.dispatchEvent(new Event('error'));
@@ -59,9 +60,23 @@ describe('clientMonitoring', () => {
       extra: expect.objectContaining({
         kind: 'asset-load',
         tagName: 'SCRIPT',
-        assetUrl: 'https://znews.live/assets/index-old.js',
+        assetUrl: `${window.location.origin}/assets/index-old.js`,
       }),
     }));
+
+    cleanup();
+  });
+
+  it('ignores cross-origin asset errors to prevent leaking third-party URLs', async () => {
+    const cleanup = installClientAssetMonitoring();
+    const script = document.createElement('script');
+    script.src = 'https://evil.example.com/assets/tracker.js?token=secret';
+    document.body.appendChild(script);
+
+    script.dispatchEvent(new Event('error'));
+    await Promise.resolve();
+
+    expect(reportClientError).not.toHaveBeenCalled();
 
     cleanup();
   });

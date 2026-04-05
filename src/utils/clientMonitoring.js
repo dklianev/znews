@@ -37,6 +37,24 @@ function isAssetLikeUrl(value) {
   return /\.(?:js|css|map|png|jpe?g|svg|webp|avif|woff2?|ttf|ico)(?:[?#].*)?$/i.test(url);
 }
 
+function isSameOrigin(url) {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
+function stripQueryHash(url) {
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.origin + parsed.pathname;
+  } catch {
+    return url.split(/[?#]/)[0];
+  }
+}
+
 function getAssetDetails(target) {
   if (!target || typeof target !== 'object') return null;
 
@@ -48,10 +66,11 @@ function getAssetDetails(target) {
       : '';
 
   if (!assetUrl || !isAssetLikeUrl(assetUrl)) return null;
+  if (!isSameOrigin(assetUrl)) return null;
 
   return {
     tagName,
-    assetUrl,
+    assetUrl: stripQueryHash(assetUrl),
     rel: String(target.rel || ''),
   };
 }
