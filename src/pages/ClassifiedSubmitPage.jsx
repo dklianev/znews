@@ -142,6 +142,7 @@ export default function ClassifiedSubmitPage() {
   const [tiers, setTiers] = useState(FALLBACK_TIERS);
   const [currency, setCurrency] = useState('$');
   const [tiersLoading, setTiersLoading] = useState(true);
+  const [pricesLoaded, setPricesLoaded] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -158,8 +159,13 @@ export default function ClassifiedSubmitPage() {
   useEffect(() => {
     let cancelled = false;
     api.classifieds.getPrices()
-      .then(data => { if (!cancelled) { setTiers(buildTiers(data)); if (data?.currency) setCurrency(data.currency); } })
-      .catch(() => {}) // keep fallback
+      .then(data => {
+        if (cancelled) return;
+        setTiers(buildTiers(data));
+        if (data?.currency) setCurrency(data.currency);
+        setPricesLoaded(true);
+      })
+      .catch(() => { /* keep fallback, pricesLoaded stays false */ })
       .finally(() => { if (!cancelled) setTiersLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -289,6 +295,14 @@ export default function ClassifiedSubmitPage() {
           </div>
         </div>
       </div>
+
+      {/* Prices loading error */}
+      {!tiersLoading && !pricesLoaded && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 p-4 border-2 border-amber-300 dark:border-amber-700 font-sans flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+          <p>Не успяхме да заредим актуалните цени. Моля презаредете страницата или опитайте по-късно.</p>
+        </div>
+      )}
 
       {/* Tier selection */}
       <div className="comic-panel bg-white dark:bg-[#2A2438] p-6 md:p-8 border-4 border-zn-black dark:border-[#524A62]">
@@ -433,7 +447,7 @@ export default function ClassifiedSubmitPage() {
             <div className="text-sm font-sans text-gray-500 dark:text-gray-400">
               Пакет: <strong className="text-zn-purple">{selectedTier.label}</strong> &mdash; <strong className="text-green-700">{currency}{selectedTier.price.toLocaleString('bg-BG')}</strong> за {selectedTier.days} дни, до {selectedTier.maxImages} снимки
             </div>
-            <SubmitButton disabled={!title.trim() || !description.trim() || !category || !phone.trim() || !contactName.trim()} />
+            <SubmitButton disabled={!pricesLoaded || !title.trim() || !description.trim() || !category || !phone.trim() || !contactName.trim()} />
           </div>
         </form>
       </div>

@@ -419,12 +419,11 @@ export function registerClassifiedRoutes(app, deps) {
     if (!ref) return res.status(400).json({ error: 'Invalid reference' });
 
     const doc = await Classified.findOne({ paymentRef: ref })
-      .select({ _id: 0, id: 1, title: 1, status: 1, tier: 1, amountDue: 1, paymentRef: 1, createdAt: 1, approvedAt: 1, expiresAt: 1 })
+      .select({ _id: 0, id: 1, title: 1, status: 1, tier: 1, amountDue: 1, currency: 1, paymentRef: 1, createdAt: 1, approvedAt: 1, expiresAt: 1 })
       .lean();
 
     if (!doc) return res.status(404).json({ error: 'Не е намерена обява с този код.' });
-    const cfg = await getConfig();
-    res.json({ ...doc, currency: cfg.currency });
+    res.json(doc);
   });
 
   // ─── Public: VIP widget (latest 3 VIP classifieds, MUST be before /:id) ───
@@ -538,6 +537,7 @@ export function registerClassifiedRoutes(app, deps) {
       status: 'awaiting_payment',
       paymentRef,
       amountDue: tierCfg.price,
+      currency: cfg.currency,
       sortWeight: SORT_WEIGHTS[tier] || 1,
       ipHash,
     });

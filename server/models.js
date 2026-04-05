@@ -723,6 +723,7 @@ const classifiedSchema = new mongoose.Schema({
   status: { type: String, default: 'awaiting_payment', enum: ['awaiting_payment', 'active', 'rejected'] },
   paymentRef: { type: String, required: true, unique: true, index: true },
   amountDue: { type: Number, default: 0 },
+  currency: { type: String, default: '$', maxlength: 10 },
   paidBy: { type: String, default: '' },
   ipHash: { type: String, index: true },
   viewCount: { type: Number, default: 0 },
