@@ -196,6 +196,40 @@ export function createSettingsPayloadHelpers({
       buttonLink: sanitizeInternalPath(tipLinePromoInput.buttonLink, DEFAULT_SITE_SETTINGS.tipLinePromo.buttonLink),
     };
 
+    const classifiedsInput = source.classifieds && typeof source.classifieds === 'object' ? source.classifieds : {};
+    const classifiedsDefaults = DEFAULT_SITE_SETTINGS.classifieds;
+
+    function sanitizeTierConfig(input, defaults) {
+      const src = input && typeof input === 'object' ? input : {};
+      const priceRaw = Number.parseInt(src.price, 10);
+      const daysRaw = Number.parseInt(src.durationDays, 10);
+      const imagesRaw = Number.parseInt(src.maxImages, 10);
+      return {
+        price: Number.isInteger(priceRaw) ? Math.min(999999, Math.max(0, priceRaw)) : defaults.price,
+        durationDays: Number.isInteger(daysRaw) ? Math.min(90, Math.max(1, daysRaw)) : defaults.durationDays,
+        maxImages: Number.isInteger(imagesRaw) ? Math.min(10, Math.max(1, imagesRaw)) : defaults.maxImages,
+      };
+    }
+
+    const classifiedsTiersInput = classifiedsInput.tiers && typeof classifiedsInput.tiers === 'object' ? classifiedsInput.tiers : {};
+    const classifiedsTiers = {
+      standard: sanitizeTierConfig(classifiedsTiersInput.standard, classifiedsDefaults.tiers.standard),
+      highlighted: sanitizeTierConfig(classifiedsTiersInput.highlighted, classifiedsDefaults.tiers.highlighted),
+      vip: sanitizeTierConfig(classifiedsTiersInput.vip, classifiedsDefaults.tiers.vip),
+    };
+
+    const bumpPriceRaw = Number.parseInt(classifiedsInput.bumpPrice, 10);
+    const renewalDiscountRaw = Number.parseFloat(classifiedsInput.renewalDiscount);
+
+    const classifieds = {
+      tiers: classifiedsTiers,
+      bumpPrice: Number.isInteger(bumpPriceRaw) ? Math.min(999999, Math.max(0, bumpPriceRaw)) : classifiedsDefaults.bumpPrice,
+      renewalDiscount: Number.isFinite(renewalDiscountRaw) ? Math.min(1, Math.max(0, Math.round(renewalDiscountRaw * 100) / 100)) : classifiedsDefaults.renewalDiscount,
+      iban: normalizeText(classifiedsInput.iban ?? classifiedsDefaults.iban, 40) || classifiedsDefaults.iban,
+      beneficiary: normalizeText(classifiedsInput.beneficiary ?? classifiedsDefaults.beneficiary, 60) || classifiedsDefaults.beneficiary,
+      currency: normalizeText(classifiedsInput.currency ?? classifiedsDefaults.currency, 10) || classifiedsDefaults.currency,
+    };
+
     return {
       breakingBadgeLabel,
       navbarLinks: navbarLinks.length > 0 ? navbarLinks : DEFAULT_SITE_SETTINGS.navbarLinks,
@@ -207,6 +241,7 @@ export function createSettingsPayloadHelpers({
       about,
       layoutPresets,
       tipLinePromo,
+      classifieds,
     };
   }
 

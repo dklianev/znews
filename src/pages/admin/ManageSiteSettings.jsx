@@ -84,6 +84,18 @@ const DEFAULT_SETTINGS = {
     buttonLabel: 'ПОДАЙ СИГНАЛ',
     buttonLink: '/tipline',
   },
+  classifieds: {
+    tiers: {
+      standard:    { price: 2000, durationDays: 7, maxImages: 1 },
+      highlighted: { price: 5000, durationDays: 10, maxImages: 3 },
+      vip:         { price: 7000, durationDays: 14, maxImages: 5 },
+    },
+    bumpPrice: 1000,
+    renewalDiscount: 0.5,
+    iban: '59965607',
+    beneficiary: 'zNews',
+    currency: '$',
+  },
 };
 
 const SPOTLIGHT_ICON_OPTIONS = ['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'Newspaper', 'ShieldAlert', 'Gamepad2'];
@@ -134,6 +146,15 @@ function resolveSettings(raw) {
     tipLinePromo: {
       ...DEFAULT_SETTINGS.tipLinePromo,
       ...(input.tipLinePromo || {}),
+    },
+    classifieds: {
+      ...DEFAULT_SETTINGS.classifieds,
+      ...(input.classifieds || {}),
+      tiers: {
+        standard: { ...DEFAULT_SETTINGS.classifieds.tiers.standard, ...(input.classifieds?.tiers?.standard || {}) },
+        highlighted: { ...DEFAULT_SETTINGS.classifieds.tiers.highlighted, ...(input.classifieds?.tiers?.highlighted || {}) },
+        vip: { ...DEFAULT_SETTINGS.classifieds.tiers.vip, ...(input.classifieds?.tiers?.vip || {}) },
+      },
     },
   };
 }
@@ -955,6 +976,147 @@ export default function ManageSiteSettings() {
                   {getFieldError('tipLinePromo.buttonLink')}
                 </p>
               )}
+            </div>
+          </div>
+        </div>
+      </section>
+      <section className={listSectionCls}>
+        <h2 className="font-sans font-semibold text-gray-900">Малки обяви — Настройки</h2>
+        <div className="space-y-4">
+          <p className="text-xs font-sans text-gray-500">Цени, продължителност и лимити за всеки пакет обяви.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm font-sans">
+              <thead>
+                <tr className="text-[10px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-200">
+                  <th className="text-left py-2 pr-2">Пакет</th>
+                  <th className="text-left py-2 px-2">Цена ($)</th>
+                  <th className="text-left py-2 px-2">Дни</th>
+                  <th className="text-left py-2 pl-2">Макс. снимки</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { key: 'standard', label: 'Стандартна' },
+                  { key: 'highlighted', label: 'Удебелена' },
+                  { key: 'vip', label: 'VIP' },
+                ].map(({ key, label }) => (
+                  <tr key={key} className="border-b border-gray-100">
+                    <td className="py-2 pr-2 font-semibold text-gray-700">{label}</td>
+                    <td className="py-2 px-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="999999"
+                        className={`${inputCls} w-24`}
+                        value={form.classifieds?.tiers?.[key]?.price ?? ''}
+                        onChange={(e) => {
+                          const v = Number.parseInt(e.target.value, 10);
+                          setForm((prev) => ({ ...prev, classifieds: { ...prev.classifieds, tiers: { ...prev.classifieds.tiers, [key]: { ...prev.classifieds.tiers[key], price: Number.isNaN(v) ? 0 : v } } } }));
+                          clearFeedback();
+                        }}
+                      />
+                    </td>
+                    <td className="py-2 px-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        className={`${inputCls} w-20`}
+                        value={form.classifieds?.tiers?.[key]?.durationDays ?? ''}
+                        onChange={(e) => {
+                          const v = Number.parseInt(e.target.value, 10);
+                          setForm((prev) => ({ ...prev, classifieds: { ...prev.classifieds, tiers: { ...prev.classifieds.tiers, [key]: { ...prev.classifieds.tiers[key], durationDays: Number.isNaN(v) ? 1 : v } } } }));
+                          clearFeedback();
+                        }}
+                      />
+                    </td>
+                    <td className="py-2 pl-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        className={`${inputCls} w-20`}
+                        value={form.classifieds?.tiers?.[key]?.maxImages ?? ''}
+                        onChange={(e) => {
+                          const v = Number.parseInt(e.target.value, 10);
+                          setForm((prev) => ({ ...prev, classifieds: { ...prev.classifieds, tiers: { ...prev.classifieds.tiers, [key]: { ...prev.classifieds.tiers[key], maxImages: Number.isNaN(v) ? 1 : v } } } }));
+                          clearFeedback();
+                        }}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div>
+              <label className={tinyLabelCls}>Bump цена ($)</label>
+              <input
+                type="number"
+                min="0"
+                max="999999"
+                className={inputCls}
+                value={form.classifieds?.bumpPrice ?? ''}
+                onChange={(e) => {
+                  const v = Number.parseInt(e.target.value, 10);
+                  setForm((prev) => ({ ...prev, classifieds: { ...prev.classifieds, bumpPrice: Number.isNaN(v) ? 0 : v } }));
+                  clearFeedback();
+                }}
+              />
+            </div>
+            <div>
+              <label className={tinyLabelCls}>Отстъпка подновяване (0–1)</label>
+              <input
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                className={inputCls}
+                value={form.classifieds?.renewalDiscount ?? ''}
+                onChange={(e) => {
+                  const v = Number.parseFloat(e.target.value);
+                  setForm((prev) => ({ ...prev, classifieds: { ...prev.classifieds, renewalDiscount: Number.isNaN(v) ? 0 : v } }));
+                  clearFeedback();
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <div>
+              <label className={tinyLabelCls}>IBAN / Сметка</label>
+              <input
+                className={inputCls}
+                value={form.classifieds?.iban || ''}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, classifieds: { ...prev.classifieds, iban: e.target.value } }));
+                  clearFeedback();
+                }}
+              />
+            </div>
+            <div>
+              <label className={tinyLabelCls}>Получател</label>
+              <input
+                className={inputCls}
+                value={form.classifieds?.beneficiary || ''}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, classifieds: { ...prev.classifieds, beneficiary: e.target.value } }));
+                  clearFeedback();
+                }}
+              />
+            </div>
+            <div>
+              <label className={tinyLabelCls}>Валута</label>
+              <input
+                className={inputCls}
+                value={form.classifieds?.currency || ''}
+                onChange={(e) => {
+                  setForm((prev) => ({ ...prev, classifieds: { ...prev.classifieds, currency: e.target.value } }));
+                  clearFeedback();
+                }}
+              />
             </div>
           </div>
         </div>

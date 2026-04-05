@@ -371,6 +371,18 @@ const DEFAULT_SITE_SETTINGS = Object.freeze({
     buttonLabel: 'ПОДАЙ СИГНАЛ',
     buttonLink: '/tipline',
   },
+  classifieds: {
+    tiers: {
+      standard:    { price: 2000, durationDays: 7, maxImages: 1 },
+      highlighted: { price: 5000, durationDays: 10, maxImages: 3 },
+      vip:         { price: 7000, durationDays: 14, maxImages: 5 },
+    },
+    bumpPrice: 1000,
+    renewalDiscount: 0.5,
+    iban: '59965607',
+    beneficiary: 'zNews',
+    currency: '$',
+  },
 });
 
 const BREAKING_CATEGORY_LABEL = 'Извънредни';
@@ -2016,6 +2028,8 @@ registerTipRoutes(app, {
 
 registerClassifiedRoutes(app, {
   Classified,
+  SiteSettings,
+  DEFAULT_SITE_SETTINGS,
   brandLogoPng,
   buildShareCardOverlaySvg,
   cacheMiddleware,

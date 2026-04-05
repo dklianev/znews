@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Tag, Send, AlertTriangle, CheckCircle, Image as ImageIcon, X, Upload, Copy, Check, Car, Building, Wrench, Search, Package, ShoppingCart, Star, DollarSign, Camera } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
+import { api } from '../utils/api';
 
 const CATEGORIES = [
   { value: 'cars', label: 'Коли', icon: Car },
@@ -14,11 +15,26 @@ const CATEGORIES = [
   { value: 'other', label: 'Разни', icon: Package },
 ];
 
-const TIERS = [
-  { value: 'standard', label: 'Стандартна', price: 2000, days: 7, maxImages: 1, description: 'Текстова обява + 1 снимка за 7 дни', color: 'border-[#1C1428]', icon: Tag },
-  { value: 'highlighted', label: 'Удебелена', price: 5000, days: 10, maxImages: 3, description: 'По-голям шрифт + accent рамка + 3 снимки, 10 дни', color: 'border-amber-600', icon: DollarSign },
-  { value: 'vip', label: 'VIP', price: 7000, days: 14, maxImages: 5, description: 'Снимка + цветна рамка + VIP badge + 5 снимки + приоритет, 14 дни', color: 'border-zn-purple', icon: Star },
+const TIER_META = {
+  standard:    { label: 'Стандартна', color: 'border-[#1C1428]', icon: Tag },
+  highlighted: { label: 'Удебелена', color: 'border-amber-600', icon: DollarSign },
+  vip:         { label: 'VIP', color: 'border-zn-purple', icon: Star },
+};
+
+const FALLBACK_TIERS = [
+  { value: 'standard', label: 'Стандартна', price: 2000, days: 7, maxImages: 1, color: 'border-[#1C1428]', icon: Tag },
+  { value: 'highlighted', label: 'Удебелена', price: 5000, days: 10, maxImages: 3, color: 'border-amber-600', icon: DollarSign },
+  { value: 'vip', label: 'VIP', price: 7000, days: 14, maxImages: 5, color: 'border-zn-purple', icon: Star },
 ];
+
+function buildTiers(apiData) {
+  if (!apiData?.tiers) return FALLBACK_TIERS;
+  return ['standard', 'highlighted', 'vip'].map(key => {
+    const t = apiData.tiers[key];
+    const meta = TIER_META[key];
+    return { value: key, label: meta.label, price: t.price, days: t.durationDays, maxImages: t.maxImages, color: meta.color, icon: meta.icon };
+  });
+}
 
 const INITIAL_STATE = Object.freeze({ status: 'idle', message: '', fieldErrors: {}, paymentInfo: null });
 
@@ -123,6 +139,8 @@ export default function ClassifiedSubmitPage() {
   useDocumentTitle(makeTitle('Подай обява'));
   const { submitClassified } = usePublicData();
 
+  const [tiers, setTiers] = useState(FALLBACK_TIERS);
+  const [tiersLoading, setTiersLoading] = useState(true);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -136,7 +154,16 @@ export default function ClassifiedSubmitPage() {
   const [fieldErrors, setFieldErrors] = useState({});
   const fileInputRef = useRef(null);
 
-  const selectedTier = TIERS.find(t => t.value === tier) || TIERS[0];
+  useEffect(() => {
+    let cancelled = false;
+    api.classifieds.getPrices()
+      .then(data => { if (!cancelled) setTiers(buildTiers(data)); })
+      .catch(() => {}) // keep fallback
+      .finally(() => { if (!cancelled) setTiersLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const selectedTier = tiers.find(t => t.value === tier) || tiers[0];
   const maxImages = selectedTier.maxImages;
 
   const [formState, submitAction, isPending] = useActionState(
@@ -266,7 +293,7 @@ export default function ClassifiedSubmitPage() {
       <div className="comic-panel bg-white dark:bg-[#2A2438] p-6 md:p-8 border-4 border-zn-black dark:border-[#524A62]">
         <h2 className="text-xl font-heading text-zn-black dark:text-[#EDE4D0] uppercase italic tracking-wide mb-4">Избери пакет</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {TIERS.map((t) => {
+          {tiers.map((t) => {
             const Icon = t.icon;
             const isSelected = tier === t.value;
             return (

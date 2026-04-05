@@ -215,7 +215,7 @@ export default function ClassifiedsPage() {
             <Tag className="w-8 h-8 text-zn-hot" />
             <div>
               <h1 className="font-display text-4xl font-black text-zn-text tracking-wider uppercase text-shadow-brutal">Малки обяви</h1>
-              <p className="font-display text-sm text-zn-text-muted mt-1 uppercase tracking-wider font-bold">Купи, продай, намери в Земун</p>
+              <p className="font-display text-sm text-zn-text-muted mt-1 uppercase tracking-wider font-bold">Купи, продай, намери</p>
             </div>
           </div>
           <div className="flex gap-2">

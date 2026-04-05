@@ -3,14 +3,20 @@ import { createImageUploadErrorHelpers } from '../services/imageUploadErrorsServ
 
 const CLASSIFIED_ADMIN_PERMISSIONS = ['classifieds'];
 
-const TIER_CONFIG = {
-  standard: { price: 2000, durationDays: 7, maxImages: 1, sortWeight: 1 },
-  highlighted: { price: 5000, durationDays: 10, maxImages: 3, sortWeight: 2 },
-  vip: { price: 7000, durationDays: 14, maxImages: 5, sortWeight: 3 },
-};
+const SORT_WEIGHTS = { standard: 1, highlighted: 2, vip: 3 };
 
-const BUMP_PRICE = 1000;
-const RENEWAL_DISCOUNT = 0.5; // 50% off for VIP renewals
+const DEFAULT_CLASSIFIEDS_CONFIG = {
+  tiers: {
+    standard: { price: 2000, durationDays: 7, maxImages: 1 },
+    highlighted: { price: 5000, durationDays: 10, maxImages: 3 },
+    vip: { price: 7000, durationDays: 14, maxImages: 5 },
+  },
+  bumpPrice: 1000,
+  renewalDiscount: 0.5,
+  iban: '59965607',
+  beneficiary: 'zNews',
+  currency: '$',
+};
 
 const VALID_CATEGORIES = ['cars', 'properties', 'services', 'looking-for', 'selling', 'other'];
 const CATEGORY_LABELS = {
@@ -34,6 +40,8 @@ function sanitizeUserText(text, maxLen) {
 export function registerClassifiedRoutes(app, deps) {
   const {
     Classified,
+    SiteSettings,
+    DEFAULT_SITE_SETTINGS,
     brandLogoPng,
     buildShareCardOverlaySvg,
     cacheMiddleware,
@@ -102,6 +110,13 @@ export function registerClassifiedRoutes(app, deps) {
     skip: shouldSkipRateLimit,
     keyGenerator: rateLimitKeyGenerator,
   });
+
+  async function getConfig() {
+    const doc = await SiteSettings.findOne({ key: 'main' }).lean();
+    const c = doc?.classifieds;
+    if (c?.tiers?.standard && c?.tiers?.highlighted && c?.tiers?.vip) return c;
+    return DEFAULT_SITE_SETTINGS.classifieds || DEFAULT_CLASSIFIEDS_CONFIG;
+  }
 
   function runMultiUpload(req, res, maxCount) {
     return new Promise((resolve, reject) => {
@@ -382,16 +397,19 @@ export function registerClassifiedRoutes(app, deps) {
 
   // ─── Public: get tier prices (MUST be before /:id) ───
   app.get('/api/classifieds/prices', cacheMiddleware, async (_req, res) => {
-    res.setCacheTags?.(['classifieds']);
+    res.setCacheTags?.(['classifieds', 'site-settings']);
+    const cfg = await getConfig();
     res.json({
-      tiers: Object.fromEntries(
-        Object.entries(TIER_CONFIG).map(([k, v]) => [k, { price: v.price, durationDays: v.durationDays, maxImages: v.maxImages }])
-      ),
-      bumpPrice: BUMP_PRICE,
-      renewalDiscount: RENEWAL_DISCOUNT,
-      iban: '59965607',
-      beneficiary: 'zNews',
-      currency: '$',
+      tiers: {
+        standard: { price: cfg.tiers.standard.price, durationDays: cfg.tiers.standard.durationDays, maxImages: cfg.tiers.standard.maxImages },
+        highlighted: { price: cfg.tiers.highlighted.price, durationDays: cfg.tiers.highlighted.durationDays, maxImages: cfg.tiers.highlighted.maxImages },
+        vip: { price: cfg.tiers.vip.price, durationDays: cfg.tiers.vip.durationDays, maxImages: cfg.tiers.vip.maxImages },
+      },
+      bumpPrice: cfg.bumpPrice,
+      renewalDiscount: cfg.renewalDiscount,
+      iban: cfg.iban,
+      beneficiary: cfg.beneficiary,
+      currency: cfg.currency,
     });
   });
 
@@ -455,9 +473,10 @@ export function registerClassifiedRoutes(app, deps) {
 
   // ─── Public: submit a classified ───
   app.post('/api/classifieds', classifiedRateLimiter, async (req, res) => {
+    const cfg = await getConfig();
     // Peek at tier from query/body to determine max images
     const tierHint = String(req.query.tier || 'standard').trim();
-    const tierCfgHint = TIER_CONFIG[tierHint] || TIER_CONFIG.standard;
+    const tierCfgHint = cfg.tiers[tierHint] || cfg.tiers.standard;
 
     try {
       await runMultiUpload(req, res, tierCfgHint.maxImages);
@@ -479,13 +498,13 @@ export function registerClassifiedRoutes(app, deps) {
     if (!VALID_CATEGORIES.includes(category)) fieldErrors.category = 'Невалидна категория.';
     if (!phone) fieldErrors.phone = 'Телефонът е задължителен.';
     if (!contactName) fieldErrors.contactName = 'Името за контакт е задължително.';
-    if (!TIER_CONFIG[tier]) fieldErrors.tier = 'Невалиден пакет.';
+    if (!cfg.tiers[tier]) fieldErrors.tier = 'Невалиден пакет.';
 
     if (Object.keys(fieldErrors).length > 0) {
       return res.status(400).json({ error: 'Моля попълнете всички задължителни полета.', fieldErrors });
     }
 
-    const tierCfg = TIER_CONFIG[tier];
+    const tierCfg = cfg.tiers[tier];
     const images = [];
     const imagesMeta = [];
 
@@ -518,7 +537,7 @@ export function registerClassifiedRoutes(app, deps) {
       status: 'awaiting_payment',
       paymentRef,
       amountDue: tierCfg.price,
-      sortWeight: tierCfg.sortWeight,
+      sortWeight: SORT_WEIGHTS[tier] || 1,
       ipHash,
     });
     await doc.save();
@@ -528,9 +547,9 @@ export function registerClassifiedRoutes(app, deps) {
       id: doc.id,
       paymentRef,
       amountDue: tierCfg.price,
-      iban: '59965607',
-      beneficiary: 'zNews',
-      currency: '$',
+      iban: cfg.iban,
+      beneficiary: cfg.beneficiary,
+      currency: cfg.currency,
     });
   });
 
@@ -543,18 +562,18 @@ export function registerClassifiedRoutes(app, deps) {
     const doc = await Classified.findOne({ id, status: 'active', expiresAt: { $gt: now } });
     if (!doc) return res.status(404).json({ error: 'Обявата не е намерена или не е активна.' });
 
-    // Create a bump payment reference
+    const cfg = await getConfig();
     const bumpRef = generatePaymentRef();
 
     return res.json({
       ok: true,
       id: doc.id,
       bumpRef,
-      bumpPrice: BUMP_PRICE,
-      iban: '59965607',
-      beneficiary: 'zNews',
-      currency: '$',
-      message: `Преведете $${BUMP_PRICE.toLocaleString('bg-BG')} с основание ${bumpRef} за bump на обява #${doc.id}.`,
+      bumpPrice: cfg.bumpPrice,
+      iban: cfg.iban,
+      beneficiary: cfg.beneficiary,
+      currency: cfg.currency,
+      message: `Преведете ${cfg.currency}${cfg.bumpPrice.toLocaleString('bg-BG')} с основание ${bumpRef} за bump на обява #${doc.id}.`,
     });
   });
 
@@ -567,8 +586,8 @@ export function registerClassifiedRoutes(app, deps) {
     if (!doc) return res.status(404).json({ error: 'Обявата не е намерена.' });
     if (doc.tier !== 'vip') return res.status(400).json({ error: 'Подновяването е налично само за VIP обяви.' });
 
-    const tierCfg = TIER_CONFIG.vip;
-    const renewalPrice = Math.round(tierCfg.price * RENEWAL_DISCOUNT);
+    const cfg = await getConfig();
+    const renewalPrice = Math.round(cfg.tiers.vip.price * cfg.renewalDiscount);
     const renewRef = generatePaymentRef();
 
     return res.json({
@@ -576,10 +595,10 @@ export function registerClassifiedRoutes(app, deps) {
       id: doc.id,
       renewRef,
       renewalPrice,
-      iban: '59965607',
-      beneficiary: 'zNews',
-      currency: '$',
-      message: `Преведете $${renewalPrice.toLocaleString('bg-BG')} с основание ${renewRef} за подновяване на VIP обява #${doc.id}.`,
+      iban: cfg.iban,
+      beneficiary: cfg.beneficiary,
+      currency: cfg.currency,
+      message: `Преведете ${cfg.currency}${renewalPrice.toLocaleString('bg-BG')} с основание ${renewRef} за подновяване на VIP обява #${doc.id}.`,
     });
   });
 
@@ -597,7 +616,8 @@ export function registerClassifiedRoutes(app, deps) {
     const doc = await Classified.findOne({ id });
     if (!doc) return res.status(404).json({ error: 'Not found' });
 
-    const tierCfg = TIER_CONFIG[doc.tier] || TIER_CONFIG.standard;
+    const cfg = await getConfig();
+    const tierCfg = cfg.tiers[doc.tier] || cfg.tiers.standard;
     const now = new Date();
     const expiresAt = new Date(now.getTime() + tierCfg.durationDays * 24 * 60 * 60 * 1000);
 
@@ -605,7 +625,7 @@ export function registerClassifiedRoutes(app, deps) {
     doc.approvedAt = now;
     doc.bumpedAt = now;
     doc.expiresAt = expiresAt;
-    doc.sortWeight = tierCfg.sortWeight;
+    doc.sortWeight = SORT_WEIGHTS[doc.tier] || 1;
     doc.paidBy = normalizeText(req.body.paidBy || '', 200);
     await doc.save();
 
@@ -637,7 +657,8 @@ export function registerClassifiedRoutes(app, deps) {
     const doc = await Classified.findOne({ id });
     if (!doc) return res.status(404).json({ error: 'Not found' });
 
-    const tierCfg = TIER_CONFIG[doc.tier] || TIER_CONFIG.standard;
+    const cfg = await getConfig();
+    const tierCfg = cfg.tiers[doc.tier] || cfg.tiers.standard;
     const baseDate = doc.expiresAt && doc.expiresAt > new Date() ? doc.expiresAt : new Date();
     doc.expiresAt = new Date(baseDate.getTime() + tierCfg.durationDays * 24 * 60 * 60 * 1000);
     doc.status = 'active';

@@ -575,6 +575,18 @@ const siteSettingsSchema = new mongoose.Schema({
     buttonLabel: String,
     buttonLink: String,
   },
+  classifieds: {
+    tiers: {
+      standard:    { price: Number, durationDays: Number, maxImages: Number },
+      highlighted: { price: Number, durationDays: Number, maxImages: Number },
+      vip:         { price: Number, durationDays: Number, maxImages: Number },
+    },
+    bumpPrice: Number,
+    renewalDiscount: Number,
+    iban: String,
+    beneficiary: String,
+    currency: String,
+  },
 }, opts);
 
 // ─── Article Revisions ───
