@@ -12,5 +12,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 if (typeof window !== 'undefined') {
   import('./runtime/installRuntimeIntegrations.js')
     .then(({ installRuntimeIntegrations }) => installRuntimeIntegrations())
-    .catch(() => {})
+    .catch((error) => {
+      console.error('Failed to install runtime integrations.', error)
+    })
 }

@@ -390,33 +390,6 @@ export default function ClassifiedDetailPage() {
                 Yapper
               </button>
               {yapperPopup}
-              {false && (
-                <div className="yapper-popup fixed sm:absolute inset-x-4 bottom-4 sm:inset-auto sm:left-0 sm:top-full sm:mt-2 z-50" role="dialog" aria-label="Yapper снимка">
-                  <div className="yapper-popup-title">Yapper снимка</div>
-                  <img
-                    src={sharePngUrl}
-                    alt="Share card"
-                    className="yapper-popup-img"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <p className="yapper-popup-desc">Копирай линка и го постни в Yapper:</p>
-                  <div className="yapper-popup-link-row">
-                    <input
-                      ref={yapperInputRef}
-                      type="text"
-                      readOnly
-                      value={`${window.location.origin}${sharePngUrl}`}
-                      className="yapper-popup-input"
-                      onClick={(e) => e.target.select()}
-                      aria-label="Линк към Share PNG"
-                    />
-                    <button type="button" onClick={handleYapperCopy} className="yapper-popup-copy-btn">
-                      {yapperCopied ? '✓' : 'Копирай'}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
