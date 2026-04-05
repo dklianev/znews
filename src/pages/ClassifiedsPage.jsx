@@ -274,14 +274,16 @@ export default function ClassifiedsPage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Търси в обявите..."
-            className="w-full pl-10 pr-4 py-2.5 font-sans bg-white dark:bg-[#1C1828] dark:text-gray-200 border-2 border-[#1C1428] dark:border-[#524A62] focus:outline-none focus:ring-4 focus:ring-zn-purple/20 focus:border-zn-purple transition-all"
-            style={{ boxShadow: '2px 2px 0 #1C1428' }}
+            className="w-full pl-10 pr-4 py-2.5 font-sans bg-white dark:bg-[#1C1828] dark:text-gray-200 border-3 border-[#1C1428] dark:border-[#524A62] focus:outline-none focus:ring-4 focus:ring-zn-purple/20 focus:border-zn-purple transition-all"
+            style={{ boxShadow: '3px 3px 0 #1C1428' }}
           />
         </div>
         <button
           type="submit"
-          className="comic-button px-4 py-2 text-sm"
+          className="flex items-center gap-2 px-5 py-2.5 bg-zn-purple text-white font-display font-black text-sm uppercase tracking-wider border-3 border-[#1C1428] hover:bg-zn-purple/90 hover:-translate-y-0.5 active:translate-y-0 transition-all"
+          style={{ boxShadow: '3px 3px 0 #1C1428' }}
         >
+          <Search className="w-4 h-4" />
           Търси
         </button>
       </form>

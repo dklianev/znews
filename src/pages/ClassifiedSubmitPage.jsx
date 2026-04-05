@@ -140,6 +140,7 @@ export default function ClassifiedSubmitPage() {
   const { submitClassified } = usePublicData();
 
   const [tiers, setTiers] = useState(FALLBACK_TIERS);
+  const [currency, setCurrency] = useState('$');
   const [tiersLoading, setTiersLoading] = useState(true);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -157,7 +158,7 @@ export default function ClassifiedSubmitPage() {
   useEffect(() => {
     let cancelled = false;
     api.classifieds.getPrices()
-      .then(data => { if (!cancelled) setTiers(buildTiers(data)); })
+      .then(data => { if (!cancelled) { setTiers(buildTiers(data)); if (data?.currency) setCurrency(data.currency); } })
       .catch(() => {}) // keep fallback
       .finally(() => { if (!cancelled) setTiersLoading(false); });
     return () => { cancelled = true; };
@@ -309,7 +310,7 @@ export default function ClassifiedSubmitPage() {
                   <Icon className="w-5 h-5 text-zn-purple" />
                   <span className="font-display font-black uppercase tracking-wider">{t.label}</span>
                 </div>
-                <div className="font-mono text-2xl font-black text-green-700 dark:text-green-400 mb-1">${t.price.toLocaleString('bg-BG')}</div>
+                <div className="font-mono text-2xl font-black text-green-700 dark:text-green-400 mb-1">{currency}{t.price.toLocaleString('bg-BG')}</div>
                 <p className="text-xs font-sans text-gray-500 mb-2">{t.description}</p>
                 <div className="flex items-center gap-1 text-[10px] font-display font-bold uppercase tracking-wider text-zn-purple">
                   <Camera className="w-3 h-3" /> До {t.maxImages} {t.maxImages === 1 ? 'снимка' : 'снимки'} &bull; {t.days} дни
@@ -430,7 +431,7 @@ export default function ClassifiedSubmitPage() {
           {/* Summary + submit */}
           <div className="pt-6 border-t-2 border-black/10 dark:border-white/10 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="text-sm font-sans text-gray-500 dark:text-gray-400">
-              Пакет: <strong className="text-zn-purple">{selectedTier.label}</strong> &mdash; <strong className="text-green-700">${selectedTier.price.toLocaleString('bg-BG')}</strong> за {selectedTier.days} дни, до {selectedTier.maxImages} снимки
+              Пакет: <strong className="text-zn-purple">{selectedTier.label}</strong> &mdash; <strong className="text-green-700">{currency}{selectedTier.price.toLocaleString('bg-BG')}</strong> за {selectedTier.days} дни, до {selectedTier.maxImages} снимки
             </div>
             <SubmitButton disabled={!title.trim() || !description.trim() || !category || !phone.trim() || !contactName.trim()} />
           </div>

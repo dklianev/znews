@@ -131,7 +131,7 @@ export default function ClassifiedStatusPage() {
                 </div>
                 <div>
                   <div className="text-[10px] font-display font-bold uppercase tracking-widest text-gray-400">Сума</div>
-                  <div className="font-mono font-black text-green-700 dark:text-green-400 text-lg">${result.amountDue?.toLocaleString('bg-BG')}</div>
+                  <div className="font-mono font-black text-green-700 dark:text-green-400 text-lg">{result.currency || '$'}{result.amountDue?.toLocaleString('bg-BG')}</div>
                 </div>
                 <div>
                   <div className="text-[10px] font-display font-bold uppercase tracking-widest text-gray-400">Подадена</div>

@@ -423,7 +423,8 @@ export function registerClassifiedRoutes(app, deps) {
       .lean();
 
     if (!doc) return res.status(404).json({ error: 'Не е намерена обява с този код.' });
-    res.json(doc);
+    const cfg = await getConfig();
+    res.json({ ...doc, currency: cfg.currency });
   });
 
   // ─── Public: VIP widget (latest 3 VIP classifieds, MUST be before /:id) ───

@@ -115,6 +115,9 @@ export default defineConfig({
       },
       workbox: {
         importScripts: ['/custom-sw.js'],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         navigateFallbackDenylist: [
           /^\/assets\//,
           /^\/api\//,
