@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Tag, Phone, User, Clock, DollarSign, Star, ChevronLeft, ChevronRight, Copy, Check, Camera, ArrowLeft, X } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { addRecentlyViewed, useRecentlyViewed } from '../hooks/useRecentlyViewed';
+import { copyToClipboard } from '../utils/copyToClipboard';
 
 const CATEGORY_LABELS = {
   cars: 'Коли', properties: 'Имоти', services: 'Услуги',
@@ -13,14 +15,17 @@ const CATEGORY_LABELS = {
 
 const TIER_LABELS = { standard: 'Стандартна', highlighted: 'Удебелена', vip: 'VIP' };
 
+const YAPPER_POPUP_MOBILE_BREAKPOINT = 640;
+const YAPPER_POPUP_WIDTH = 360;
+const YAPPER_POPUP_VIEWPORT_GUTTER = 12;
+const YAPPER_POPUP_OFFSET = 8;
+const YAPPER_POPUP_MIN_HEIGHT = 320;
+
 function CopyButton({ text, label }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = async () => {
-    try { await navigator.clipboard.writeText(text); } catch {
-      const ta = document.createElement('textarea');
-      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    }
+    const didCopy = await copyToClipboard(text);
+    if (!didCopy) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -127,7 +132,9 @@ export default function ClassifiedDetailPage() {
   const [yapperOpen, setYapperOpen] = useState(false);
   const [yapperCopied, setYapperCopied] = useState(false);
   const yapperRef = useRef(null);
+  const yapperPopupRef = useRef(null);
   const yapperInputRef = useRef(null);
+  const [yapperPopupStyle, setYapperPopupStyle] = useState(null);
 
   useDocumentTitle(makeTitle(item?.title || 'Обява'));
 
@@ -160,7 +167,8 @@ export default function ClassifiedDetailPage() {
   useEffect(() => {
     if (!yapperOpen) return undefined;
     const handler = (e) => {
-      if (yapperRef.current && !yapperRef.current.contains(e.target)) setYapperOpen(false);
+      if (yapperRef.current?.contains(e.target) || yapperPopupRef.current?.contains(e.target)) return;
+      setYapperOpen(false);
     };
     const escHandler = (e) => { if (e.key === 'Escape') setYapperOpen(false); };
     document.addEventListener('mousedown', handler);
@@ -177,14 +185,66 @@ export default function ClassifiedDetailPage() {
   }, [yapperOpen]);
 
   const sharePngUrl = item ? `/api/classifieds/${item.id}/share.png` : '';
+  const sharePngFullUrl = typeof window === 'undefined' ? sharePngUrl : `${window.location.origin}${sharePngUrl}`;
+
+  const updateYapperPopupPosition = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    if (window.innerWidth < YAPPER_POPUP_MOBILE_BREAKPOINT) {
+      setYapperPopupStyle({
+        position: 'fixed',
+        left: '16px',
+        right: '16px',
+        top: 'auto',
+        bottom: '16px',
+        width: 'auto',
+        maxWidth: 'none',
+        zIndex: 80,
+      });
+      return;
+    }
+
+    const triggerRect = yapperRef.current?.getBoundingClientRect();
+    if (!triggerRect) return;
+
+    const width = Math.min(YAPPER_POPUP_WIDTH, window.innerWidth - (YAPPER_POPUP_VIEWPORT_GUTTER * 2));
+    const maxLeft = window.innerWidth - width - YAPPER_POPUP_VIEWPORT_GUTTER;
+    const left = Math.min(
+      Math.max(YAPPER_POPUP_VIEWPORT_GUTTER, triggerRect.left),
+      Math.max(YAPPER_POPUP_VIEWPORT_GUTTER, maxLeft),
+    );
+    const showAbove = window.innerHeight - triggerRect.bottom < YAPPER_POPUP_MIN_HEIGHT
+      && triggerRect.top > YAPPER_POPUP_MIN_HEIGHT;
+
+    setYapperPopupStyle({
+      position: 'fixed',
+      left: `${left}px`,
+      right: 'auto',
+      top: showAbove ? 'auto' : `${Math.max(YAPPER_POPUP_VIEWPORT_GUTTER, triggerRect.bottom + YAPPER_POPUP_OFFSET)}px`,
+      bottom: showAbove ? `${Math.max(YAPPER_POPUP_VIEWPORT_GUTTER, window.innerHeight - triggerRect.top + YAPPER_POPUP_OFFSET)}px` : 'auto',
+      width: `${width}px`,
+      maxWidth: `calc(100vw - ${YAPPER_POPUP_VIEWPORT_GUTTER * 2}px)`,
+      zIndex: 80,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!yapperOpen) return undefined;
+    updateYapperPopupPosition();
+
+    const handleViewportChange = () => updateYapperPopupPosition();
+    window.addEventListener('resize', handleViewportChange);
+    window.addEventListener('scroll', handleViewportChange, true);
+
+    return () => {
+      window.removeEventListener('resize', handleViewportChange);
+      window.removeEventListener('scroll', handleViewportChange, true);
+    };
+  }, [yapperOpen, updateYapperPopupPosition]);
 
   const handleYapperCopy = async () => {
-    const fullUrl = `${window.location.origin}${sharePngUrl}`;
-    try { await navigator.clipboard.writeText(fullUrl); } catch {
-      const ta = document.createElement('textarea');
-      ta.value = fullUrl; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    }
+    const didCopy = await copyToClipboard(sharePngFullUrl);
+    if (!didCopy) return;
     setYapperCopied(true);
     setTimeout(() => setYapperCopied(false), 2000);
   };
@@ -212,6 +272,42 @@ export default function ClassifiedDetailPage() {
 
   const tierStyle = item.tier === 'vip' ? 'border-zn-purple' : item.tier === 'highlighted' ? 'border-amber-600' : 'border-[#1C1428]';
   const tierShadow = item.tier === 'vip' ? '#5B1A8C' : item.tier === 'highlighted' ? '#92400e' : '#1C1428';
+  const yapperPopup = yapperOpen && typeof document !== 'undefined'
+    ? createPortal(
+        <div
+          ref={yapperPopupRef}
+          className="yapper-popup"
+          style={yapperPopupStyle || undefined}
+          role="dialog"
+          aria-label="Yapper снимка"
+        >
+          <div className="yapper-popup-title">Yapper снимка</div>
+          <img
+            src={sharePngUrl}
+            alt="Share card"
+            className="yapper-popup-img"
+            loading="lazy"
+            decoding="async"
+          />
+          <p className="yapper-popup-desc">Копирай линка и го постни в Yapper:</p>
+          <div className="yapper-popup-link-row">
+            <input
+              ref={yapperInputRef}
+              type="text"
+              readOnly
+              value={sharePngFullUrl}
+              className="yapper-popup-input"
+              onClick={(e) => e.target.select()}
+              aria-label="Линк към Share PNG"
+            />
+            <button type="button" onClick={handleYapperCopy} className="yapper-popup-copy-btn">
+              {yapperCopied ? 'Готово' : 'Копирай'}
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl mx-auto px-4 py-8">
@@ -293,7 +389,8 @@ export default function ClassifiedDetailPage() {
               >
                 Yapper
               </button>
-              {yapperOpen && (
+              {yapperPopup}
+              {false && (
                 <div className="yapper-popup fixed sm:absolute inset-x-4 bottom-4 sm:inset-auto sm:left-0 sm:top-full sm:mt-2 z-50" role="dialog" aria-label="Yapper снимка">
                   <div className="yapper-popup-title">Yapper снимка</div>
                   <img
