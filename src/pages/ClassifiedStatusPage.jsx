@@ -23,31 +23,36 @@ export default function ClassifiedStatusPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const doSearch = async (ref) => {
+  const doSearch = async (ref, signal) => {
     if (!ref.trim()) return;
     setLoading(true);
     setError('');
     setResult(null);
     try {
       const data = await loadClassifiedStatus(ref.trim());
+      if (signal?.aborted) return;
       setResult(data);
     } catch (err) {
+      if (signal?.aborted) return;
       setError(err.message || 'Не е намерена обява с този код.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
   };
 
   // Sync input with URL param on route change
   useEffect(() => {
+    const ac = new AbortController();
     if (urlRef) {
       setInputRef(urlRef);
-      doSearch(urlRef);
+      doSearch(urlRef, ac.signal);
     } else {
       setInputRef('');
       setResult(null);
       setError('');
+      setLoading(false);
     }
+    return () => ac.abort();
   }, [urlRef]);
 
   const handleSubmit = (e) => {
