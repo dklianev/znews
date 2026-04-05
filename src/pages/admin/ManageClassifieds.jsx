@@ -38,6 +38,27 @@ export default function ManageClassifieds() {
   const [busyId, setBusyId] = useState(null);
   const [paidByInputs, setPaidByInputs] = useState({});
 
+  const isAuthError = (error) => {
+    const status = Number(error?.status);
+    if (status === 401 || status === 403) return true;
+    return String(error?.message || '').toLowerCase().includes('authentication required');
+  };
+
+  const showClassifiedsError = (error, fallbackMessage = 'Неуспешна операция.') => {
+    if (isAuthError(error)) return;
+    toast.error(`Грешка: ${error?.message || fallbackMessage}`);
+  };
+
+  const refreshAfterFailure = async () => {
+    try {
+      await refreshClassifieds();
+    } catch (refreshError) {
+      if (!isAuthError(refreshError)) {
+        console.error('Failed to refresh classifieds after action failure:', refreshError);
+      }
+    }
+  };
+
   const [optimistic, applyUpdate] = useOptimistic(classifieds, (current, mutation) => {
     if (!Array.isArray(current)) return [];
     if (mutation.type === 'status') return current.map(c => c.id === mutation.id ? { ...c, status: mutation.status } : c);
@@ -46,7 +67,19 @@ export default function ManageClassifieds() {
     return current;
   });
 
-  useEffect(() => { void ensureClassifiedsLoaded(); }, [ensureClassifiedsLoaded]);
+  useEffect(() => {
+    ensureClassifiedsLoaded().catch((error) => {
+      showClassifiedsError(error, 'Не успяхме да заредим малките обяви.');
+    });
+  }, [ensureClassifiedsLoaded]);
+
+  const handleRefresh = async () => {
+    try {
+      await refreshClassifieds();
+    } catch (error) {
+      showClassifiedsError(error, 'Не успяхме да обновим малките обяви.');
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -75,8 +108,8 @@ export default function ManageClassifieds() {
       await approveClassified(id, paidByInputs[id] || '');
       toast.success('Обявата е одобрена и публикувана');
     } catch (e) {
-      await refreshClassifieds();
-      toast.error(`Грешка: ${e.message}`);
+      await refreshAfterFailure();
+      showClassifiedsError(e);
     } finally { setBusyId(null); }
   };
 
@@ -87,8 +120,8 @@ export default function ManageClassifieds() {
       await rejectClassified(id);
       toast.success('Обявата е отхвърлена');
     } catch (e) {
-      await refreshClassifieds();
-      toast.error(`Грешка: ${e.message}`);
+      await refreshAfterFailure();
+      showClassifiedsError(e);
     } finally { setBusyId(null); }
   };
 
@@ -100,8 +133,8 @@ export default function ManageClassifieds() {
       await deleteClassified(id);
       toast.success('Обявата е изтрита');
     } catch (e) {
-      await refreshClassifieds();
-      toast.error(`Грешка: ${e.message}`);
+      await refreshAfterFailure();
+      showClassifiedsError(e);
     } finally { setBusyId(null); }
   };
 
@@ -112,8 +145,8 @@ export default function ManageClassifieds() {
       await bumpClassified(id);
       toast.success('Обявата е bump-ната (преместена отгоре)');
     } catch (e) {
-      await refreshClassifieds();
-      toast.error(`Грешка: ${e.message}`);
+      await refreshAfterFailure();
+      showClassifiedsError(e);
     } finally { setBusyId(null); }
   };
 
@@ -123,8 +156,8 @@ export default function ManageClassifieds() {
       await renewClassified(id, '');
       toast.success('Обявата е подновена');
     } catch (e) {
-      await refreshClassifieds();
-      toast.error(`Грешка: ${e.message}`);
+      await refreshAfterFailure();
+      showClassifiedsError(e);
     } finally { setBusyId(null); }
   };
 
@@ -142,7 +175,7 @@ export default function ManageClassifieds() {
           <h1 className="text-2xl font-display font-bold text-gray-900">Малки обяви</h1>
           <p className="text-sm font-sans text-gray-500 mt-1">Управление и потвърждаване на плащания</p>
         </div>
-        <button type="button" onClick={refreshClassifieds} className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors">
+        <button type="button" onClick={handleRefresh} aria-label="Обнови обявите" className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors">
           <RefreshCw className="w-4 h-4" /> Обнови
         </button>
       </div>
