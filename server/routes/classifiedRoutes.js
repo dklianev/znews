@@ -157,7 +157,7 @@ export function registerClassifiedRoutes(app, deps) {
   function buildClassifiedShareCardTarget(classified) {
     const sig = createHash('sha1')
       .update(JSON.stringify({
-        v: 'classified-share-v2',
+        v: 'classified-share-v3',
         id: classified.id,
         title: classified.title,
         price: classified.price,
@@ -188,214 +188,223 @@ export function registerClassifiedRoutes(app, deps) {
       return { generated: true, url: target.url, relativePath: target.relativePath };
     }
 
-    const tierLabel = classified.tier === 'vip' ? 'VIP ОБЯВА' : classified.tier === 'highlighted' ? 'ТОП ОБЯВА' : 'ОБЯВА';
+    // ─── Layout constants ───
+    // Card: 1200 × 630
+    // Row 1 (y 48–120):  badge chip + listing id chip
+    // Row 2 (y 136–390): title zone (dark panel with accent stripe)
+    // Row 3 (y 404–476): price + seller (two side-by-side panels)
+    // Row 4 (y 494–588): footer bar (category chip + contact chip + logo)
+    const W = shareCardWidth;
+
     const categoryLabel = CATEGORY_LABELS[classified.category] || 'ОБЯВИ';
-    const titleText = normalizeText(classified.title, 76).toUpperCase();
-    const titleLines = wrapTextLines(titleText, 18, 3);
-    const priceText = classified.price ? `${classified.price}` : '';
-    const contactText = normalizeText(classified.contactName || '', 32);
+    const titleText = normalizeText(classified.title, 60).toUpperCase();
+    const titleLines = wrapTextLines(titleText, 20, 3);
+    const rawPrice = normalizeText(classified.price || '', 30);
+    const currency = classified.currency || '$';
+    const priceText = rawPrice ? `${currency}${rawPrice}` : '';
+    const contactText = normalizeText(classified.contactName || '', 28);
     const badgeText = classified.tier === 'vip' ? 'VIP ОБЯВА' : classified.tier === 'highlighted' ? 'ТОП ОБЯВА' : 'ОБЯВА';
-    const categoryText = normalizeText(categoryLabel || 'Обява', 36).toUpperCase();
-    const sellerText = contactText ? `от ${contactText}` : 'zNews classifieds';
-    const listingLabel = Number.isInteger(Number.parseInt(classified.id, 10)) ? `ОБЯВА #${classified.id}` : 'ОБЯВА';
+    const categoryText = normalizeText(categoryLabel, 20).toUpperCase();
+    const sellerText = contactText ? `от ${contactText}` : '';
+    const listingLabel = Number.isInteger(Number.parseInt(classified.id, 10)) ? `#${classified.id}` : '';
 
     const palette = classified.tier === 'vip'
       ? { primary: '#5B1A8C', secondary: '#CC0A1A', ink: '#F6EFFF' }
       : classified.tier === 'highlighted'
         ? { primary: '#B45309', secondary: '#F59E0B', ink: '#FFF3D6' }
         : { primary: '#CC0A1A', secondary: '#FF8A2A', ink: '#FFE7C8' };
+
+    // ─── Dynamic font sizing ───
     const maxTitleLen = titleLines.reduce((max, l) => Math.max(max, l.length), 0);
-    const titleBaseFontSize = titleLines.length <= 1 ? 96 : titleLines.length === 2 ? 82 : 68;
-    const titleFitRatio = Math.min(1, 18 / Math.max(10, maxTitleLen));
-    const titleFontSize = Math.max(54, Math.round(titleBaseFontSize * titleFitRatio));
-    const badgeFontSize = Math.max(34, Math.min(50, Math.round(520 / Math.max(8, badgeText.length + 2))));
-    const badgeWidth = Math.max(248, Math.min(404, Math.round(104 + badgeText.length * (badgeFontSize * 0.58))));
-    const categoryFontSize = Math.max(24, Math.min(34, Math.round(500 / Math.max(8, categoryText.length + 3))));
-    const categoryChipWidth = Math.max(208, Math.min(320, Math.round(86 + categoryText.length * (categoryFontSize * 0.6))));
+    const titleBaseFontSize = titleLines.length <= 1 ? 88 : titleLines.length === 2 ? 72 : 58;
+    const titleFitRatio = Math.min(1, 20 / Math.max(10, maxTitleLen));
+    const titleFontSize = Math.max(46, Math.round(titleBaseFontSize * titleFitRatio));
+
+    const badgeFontSize = 38;
+    const badgeWidth = Math.max(220, Math.min(380, Math.round(80 + badgeText.length * 22)));
+    const categoryFontSize = Math.max(22, Math.min(30, Math.round(400 / Math.max(6, categoryText.length + 2))));
+    const categoryChipWidth = Math.max(180, Math.min(300, Math.round(60 + categoryText.length * (categoryFontSize * 0.62))));
     const priceFontSize = priceText
-      ? Math.max(44, Math.min(86, Math.round(760 / Math.max(5, priceText.length + 1))))
+      ? Math.max(40, Math.min(72, Math.round(700 / Math.max(4, priceText.length + 1))))
       : 0;
 
+    // ─── SVG overlay (backgrounds, panels, decorations) ───
+    const priceChipW = priceText ? Math.max(260, Math.min(500, Math.round(60 + priceText.length * (priceFontSize * 0.55)))) : 0;
+    const sellerChipLeft = priceText ? 76 + priceChipW + 16 : 76;
+    const sellerChipW = W - 108 - (priceText ? priceChipW + 16 : 0);
+    const contactChipW = contactText ? Math.max(160, Math.min(260, Math.round(40 + contactText.length * 14))) : 0;
+
     const overlaySvg = Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${shareCardWidth}" height="${shareCardHeight}" viewBox="0 0 ${shareCardWidth} ${shareCardHeight}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${shareCardHeight}" viewBox="0 0 ${W} ${shareCardHeight}">
   <defs>
     <linearGradient id="overlayFade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#090611" stop-opacity="0.12" />
-      <stop offset="38%" stop-color="#110b1d" stop-opacity="0.58" />
-      <stop offset="100%" stop-color="#120a1d" stop-opacity="0.95" />
+      <stop offset="0%" stop-color="#090611" stop-opacity="0.10" />
+      <stop offset="30%" stop-color="#110b1d" stop-opacity="0.52" />
+      <stop offset="100%" stop-color="#120a1d" stop-opacity="0.96" />
     </linearGradient>
     <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="${palette.primary}" />
       <stop offset="100%" stop-color="${palette.secondary}" />
     </linearGradient>
     <linearGradient id="panelEdge" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="rgba(255,255,255,0.24)" />
-      <stop offset="100%" stop-color="rgba(255,255,255,0.06)" />
+      <stop offset="0%" stop-color="rgba(255,255,255,0.20)" />
+      <stop offset="100%" stop-color="rgba(255,255,255,0.05)" />
     </linearGradient>
-    <linearGradient id="footerMetal" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#fffaf2" />
-      <stop offset="100%" stop-color="#ece4d4" />
+    <linearGradient id="footerBar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(18,12,30,0.92)" />
+      <stop offset="100%" stop-color="rgba(12,8,22,0.98)" />
     </linearGradient>
     <pattern id="dots" width="7" height="7" patternUnits="userSpaceOnUse">
-      <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.23)" />
+      <circle cx="1" cy="1" r="1" fill="rgba(255,255,255,0.20)" />
     </pattern>
     <linearGradient id="panelGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="rgba(15,10,24,0.86)" />
-      <stop offset="100%" stop-color="rgba(21,14,34,0.95)" />
-    </linearGradient>
-    <linearGradient id="titleSlab" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="rgba(10,8,18,0.18)" />
-      <stop offset="100%" stop-color="rgba(8,6,14,0.52)" />
+      <stop offset="0%" stop-color="rgba(15,10,24,0.88)" />
+      <stop offset="100%" stop-color="rgba(21,14,34,0.96)" />
     </linearGradient>
     <linearGradient id="pricePanel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="rgba(8,22,12,0.86)" />
-      <stop offset="100%" stop-color="rgba(4,15,8,0.96)" />
+      <stop offset="0%" stop-color="rgba(6,24,10,0.90)" />
+      <stop offset="100%" stop-color="rgba(3,16,6,0.97)" />
     </linearGradient>
     <linearGradient id="metaPanel" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="rgba(21,14,34,0.92)" />
-      <stop offset="100%" stop-color="rgba(14,9,24,0.98)" />
+      <stop offset="0%" stop-color="rgba(21,14,34,0.88)" />
+      <stop offset="100%" stop-color="rgba(14,9,24,0.96)" />
     </linearGradient>
-    <radialGradient id="vignette" cx="50%" cy="28%" r="88%">
-      <stop offset="0%" stop-color="rgba(255,255,255,0.04)" />
-      <stop offset="100%" stop-color="rgba(0,0,0,0.48)" />
+    <radialGradient id="vignette" cx="50%" cy="26%" r="90%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.03)" />
+      <stop offset="100%" stop-color="rgba(0,0,0,0.50)" />
     </radialGradient>
   </defs>
 
-  <rect x="0" y="0" width="${shareCardWidth}" height="${shareCardHeight}" fill="url(#overlayFade)" />
-  <rect x="0" y="0" width="${shareCardWidth}" height="${shareCardHeight}" fill="url(#dots)" opacity="0.12" />
-  <rect x="0" y="0" width="${shareCardWidth}" height="${shareCardHeight}" fill="url(#vignette)" />
-  <rect x="28" y="26" width="${shareCardWidth - 56}" height="${shareCardHeight - 52}" rx="28" fill="none" stroke="#211533" stroke-width="7" />
+  <!-- Overlay + texture -->
+  <rect width="${W}" height="${shareCardHeight}" fill="url(#overlayFade)" />
+  <rect width="${W}" height="${shareCardHeight}" fill="url(#dots)" opacity="0.10" />
+  <rect width="${W}" height="${shareCardHeight}" fill="url(#vignette)" />
+  <rect x="28" y="26" width="${W - 56}" height="${shareCardHeight - 52}" rx="26" fill="none" stroke="#211533" stroke-width="6" />
 
-  <rect x="70" y="52" width="${badgeWidth}" height="68" rx="16" fill="url(#accent)" stroke="#241833" stroke-width="3" />
-  <rect x="${shareCardWidth - 260}" y="58" width="178" height="52" rx="13" fill="rgba(14,10,24,0.84)" stroke="rgba(255,255,255,0.16)" stroke-width="2" />
+  <!-- Row 1: Badge + listing id -->
+  <rect x="66" y="48" width="${badgeWidth}" height="64" rx="14" fill="url(#accent)" stroke="#241833" stroke-width="3" />
+  ${listingLabel ? `<rect x="${W - 220}" y="52" width="144" height="52" rx="12" fill="rgba(14,10,24,0.86)" stroke="rgba(255,255,255,0.14)" stroke-width="2" />` : ''}
 
-  <rect x="54" y="136" width="${shareCardWidth - 108}" height="344" rx="28" fill="url(#panelGrad)" stroke="url(#panelEdge)" stroke-width="2.8" />
-  <rect x="54" y="136" width="${shareCardWidth - 108}" height="14" rx="10" fill="url(#accent)" opacity="0.95" />
-  <rect x="76" y="170" width="${shareCardWidth - 152}" height="198" rx="18" fill="url(#titleSlab)" stroke="rgba(255,255,255,0.12)" stroke-width="2" />
-  <rect x="88" y="182" width="${shareCardWidth - 176}" height="6" rx="3" fill="url(#accent)" />
-  <rect x="76" y="392" width="328" height="76" rx="18" fill="url(#pricePanel)" stroke="rgba(74,222,128,0.32)" stroke-width="2.2" />
-  <rect x="428" y="392" width="${shareCardWidth - 504}" height="76" rx="18" fill="url(#metaPanel)" stroke="rgba(255,255,255,0.10)" stroke-width="2" />
+  <!-- Row 2: Title panel -->
+  <rect x="54" y="130" width="${W - 108}" height="256" rx="24" fill="url(#panelGrad)" stroke="url(#panelEdge)" stroke-width="2.5" />
+  <rect x="54" y="130" width="${W - 108}" height="10" rx="6" fill="url(#accent)" opacity="0.90" />
 
-  <rect x="54" y="498" width="${shareCardWidth - 108}" height="104" rx="22" fill="url(#footerMetal)" stroke="#2a1d3d" stroke-width="2.6" />
-  <rect x="76" y="520" width="${categoryChipWidth}" height="50" rx="13" fill="url(#accent)" stroke="#2b1c40" stroke-width="2.5" />
-  <rect x="${shareCardWidth - 426}" y="520" width="218" height="50" rx="13" fill="rgba(22,16,34,0.94)" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+  <!-- Row 3: Price + seller -->
+  ${priceText ? `<rect x="76" y="404" width="${priceChipW}" height="72" rx="16" fill="url(#pricePanel)" stroke="rgba(74,222,128,0.30)" stroke-width="2" />` : ''}
+  ${sellerText ? `<rect x="${sellerChipLeft}" y="404" width="${sellerChipW}" height="72" rx="16" fill="url(#metaPanel)" stroke="rgba(255,255,255,0.08)" stroke-width="2" />` : ''}
+
+  <!-- Row 4: Footer bar -->
+  <rect x="54" y="494" width="${W - 108}" height="94" rx="20" fill="url(#footerBar)" stroke="#2a1d3d" stroke-width="2.5" />
+  <rect x="76" y="516" width="${categoryChipWidth}" height="48" rx="12" fill="url(#accent)" stroke="#2b1c40" stroke-width="2.5" />
+  ${contactText ? `<rect x="${76 + categoryChipWidth + 16}" y="516" width="${contactChipW}" height="48" rx="12" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.06)" stroke-width="2" />` : ''}
 </svg>`, 'utf8');
 
-    const [badge, listingMeta, title, priceLabel, price, seller, category, contact] = await Promise.all([
+    // ─── Render text layers as PNG images ───
+    const [badge, listingIdImg, title, price, seller, category, contact] = await Promise.all([
       renderTextImage(sharp, badgeText, {
         fontSize: badgeFontSize,
         fontWeight: '900',
         color: 'white',
-        width: badgeWidth - 28,
-        height: 60,
+        width: badgeWidth - 24,
+        height: 56,
         align: 'centre',
       }),
-      renderTextImage(sharp, listingLabel, {
-        fontSize: 21,
+      listingLabel ? renderTextImage(sharp, listingLabel, {
+        fontSize: 22,
         fontWeight: '900',
-        color: '#E9D9FF',
-        width: 150,
-        height: 28,
+        color: '#D4C4F0',
+        width: 120,
+        height: 30,
         align: 'centre',
-      }),
+      }) : null,
       renderTextImage(sharp, titleLines.join('\n'), {
         fontSize: titleFontSize,
         fontWeight: '900',
         color: 'white',
-        width: shareCardWidth - 196,
-        height: 210,
+        width: W - 180,
+        height: 230,
       }),
-      priceText ? renderTextImage(sharp, 'ЦЕНА', {
-        fontSize: 18,
-        fontWeight: '900',
-        color: '#8BF7A6',
-        width: 90,
-        height: 22,
-      }) : null,
       priceText ? renderTextImage(sharp, priceText, {
         fontSize: priceFontSize,
         fontWeight: '900',
         color: '#4ade80',
-        width: 270,
-        height: 54,
+        width: priceChipW - 48,
+        height: 56,
       }) : null,
-      renderTextImage(sharp, sellerText, {
-        fontSize: 24,
+      sellerText ? renderTextImage(sharp, sellerText, {
+        fontSize: 26,
         fontWeight: 'bold',
         color: '#DCCBFF',
-        width: shareCardWidth - 552,
-        height: 30,
-      }),
+        width: sellerChipW - 40,
+        height: 34,
+      }) : null,
       renderTextImage(sharp, categoryText, {
         fontSize: categoryFontSize,
         fontWeight: '900',
         color: palette.ink,
-        width: categoryChipWidth - 34,
-        height: 40,
+        width: categoryChipWidth - 30,
+        height: 38,
         align: 'centre',
       }),
       contactText ? renderTextImage(sharp, contactText, {
         fontSize: 22,
         fontWeight: 'bold',
-        color: '#F8F3EA',
-        width: 190,
-        height: 30,
+        color: '#F0EAE0',
+        width: contactChipW - 24,
+        height: 28,
         align: 'centre',
       }) : null,
     ]);
 
+    // ─── Compose all layers ───
     const composites = [{ input: overlaySvg }];
 
     if (badge) composites.push({
       input: badge.buffer,
-      top: Math.round(54 + (68 - badge.height) / 2),
-      left: Math.round(70 + (badgeWidth - badge.width) / 2),
+      top: Math.round(48 + (64 - badge.height) / 2),
+      left: Math.round(66 + (badgeWidth - badge.width) / 2),
     });
 
-    if (listingMeta) composites.push({
-      input: listingMeta.buffer,
-      top: Math.round(69 + (52 - listingMeta.height) / 2),
-      left: Math.round(shareCardWidth - 246 + ((150 - listingMeta.width) / 2)),
+    if (listingIdImg) composites.push({
+      input: listingIdImg.buffer,
+      top: Math.round(52 + (52 - listingIdImg.height) / 2),
+      left: Math.round(W - 220 + (144 - listingIdImg.width) / 2),
     });
 
     if (title) {
-      const titleZoneTop = 194;
-      const titleZoneHeight = 158;
+      // Vertically center title in the panel (y:148 to y:370 = 222px usable)
+      const titleZoneTop = 148;
+      const titleZoneHeight = 222;
+      const titleTop = Math.round(titleZoneTop + Math.max(0, (titleZoneHeight - title.height) / 2));
       composites.push({
         input: title.buffer,
-        top: Math.max(titleZoneTop, Math.round(titleZoneTop + ((titleZoneHeight - title.height) / 2))),
-        left: 98,
+        top: titleTop,
+        left: 90,
       });
     }
 
-    if (priceLabel) composites.push({
-      input: priceLabel.buffer,
-      top: Math.round(406 + (22 - priceLabel.height) / 2),
-      left: 102,
-    });
-
     if (price) composites.push({
       input: price.buffer,
-      top: Math.round(424 + (30 - price.height) / 2),
-      left: 100,
+      top: Math.round(404 + (72 - price.height) / 2),
+      left: Math.round(76 + 24),
     });
 
     if (seller) composites.push({
       input: seller.buffer,
-      top: Math.round(417 + ((30 - seller.height) / 2)),
-      left: 448,
+      top: Math.round(404 + (72 - seller.height) / 2),
+      left: Math.round(sellerChipLeft + 20),
     });
 
     if (category) composites.push({
       input: category.buffer,
-      top: Math.round(520 + ((50 - category.height) / 2)),
-      left: Math.round(76 + ((categoryChipWidth - category.width) / 2)),
+      top: Math.round(516 + (48 - category.height) / 2),
+      left: Math.round(76 + (categoryChipWidth - category.width) / 2),
     });
 
     if (contact) composites.push({
       input: contact.buffer,
-      top: Math.round(530 + ((30 - contact.height) / 2)),
-      left: Math.round(shareCardWidth - 412 + ((190 - contact.width) / 2)),
+      top: Math.round(516 + (48 - contact.height) / 2),
+      left: Math.round(76 + categoryChipWidth + 16 + (contactChipW - contact.width) / 2),
     });
 
     if (brandLogoPng) {
@@ -404,8 +413,8 @@ export function registerClassifiedRoutes(app, deps) {
       const brandH = meta.height || 0;
       composites.push({
         input: brandLogoPng,
-        top: Math.round(520 + ((50 - brandH) / 2)),
-        left: Math.round(shareCardWidth - 76 - brandW),
+        top: Math.round(516 + (48 - brandH) / 2),
+        left: Math.round(W - 76 - brandW),
       });
     }
 
