@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp, Gamepad2 } from 'lucide-react';
+import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp, Gamepad2, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../context/ThemeContext';
 import { usePublicData } from '../context/DataContext';
@@ -19,6 +19,7 @@ const SPOTLIGHT_ICON_MAP = {
   Newspaper,
   ShieldAlert,
   Gamepad2,
+  Tag,
 };
 
 export default memo(function Navbar() {
@@ -116,6 +117,7 @@ export default memo(function Navbar() {
         ...item,
         Icon: SPOTLIGHT_ICON_MAP[item.icon] || Flame,
         isArcade: item?.to === '/games' || item?.icon === 'Gamepad2',
+        isClassifieds: item?.to === '/obiavi' || item?.icon === 'Tag',
       }))
       .sort((a, b) => Number(a.isArcade) - Number(b.isArcade));
   }, [siteSettings?.spotlightLinks]);
@@ -421,12 +423,12 @@ export default memo(function Navbar() {
         <div className="bg-gradient-to-r from-zn-hot via-zn-purple to-zn-navy">
           <div className="max-w-6xl mx-auto px-3 md:px-4 py-2 relative">
             <div className="comic-spotlight-strip grid grid-cols-2 items-stretch justify-start gap-2 md:flex md:items-center md:justify-center md:gap-5 overflow-visible md:overflow-x-auto scrollbar-hide py-1">
-              {spotlightLinks.map(({ to, label, Icon, hot, tilt, isArcade }) => (
+              {spotlightLinks.map(({ to, label, Icon, hot, tilt, isArcade, isClassifieds }) => (
                 <Link
                   key={to}
                   to={to}
                   prefetch="intent"
-                  className={`comic-chip comic-spotlight-chip w-full md:w-auto whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-hot ${isArcade ? 'comic-chip-arcade' : ''} ${hot && !isArcade ? 'comic-chip-hot' : ''}`}
+                  className={`comic-chip comic-spotlight-chip w-full md:w-auto whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-hot ${isClassifieds ? 'comic-chip-classifieds' : isArcade ? 'comic-chip-arcade' : ''} ${hot && !isArcade && !isClassifieds ? 'comic-chip-hot' : ''}`}
                   style={{ '--chip-tilt': tilt }}
                 >
                   <Icon className="w-4 h-4" />

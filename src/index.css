@@ -434,6 +434,25 @@
   }
 }
 
+@utility comic-chip-classifieds {
+  color: #1c1428;
+  background: linear-gradient(150deg, #fbbf24 0%, #f59e0b 50%, #fcd34d 100%);
+  border-color: #1c1428;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+  box-shadow: 3px 3px 0 #78350f;
+  animation: classifieds-pulse 2.5s ease-in-out infinite;
+
+  &:hover {
+    background: linear-gradient(150deg, #fcd34d 0%, #fbbf24 50%, #fde68a 100%);
+    box-shadow: 4px 6px 0 #78350f;
+  }
+}
+
+@keyframes classifieds-pulse {
+  0%, 100% { box-shadow: 3px 3px 0 #78350f; }
+  50% { box-shadow: 3px 3px 8px rgba(251, 191, 36, 0.5), 3px 3px 0 #78350f; }
+}
+
 @utility comic-spotlight-strip {
   -webkit-overflow-scrolling: touch;
   scroll-padding-inline: 0.75rem;
@@ -3284,6 +3303,19 @@
 
   .dark .comic-chip-arcade:hover {
     background: linear-gradient(150deg, #11777f 0%, #12739a 55%, #469a7b 100%);
+    box-shadow: 4px 5px 0 #0a0812;
+  }
+
+  .dark .comic-chip-classifieds {
+    color: #fef3c7;
+    border-color: #524a62;
+    background: linear-gradient(150deg, #92400e 0%, #b45309 50%, #a16207 100%);
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.3);
+    box-shadow: 3px 3px 0 #0a0812;
+  }
+
+  .dark .comic-chip-classifieds:hover {
+    background: linear-gradient(150deg, #a85210 0%, #c76b12 50%, #b5730a 100%);
     box-shadow: 4px 5px 0 #0a0812;
   }
 
