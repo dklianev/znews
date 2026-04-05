@@ -157,7 +157,7 @@ export function registerClassifiedRoutes(app, deps) {
   function buildClassifiedShareCardTarget(classified) {
     const sig = createHash('sha1')
       .update(JSON.stringify({
-        v: 'classified-share-v3',
+        v: 'classified-share-v4',
         id: classified.id,
         title: classified.title,
         price: classified.price,
@@ -231,8 +231,9 @@ export function registerClassifiedRoutes(app, deps) {
     // ─── SVG overlay (backgrounds, panels, decorations) ───
     const priceChipW = priceText ? Math.max(260, Math.min(500, Math.round(60 + priceText.length * (priceFontSize * 0.55)))) : 0;
     const sellerChipLeft = priceText ? 76 + priceChipW + 16 : 76;
-    const sellerChipW = W - 108 - (priceText ? priceChipW + 16 : 0);
+    const sellerChipW = sellerText ? Math.max(200, Math.min(460, Math.round(50 + sellerText.length * 16))) : 0;
     const contactChipW = contactText ? Math.max(160, Math.min(260, Math.round(40 + contactText.length * 14))) : 0;
+    const listingChipW = listingLabel ? Math.max(100, Math.min(180, Math.round(40 + listingLabel.length * 20))) : 0;
 
     const overlaySvg = Buffer.from(`<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${shareCardHeight}" viewBox="0 0 ${W} ${shareCardHeight}">
@@ -281,9 +282,8 @@ export function registerClassifiedRoutes(app, deps) {
   <rect width="${W}" height="${shareCardHeight}" fill="url(#vignette)" />
   <rect x="28" y="26" width="${W - 56}" height="${shareCardHeight - 52}" rx="26" fill="none" stroke="#211533" stroke-width="6" />
 
-  <!-- Row 1: Badge + listing id -->
+  <!-- Row 1: Badge -->
   <rect x="66" y="48" width="${badgeWidth}" height="64" rx="14" fill="url(#accent)" stroke="#241833" stroke-width="3" />
-  ${listingLabel ? `<rect x="${W - 220}" y="52" width="144" height="52" rx="12" fill="rgba(14,10,24,0.86)" stroke="rgba(255,255,255,0.14)" stroke-width="2" />` : ''}
 
   <!-- Row 2: Title panel -->
   <rect x="54" y="130" width="${W - 108}" height="256" rx="24" fill="url(#panelGrad)" stroke="url(#panelEdge)" stroke-width="2.5" />
@@ -297,6 +297,7 @@ export function registerClassifiedRoutes(app, deps) {
   <rect x="54" y="494" width="${W - 108}" height="94" rx="20" fill="url(#footerBar)" stroke="#2a1d3d" stroke-width="2.5" />
   <rect x="76" y="516" width="${categoryChipWidth}" height="48" rx="12" fill="url(#accent)" stroke="#2b1c40" stroke-width="2.5" />
   ${contactText ? `<rect x="${76 + categoryChipWidth + 16}" y="516" width="${contactChipW}" height="48" rx="12" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.06)" stroke-width="2" />` : ''}
+  ${listingLabel ? `<rect x="${W - 76 - 140 - listingChipW}" y="516" width="${listingChipW}" height="48" rx="12" fill="rgba(14,10,24,0.86)" stroke="rgba(255,255,255,0.14)" stroke-width="2" />` : ''}
 </svg>`, 'utf8');
 
     // ─── Render text layers as PNG images ───
@@ -335,7 +336,7 @@ export function registerClassifiedRoutes(app, deps) {
         fontSize: 26,
         fontWeight: 'bold',
         color: '#DCCBFF',
-        width: sellerChipW - 40,
+        width: Math.max(100, sellerChipW - 40),
         height: 34,
       }) : null,
       renderTextImage(sharp, categoryText, {
@@ -367,8 +368,8 @@ export function registerClassifiedRoutes(app, deps) {
 
     if (listingIdImg) composites.push({
       input: listingIdImg.buffer,
-      top: Math.round(52 + (52 - listingIdImg.height) / 2),
-      left: Math.round(W - 220 + (144 - listingIdImg.width) / 2),
+      top: Math.round(516 + (48 - listingIdImg.height) / 2),
+      left: Math.round(W - 76 - 140 - listingChipW + (listingChipW - listingIdImg.width) / 2),
     });
 
     if (title) {
