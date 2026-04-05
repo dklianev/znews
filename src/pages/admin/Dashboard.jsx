@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Image,
   Download,
+  Tag,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { dashboardCopy } from '../../content/uiCopy';
@@ -30,7 +31,7 @@ function AnalyticsFallback() {
 
 export default function Dashboard() {
   const { articles, authors, wanted, jobs, court, events, polls, comments, gallery, categories } = usePublicData();
-  const { users, usersReady, ensureUsersLoaded, resetAll, hasPermission } = useAdminData();
+  const { users, usersReady, ensureUsersLoaded, resetAll, hasPermission, classifieds, ensureClassifiedsLoaded } = useAdminData();
   const { session } = useSessionData();
   const [resetting, setResetting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -40,10 +41,17 @@ export default function Dashboard() {
   const canSeeAnalytics = hasPermission('articles');
   const canSeeTeam = hasPermission('profiles');
 
+  const canSeeClassifieds = hasPermission('classifieds');
+
   useEffect(() => {
     if (!canSeeTeam) return;
     void ensureUsersLoaded();
   }, [canSeeTeam, ensureUsersLoaded]);
+
+  useEffect(() => {
+    if (!canSeeClassifieds) return;
+    void ensureClassifiedsLoaded();
+  }, [canSeeClassifieds, ensureClassifiedsLoaded]);
 
   const totalViews = useMemo(
     () => articles.reduce((sum, article) => sum + (article.views || 0), 0),
@@ -52,6 +60,10 @@ export default function Dashboard() {
   const pendingComments = useMemo(
     () => comments.filter((comment) => !comment.approved).length,
     [comments],
+  );
+  const pendingClassifieds = useMemo(
+    () => (Array.isArray(classifieds) ? classifieds : []).filter((c) => c.status === 'awaiting_payment').length,
+    [classifieds],
   );
   const recentArticles = useMemo(
     () => [...articles].sort((left, right) => new Date(right.date) - new Date(left.date)).slice(0, 5),
@@ -71,6 +83,7 @@ export default function Dashboard() {
     { label: dashboardCopy.rpStats.court, value: court.length, icon: Scale, color: 'bg-violet-600', to: '/admin/court', permission: 'court' },
     { label: dashboardCopy.rpStats.events, value: events.length, icon: CalendarDays, color: 'bg-blue-600', to: '/admin/events', permission: 'events' },
     { label: dashboardCopy.rpStats.polls, value: polls.length, icon: BarChart3, color: 'bg-pink-600', to: '/admin/polls', permission: 'polls' },
+    { label: dashboardCopy.rpStats.classifieds, value: (Array.isArray(classifieds) ? classifieds : []).length, icon: Tag, color: 'bg-amber-600', badge: pendingClassifieds > 0 ? `${pendingClassifieds} ${dashboardCopy.rpStats.pendingClassifieds}` : null, to: '/admin/classifieds', permission: 'classifieds' },
   ];
 
   const visibleStats = stats.filter((stat) => !stat.permission || hasPermission(stat.permission));

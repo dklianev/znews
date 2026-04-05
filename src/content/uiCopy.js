@@ -129,6 +129,8 @@ export const dashboardCopy = {
     court: 'Дела',
     events: 'Събития',
     polls: 'Анкети',
+    classifieds: 'Малки обяви',
+    pendingClassifieds: 'нови',
   },
 };
 
