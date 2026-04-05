@@ -306,10 +306,11 @@ export default function ClassifiedsPage() {
             </Link>
             <Link
               to="/obiavi/submit"
-              className="comic-button flex items-center gap-2 text-sm whitespace-nowrap"
+              className="flex items-center gap-2 text-sm font-display font-black uppercase tracking-wider whitespace-nowrap px-5 py-2.5 bg-gradient-to-r from-zn-purple to-zn-hot text-white border-3 border-[#1C1428] hover:scale-105 hover:brightness-110 transition-all duration-200"
+              style={{ boxShadow: '4px 4px 0 #1C1428' }}
             >
-              <Plus className="w-4 h-4" />
-              Подай обява
+              <Plus className="w-4 h-4" strokeWidth={3} />
+              Пусни обява
             </Link>
           </div>
         </div>
