@@ -70,27 +70,6 @@ export default function ScrollToTop() {
   const prevScrollKeyRef = useRef(currentScrollKey);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.history) {
-      return undefined;
-    }
-
-    const previousMode = window.history.scrollRestoration;
-    try {
-      window.history.scrollRestoration = 'manual';
-    } catch {
-      return undefined;
-    }
-
-    return () => {
-      try {
-        window.history.scrollRestoration = previousMode || 'auto';
-      } catch {
-        // ignore browsers that do not support restoring the previous mode
-      }
-    };
-  }, []);
-
-  useEffect(() => {
     currentScrollKeyRef.current = currentScrollKey;
   }, [currentScrollKey]);
 

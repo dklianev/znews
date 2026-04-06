@@ -32,7 +32,6 @@ describe('ScrollToTop', () => {
   let hashScrollSpy;
   let originalRequestAnimationFrame;
   let originalCancelAnimationFrame;
-  let originalScrollRestorationDescriptor;
 
   beforeEach(() => {
     window.sessionStorage.clear();
@@ -40,12 +39,6 @@ describe('ScrollToTop', () => {
       configurable: true,
       writable: true,
       value: 0,
-    });
-    originalScrollRestorationDescriptor = Object.getOwnPropertyDescriptor(window.history, 'scrollRestoration');
-    Object.defineProperty(window.history, 'scrollRestoration', {
-      configurable: true,
-      writable: true,
-      value: 'auto',
     });
   });
 
@@ -64,9 +57,6 @@ describe('ScrollToTop', () => {
     }
     if (originalCancelAnimationFrame) {
       window.cancelAnimationFrame = originalCancelAnimationFrame;
-    }
-    if (originalScrollRestorationDescriptor) {
-      Object.defineProperty(window.history, 'scrollRestoration', originalScrollRestorationDescriptor);
     }
     await unmountRoot(root, container);
     root = null;
@@ -200,15 +190,4 @@ describe('ScrollToTop', () => {
     expect(scrollToSpy).not.toHaveBeenCalledWith({ left: 0, top: 0 });
   });
 
-  it('uses manual history scroll restoration while mounted', async () => {
-    ({ root, container } = await renderIntoBody(ScrollToTop));
-
-    expect(window.history.scrollRestoration).toBe('manual');
-
-    await unmountRoot(root, container);
-    root = null;
-    container = null;
-
-    expect(window.history.scrollRestoration).toBe('auto');
-  });
 });
