@@ -1,28 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigationType } from 'react-router-dom';
 import { ArrowUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function ScrollToTop() {
   const { pathname } = useLocation();
+  const navigationType = useNavigationType();
   const [visible, setVisible] = useState(false);
   const prevPathRef = useRef(pathname);
 
-  // Disable browser's built-in scroll restoration so our scrollTo(0,0) wins
   useEffect(() => {
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
+    if (prevPathRef.current === pathname) {
+      return undefined;
     }
-  }, []);
 
-  useEffect(() => {
-    if (prevPathRef.current !== pathname) {
-      prevPathRef.current = pathname;
-      // Immediate + rAF to beat any layout-triggered scroll restore
-      window.scrollTo(0, 0);
-      requestAnimationFrame(() => window.scrollTo(0, 0));
+    prevPathRef.current = pathname;
+
+    if (navigationType === 'POP') {
+      return undefined;
     }
-  }, [pathname]);
+
+    const frameId = window.requestAnimationFrame(() => {
+      window.scrollTo({ left: 0, top: 0 });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [navigationType, pathname]);
 
   useEffect(() => {
     const onScroll = () => setVisible(window.scrollY > 400);

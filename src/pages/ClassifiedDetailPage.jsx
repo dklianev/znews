@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { Tag, Phone, User, Clock, DollarSign, Star, ChevronLeft, ChevronRight, Copy, Check, Camera, ArrowLeft, X } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useEntryHeadingScroll } from '../hooks/useEntryHeadingScroll';
 import { addRecentlyViewed, useRecentlyViewed } from '../hooks/useRecentlyViewed';
 import { copyToClipboard } from '../utils/copyToClipboard';
 
@@ -128,6 +129,7 @@ export default function ClassifiedDetailPage() {
   const [error, setError] = useState('');
   const [similar, setSimilar] = useState([]);
   const { items: recentItems } = useRecentlyViewed();
+  const pageHeadingRef = useRef(null);
 
   // Yapper share
   const [yapperOpen, setYapperOpen] = useState(false);
@@ -138,6 +140,13 @@ export default function ClassifiedDetailPage() {
   const [yapperPopupStyle, setYapperPopupStyle] = useState(null);
 
   useDocumentTitle(makeTitle(item?.title || 'Обява'));
+  const entryScrollKey = item
+    ? `ready:${item.id}`
+    : loading
+      ? `pending:${id}`
+      : `missing:${id}`;
+
+  useEntryHeadingScroll(pageHeadingRef, entryScrollKey);
 
   useEffect(() => {
     if (!id) return;
@@ -263,7 +272,12 @@ export default function ClassifiedDetailPage() {
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <div className="comic-panel comic-dots p-10">
           <div className="comic-stamp-circle absolute -top-5 -right-3 z-20 text-[10px]">404</div>
-          <h1 className="font-display text-3xl font-black uppercase tracking-wider text-zn-text mb-4 relative z-[2]">Обявата не е намерена</h1>
+          <h1
+            ref={pageHeadingRef}
+            className="font-display text-3xl font-black uppercase tracking-wider text-zn-text mb-4 relative z-[2] scroll-mt-24 md:scroll-mt-28"
+          >
+            Обявата не е намерена
+          </h1>
           <p className="font-sans text-gray-600 mb-6 relative z-[2]">{error || 'Може да е изтекла или да не съществува.'}</p>
           <Link to="/obiavi" className="comic-button text-sm relative z-[2]">Към обявите</Link>
         </div>
@@ -341,7 +355,10 @@ export default function ClassifiedDetailPage() {
 
           {/* Right: Details */}
           <div className={`p-4 ${(!item.images || item.images.length === 0) ? 'lg:col-span-2' : ''} relative z-[2]`}>
-            <h1 className="font-display text-2xl md:text-3xl font-black uppercase tracking-wider text-zn-text dark:text-[#EDE4D0] mb-3 text-shadow-brutal leading-tight">
+            <h1
+              ref={pageHeadingRef}
+              className="font-display text-2xl md:text-3xl font-black uppercase tracking-wider text-zn-text dark:text-[#EDE4D0] mb-3 text-shadow-brutal leading-tight scroll-mt-24 md:scroll-mt-28"
+            >
               {item.title}
             </h1>
 

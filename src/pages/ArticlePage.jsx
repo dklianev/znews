@@ -12,6 +12,7 @@ import { getComicCardStyle } from '../utils/comicCardDesign';
 import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useDocumentMeta } from '../hooks/useDocumentMeta';
+import { useEntryHeadingScroll } from '../hooks/useEntryHeadingScroll';
 import YouTubeEmbed from '../components/YouTubeEmbed';
 import ErrorBoundary from '../components/ErrorBoundary';
 import ArticleReactions from '../components/ArticleReactions';
@@ -238,6 +239,14 @@ export default function ArticlePage() {
   const author = article ? authors.find(a => a.id === article.authorId) : null;
   const category = article ? categories.find(c => c.id === article.category) : null;
   const showBodySkeleton = Boolean(hydratingArticle && !directArticle?.content && !contextArticle?.content);
+  const pageHeadingRef = useRef(null);
+  const entryScrollKey = article
+    ? `ready:${article.id}`
+    : showBodySkeleton || loading
+      ? `pending:${articleId}`
+      : `missing:${articleId}`;
+
+  useEntryHeadingScroll(pageHeadingRef, entryScrollKey);
 
   const relatedArticles = useMemo(() => {
     if (!article) return [];
@@ -524,7 +533,12 @@ export default function ArticlePage() {
   if (!article) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-20 text-center">
-        <h1 className="font-display text-3xl font-bold text-zn-text mb-4 tracking-wider">Статията не е намерена</h1>
+        <h1
+          ref={pageHeadingRef}
+          className="font-display text-3xl font-bold text-zn-text mb-4 tracking-wider scroll-mt-24 md:scroll-mt-28"
+        >
+          Статията не е намерена
+        </h1>
         <Link to="/" className="text-zn-hot hover:underline font-sans">Обратно към началната страница</Link>
       </div>
     );
@@ -659,7 +673,10 @@ export default function ArticlePage() {
           </div>
 
           {/* Title */}
-          <h1 className="font-display text-3xl md:text-4xl font-black text-zn-text leading-tight mb-4 tracking-wider uppercase text-shadow-brutal">
+          <h1
+            ref={pageHeadingRef}
+            className="font-display text-3xl md:text-4xl font-black text-zn-text leading-tight mb-4 tracking-wider uppercase text-shadow-brutal scroll-mt-24 md:scroll-mt-28"
+          >
             {article.title}
           </h1>
 
