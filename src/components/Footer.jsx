@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Flame, Megaphone, MapPin, Phone, Mail, AlertTriangle } from 'lucide-react';
+import { Flame, Megaphone, MapPin, Phone, Mail, AlertTriangle, Shield } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 
 const DEFAULT_FOOTER_PILLS = [
@@ -188,8 +188,21 @@ export default function Footer() {
 
           </div>
 
+          {/* Legal disclaimer */}
+          <div className="mt-8 border-3 border-[#1C1428]/30 bg-[#1C1428]/5 dark:bg-[#1C1428]/40 px-5 py-4 relative" style={{ boxShadow: '3px 3px 0 rgba(28,20,40,0.15)' }}>
+            <div className="flex gap-3 items-start">
+              <Shield className="w-5 h-5 text-zn-purple shrink-0 mt-0.5" />
+              <p className="text-[11px] text-zn-text-muted dark:text-gray-400 font-sans leading-relaxed">
+                Съдържанието на <span className="font-bold text-zn-text dark:text-[#EDE4D0]">ZNEWS</span> е журналистически продукт, защитен от Закона за свободата на словото и пресата.
+                Редакцията запазва правото си да защитава своите източници.
+                Не носим отговорност за емоционални щети, накърнена репутация или загубени бизнес сделки в резултат на публикации.
+                С четенето на този сайт, Вие приемате тези условия.
+              </p>
+            </div>
+          </div>
+
           {/* Bottom bar */}
-          <div className="mt-8 pt-6 border-t border-zn-border/60 flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="mt-6 pt-6 border-t border-zn-border/60 flex flex-col md:flex-row items-center justify-between gap-3">
             <p className="text-xs text-zn-text-dim font-display uppercase tracking-wider font-bold">
               &copy; {new Date().getFullYear()} zNews — Горещи градски новини
             </p>
