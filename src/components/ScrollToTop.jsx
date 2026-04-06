@@ -4,6 +4,8 @@ import { ArrowUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const SCROLL_STORAGE_PREFIX = 'zn-scroll:';
+const SCROLL_RESTORE_MAX_WAIT_MS = 3200;
+const SCROLL_RESTORE_RETRY_MS = 120;
 
 function getLocationScrollKey(location) {
   return `${SCROLL_STORAGE_PREFIX}${location.key || `${location.pathname}${location.search || ''}${location.hash || ''}`}`;
@@ -42,6 +44,23 @@ function getHashTarget(hash) {
   return document.getElementById(decodedId);
 }
 
+function getMaxReachableScrollY() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return 0;
+  }
+
+  const doc = document.documentElement;
+  const body = document.body;
+  const scrollHeight = Math.max(
+    doc?.scrollHeight || 0,
+    body?.scrollHeight || 0,
+    doc?.offsetHeight || 0,
+    body?.offsetHeight || 0,
+  );
+
+  return Math.max(0, scrollHeight - window.innerHeight);
+}
+
 export default function ScrollToTop() {
   const location = useLocation();
   const navigationType = useNavigationType();
@@ -49,6 +68,27 @@ export default function ScrollToTop() {
   const currentScrollKey = getLocationScrollKey(location);
   const currentScrollKeyRef = useRef(currentScrollKey);
   const prevScrollKeyRef = useRef(currentScrollKey);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.history) {
+      return undefined;
+    }
+
+    const previousMode = window.history.scrollRestoration;
+    try {
+      window.history.scrollRestoration = 'manual';
+    } catch {
+      return undefined;
+    }
+
+    return () => {
+      try {
+        window.history.scrollRestoration = previousMode || 'auto';
+      } catch {
+        // ignore browsers that do not support restoring the previous mode
+      }
+    };
+  }, []);
 
   useEffect(() => {
     currentScrollKeyRef.current = currentScrollKey;
@@ -69,14 +109,19 @@ export default function ScrollToTop() {
       }
 
       let cancelled = false;
-      let attempts = 0;
       let timeoutId = 0;
+      const startTime = Date.now();
       const restoreScroll = () => {
         if (cancelled) return;
         window.scrollTo(0, savedY);
-        attempts += 1;
-        if (attempts < 12 && Math.abs((window.scrollY || 0) - savedY) > 4) {
-          timeoutId = window.setTimeout(restoreScroll, 80);
+
+        const currentY = window.scrollY || 0;
+        const reachedTarget = Math.abs(currentY - savedY) <= 4;
+        const canReachTarget = getMaxReachableScrollY() + 4 >= savedY;
+        const timedOut = Date.now() - startTime >= SCROLL_RESTORE_MAX_WAIT_MS;
+
+        if (!timedOut && (!reachedTarget || !canReachTarget)) {
+          timeoutId = window.setTimeout(restoreScroll, SCROLL_RESTORE_RETRY_MS);
         }
       };
 

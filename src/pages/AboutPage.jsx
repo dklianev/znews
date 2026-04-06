@@ -49,7 +49,7 @@ export default function AboutPage() {
   const { authors, siteSettings } = usePublicData();
   useDocumentTitle(makeTitle('\u0417\u0430 \u043d\u0430\u0441'));
 
-  const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
+  const [contactForm, setContactForm] = useState({ name: '', phone: '', message: '' });
   const [contactSent, setContactSent] = useState(false);
   const [dismissContactError, setDismissContactError] = useState(false);
   const [contactFieldErrors, setContactFieldErrors] = useState({});
@@ -60,17 +60,17 @@ export default function AboutPage() {
     async (_previousState, formData) => {
       const nextForm = {
         name: String(formData.get('name') || '').trim(),
-        email: String(formData.get('email') || '').trim(),
+        phone: String(formData.get('phone') || '').trim(),
         message: String(formData.get('message') || '').trim(),
       };
       const fieldErrors = {};
 
       if (!nextForm.name) fieldErrors.name = '\u0418\u043c\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.';
-      if (!nextForm.email) fieldErrors.email = '\u0418\u043c\u0435\u0439\u043b\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.';
+      if (!nextForm.phone) fieldErrors.phone = '\u0422\u0435\u043b\u0435\u0444\u043e\u043d\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.';
       if (!nextForm.message) fieldErrors.message = '\u0421\u044a\u043e\u0431\u0449\u0435\u043d\u0438\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.';
 
-      if (nextForm.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextForm.email)) {
-        fieldErrors.email = '\u0412\u044a\u0432\u0435\u0434\u0438 \u0432\u0430\u043b\u0438\u0434\u0435\u043d \u0438\u043c\u0435\u0439\u043b \u0430\u0434\u0440\u0435\u0441.';
+      if (nextForm.phone && nextForm.phone.replace(/\D/g, '').length < 5) {
+        fieldErrors.phone = '\u0412\u044a\u0432\u0435\u0434\u0438 \u0432\u0430\u043b\u0438\u0434\u0435\u043d \u0442\u0435\u043b\u0435\u0444\u043e\u043d.';
       }
 
       if (Object.keys(fieldErrors).length > 0) {
@@ -107,7 +107,7 @@ export default function AboutPage() {
     if (contactState.status !== 'success') return undefined;
 
     setContactSent(true);
-    setContactForm({ name: '', email: '', message: '' });
+    setContactForm({ name: '', phone: '', message: '' });
     const timeoutId = window.setTimeout(() => setContactSent(false), 5000);
     return () => window.clearTimeout(timeoutId);
   }, [contactState.status]);
@@ -349,24 +349,24 @@ export default function AboutPage() {
               <p id="about-contact-name-error" className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.name}</p>
             )}
             <input
-              type="email"
-              name="email"
-              placeholder="Email"
-              value={contactForm.email}
+              type="tel"
+              name="phone"
+              placeholder={'\u0422\u0435\u043b\u0435\u0444\u043e\u043d'}
+              value={contactForm.phone}
               onChange={(event) => {
-                setContactForm({ ...contactForm, email: event.target.value });
+                setContactForm({ ...contactForm, phone: event.target.value });
                 setDismissContactError(true);
-                clearContactFieldError('email');
+                clearContactFieldError('phone');
               }}
               required
               disabled={isContactPending}
-              aria-label="Email"
-              aria-invalid={Boolean(contactFieldErrors.email)}
-              aria-describedby={contactFieldErrors.email ? 'about-contact-email-error' : undefined}
-              className={`w-full px-4 py-2.5 bg-white border-2 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none transition-colors ${contactFieldErrors.email ? 'border-red-400 focus:border-red-500' : 'border-[#1C1428]/20 focus:border-zn-purple'}`}
+              aria-label={'\u0422\u0435\u043b\u0435\u0444\u043e\u043d'}
+              aria-invalid={Boolean(contactFieldErrors.phone)}
+              aria-describedby={contactFieldErrors.phone ? 'about-contact-phone-error' : undefined}
+              className={`w-full px-4 py-2.5 bg-white border-2 text-zn-text placeholder-zn-text-dim font-sans text-sm outline-none transition-colors ${contactFieldErrors.phone ? 'border-red-400 focus:border-red-500' : 'border-[#1C1428]/20 focus:border-zn-purple'}`}
             />
-            {contactFieldErrors.email && (
-              <p id="about-contact-email-error" className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.email}</p>
+            {contactFieldErrors.phone && (
+              <p id="about-contact-phone-error" className="text-xs font-sans text-red-700" role="alert">{contactFieldErrors.phone}</p>
             )}
             <textarea
               name="message"

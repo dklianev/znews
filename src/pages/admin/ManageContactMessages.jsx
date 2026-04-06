@@ -202,7 +202,7 @@ export default function ManageContactMessages() {
                         {STATUS_LABELS[status] || status}
                       </span>
                       <span className="text-sm font-sans font-semibold text-gray-900 truncate">{message.name || '-'}</span>
-                      <span className="text-xs font-sans text-gray-400 truncate">{message.email || ''}</span>
+                      <span className="text-xs font-sans text-gray-400 truncate">{message.phone || message.email || ''}</span>
                       <span className="text-xs font-sans text-gray-400">{createdLabel}</span>
                     </div>
                     {!isExpanded && (
@@ -249,6 +249,9 @@ export default function ManageContactMessages() {
 
                 {isExpanded && (
                   <div className="mt-3 border-t border-gray-100 pt-3">
+                    <p className="mb-2 text-xs font-sans text-gray-500">
+                      {message.phone ? `Телефон: ${message.phone}` : message.email ? `Имейл: ${message.email}` : ''}
+                    </p>
                     <p className="text-sm font-sans text-gray-700 whitespace-pre-wrap">
                       {message.message || ''}
                     </p>

@@ -454,7 +454,8 @@ commentReactionSchema.index(
 const contactMessageSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
   name: { type: String, required: true, maxlength: 80 },
-  email: { type: String, required: true, maxlength: 120, index: true },
+  phone: { type: String, required: true, maxlength: 30, index: true },
+  email: { type: String, maxlength: 120, index: true },
   message: { type: String, required: true, maxlength: 4000 },
   status: { type: String, default: 'new', enum: ['new', 'read', 'archived'], index: true },
   createdAt: { type: Date, default: Date.now, index: true },

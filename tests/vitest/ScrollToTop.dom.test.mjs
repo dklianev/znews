@@ -32,6 +32,7 @@ describe('ScrollToTop', () => {
   let hashScrollSpy;
   let originalRequestAnimationFrame;
   let originalCancelAnimationFrame;
+  let originalScrollRestorationDescriptor;
 
   beforeEach(() => {
     window.sessionStorage.clear();
@@ -40,11 +41,18 @@ describe('ScrollToTop', () => {
       writable: true,
       value: 0,
     });
+    originalScrollRestorationDescriptor = Object.getOwnPropertyDescriptor(window.history, 'scrollRestoration');
+    Object.defineProperty(window.history, 'scrollRestoration', {
+      configurable: true,
+      writable: true,
+      value: 'auto',
+    });
   });
 
   afterEach(async () => {
     locationState = { pathname: '/', search: '', hash: '', key: 'home' };
     navigationTypeState = 'POP';
+    vi.useRealTimers();
     scrollToSpy?.mockRestore();
     scrollToSpy = null;
     hashScrollSpy?.mockRestore();
@@ -56,6 +64,9 @@ describe('ScrollToTop', () => {
     }
     if (originalCancelAnimationFrame) {
       window.cancelAnimationFrame = originalCancelAnimationFrame;
+    }
+    if (originalScrollRestorationDescriptor) {
+      Object.defineProperty(window.history, 'scrollRestoration', originalScrollRestorationDescriptor);
     }
     await unmountRoot(root, container);
     root = null;
@@ -125,6 +136,37 @@ describe('ScrollToTop', () => {
     expect(scrollToSpy).toHaveBeenCalledWith(0, 640);
   });
 
+  it('keeps retrying POP restoration until the saved position becomes reachable', async () => {
+    installAnimationFrameStub();
+    vi.useFakeTimers();
+    window.sessionStorage.setItem('zn-scroll:article-1', '640');
+
+    let restoreAttempts = 0;
+    scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation((arg1, arg2) => {
+      const top = typeof arg1 === 'object' ? arg1?.top : arg2;
+      restoreAttempts += 1;
+      Object.defineProperty(window, 'scrollY', {
+        configurable: true,
+        writable: true,
+        value: restoreAttempts < 3 ? 220 : Number(top) || 0,
+      });
+    });
+
+    ({ root, container } = await renderIntoBody(ScrollToTop));
+
+    locationState = { pathname: '/article/27', search: '', hash: '', key: 'article-1' };
+    navigationTypeState = 'POP';
+    await rerender();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(260);
+      await flushEffects();
+    });
+
+    expect(restoreAttempts).toBeGreaterThanOrEqual(3);
+    expect(window.scrollY).toBe(640);
+  });
+
   it('stores the current scroll position before navigating away', async () => {
     installAnimationFrameStub();
     installScrollSpy();
@@ -156,5 +198,17 @@ describe('ScrollToTop', () => {
 
     expect(hashScrollSpy).toHaveBeenCalledWith({ block: 'start' });
     expect(scrollToSpy).not.toHaveBeenCalledWith({ left: 0, top: 0 });
+  });
+
+  it('uses manual history scroll restoration while mounted', async () => {
+    ({ root, container } = await renderIntoBody(ScrollToTop));
+
+    expect(window.history.scrollRestoration).toBe('manual');
+
+    await unmountRoot(root, container);
+    root = null;
+    container = null;
+
+    expect(window.history.scrollRestoration).toBe('auto');
   });
 });

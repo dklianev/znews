@@ -76,7 +76,7 @@ export default function FooterEditorialStandards() {
               <div className="mb-3 flex items-center gap-2">
                 <Shield className="h-4 w-4 shrink-0 text-zn-purple" />
                 <h5 className="font-display text-sm font-black uppercase tracking-[0.14em] text-zn-text">
-                  Поверителност и реакция
+                  Поверителност и право на отговор
                 </h5>
               </div>
 
@@ -85,7 +85,7 @@ export default function FooterEditorialStandards() {
                 източниците и редакционните комуникации в максималната степен,
                 допустима от приложимото право. Сигнали за неточност, нарушение
                 на права или незаконно съдържание се приемат за преглед,
-                корекция и реакция по установения редакционен ред.
+                корекция и отговор по установения редакционен ред.
               </p>
             </div>
           </div>

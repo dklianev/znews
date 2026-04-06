@@ -18,29 +18,49 @@ export function createContactMessagesRouter(deps) {
     return normalizeText(String(value || ''), 120).toLowerCase();
   }
 
+  function normalizePhone(value) {
+    return normalizeText(String(value || ''), 30);
+  }
+
   function isValidEmail(email) {
     if (!email) return false;
     if (email.length < 5 || email.length > 120) return false;
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
+  function isValidPhone(phone) {
+    if (!phone) return false;
+    const digitsOnly = phone.replace(/\D/g, '');
+    return digitsOnly.length >= 5 && phone.length <= 30;
+  }
+
   contactMessagesRouter.post('/', contactMessageLimiter, async (req, res) => {
     const name = normalizeText(req.body?.name, 80);
+    const phone = normalizePhone(req.body?.phone);
     const email = normalizeEmail(req.body?.email);
     const message = normalizeText(req.body?.message, 4000);
 
-    if (!name || !email || !message) {
+    if (!name || !phone || !message) {
       return res.status(400).json({
         error: '\u041b\u0438\u043f\u0441\u0432\u0430\u0442 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u0438 \u043f\u043e\u043b\u0435\u0442\u0430',
         fieldErrors: {
           ...(!name ? { name: '\u0418\u043c\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.' } : {}),
-          ...(!email ? { email: '\u0418\u043c\u0435\u0439\u043b\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.' } : {}),
+          ...(!phone ? { phone: '\u0422\u0435\u043b\u0435\u0444\u043e\u043d\u044a\u0442 \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u0435\u043d.' } : {}),
           ...(!message ? { message: '\u0421\u044a\u043e\u0431\u0449\u0435\u043d\u0438\u0435\u0442\u043e \u0435 \u0437\u0430\u0434\u044a\u043b\u0436\u0438\u0442\u0435\u043b\u043d\u043e.' } : {}),
         },
       });
     }
 
-    if (!isValidEmail(email)) {
+    if (!isValidPhone(phone)) {
+      return res.status(400).json({
+        error: '\u041d\u0435\u0432\u0430\u043b\u0438\u0434\u0435\u043d \u0442\u0435\u043b\u0435\u0444\u043e\u043d',
+        fieldErrors: {
+          phone: '\u0412\u044a\u0432\u0435\u0434\u0438 \u0432\u0430\u043b\u0438\u0434\u0435\u043d \u0442\u0435\u043b\u0435\u0444\u043e\u043d.',
+        },
+      });
+    }
+
+    if (email && !isValidEmail(email)) {
       return res.status(400).json({
         error: '\u041d\u0435\u0432\u0430\u043b\u0438\u0434\u0435\u043d \u0438\u043c\u0435\u0439\u043b',
         fieldErrors: {
@@ -53,6 +73,7 @@ export function createContactMessagesRouter(deps) {
     const item = await ContactMessage.create({
       id,
       name,
+      phone,
       email,
       message,
       status: 'new',
