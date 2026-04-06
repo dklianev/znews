@@ -28,6 +28,8 @@ describe('ScrollToTop', () => {
   let root;
   let container;
   let scrollToSpy;
+  let hashTarget;
+  let hashScrollSpy;
   let originalRequestAnimationFrame;
   let originalCancelAnimationFrame;
 
@@ -45,6 +47,10 @@ describe('ScrollToTop', () => {
     navigationTypeState = 'POP';
     scrollToSpy?.mockRestore();
     scrollToSpy = null;
+    hashScrollSpy?.mockRestore();
+    hashScrollSpy = null;
+    hashTarget?.remove();
+    hashTarget = null;
     if (originalRequestAnimationFrame) {
       window.requestAnimationFrame = originalRequestAnimationFrame;
     }
@@ -75,6 +81,14 @@ describe('ScrollToTop', () => {
         value: Number(top) || 0,
       });
     });
+  }
+
+  function installHashTarget(id = 'contact') {
+    hashTarget = document.createElement('section');
+    hashTarget.id = id;
+    hashTarget.textContent = 'target';
+    hashScrollSpy = vi.spyOn(hashTarget, 'scrollIntoView').mockImplementation(() => {});
+    document.body.appendChild(hashTarget);
   }
 
   async function rerender() {
@@ -127,5 +141,20 @@ describe('ScrollToTop', () => {
     await rerender();
 
     expect(window.sessionStorage.getItem('zn-scroll:home')).toBe('420');
+  });
+
+  it('aligns new hash navigations to the matching anchor target', async () => {
+    installAnimationFrameStub();
+    installScrollSpy();
+    installHashTarget('contact');
+
+    ({ root, container } = await renderIntoBody(ScrollToTop));
+
+    locationState = { pathname: '/about', search: '', hash: '#contact', key: 'about-contact' };
+    navigationTypeState = 'PUSH';
+    await rerender();
+
+    expect(hashScrollSpy).toHaveBeenCalledWith({ block: 'start' });
+    expect(scrollToSpy).not.toHaveBeenCalledWith({ left: 0, top: 0 });
   });
 });

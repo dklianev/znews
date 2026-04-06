@@ -28,6 +28,20 @@ function writeStoredScroll(scrollKey, value) {
   }
 }
 
+function getHashTarget(hash) {
+  const rawId = typeof hash === 'string' ? hash.replace(/^#/, '').trim() : '';
+  if (!rawId) return null;
+
+  let decodedId = rawId;
+  try {
+    decodedId = decodeURIComponent(rawId);
+  } catch {
+    decodedId = rawId;
+  }
+
+  return document.getElementById(decodedId);
+}
+
 export default function ScrollToTop() {
   const location = useLocation();
   const navigationType = useNavigationType();
@@ -74,14 +88,36 @@ export default function ScrollToTop() {
       };
     }
 
-    const frameId = window.requestAnimationFrame(() => {
+    let cancelled = false;
+    let attempts = 0;
+    let timeoutId = 0;
+
+    const alignNavigationScroll = () => {
+      if (cancelled) return;
+
+      const hashTarget = getHashTarget(location.hash);
+      if (hashTarget) {
+        hashTarget.scrollIntoView({ block: 'start' });
+        return;
+      }
+
+      attempts += 1;
+      if (location.hash && attempts < 10) {
+        timeoutId = window.setTimeout(alignNavigationScroll, 80);
+        return;
+      }
+
       window.scrollTo({ left: 0, top: 0 });
-    });
+    };
+
+    const frameId = window.requestAnimationFrame(alignNavigationScroll);
 
     return () => {
+      cancelled = true;
       window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timeoutId);
     };
-  }, [currentScrollKey, navigationType]);
+  }, [currentScrollKey, location.hash, navigationType]);
 
   useEffect(() => {
     let frameId = 0;

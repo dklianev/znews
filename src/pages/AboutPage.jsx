@@ -214,7 +214,6 @@ export default function AboutPage() {
       </div>
 
       <motion.section
-        id="contact"
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
@@ -290,11 +289,12 @@ export default function AboutPage() {
       />
 
       <motion.section
+        id="contact"
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="newspaper-page comic-panel comic-dots p-8 relative"
+        className="newspaper-page comic-panel comic-dots p-8 relative scroll-mt-28 md:scroll-mt-32"
       >
         <div className="absolute -top-2 left-8 w-16 h-5 bg-yellow-200/70 border border-black/5 transform -rotate-4 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
         <h2 className="font-display text-2xl font-black text-zn-text mb-2 tracking-wider uppercase relative z-[2]">{'\u0421\u0432\u044a\u0440\u0436\u0438 \u0441\u0435 \u0441 \u043d\u0430\u0441'}</h2>
