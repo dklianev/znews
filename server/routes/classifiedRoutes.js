@@ -45,9 +45,12 @@ export function registerClassifiedRoutes(app, deps) {
     brandLogoPng,
     buildShareCardOverlaySvg,
     cacheMiddleware,
+    clampText,
     cleanupOldShareCards: cleanupOldArticleShareCards,
     ensureImagePipeline,
+    escapeHtml,
     getOriginalUploadUrl,
+    getPublicBaseUrl,
     getShareRelativePath,
     getTrustedClientIp,
     hasShareCardObject: hasArticleShareCardObject,
@@ -456,6 +459,61 @@ export function registerClassifiedRoutes(app, deps) {
     return { generated: true, url: target.url, relativePath: target.relativePath };
   }
 
+  // ─── SSR: bot-friendly meta tags for classified detail pages ───
+  const BOT_UA_RE = /(discordbot|discordapp|twitterbot|slackbot|telegrambot|whatsapp|facebookexternalhit|linkedinbot|embedly|quora link preview|pinterest|googlebot|bingbot|yandex|duckduckbot)/i;
+
+  app.get('/obiavi/:id', async (req, res, next) => {
+    try {
+      const ua = String(req.headers?.['user-agent'] || '');
+      if (!BOT_UA_RE.test(ua)) return next();
+
+      const id = Number.parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) return next();
+
+      const now = new Date();
+      const doc = await Classified.findOne({ id, status: 'active', expiresAt: { $gt: now } }).lean();
+      if (!doc) return next();
+
+      const baseUrl = getPublicBaseUrl(req);
+      const title = clampText(doc.title || 'Обява', 140);
+      const desc = clampText(doc.description || '', 220) || 'Малки обяви в zNews.live';
+      const url = `${baseUrl}/obiavi/${id}`;
+      const imageUrl = `${baseUrl}/api/classifieds/${id}/share.png`;
+
+      const html = `<!doctype html>
+<html lang="bg">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(title)} — zNews Обяви</title>
+    <meta name="description" content="${escapeHtml(desc)}" />
+    <link rel="canonical" href="${escapeHtml(url)}" />
+    <meta property="og:type" content="product" />
+    <meta property="og:site_name" content="zNews.live" />
+    <meta property="og:title" content="${escapeHtml(title)}" />
+    <meta property="og:description" content="${escapeHtml(desc)}" />
+    <meta property="og:url" content="${escapeHtml(url)}" />
+    <meta property="og:image" content="${escapeHtml(imageUrl)}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="${shareCardWidth}" />
+    <meta property="og:image:height" content="${shareCardHeight}" />
+    ${doc.price ? `<meta property="product:price:amount" content="${escapeHtml(String(doc.price))}" />` : ''}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${escapeHtml(title)}" />
+    <meta name="twitter:description" content="${escapeHtml(desc)}" />
+    <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />
+  </head>
+  <body></body>
+</html>`;
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.send(html);
+    } catch (_err) {
+      return next();
+    }
+  });
+
   // ─── Public: list active classifieds ───
   app.get('/api/classifieds', cacheMiddleware, async (req, res) => {
     res.setCacheTags?.(['classifieds']);
@@ -472,15 +530,38 @@ export function registerClassifiedRoutes(app, deps) {
       filter.$text = { $search: search };
     }
 
+    // Price range filter (price is stored as string, use $expr for numeric comparison)
+    const priceMin = Number.parseFloat(req.query.priceMin);
+    const priceMax = Number.parseFloat(req.query.priceMax);
+    if (Number.isFinite(priceMin) || Number.isFinite(priceMax)) {
+      const priceExpr = { $toDouble: { $ifNull: [{ $replaceAll: { input: '$price', find: ' ', replacement: '' } }, '0'] } };
+      const conditions = [];
+      if (Number.isFinite(priceMin)) conditions.push({ $gte: [priceExpr, priceMin] });
+      if (Number.isFinite(priceMax)) conditions.push({ $lte: [priceExpr, priceMax] });
+      filter.$expr = conditions.length === 1 ? conditions[0] : { $and: conditions };
+    }
+
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
     const skip = (page - 1) * limit;
 
     // Sort: VIP first (sortWeight DESC), then bumpedAt/approvedAt DESC
-    const [items, total] = await Promise.all([
-      Classified.find(filter).select(PUBLIC_EXCLUDE).sort({ sortWeight: -1, bumpedAt: -1, approvedAt: -1, id: -1 }).skip(skip).limit(limit).lean(),
+    // Include imagesMeta to extract thumbnails, then strip it from response
+    const listExclude = { ...PUBLIC_EXCLUDE };
+    delete listExclude.imagesMeta; // temporarily include for thumbnail extraction
+    const [rawItems, total] = await Promise.all([
+      Classified.find(filter).select(listExclude).sort({ sortWeight: -1, bumpedAt: -1, approvedAt: -1, id: -1 }).skip(skip).limit(limit).lean(),
       Classified.countDocuments(filter),
     ]);
+
+    // Extract smallest webp variant as thumbnail, then remove imagesMeta
+    const items = rawItems.map(item => {
+      const meta = item.imagesMeta?.[0];
+      const smallest = meta?.webp?.sort((a, b) => (a.width || 0) - (b.width || 0))?.[0];
+      const result = { ...item, thumbnail: smallest?.url || null };
+      delete result.imagesMeta;
+      return result;
+    });
 
     res.json({ items, total, page, pages: Math.ceil(total / limit) });
   });
@@ -555,6 +636,7 @@ export function registerClassifiedRoutes(app, deps) {
 
     const card = await ensureClassifiedShareCard(doc);
     if (card?.generated && card.url) {
+      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600');
       return res.redirect(302, card.url);
     }
 

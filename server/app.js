@@ -1393,6 +1393,21 @@ const { buildDiagnosticsPayload } = createDiagnosticsService({
 registerBackgroundJob({ name: 'scheduled-publish-cache-refresh', intervalMs: scheduledPublishPollMs, initialDelayMs: 2500, run: refreshScheduledContentCachesJob });
 registerBackgroundJob({ name: 'share-card-cleanup', intervalMs: shareCardCleanupPollMs, initialDelayMs: 4500, run: cleanupOrphanedShareCardsJob });
 registerBackgroundJob({ name: 'ad-analytics-rollup', intervalMs: adAnalyticsRollupPollMs, initialDelayMs: 6500, run: aggregateAdAnalyticsJob });
+registerBackgroundJob({
+  name: 'classifieds-auto-expire',
+  intervalMs: 10 * 60 * 1000, // every 10 minutes
+  initialDelayMs: 8000,
+  run: async () => {
+    const now = new Date();
+    const result = await Classified.updateMany(
+      { status: 'active', expiresAt: { $lte: now } },
+      { $set: { status: 'expired' } },
+    );
+    const expired = result.modifiedCount || 0;
+    if (expired > 0) invalidateCacheTags(['classifieds']);
+    return { message: `Expired ${expired} classifieds`, metrics: { expired } };
+  },
+});
 const {
   requireAuth,
   requireAdmin,
@@ -2033,8 +2048,11 @@ registerClassifiedRoutes(app, {
   brandLogoPng,
   buildShareCardOverlaySvg,
   cacheMiddleware,
+  clampText,
   ensureImagePipeline,
+  escapeHtml,
   getOriginalUploadUrl,
+  getPublicBaseUrl,
   getShareRelativePath,
   getTrustedClientIp,
   imageMimeToExt,

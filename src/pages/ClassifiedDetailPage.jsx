@@ -373,10 +373,22 @@ export default function ClassifiedDetailPage() {
               </div>
             </div>
 
-            {/* Meta info */}
+            {/* Meta info + countdown */}
             <div className="flex flex-wrap items-center gap-3 mt-4 text-xs font-sans text-gray-400">
               <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Публикувана: {new Date(item.approvedAt || item.createdAt).toLocaleString('bg-BG')}</span>
-              {item.expiresAt && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Изтича: {new Date(item.expiresAt).toLocaleString('bg-BG')}</span>}
+              {item.expiresAt && (() => {
+                const remaining = new Date(item.expiresAt).getTime() - Date.now();
+                if (remaining <= 0) return <span className="flex items-center gap-1 text-zn-hot font-bold"><Clock className="w-3 h-3" /> Изтекла</span>;
+                const days = Math.floor(remaining / 86400000);
+                const hours = Math.floor((remaining % 86400000) / 3600000);
+                const countdownText = days > 0 ? `${days} ${days === 1 ? 'ден' : 'дни'}` : `${hours} ч.`;
+                const isUrgent = days <= 2;
+                return (
+                  <span className={`flex items-center gap-1 font-bold ${isUrgent ? 'text-zn-hot' : 'text-amber-600'}`}>
+                    <Clock className="w-3 h-3" /> Остават {countdownText}
+                  </span>
+                );
+              })()}
             </div>
 
             {/* Share / Yapper button */}

@@ -720,7 +720,7 @@ const classifiedSchema = new mongoose.Schema({
   images: { type: [String], default: [] },
   imagesMeta: { type: [mongoose.Schema.Types.Mixed], default: [] },
   tier: { type: String, default: 'standard', enum: ['standard', 'highlighted', 'vip'] },
-  status: { type: String, default: 'awaiting_payment', enum: ['awaiting_payment', 'active', 'rejected'] },
+  status: { type: String, default: 'awaiting_payment', enum: ['awaiting_payment', 'active', 'rejected', 'expired'] },
   paymentRef: { type: String, required: true, unique: true, index: true },
   amountDue: { type: Number, default: 0 },
   currency: { type: String, default: '$', maxlength: 10 },

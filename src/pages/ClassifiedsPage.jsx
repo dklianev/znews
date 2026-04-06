@@ -79,6 +79,7 @@ function ClassifiedCard({ item }) {
   const tier = TIER_STYLES[item.tier] || TIER_STYLES.standard;
   const hot = isHot(item);
   const mainImage = item.images?.[0] || null;
+  const thumbImage = item.thumbnail || mainImage;
   const imageCount = item.images?.length || 0;
   const isVip = item.tier === 'vip';
   const isHighlighted = item.tier === 'highlighted';
@@ -187,7 +188,7 @@ function ClassifiedCard({ item }) {
               {/* Image thumbnail */}
               {mainImage && (
                 <div className={`${isHighlighted ? 'w-28 h-28' : 'w-24 h-24'} flex-shrink-0 border-2 border-[#1C1428] bg-black overflow-hidden relative`}>
-                  <img src={mainImage} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                  <img src={thumbImage} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   {imageCount > 1 && (
                     <div className="absolute bottom-0 right-0 bg-black/70 text-white text-[9px] font-mono px-1 py-0.5 flex items-center gap-0.5">
                       <Camera className="w-2.5 h-2.5" />{imageCount}
@@ -245,41 +246,62 @@ export default function ClassifiedsPage() {
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
 
-  const fetchData = useCallback(async (params) => {
-    setLoading(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const fetchData = useCallback(async (params, append = false) => {
+    if (append) { setLoadingMore(true); } else { setLoading(true); }
     setLoadError('');
     try {
       const data = await loadClassifieds(params);
-      setItems(data.items || []);
+      const newItems = data.items || [];
+      setItems(prev => append ? [...prev, ...newItems] : newItems);
       setTotal(data.total || 0);
       setPages(data.pages || 1);
+      setHasMore((data.page || 1) < (data.pages || 1));
     } catch (err) {
       console.error('Failed to load classifieds:', err);
       setLoadError('Грешка при зареждане на обявите. Опитайте отново.');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [loadClassifieds]);
 
   useEffect(() => {
-    const params = { page, limit: 20 };
+    setPage(1);
+    setItems([]);
+    const params = { page: 1, limit: 12 };
     if (category) params.category = category;
     if (search) params.search = search;
+    if (priceMin) params.priceMin = priceMin;
+    if (priceMax) params.priceMax = priceMax;
     fetchData(params);
-  }, [fetchData, page, category, search]);
+  }, [fetchData, category, search, priceMin, priceMax]);
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    const params = { page: nextPage, limit: 12 };
+    if (category) params.category = category;
+    if (search) params.search = search;
+    if (priceMin) params.priceMin = priceMin;
+    if (priceMax) params.priceMax = priceMax;
+    fetchData(params, true);
+  };
 
   const handleCategoryChange = (val) => {
     setCategory(val);
-    setPage(1);
   };
 
   const handleSearch = (e) => {
     e.preventDefault();
     setSearch(searchInput.trim());
-    setPage(1);
   };
 
   return (
@@ -366,6 +388,35 @@ export default function ClassifiedsPage() {
         </button>
       </form>
 
+      {/* Price filter */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <DollarSign className="w-4 h-4 text-gray-400" />
+        <input
+          type="number"
+          value={priceMin}
+          onChange={(e) => { setPriceMin(e.target.value); setPage(1); }}
+          placeholder="Цена от"
+          min="0"
+          className="w-28 px-3 py-1.5 font-mono text-sm bg-white dark:bg-[#1C1828] dark:text-gray-200 border-2 border-[#1C1428] dark:border-[#524A62] focus:outline-none focus:border-zn-purple transition-colors"
+          style={{ boxShadow: '2px 2px 0 #1C1428' }}
+        />
+        <span className="text-xs text-gray-400 font-sans">—</span>
+        <input
+          type="number"
+          value={priceMax}
+          onChange={(e) => { setPriceMax(e.target.value); setPage(1); }}
+          placeholder="Цена до"
+          min="0"
+          className="w-28 px-3 py-1.5 font-mono text-sm bg-white dark:bg-[#1C1828] dark:text-gray-200 border-2 border-[#1C1428] dark:border-[#524A62] focus:outline-none focus:border-zn-purple transition-colors"
+          style={{ boxShadow: '2px 2px 0 #1C1428' }}
+        />
+        {(priceMin || priceMax) && (
+          <button type="button" onClick={() => { setPriceMin(''); setPriceMax(''); setPage(1); }} className="text-xs text-zn-hot font-display font-bold uppercase hover:underline">
+            Изчисти
+          </button>
+        )}
+      </div>
+
       {/* Results count */}
       {!loading && total > 0 && (
         <p className="font-sans text-sm text-gray-500 mb-4">
@@ -406,29 +457,22 @@ export default function ClassifiedsPage() {
         </div>
       )}
 
-      {/* Pagination */}
-      {pages > 1 && (
-        <div className="flex items-center justify-center gap-3 mt-8">
+      {/* Load More */}
+      {hasMore && items.length > 0 && (
+        <div className="flex justify-center mt-8">
           <button
             type="button"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page <= 1}
-            className="flex items-center gap-1 px-3 py-2 border-2 border-[#1C1428] bg-white dark:bg-[#2A2438] font-display font-bold text-xs uppercase disabled:opacity-40 hover:bg-gray-100 transition-colors"
-            style={{ boxShadow: '2px 2px 0 #1C1428' }}
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-6 py-3 border-3 border-[#1C1428] bg-white dark:bg-[#2A2438] font-display font-black text-sm uppercase tracking-wider hover:bg-gray-100 dark:hover:bg-[#352F45] hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50"
+            style={{ boxShadow: '3px 3px 0 #1C1428' }}
           >
-            <ChevronLeft className="w-4 h-4" /> Назад
-          </button>
-          <span className="font-mono text-sm text-gray-500">
-            {page} / {pages}
-          </span>
-          <button
-            type="button"
-            onClick={() => setPage(p => Math.min(pages, p + 1))}
-            disabled={page >= pages}
-            className="flex items-center gap-1 px-3 py-2 border-2 border-[#1C1428] bg-white dark:bg-[#2A2438] font-display font-bold text-xs uppercase disabled:opacity-40 hover:bg-gray-100 transition-colors"
-            style={{ boxShadow: '2px 2px 0 #1C1428' }}
-          >
-            Напред <ChevronRight className="w-4 h-4" />
+            {loadingMore ? (
+              <div className="w-4 h-4 border-2 border-zn-hot border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <ChevronRight className="w-4 h-4 rotate-90" />
+            )}
+            {loadingMore ? 'Зареждане...' : 'Зареди още'}
           </button>
         </div>
       )}

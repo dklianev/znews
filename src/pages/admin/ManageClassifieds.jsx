@@ -93,7 +93,7 @@ export default function ManageClassifieds() {
   }, [optimistic, query, statusFilter]);
 
   const counts = useMemo(() => {
-    const c = { all: 0, awaiting_payment: 0, active: 0, rejected: 0 };
+    const c = { all: 0, awaiting_payment: 0, active: 0, rejected: 0, expired: 0 };
     (Array.isArray(optimistic) ? optimistic : []).forEach(item => {
       c.all++;
       if (c[item.status] !== undefined) c[item.status]++;
@@ -166,6 +166,7 @@ export default function ManageClassifieds() {
     { value: 'awaiting_payment', label: 'Чакащи' },
     { value: 'active', label: 'Активни' },
     { value: 'rejected', label: 'Отхвърлени' },
+    { value: 'expired', label: 'Изтекли' },
   ];
 
   return (
