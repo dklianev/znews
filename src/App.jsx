@@ -5,7 +5,6 @@ import { DataProvider, useAdminData, usePublicData, useSessionData } from './con
 import { AnimatePresence, motion } from 'motion/react';
 import Navbar from './components/Navbar';
 import BreakingTicker from './components/BreakingTicker';
-import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import { appCopy } from './content/uiCopy';
@@ -50,6 +49,7 @@ const CourtPage = lazyRetry(() => import('./pages/CourtPage'));
 const EventsPage = lazyRetry(() => import('./pages/EventsPage'));
 const NotFoundPage = lazyRetry(() => import('./pages/NotFoundPage'));
 const TipLine = lazyRetry(() => import('./pages/TipLine'));
+const Footer = lazyRetry(() => import('./components/Footer'));
 const ClassifiedsPage = lazyRetry(() => import('./pages/ClassifiedsPage'));
 const ClassifiedSubmitPage = lazyRetry(() => import('./pages/ClassifiedSubmitPage'));
 const ClassifiedDetailPage = lazyRetry(() => import('./pages/ClassifiedDetailPage'));
@@ -283,7 +283,9 @@ function PublicLayout() {
           </motion.div>
         </AnimatePresence>
       </main>
-      <Footer />
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
     </div>
   );
 }

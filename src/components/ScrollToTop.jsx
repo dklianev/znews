@@ -3,21 +3,75 @@ import { useLocation, useNavigationType } from 'react-router-dom';
 import { ArrowUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const SCROLL_STORAGE_PREFIX = 'zn-scroll:';
+
+function getLocationScrollKey(location) {
+  return `${SCROLL_STORAGE_PREFIX}${location.key || `${location.pathname}${location.search || ''}${location.hash || ''}`}`;
+}
+
+function readStoredScroll(scrollKey) {
+  try {
+    const rawValue = window.sessionStorage.getItem(scrollKey);
+    if (rawValue == null) return null;
+    const parsed = Number.parseInt(rawValue, 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredScroll(scrollKey, value) {
+  try {
+    window.sessionStorage.setItem(scrollKey, String(Math.max(0, Math.round(value))));
+  } catch {
+    // ignore storage failures
+  }
+}
+
 export default function ScrollToTop() {
-  const { pathname } = useLocation();
+  const location = useLocation();
   const navigationType = useNavigationType();
   const [visible, setVisible] = useState(false);
-  const prevPathRef = useRef(pathname);
+  const currentScrollKey = getLocationScrollKey(location);
+  const currentScrollKeyRef = useRef(currentScrollKey);
+  const prevScrollKeyRef = useRef(currentScrollKey);
 
   useEffect(() => {
-    if (prevPathRef.current === pathname) {
+    currentScrollKeyRef.current = currentScrollKey;
+  }, [currentScrollKey]);
+
+  useEffect(() => {
+    if (prevScrollKeyRef.current === currentScrollKey) {
       return undefined;
     }
 
-    prevPathRef.current = pathname;
+    writeStoredScroll(prevScrollKeyRef.current, window.scrollY || 0);
+    prevScrollKeyRef.current = currentScrollKey;
 
     if (navigationType === 'POP') {
-      return undefined;
+      const savedY = readStoredScroll(currentScrollKey);
+      if (savedY == null) {
+        return undefined;
+      }
+
+      let cancelled = false;
+      let attempts = 0;
+      let timeoutId = 0;
+      const restoreScroll = () => {
+        if (cancelled) return;
+        window.scrollTo(0, savedY);
+        attempts += 1;
+        if (attempts < 12 && Math.abs((window.scrollY || 0) - savedY) > 4) {
+          timeoutId = window.setTimeout(restoreScroll, 80);
+        }
+      };
+
+      const frameId = window.requestAnimationFrame(restoreScroll);
+      return () => {
+        cancelled = true;
+        window.cancelAnimationFrame(frameId);
+        window.clearTimeout(timeoutId);
+      };
     }
 
     const frameId = window.requestAnimationFrame(() => {
@@ -27,12 +81,31 @@ export default function ScrollToTop() {
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [navigationType, pathname]);
+  }, [currentScrollKey, navigationType]);
 
   useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > 400);
+    let frameId = 0;
+    const updateScrollState = () => {
+      frameId = 0;
+      const currentY = window.scrollY || 0;
+      setVisible(currentY > 400);
+      writeStoredScroll(currentScrollKeyRef.current, currentY);
+    };
+
+    const onScroll = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(updateScrollState);
+    };
+
+    updateScrollState();
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      if (frameId) {
+        window.cancelAnimationFrame(frameId);
+      }
+      writeStoredScroll(currentScrollKeyRef.current, window.scrollY || 0);
+      window.removeEventListener('scroll', onScroll);
+    };
   }, []);
 
   return (

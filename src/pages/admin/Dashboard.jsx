@@ -15,6 +15,8 @@ import {
   Image,
   Download,
   Tag,
+  AlertTriangle,
+  Mail,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { dashboardCopy } from '../../content/uiCopy';
@@ -31,16 +33,30 @@ function AnalyticsFallback() {
 
 export default function Dashboard() {
   const { articles, authors, wanted, jobs, court, events, polls, comments, gallery, categories } = usePublicData();
-  const { users, usersReady, ensureUsersLoaded, resetAll, hasPermission, classifieds, ensureClassifiedsLoaded } = useAdminData();
+  const {
+    users,
+    usersReady,
+    ensureUsersLoaded,
+    resetAll,
+    hasPermission,
+    classifieds,
+    ensureClassifiedsLoaded,
+    tips,
+    tipsReady,
+    ensureTipsLoaded,
+  } = useAdminData();
   const { session } = useSessionData();
   const [resetting, setResetting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [adminActionError, setAdminActionError] = useState('');
+  const [contactMessages, setContactMessages] = useState([]);
+  const [contactMessagesReady, setContactMessagesReady] = useState(false);
 
   const isAdmin = session?.role === 'admin';
   const canSeeAnalytics = hasPermission('articles');
   const canSeeTeam = hasPermission('profiles');
-
+  const canSeeTips = hasPermission('articles');
+  const canSeeContactMessages = hasPermission('contact');
   const canSeeClassifieds = hasPermission('classifieds');
 
   useEffect(() => {
@@ -53,6 +69,43 @@ export default function Dashboard() {
     void ensureClassifiedsLoaded();
   }, [canSeeClassifieds, ensureClassifiedsLoaded]);
 
+  useEffect(() => {
+    if (!canSeeTips) return;
+    void ensureTipsLoaded();
+  }, [canSeeTips, ensureTipsLoaded]);
+
+  useEffect(() => {
+    if (!canSeeContactMessages) {
+      setContactMessages([]);
+      setContactMessagesReady(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadContactMessages = async () => {
+      try {
+        const data = await api.contactMessages.getAll({ limit: 200 });
+        if (!cancelled) {
+          setContactMessages(Array.isArray(data) ? data : []);
+          setContactMessagesReady(true);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setContactMessages([]);
+          setContactMessagesReady(true);
+        }
+        console.error('Failed to load contact messages for dashboard:', error);
+      }
+    };
+
+    void loadContactMessages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canSeeContactMessages]);
+
   const totalViews = useMemo(
     () => articles.reduce((sum, article) => sum + (article.views || 0), 0),
     [articles],
@@ -60,6 +113,14 @@ export default function Dashboard() {
   const pendingComments = useMemo(
     () => comments.filter((comment) => !comment.approved).length,
     [comments],
+  );
+  const newTips = useMemo(
+    () => (Array.isArray(tips) ? tips : []).filter((tip) => tip?.status === 'new').length,
+    [tips],
+  );
+  const newContactMessages = useMemo(
+    () => (Array.isArray(contactMessages) ? contactMessages : []).filter((message) => message?.status === 'new').length,
+    [contactMessages],
   );
   const pendingClassifieds = useMemo(
     () => (Array.isArray(classifieds) ? classifieds : []).filter((c) => c.status === 'awaiting_payment').length,
@@ -75,6 +136,24 @@ export default function Dashboard() {
     { label: dashboardCopy.stats.views, value: totalViews.toLocaleString('bg-BG'), icon: Eye, color: 'bg-amber-600', to: null, permission: 'articles' },
     { label: dashboardCopy.stats.comments, value: comments.length, icon: MessageCircle, color: 'bg-zn-hot', badge: pendingComments > 0 ? `${pendingComments} ${dashboardCopy.stats.pendingComments}` : null, to: '/admin/comments', permission: 'comments' },
     { label: dashboardCopy.stats.gallery, value: gallery.length, icon: Image, color: 'bg-blue-500', to: '/admin/gallery', permission: 'gallery' },
+    {
+      label: dashboardCopy.stats.tips || 'Сигнали',
+      value: tipsReady ? tips.length : '—',
+      icon: AlertTriangle,
+      color: 'bg-orange-500',
+      badge: newTips > 0 ? `${newTips} ${dashboardCopy.stats.newTips || 'нови'}` : null,
+      to: '/admin/tips',
+      permission: 'articles',
+    },
+    {
+      label: dashboardCopy.stats.contact || 'Запитвания',
+      value: contactMessagesReady ? contactMessages.length : '—',
+      icon: Mail,
+      color: 'bg-sky-600',
+      badge: newContactMessages > 0 ? `${newContactMessages} ${dashboardCopy.stats.newContactMessages || 'нови'}` : null,
+      to: '/admin/contact',
+      permission: 'contact',
+    },
   ];
 
   const rpStats = [

@@ -1,8 +1,8 @@
 import React, { act, createElement } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushEffects, renderIntoBody, unmountRoot } from './helpers/domHarness.mjs';
 
-let locationState = { pathname: '/' };
+let locationState = { pathname: '/', search: '', hash: '', key: 'home' };
 let navigationTypeState = 'POP';
 
 vi.mock('motion/react', () => {
@@ -31,8 +31,17 @@ describe('ScrollToTop', () => {
   let originalRequestAnimationFrame;
   let originalCancelAnimationFrame;
 
+  beforeEach(() => {
+    window.sessionStorage.clear();
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      writable: true,
+      value: 0,
+    });
+  });
+
   afterEach(async () => {
-    locationState = { pathname: '/' };
+    locationState = { pathname: '/', search: '', hash: '', key: 'home' };
     navigationTypeState = 'POP';
     scrollToSpy?.mockRestore();
     scrollToSpy = null;
@@ -57,6 +66,17 @@ describe('ScrollToTop', () => {
     window.cancelAnimationFrame = () => {};
   }
 
+  function installScrollSpy() {
+    scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation((arg1, arg2) => {
+      const top = typeof arg1 === 'object' ? arg1?.top : arg2;
+      Object.defineProperty(window, 'scrollY', {
+        configurable: true,
+        writable: true,
+        value: Number(top) || 0,
+      });
+    });
+  }
+
   async function rerender() {
     await act(async () => {
       root.render(createElement(ScrollToTop));
@@ -66,27 +86,46 @@ describe('ScrollToTop', () => {
 
   it('scrolls to the top on new route pushes', async () => {
     installAnimationFrameStub();
-    scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    installScrollSpy();
 
     ({ root, container } = await renderIntoBody(ScrollToTop));
 
-    locationState = { pathname: '/search' };
+    locationState = { pathname: '/search', search: '', hash: '', key: 'search-1' };
     navigationTypeState = 'PUSH';
     await rerender();
 
     expect(scrollToSpy).toHaveBeenCalledWith({ left: 0, top: 0 });
   });
 
-  it('keeps browser restoration intact on POP navigation', async () => {
+  it('restores the saved scroll position on POP navigation', async () => {
     installAnimationFrameStub();
-    scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    installScrollSpy();
+    window.sessionStorage.setItem('zn-scroll:article-1', '640');
 
     ({ root, container } = await renderIntoBody(ScrollToTop));
 
-    locationState = { pathname: '/article/27' };
+    locationState = { pathname: '/article/27', search: '', hash: '', key: 'article-1' };
     navigationTypeState = 'POP';
     await rerender();
 
-    expect(scrollToSpy).not.toHaveBeenCalledWith({ left: 0, top: 0 });
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 640);
+  });
+
+  it('stores the current scroll position before navigating away', async () => {
+    installAnimationFrameStub();
+    installScrollSpy();
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      writable: true,
+      value: 420,
+    });
+
+    ({ root, container } = await renderIntoBody(ScrollToTop));
+
+    locationState = { pathname: '/about', search: '', hash: '', key: 'about-1' };
+    navigationTypeState = 'PUSH';
+    await rerender();
+
+    expect(window.sessionStorage.getItem('zn-scroll:home')).toBe('420');
   });
 });
