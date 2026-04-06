@@ -264,6 +264,8 @@ export default function ClassifiedsPage() {
       setTotal(data.total || 0);
       setPages(data.pages || 1);
       setHasMore((data.page || 1) < (data.pages || 1));
+      // Only advance page state on successful append
+      if (append) setPage(data.page || params.page || 1);
     } catch (err) {
       console.error('Failed to load classifieds:', err);
       setLoadError('Грешка при зареждане на обявите. Опитайте отново.');
@@ -286,7 +288,7 @@ export default function ClassifiedsPage() {
 
   const handleLoadMore = () => {
     const nextPage = page + 1;
-    setPage(nextPage);
+    // Don't setPage here — only advance on success (inside fetchData)
     const params = { page: nextPage, limit: 12 };
     if (category) params.category = category;
     if (search) params.search = search;
@@ -431,7 +433,7 @@ export default function ClassifiedsPage() {
         <div className="newspaper-page comic-panel comic-dots p-10 text-center relative">
           <div className="comic-stamp-circle absolute -top-5 -right-3 z-20 text-[10px]">ГРЕШКА!</div>
           <p className="font-display font-bold uppercase tracking-wider text-zn-hot relative z-[2]">{loadError}</p>
-          <button type="button" onClick={() => fetchData({ page, limit: 20, ...(category && { category }), ...(search && { search }) })} className="inline-block mt-4 comic-button text-sm relative z-[2]">
+          <button type="button" onClick={() => fetchData({ page, limit: 12, ...(category && { category }), ...(search && { search }), ...(priceMin && { priceMin }), ...(priceMax && { priceMax }) })} className="inline-block mt-4 comic-button text-sm relative z-[2]">
             Опитай пак
           </button>
         </div>

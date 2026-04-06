@@ -530,15 +530,23 @@ export function registerClassifiedRoutes(app, deps) {
       filter.$text = { $search: search };
     }
 
-    // Price range filter (price is stored as string, use $expr for numeric comparison)
+    // Price range filter — safe conversion that skips non-numeric prices ("По договаряне", etc.)
     const priceMin = Number.parseFloat(req.query.priceMin);
     const priceMax = Number.parseFloat(req.query.priceMax);
     if (Number.isFinite(priceMin) || Number.isFinite(priceMax)) {
-      const priceExpr = { $toDouble: { $ifNull: [{ $replaceAll: { input: '$price', find: ' ', replacement: '' } }, '0'] } };
-      const conditions = [];
+      const priceExpr = {
+        $convert: {
+          input: { $replaceAll: { input: { $ifNull: ['$price', ''] }, find: ' ', replacement: '' } },
+          to: 'double',
+          onError: null,
+          onNull: null,
+        },
+      };
+      // Only match documents where price converts to a valid number
+      const conditions = [{ $ne: [priceExpr, null] }];
       if (Number.isFinite(priceMin)) conditions.push({ $gte: [priceExpr, priceMin] });
       if (Number.isFinite(priceMax)) conditions.push({ $lte: [priceExpr, priceMax] });
-      filter.$expr = conditions.length === 1 ? conditions[0] : { $and: conditions };
+      filter.$expr = { $and: conditions };
     }
 
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
