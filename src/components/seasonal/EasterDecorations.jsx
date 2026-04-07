@@ -1,6 +1,6 @@
 import { usePublicData } from '../../context/DataContext';
 import * as ReactRouterDom from 'react-router-dom';
-import { shouldRenderDecorations, getEggPlacements, isHuntActive, getHuntEggId } from '../../utils/seasonalCampaigns';
+import { getEggPlacements, getHuntPlacements, isHuntActive, shouldRenderDecorations } from '../../utils/seasonalCampaigns';
 import EasterDecorationSlot from './EasterDecorationSlot';
 import CollectibleEasterEgg from './CollectibleEasterEgg';
 
@@ -18,29 +18,35 @@ export default function EasterDecorations({ pageId, hunt }) {
     ? ReactRouterDom.useOutletContext()
     : null;
   const resolvedHunt = hunt || outletContext?.easterHunt || null;
-
-  if (!shouldRenderDecorations(siteSettings)) return null;
-
-  const placements = getEggPlacements(pageId, siteSettings);
-  if (placements.length === 0) return null;
-
   const huntMode = resolvedHunt?.huntActive && isHuntActive(siteSettings);
+  const placements = huntMode
+    ? getHuntPlacements(pageId, siteSettings)
+    : shouldRenderDecorations(siteSettings)
+      ? getEggPlacements(pageId, siteSettings)
+      : [];
+
+  if (placements.length === 0) return null;
 
   return placements.map((slot, i) => {
     if (huntMode) {
-      const eggId = getHuntEggId(pageId, i);
       const posClass = POSITION_MAP[slot.position] || POSITION_MAP['top-right'];
       return (
         <div
-          key={`easter-hunt-${pageId}-${i}`}
-          className={`absolute ${posClass} z-[3] hidden md:block`}
+          key={slot.eggId || `easter-hunt-${pageId}-${i}`}
+          className={`absolute ${posClass} z-[3] ${slot.mobileHidden ? 'hidden md:block' : ''}`}
           aria-hidden="false"
         >
+          {slot.withTape && (
+            <div
+              className="pointer-events-none absolute -top-2 left-1/2 h-3 w-8 -translate-x-1/2 border border-amber-300/50 bg-amber-100/80"
+              style={{ transform: `translateX(-50%) rotate(${slot.tapeRotation || '0deg'})` }}
+            />
+          )}
           <CollectibleEasterEgg
-            eggId={eggId}
+            eggId={slot.eggId}
             variant={slot.variant}
             size={slot.size}
-            isCollected={resolvedHunt.isCollected(eggId)}
+            isCollected={resolvedHunt.isCollected(slot.eggId)}
             onCollect={resolvedHunt.collectEgg}
           />
         </div>
@@ -55,6 +61,7 @@ export default function EasterDecorations({ pageId, hunt }) {
         size={slot.size}
         withTape={slot.withTape}
         tapeRotation={slot.tapeRotation}
+        mobileHidden={slot.mobileHidden}
       />
     );
   });

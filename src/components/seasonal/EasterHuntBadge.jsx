@@ -21,14 +21,14 @@ export default function EasterHuntBadge({
         className="fixed bottom-4 left-4 z-[60] pointer-events-auto"
       >
         <div
-          className={`relative flex items-center gap-2.5 px-4 py-2.5 border-3 border-[#1C1428] bg-white font-display text-sm uppercase tracking-wider ${isComplete ? 'bg-amber-50' : ''}`}
+          className={`relative flex items-center gap-2.5 border-3 border-[#1C1428] px-4 py-2.5 font-display text-sm uppercase tracking-wider ${isComplete ? 'bg-amber-50' : 'bg-white'}`}
           style={{ boxShadow: '3px 3px 0 #1C1428' }}
         >
           <img
             src="/easter/egg-gold.svg"
             alt=""
             aria-hidden="true"
-            className="w-6 h-9 shrink-0"
+            className="h-9 w-6 shrink-0"
           />
           <div className="flex flex-col gap-0.5">
             {isComplete ? (
@@ -36,7 +36,7 @@ export default function EasterHuntBadge({
                 initial={{ scale: 0.8 }}
                 animate={{ scale: [1, 1.05, 1] }}
                 transition={{ duration: 0.6, repeat: 2 }}
-                className="font-black text-zn-hot text-xs"
+                className="text-xs font-black text-zn-hot"
               >
                 {rewardText}
               </motion.span>
@@ -46,7 +46,7 @@ export default function EasterHuntBadge({
               </span>
             )}
             {!isComplete && (
-              <div className="w-20 h-1.5 bg-gray-200 overflow-hidden">
+              <div className="h-1.5 w-20 overflow-hidden bg-gray-200">
                 <motion.div
                   className="h-full bg-zn-purple"
                   initial={{ width: 0 }}
@@ -59,10 +59,10 @@ export default function EasterHuntBadge({
           <button
             type="button"
             onClick={onDismiss}
-            className="ml-1 p-0.5 text-gray-400 hover:text-gray-700 transition-colors"
+            className="ml-1 p-0.5 text-gray-400 transition-colors hover:text-gray-700"
             aria-label="Скрий прогреса"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       </motion.div>

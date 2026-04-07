@@ -14,12 +14,13 @@ export default function EasterDecorationSlot({
   size = 'md',
   withTape = false,
   tapeRotation = '12deg',
+  mobileHidden = false,
 }) {
   const posClass = POSITION_MAP[position] || POSITION_MAP['top-right'];
 
   return (
     <div
-      className={`absolute ${posClass} z-[3] pointer-events-none select-none hidden md:block opacity-60`}
+      className={`absolute ${posClass} z-[3] pointer-events-none select-none opacity-60 ${mobileHidden ? 'hidden md:block' : ''}`}
       aria-hidden="true"
     >
       {withTape && (

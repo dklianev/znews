@@ -235,13 +235,46 @@ async function waitFor(check, { timeoutMs = 30000, intervalMs = 500, label = 'co
   throw new Error(`Timed out waiting for ${label}.${details}`);
 }
 
-async function waitForServerHealth() {
+function getServerStartupTimeoutMs() {
+  return process.env.CI ? 90000 : 45000;
+}
+
+async function waitForServerBootstrap(serverTask) {
+  return await waitFor(() => {
+    if (serverTask?.child?.exitCode !== null) {
+      throw new Error(
+        `Safe smoke backend exited early with code ${serverTask.child.exitCode}.\n${serverTask.getStderr() || serverTask.getStdout()}`
+      );
+    }
+
+    const output = `${serverTask?.getStdout?.() || ''}\n${serverTask?.getStderr?.() || ''}`;
+    return /Los Santos News API running on port/i.test(output);
+  }, {
+    timeoutMs: getServerStartupTimeoutMs(),
+    intervalMs: 500,
+    label: 'safe smoke backend bootstrap',
+  });
+}
+
+async function waitForServerHealth(serverTask) {
   return await waitFor(async () => {
-    const res = await fetch(`${baseUrl}/api/health`);
+    if (serverTask?.child?.exitCode !== null) {
+      throw new Error(
+        `Safe smoke backend exited before healthcheck completed with code ${serverTask.child.exitCode}.\n${serverTask.getStderr() || serverTask.getStdout()}`
+      );
+    }
+
+    const res = await fetch(`${baseUrl}/api/health`, {
+      signal: AbortSignal.timeout(2500),
+    });
     if (!res.ok) return false;
     const payload = await res.json();
     return payload?.ok ? payload : false;
-  }, { label: 'safe smoke backend health' });
+  }, {
+    timeoutMs: getServerStartupTimeoutMs(),
+    intervalMs: 750,
+    label: 'safe smoke backend health',
+  });
 }
 
 async function verifyAuthLogin() {
@@ -755,7 +788,8 @@ async function main() {
   process.on('SIGTERM', cleanup);
 
   try {
-    await waitForServerHealth();
+    await waitForServerBootstrap(serverTask);
+    await waitForServerHealth(serverTask);
     await verifyAuthLogin();
 
     const manifestRes = await fetch(`${baseUrl}/manifest.webmanifest`);

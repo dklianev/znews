@@ -61,6 +61,29 @@ export function createSettingsPayloadHelpers({
     return /^-?\d+(\.\d+)?deg$/i.test(tilt) ? tilt : fallback;
   }
 
+  function parseCalendarDate(value) {
+    if (!value) return null;
+
+    if (value instanceof Date) {
+      return Number.isNaN(value.getTime()) ? null : value;
+    }
+
+    const normalized = String(value).trim();
+    if (!normalized) return null;
+
+    const dateOnlyMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (dateOnlyMatch) {
+      const year = Number.parseInt(dateOnlyMatch[1], 10);
+      const monthIndex = Number.parseInt(dateOnlyMatch[2], 10) - 1;
+      const day = Number.parseInt(dateOnlyMatch[3], 10);
+      const date = new Date(Date.UTC(year, monthIndex, day, 12, 0, 0, 0));
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
   function normalizeBreakingCategoryLabel(route, rawLabel, maxLen = 50) {
     const normalizedLabel = normalizeText(rawLabel, maxLen);
     if (route !== '/category/breaking') return normalizedLabel;
@@ -243,8 +266,8 @@ export function createSettingsPayloadHelpers({
       easter: {
         enabled: Boolean(seasonalInput.enabled ?? seasonalDefaults.enabled ?? false),
         autoWindow: Boolean(seasonalInput.autoWindow ?? seasonalDefaults.autoWindow ?? true),
-        startAt: seasonalInput.startAt ? new Date(seasonalInput.startAt) : (seasonalDefaults.startAt || null),
-        endAt: seasonalInput.endAt ? new Date(seasonalInput.endAt) : (seasonalDefaults.endAt || null),
+        startAt: parseCalendarDate(seasonalInput.startAt) ?? parseCalendarDate(seasonalDefaults.startAt) ?? null,
+        endAt: parseCalendarDate(seasonalInput.endAt) ?? parseCalendarDate(seasonalDefaults.endAt) ?? null,
         decorationsEnabled: Boolean(seasonalInput.decorationsEnabled ?? seasonalDefaults.decorationsEnabled ?? true),
         variantSet: allowedVariantSets.has(easterVariantCandidate) ? easterVariantCandidate : 'classic',
         maxVisibleEggs: Number.isInteger(easterMaxEggsRaw) ? Math.min(6, Math.max(1, easterMaxEggsRaw)) : (seasonalDefaults.maxVisibleEggs || 2),

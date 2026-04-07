@@ -37,7 +37,7 @@ describe('CollectibleEasterEgg', () => {
     container = null;
   });
 
-  it('shows Bulgarian collect labels and feedback without stray glyphs', async () => {
+  it('shows Bulgarian collect labels and clean feedback', async () => {
     const onCollect = vi.fn();
     ({ root, container } = await renderIntoBody(CollectibleEasterEgg, {
       eggId: 'egg-homepage',

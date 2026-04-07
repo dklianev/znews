@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { isHuntActive } from '../utils/seasonalCampaigns';
+import { getConfiguredHuntEggCount, isHuntActive } from '../utils/seasonalCampaigns';
 
 const STORAGE_PREFIX = 'zn-easter-hunt-v';
 const BADGE_DISMISSED_KEY = 'zn-easter-badge-dismissed';
@@ -23,7 +23,7 @@ function saveCollected(version, collected) {
   try {
     localStorage.setItem(getStorageKey(version), JSON.stringify([...collected]));
   } catch {
-    /* quota exceeded */
+    /* storage unavailable */
   }
 }
 
@@ -46,7 +46,7 @@ function dismissBadge(version) {
 export default function useEasterEggHunt(settings) {
   const easter = settings?.seasonalCampaigns?.easter;
   const version = easter?.huntVersion || 1;
-  const total = easter?.huntEggCount || 6;
+  const total = getConfiguredHuntEggCount(settings);
   const rewardText = easter?.huntRewardText || 'Браво! Намери всички яйца!';
   const showProgress = easter?.showProgress ?? true;
   const huntActive = isHuntActive(settings);
@@ -61,6 +61,7 @@ export default function useEasterEggHunt(settings) {
 
   const collectEgg = useCallback((eggId) => {
     if (!huntActive) return;
+
     setCollected((prev) => {
       if (prev.has(eggId)) return prev;
       const next = new Set(prev);

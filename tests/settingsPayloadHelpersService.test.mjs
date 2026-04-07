@@ -61,6 +61,22 @@ function createDefaults() {
         beneficiary: 'zNews',
         currency: '$',
       },
+      seasonalCampaigns: {
+        easter: {
+          enabled: false,
+          autoWindow: true,
+          startAt: null,
+          endAt: null,
+          decorationsEnabled: true,
+          variantSet: 'classic',
+          maxVisibleEggs: 2,
+          huntEnabled: false,
+          huntEggCount: 6,
+          huntRewardText: 'Браво! Намери всички яйца!',
+          huntVersion: 1,
+          showProgress: true,
+        },
+      },
     },
   };
 }
@@ -125,6 +141,22 @@ describe('settingsPayloadHelpersService', () => {
           buttonLabel: '  Go  ',
           buttonLink: 'bad',
         },
+        seasonalCampaigns: {
+          easter: {
+            enabled: 1,
+            autoWindow: false,
+            startAt: '2026-04-06',
+            endAt: '2026-04-13',
+            decorationsEnabled: 1,
+            variantSet: 'vip',
+            maxVisibleEggs: 9,
+            huntEnabled: 1,
+            huntEggCount: 17,
+            huntRewardText: '  Намери всички  ',
+            huntVersion: '4',
+            showProgress: 0,
+          },
+        },
       });
     
       assert.equal(site.breakingBadgeLabel, 'Fresh');
@@ -153,6 +185,17 @@ describe('settingsPayloadHelpersService', () => {
         buttonLabel: 'Go',
         buttonLink: '/tipline',
       });
+      assert.equal(site.seasonalCampaigns.easter.enabled, true);
+      assert.equal(site.seasonalCampaigns.easter.autoWindow, false);
+      assert.equal(site.seasonalCampaigns.easter.variantSet, 'vip');
+      assert.equal(site.seasonalCampaigns.easter.maxVisibleEggs, 6);
+      assert.equal(site.seasonalCampaigns.easter.huntEnabled, true);
+      assert.equal(site.seasonalCampaigns.easter.huntEggCount, 12);
+      assert.equal(site.seasonalCampaigns.easter.huntRewardText, 'Намери всички');
+      assert.equal(site.seasonalCampaigns.easter.huntVersion, 4);
+      assert.equal(site.seasonalCampaigns.easter.showProgress, false);
+      assert.equal(site.seasonalCampaigns.easter.startAt.toISOString(), '2026-04-06T12:00:00.000Z');
+      assert.equal(site.seasonalCampaigns.easter.endAt.toISOString(), '2026-04-13T12:00:00.000Z');
     
       const defaultSite = helpers.sanitizeSiteSettingsPayload({});
       assert.deepEqual(defaultSite.spotlightLinks, defaults.DEFAULT_SITE_SETTINGS.spotlightLinks);

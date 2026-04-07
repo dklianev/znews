@@ -61,6 +61,22 @@ function createDefaults() {
         beneficiary: 'zNews',
         currency: '$',
       },
+      seasonalCampaigns: {
+        easter: {
+          enabled: false,
+          autoWindow: true,
+          startAt: null,
+          endAt: null,
+          decorationsEnabled: true,
+          variantSet: 'classic',
+          maxVisibleEggs: 2,
+          huntEnabled: false,
+          huntEggCount: 6,
+          huntRewardText: 'Браво! Намери всички яйца!',
+          huntVersion: 1,
+          showProgress: true,
+        },
+      },
     },
   };
 }
@@ -130,6 +146,22 @@ describe('settingsPayloadHelpers', () => {
         buttonLabel: '  Go  ',
         buttonLink: 'bad',
       },
+      seasonalCampaigns: {
+        easter: {
+          enabled: 1,
+          autoWindow: false,
+          startAt: '2026-04-06',
+          endAt: '2026-04-13',
+          decorationsEnabled: 1,
+          variantSet: 'vip',
+          maxVisibleEggs: 9,
+          huntEnabled: 1,
+          huntEggCount: 17,
+          huntRewardText: '  Намери всички  ',
+          huntVersion: '4',
+          showProgress: 0,
+        },
+      },
     });
 
     expect(site.breakingBadgeLabel).toBe('Fresh');
@@ -158,6 +190,18 @@ describe('settingsPayloadHelpers', () => {
       buttonLabel: 'Go',
       buttonLink: '/tipline',
     });
+    expect(site.seasonalCampaigns.easter.enabled).toBe(true);
+    expect(site.seasonalCampaigns.easter.autoWindow).toBe(false);
+    expect(site.seasonalCampaigns.easter.decorationsEnabled).toBe(true);
+    expect(site.seasonalCampaigns.easter.variantSet).toBe('vip');
+    expect(site.seasonalCampaigns.easter.maxVisibleEggs).toBe(6);
+    expect(site.seasonalCampaigns.easter.huntEnabled).toBe(true);
+    expect(site.seasonalCampaigns.easter.huntEggCount).toBe(12);
+    expect(site.seasonalCampaigns.easter.huntRewardText).toBe('Намери всички');
+    expect(site.seasonalCampaigns.easter.huntVersion).toBe(4);
+    expect(site.seasonalCampaigns.easter.showProgress).toBe(false);
+    expect(site.seasonalCampaigns.easter.startAt.toISOString()).toBe('2026-04-06T12:00:00.000Z');
+    expect(site.seasonalCampaigns.easter.endAt.toISOString()).toBe('2026-04-13T12:00:00.000Z');
   });
 
   it('falls back to default spotlight links when payload is empty', () => {
