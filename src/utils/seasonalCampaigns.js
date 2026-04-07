@@ -1,15 +1,15 @@
 const VARIANT_SETS = {
-  classic: ['egg-red', 'egg-purple', 'egg-gold'],
-  police: ['egg-police', 'egg-red', 'egg-cracked'],
-  underground: ['egg-underground', 'egg-purple', 'egg-cracked'],
-  vip: ['egg-vip', 'egg-gold', 'egg-red'],
+  classic: ['egg-red', 'egg-purple', 'egg-gold', 'egg-police', 'egg-underground', 'egg-vip', 'egg-cracked'],
+  police: ['egg-police', 'egg-red', 'egg-gold', 'egg-cracked', 'egg-purple', 'egg-underground', 'egg-vip'],
+  underground: ['egg-underground', 'egg-purple', 'egg-cracked', 'egg-red', 'egg-gold', 'egg-vip', 'egg-police'],
+  vip: ['egg-vip', 'egg-gold', 'egg-red', 'egg-purple', 'egg-police', 'egg-underground', 'egg-cracked'],
 };
 
 const DECORATION_PAGE_MAX = {
   homepage: 2,
   article: 1,
   classifiedDetail: 1,
-  games: 1,
+  games: 3,
   category: 1,
   about: 1,
   search: 1,
@@ -27,7 +27,9 @@ const DECORATION_SLOTS = {
     { eggId: 'egg-classifieds-main', position: 'top-right', size: 'sm', withTape: false, mobileHidden: false },
   ],
   games: [
-    { eggId: 'egg-games-hero', position: 'bottom-left', size: 'md', withTape: true, tapeRotation: '6deg', mobileHidden: true },
+    { eggId: 'egg-games-hero', position: 'top-right', size: 'xl', withTape: true, tapeRotation: '9deg', mobileHidden: false, opacityClass: 'opacity-95' },
+    { eggId: 'egg-games-stack', position: 'top-right-inset', size: 'lg', withTape: false, mobileHidden: false, opacityClass: 'opacity-85' },
+    { eggId: 'egg-games-lower', position: 'bottom-right-inset', size: 'md', withTape: true, tapeRotation: '-7deg', mobileHidden: true, opacityClass: 'opacity-75' },
   ],
   category: [
     { eggId: 'egg-category-main', position: 'top-right', size: 'sm', withTape: true, tapeRotation: '10deg', mobileHidden: false },
@@ -49,7 +51,7 @@ const HUNT_SLOT_ORDER = [
   { pageId: 'category', eggId: 'egg-category-bottom', position: 'bottom-left', size: 'sm', withTape: false, mobileHidden: false },
   { pageId: 'classifiedDetail', eggId: 'egg-classifieds-top', position: 'top-right', size: 'sm', withTape: false, mobileHidden: false },
   { pageId: 'classifiedDetail', eggId: 'egg-classifieds-bottom', position: 'bottom-left', size: 'sm', withTape: true, tapeRotation: '5deg', mobileHidden: false },
-  { pageId: 'games', eggId: 'egg-games', position: 'bottom-left', size: 'md', withTape: true, tapeRotation: '6deg', mobileHidden: false },
+  { pageId: 'games', eggId: 'egg-games', position: 'top-right-inset', size: 'lg', withTape: true, tapeRotation: '6deg', mobileHidden: false },
   { pageId: 'about', eggId: 'egg-about', position: 'bottom-right', size: 'sm', withTape: false, mobileHidden: false },
   { pageId: 'search', eggId: 'egg-search-top', position: 'top-left', size: 'sm', withTape: true, tapeRotation: '-6deg', mobileHidden: false },
   { pageId: 'search', eggId: 'egg-search-bottom', position: 'bottom-right', size: 'sm', withTape: false, mobileHidden: false },
@@ -139,7 +141,7 @@ export function getEggPlacements(pageId, settings) {
 
   return slots.slice(0, limit).map((slot, index) => ({
     ...slot,
-    variant: variants[index % variants.length],
+    variant: variants[hashEggId(slot.eggId || `${pageId}-${index}`) % variants.length],
   }));
 }
 

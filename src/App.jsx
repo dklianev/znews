@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate } from 'react-router-dom';
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider, useAdminData, usePublicData, useSessionData } from './context/DataContext';
 import { AnimatePresence, motion } from 'motion/react';
@@ -10,7 +10,6 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { appCopy } from './content/uiCopy';
 import { isChunkLoadError, shouldReloadForChunkError } from './utils/chunkReload';
 import useEasterEggHunt from './hooks/useEasterEggHunt';
-import EasterHuntBadge from './components/seasonal/EasterHuntBadge';
 import { shouldRenderDecorations } from './utils/seasonalCampaigns';
 import { reportChunkLoadIssue } from './utils/clientMonitoring';
 import { showChunkReloadToast } from './utils/systemToasts';
@@ -53,6 +52,7 @@ const EventsPage = lazyRetry(() => import('./pages/EventsPage'));
 const NotFoundPage = lazyRetry(() => import('./pages/NotFoundPage'));
 const TipLine = lazyRetry(() => import('./pages/TipLine'));
 const Footer = lazyRetry(() => import('./components/Footer'));
+const EasterHuntBadge = lazyRetry(() => import('./components/seasonal/EasterHuntBadge'));
 const ClassifiedsPage = lazyRetry(() => import('./pages/ClassifiedsPage'));
 const ClassifiedSubmitPage = lazyRetry(() => import('./pages/ClassifiedSubmitPage'));
 const ClassifiedDetailPage = lazyRetry(() => import('./pages/ClassifiedDetailPage'));
@@ -266,10 +266,7 @@ function PublicLayout() {
   const location = useLocation();
   const { siteSettings } = usePublicData();
   const easterHunt = useEasterEggHunt(siteSettings);
-  const easterDecorationsActive = useMemo(
-    () => shouldRenderDecorations(siteSettings),
-    [siteSettings],
-  );
+  const easterDecorationsActive = shouldRenderDecorations(siteSettings);
 
   useEffect(() => {
     if (easterDecorationsActive) {
@@ -303,15 +300,17 @@ function PublicLayout() {
         </AnimatePresence>
       </main>
       {easterHunt.huntActive && (
-        <EasterHuntBadge
-          collected={easterHunt.collected}
-          total={easterHunt.total}
-          isComplete={easterHunt.isComplete}
-          rewardText={easterHunt.rewardText}
-          showProgress={easterHunt.showProgress}
-          badgeDismissed={easterHunt.badgeDismissed}
-          onDismiss={easterHunt.dismissBadge}
-        />
+        <Suspense fallback={null}>
+          <EasterHuntBadge
+            collected={easterHunt.collected}
+            total={easterHunt.total}
+            isComplete={easterHunt.isComplete}
+            rewardText={easterHunt.rewardText}
+            showProgress={easterHunt.showProgress}
+            badgeDismissed={easterHunt.badgeDismissed}
+            onDismiss={easterHunt.dismissBadge}
+          />
+        </Suspense>
       )}
       <Suspense fallback={null}>
         <Footer />

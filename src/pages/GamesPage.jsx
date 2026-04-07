@@ -32,10 +32,11 @@ export default function GamesPage() {
 
     return (
         <div className="min-h-screen bg-zn-paper comic-dots dark:bg-zinc-950 text-black dark:text-white pb-20 pt-10 relative">
-            <EasterDecorations pageId="games" />
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
-                <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-end mb-12">
+                <div className="relative mb-12 overflow-visible">
+                    <EasterDecorations pageId="games" />
+                    <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-end">
                     <div>
                         <h1 className="text-4xl md:text-6xl font-black uppercase tracking-wider mb-4 text-black dark:text-white font-display flex items-center gap-4">
                             <Gamepad2 className="w-10 h-10 md:w-14 md:h-14 text-zn-hot" />
@@ -46,6 +47,7 @@ export default function GamesPage() {
                         </p>
                     </div>
 
+                    </div>
                 </div>
 
                 {loading ? (
@@ -72,4 +74,3 @@ export default function GamesPage() {
         </div>
     );
 }
-

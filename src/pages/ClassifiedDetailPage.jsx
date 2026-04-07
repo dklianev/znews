@@ -332,31 +332,32 @@ export default function ClassifiedDetailPage() {
         <ArrowLeft className="w-4 h-4" /> Назад към обявите
       </Link>
 
-      <div className={`comic-panel ${item.tier !== 'standard' ? 'comic-dots' : ''} bg-white dark:bg-[#2A2438] p-0 border-4 ${tierStyle} relative overflow-hidden`} style={{ boxShadow: `5px 5px 0 ${tierShadow}` }}>
+      <div className="relative overflow-visible">
         <EasterDecorations pageId="classifiedDetail" />
-        {/* Top badges bar */}
-        <div className="flex items-center gap-2 p-4 pb-0 flex-wrap">
-          <span className="px-2.5 py-1 bg-zinc-800 text-white text-[10px] font-display font-black uppercase tracking-wider">
-            {CATEGORY_LABELS[item.category] || item.category}
-          </span>
-          {item.tier !== 'standard' && (
-            <span className="px-2.5 py-1 bg-zn-purple text-white text-[10px] font-display font-black uppercase tracking-wider flex items-center gap-1">
-              <Star className="w-3 h-3" /> {TIER_LABELS[item.tier]}
+        <div className={`comic-panel ${item.tier !== 'standard' ? 'comic-dots' : ''} bg-white dark:bg-[#2A2438] p-0 border-4 ${tierStyle} relative overflow-hidden`} style={{ boxShadow: `5px 5px 0 ${tierShadow}` }}>
+          {/* Top badges bar */}
+          <div className="flex items-center gap-2 p-4 pb-0 flex-wrap">
+            <span className="px-2.5 py-1 bg-zinc-800 text-white text-[10px] font-display font-black uppercase tracking-wider">
+              {CATEGORY_LABELS[item.category] || item.category}
             </span>
-          )}
-          <span className="text-xs text-gray-400 font-mono ml-auto">#{item.id}</span>
-        </div>
+            {item.tier !== 'standard' && (
+              <span className="px-2.5 py-1 bg-zn-purple text-white text-[10px] font-display font-black uppercase tracking-wider flex items-center gap-1">
+                <Star className="w-3 h-3" /> {TIER_LABELS[item.tier]}
+              </span>
+            )}
+            <span className="text-xs text-gray-400 font-mono ml-auto">#{item.id}</span>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
-          {/* Left: Images */}
-          {item.images && item.images.length > 0 && (
-            <div className="p-4 relative z-[2]">
-              <ImageGallery images={item.images} />
-            </div>
-          )}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+            {/* Left: Images */}
+            {item.images && item.images.length > 0 && (
+              <div className="p-4 relative z-[2]">
+                <ImageGallery images={item.images} />
+              </div>
+            )}
 
-          {/* Right: Details */}
-          <div className={`p-4 ${(!item.images || item.images.length === 0) ? 'lg:col-span-2' : ''} relative z-[2]`}>
+            {/* Right: Details */}
+            <div className={`p-4 ${(!item.images || item.images.length === 0) ? 'lg:col-span-2' : ''} relative z-[2]`}>
             <h1
               ref={pageHeadingRef}
               className="font-display text-2xl md:text-3xl font-black uppercase tracking-wider text-zn-text dark:text-[#EDE4D0] mb-3 text-shadow-brutal leading-tight scroll-mt-24 md:scroll-mt-28"
@@ -423,6 +424,7 @@ export default function ClassifiedDetailPage() {
                 Yapper
               </button>
               {yapperPopup}
+            </div>
             </div>
           </div>
         </div>

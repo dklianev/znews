@@ -6,8 +6,10 @@ import CollectibleEasterEgg from './CollectibleEasterEgg';
 
 const POSITION_MAP = {
   'top-right': 'top-2 right-2',
+  'top-right-inset': 'top-14 right-6 md:top-10 md:right-10',
   'top-left': 'top-2 left-2',
   'bottom-right': 'bottom-2 right-2',
+  'bottom-right-inset': 'bottom-2 right-8 md:bottom-0 md:right-14',
   'bottom-left': 'bottom-2 left-2',
   'bottom-left-inset': 'bottom-4 left-4',
 };
@@ -33,12 +35,12 @@ export default function EasterDecorations({ pageId, hunt }) {
       return (
         <div
           key={slot.eggId || `easter-hunt-${pageId}-${i}`}
-          className={`absolute ${posClass} z-[3] ${slot.mobileHidden ? 'hidden md:block' : ''}`}
+          className={`absolute ${posClass} z-[4] ${slot.mobileHidden ? 'hidden md:block' : ''}`}
           aria-hidden="false"
         >
           {slot.withTape && (
             <div
-              className="pointer-events-none absolute -top-2 left-1/2 h-3 w-8 -translate-x-1/2 border border-amber-300/50 bg-amber-100/80"
+              className="pointer-events-none absolute -top-2 left-1/2 z-[5] h-3 w-8 -translate-x-1/2 border border-amber-300/50 bg-amber-100/80"
               style={{ transform: `translateX(-50%) rotate(${slot.tapeRotation || '0deg'})` }}
             />
           )}
@@ -62,6 +64,7 @@ export default function EasterDecorations({ pageId, hunt }) {
         withTape={slot.withTape}
         tapeRotation={slot.tapeRotation}
         mobileHidden={slot.mobileHidden}
+        opacityClass={slot.opacityClass}
       />
     );
   });

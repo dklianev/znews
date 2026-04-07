@@ -2,6 +2,7 @@ const SIZE_MAP = {
   sm: 'w-10 h-[60px]',
   md: 'w-14 h-[84px]',
   lg: 'w-20 h-[120px]',
+  xl: 'w-24 h-[144px]',
 };
 
 export default function EasterEgg({ variant = 'egg-red', size = 'md', className = '' }) {
