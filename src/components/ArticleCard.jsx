@@ -6,6 +6,7 @@ import { usePublicData } from '../context/DataContext';
 import HeroSection from './HeroSection';
 import ResponsiveImage from './ResponsiveImage';
 import { formatNewsDate } from '../utils/newsDate';
+import { shouldRenderDecorations } from '../utils/seasonalCampaigns';
 
 const fallbackImg = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" fill="%23EDE6DA"><rect width="800" height="450"/><text x="400" y="225" text-anchor="middle" font-family="Oswald,sans-serif" font-size="26" font-weight="900" fill="%23C4B49A">ZNEWS</text></svg>');
 const DEFAULT_HERO_SETTINGS = {
@@ -73,7 +74,10 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
           className="polaroid-thick group cursor-pointer h-full comic-panel-hover"
           style={{ '--tilt': `${tilt}deg` }}
         >
-          <div className="tape tape-tl" />
+          {shouldRenderDecorations(siteSettings)
+            ? <img src="/easter/bunny-tape.svg" alt="" aria-hidden="true" className="absolute -top-3 left-6 w-[72px] h-8 z-10 pointer-events-none select-none" style={{ transform: 'rotate(-8deg)' }} />
+            : <div className="tape tape-tl" />
+          }
           {/* Photo area */}
           <div className="relative overflow-hidden" style={{ height: '200px' }}>
             <ResponsiveImage
