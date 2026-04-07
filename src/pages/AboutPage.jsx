@@ -6,6 +6,7 @@ import { Mail, Phone, MapPin, Users, Award, Newspaper, Shield, CheckCircle, Aler
 import { usePublicData } from '../context/DataContext';
 import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
+import EasterDecorations from '../components/seasonal/EasterDecorations';
 
 const AVATAR_COLORS = ['bg-zn-hot', 'bg-zn-purple', 'bg-blue-700', 'bg-emerald-700', 'bg-amber-700', 'bg-violet-700', 'bg-rose-700', 'bg-teal-700'];
 const STAT_COLORS = ['text-zn-hot', 'text-zn-purple', 'text-zn-orange', 'text-zn-blue'];
@@ -145,6 +146,7 @@ export default function AboutPage() {
       className="max-w-4xl mx-auto px-4 py-8"
     >
       <div className="text-center mb-12 relative">
+        <EasterDecorations pageId="about" />
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}

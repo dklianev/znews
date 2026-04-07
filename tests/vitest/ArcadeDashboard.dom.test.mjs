@@ -40,6 +40,7 @@ vi.mock('../../src/components/games/GamesHubCard', () => ({
 
 vi.mock('react-router-dom', () => ({
   Link: ({ to, children, ...props }) => createElement('a', { href: to, ...props }, children),
+  useOutletContext: () => null,
 }));
 
 const { default: GameTetrisPage } = await import('../../src/pages/GameTetrisPage.jsx');

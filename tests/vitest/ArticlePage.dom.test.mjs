@@ -106,6 +106,7 @@ vi.mock('react-router-dom', () => ({
   useParams: () => ({ id: '27' }),
   useNavigationType: () => 'PUSH',
   Link: ({ to, children, ...props }) => createElement('a', { href: to, ...props }, children),
+  useOutletContext: () => null,
 }));
 
 const { default: ArticlePage } = await import('../../src/pages/ArticlePage.jsx');

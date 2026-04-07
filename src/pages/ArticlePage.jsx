@@ -16,6 +16,7 @@ import { useEntryHeadingScroll } from '../hooks/useEntryHeadingScroll';
 import YouTubeEmbed from '../components/YouTubeEmbed';
 import ErrorBoundary from '../components/ErrorBoundary';
 import ArticleReactions from '../components/ArticleReactions';
+import EasterDecorations from '../components/seasonal/EasterDecorations';
 import { formatNewsDate } from '../utils/newsDate';
 
 const categoryColors = {
@@ -651,7 +652,7 @@ export default function ArticlePage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main article */}
-        <article ref={articleBodyRef} className="lg:col-span-2">
+        <article ref={articleBodyRef} className="lg:col-span-2 relative">
           {/* Category & badges */}
           <div className="flex items-center gap-2 mb-3">
             {article.breaking && (
@@ -880,6 +881,7 @@ export default function ArticlePage() {
               </div>
             </section>
           )}
+          <EasterDecorations pageId="article" />
         </article>
 
         {/* Sidebar */}

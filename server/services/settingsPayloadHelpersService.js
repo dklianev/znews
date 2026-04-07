@@ -230,6 +230,32 @@ export function createSettingsPayloadHelpers({
       currency: normalizeText(classifiedsInput.currency ?? classifiedsDefaults.currency, 10) || classifiedsDefaults.currency,
     };
 
+    const allowedVariantSets = new Set(['classic', 'police', 'underground', 'vip']);
+    const seasonalDefaults = DEFAULT_SITE_SETTINGS.seasonalCampaigns?.easter || {};
+    const seasonalInput = source.seasonalCampaigns?.easter && typeof source.seasonalCampaigns.easter === 'object'
+      ? source.seasonalCampaigns.easter
+      : {};
+    const easterMaxEggsRaw = Number.parseInt(seasonalInput.maxVisibleEggs, 10);
+    const easterHuntCountRaw = Number.parseInt(seasonalInput.huntEggCount, 10);
+    const easterHuntVersionRaw = Number.parseInt(seasonalInput.huntVersion, 10);
+    const easterVariantCandidate = normalizeText(seasonalInput.variantSet, 24) || seasonalDefaults.variantSet || 'classic';
+    const seasonalCampaigns = {
+      easter: {
+        enabled: Boolean(seasonalInput.enabled ?? seasonalDefaults.enabled ?? false),
+        autoWindow: Boolean(seasonalInput.autoWindow ?? seasonalDefaults.autoWindow ?? true),
+        startAt: seasonalInput.startAt ? new Date(seasonalInput.startAt) : (seasonalDefaults.startAt || null),
+        endAt: seasonalInput.endAt ? new Date(seasonalInput.endAt) : (seasonalDefaults.endAt || null),
+        decorationsEnabled: Boolean(seasonalInput.decorationsEnabled ?? seasonalDefaults.decorationsEnabled ?? true),
+        variantSet: allowedVariantSets.has(easterVariantCandidate) ? easterVariantCandidate : 'classic',
+        maxVisibleEggs: Number.isInteger(easterMaxEggsRaw) ? Math.min(6, Math.max(1, easterMaxEggsRaw)) : (seasonalDefaults.maxVisibleEggs || 2),
+        huntEnabled: Boolean(seasonalInput.huntEnabled ?? seasonalDefaults.huntEnabled ?? false),
+        huntEggCount: Number.isInteger(easterHuntCountRaw) ? Math.min(12, Math.max(3, easterHuntCountRaw)) : (seasonalDefaults.huntEggCount || 6),
+        huntRewardText: normalizeText(seasonalInput.huntRewardText ?? seasonalDefaults.huntRewardText ?? '', 200),
+        huntVersion: Number.isInteger(easterHuntVersionRaw) ? Math.max(1, easterHuntVersionRaw) : (seasonalDefaults.huntVersion || 1),
+        showProgress: Boolean(seasonalInput.showProgress ?? seasonalDefaults.showProgress ?? true),
+      },
+    };
+
     return {
       breakingBadgeLabel,
       navbarLinks: navbarLinks.length > 0 ? navbarLinks : DEFAULT_SITE_SETTINGS.navbarLinks,
@@ -242,6 +268,7 @@ export function createSettingsPayloadHelpers({
       layoutPresets,
       tipLinePromo,
       classifieds,
+      seasonalCampaigns,
     };
   }
 

@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 230" width="720" height="230" fill="none">
+  <defs>
+    <path id="eggShape" d="M131.2,101.7c4.1,56.2-28.6,86.3-64.6,86.3S-3.7,157.2,1,101.7C6,43,45,1,66.1,1C86,1,127,44,131.2,101.7z"/>
+
+    <clipPath id="clipEgg1"><use href="#eggShape"/></clipPath>
+    <clipPath id="clipEgg2"><use href="#eggShape"/></clipPath>
+    <clipPath id="clipEgg3"><use href="#eggShape"/></clipPath>
+    <clipPath id="clipEgg4"><use href="#eggShape"/></clipPath>
+
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="7" stdDeviation="6" flood-color="#000" flood-opacity="0.18"/>
+    </filter>
+
+    <pattern id="goldHatch1" width="12" height="12" patternUnits="userSpaceOnUse">
+      <path d="M2 10 L10 2" stroke="#8C6410" stroke-width="2.2" stroke-linecap="round" opacity="0.45"/>
+    </pattern>
+
+    <linearGradient id="glossGrad" x1="18" y1="16" x2="58" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.42"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(20 18)" filter="url(#shadow)">
+    <ellipse cx="67" cy="197" rx="30" ry="7" fill="#000" opacity="0.10"/>
+    <use href="#eggShape" fill="#CC0A1A" stroke="#7E0711" stroke-width="3"/>
+    <g clip-path="url(#clipEgg1)">
+      <rect x="-5" y="87" width="145" height="36" fill="#E87420"/>
+      <rect x="-5" y="84" width="145" height="4" fill="#F6A15F" opacity="0.75"/>
+      <rect x="-5" y="123" width="145" height="4" fill="#A74809" opacity="0.35"/>
+      <circle cx="96" cy="72" r="10" fill="#E4B43A" stroke="#9A6E12" stroke-width="2.5"/>
+      <path d="M96 66.5 L97.9 70.5 L102.3 70.8 L99.1 73.6 L100.1 78 L96 75.8 L91.9 78 L92.9 73.6 L89.7 70.8 L94.1 70.5 Z"
+            fill="#FFF3C4"/>
+      <path d="M24 28 C10 48 10 88 18 118 C23 138 30 154 42 168"
+            stroke="url(#glossGrad)" stroke-width="13" stroke-linecap="round"/>
+      <ellipse cx="42" cy="46" rx="11" ry="20" fill="#FFFFFF" opacity="0.14" transform="rotate(18 42 46)"/>
+    </g>
+  </g>
+
+  <g transform="translate(185 18)" filter="url(#shadow)">
+    <ellipse cx="67" cy="197" rx="30" ry="7" fill="#000" opacity="0.10"/>
+    <use href="#eggShape" fill="#E8B830" stroke="#9A7310" stroke-width="3"/>
+    <g clip-path="url(#clipEgg2)">
+      <rect x="-8" y="0" width="150" height="190" fill="url(#goldHatch1)"/>
+
+      <g stroke="#6E4D08" stroke-width="1.8" stroke-linecap="round" opacity="0.25">
+        <path d="M117 52 L43 -12"/>
+        <path d="M126 82 L28 -2"/>
+        <path d="M130 113 L22 18"/>
+        <path d="M126 145 L22 48"/>
+      </g>
+
+      <circle cx="96" cy="70" r="9.5" fill="#CC0A1A" stroke="#7E0711" stroke-width="2.5"/>
+      <circle cx="96" cy="70" r="3.5" fill="#FFD9D9"/>
+      <path d="M24 28 C10 48 10 88 18 118 C23 138 30 154 42 168"
+            stroke="url(#glossGrad)" stroke-width="13" stroke-linecap="round"/>
+      <ellipse cx="42" cy="46" rx="11" ry="20" fill="#FFFFFF" opacity="0.12" transform="rotate(18 42 46)"/>
+    </g>
+  </g>
+
+  <g transform="translate(350 18)" filter="url(#shadow)">
+    <ellipse cx="67" cy="197" rx="30" ry="7" fill="#000" opacity="0.10"/>
+    <use href="#eggShape" fill="#5B1A8C" stroke="#35104F" stroke-width="3"/>
+    <g clip-path="url(#clipEgg3)">
+      <ellipse cx="42" cy="58" rx="24" ry="42" fill="#C9A6EA" opacity="0.18"/>
+
+      <path d="M-8 99
+               C14 84 34 113 58 99
+               C82 85 102 113 141 95
+               L141 125
+               C103 138 82 109 58 124
+               C34 139 14 109 -8 122 Z"
+            fill="#E87420"/>
+
+      <path d="M-8 105
+               C14 91 34 118 58 105
+               C82 91 102 118 141 101"
+            fill="none"
+            stroke="#FFB066"
+            stroke-width="4.5"
+            stroke-linecap="round"/>
+
+      <path d="M24 28 C10 48 10 88 18 118 C23 138 30 154 42 168"
+            stroke="url(#glossGrad)" stroke-width="13" stroke-linecap="round"/>
+      <ellipse cx="42" cy="46" rx="11" ry="20" fill="#FFFFFF" opacity="0.13" transform="rotate(18 42 46)"/>
+    </g>
+  </g>
+
+  <g transform="translate(515 18)" filter="url(#shadow)">
+    <ellipse cx="67" cy="197" rx="30" ry="7" fill="#000" opacity="0.10"/>
+    <use href="#eggShape" fill="#F5EFE7" stroke="#B7A99C" stroke-width="3"/>
+    <g clip-path="url(#clipEgg4)">
+      <path d="M70 8
+               L56 34
+               L78 58
+               L54 84
+               L82 116
+               L50 148
+               L74 176
+               L60 195"
+            fill="none"
+            stroke="#CC0A1A"
+            stroke-width="14"
+            stroke-linecap="round"
+            stroke-linejoin="round"/>
+
+      <path d="M70 8
+               L56 34
+               L78 58
+               L54 84
+               L82 116
+               L50 148
+               L74 176
+               L60 195"
+            fill="none"
+            stroke="#6E0913"
+            stroke-width="3.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"/>
+
+      <g stroke="#E54141" stroke-width="3.2" stroke-linecap="round" opacity="0.95">
+        <path d="M29 74 L40 68"/>
+        <path d="M92 66 L103 59"/>
+        <path d="M24 122 L37 118"/>
+        <path d="M96 116 L108 121"/>
+        <path d="M32 156 L45 161"/>
+        <path d="M94 151 L106 144"/>
+      </g>
+
+      <path d="M24 28 C10 48 10 88 18 118 C23 138 30 154 42 168"
+            stroke="url(#glossGrad)" stroke-width="13" stroke-linecap="round"/>
+      <ellipse cx="42" cy="46" rx="11" ry="20" fill="#FFFFFF" opacity="0.10" transform="rotate(18 42 46)"/>
+    </g>
+  </g>
+</svg>

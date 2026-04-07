@@ -17,6 +17,7 @@ import { homeCopy } from '../content/uiCopy';
 import { buildHomepageSections } from '../../shared/homepageSelectors.js';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GamesDailyStatus from '../components/games/GamesDailyStatus';
+import EasterDecorations from '../components/seasonal/EasterDecorations';
 import { formatNewsDate } from '../utils/newsDate';
 
 const fallbackLatestImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EDE4D0"/><stop offset="1" stop-color="#DDD3C2"/></linearGradient></defs><rect width="1200" height="700" fill="url(#g)"/><text x="600" y="360" text-anchor="middle" font-family="Oswald,sans-serif" font-size="64" font-weight="900" fill="#C4B49A">LOS SANTOS NEWSWIRE</text></svg>');
@@ -430,8 +431,9 @@ export default function HomePage() {
       </section>
 
       {/* ═══ HERO — Newspaper front page ═══ */}
-      <section>
+      <section className="relative">
         <ArticleCard article={heroArticle} size="hero" heroPhotoArticle={heroPrimaryPhoto} siblingArticles={heroSiblings} />
+        <EasterDecorations pageId="homepage" />
       </section>
 
       {/* ═══ Games Teaser ═══ */}

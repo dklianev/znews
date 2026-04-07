@@ -62,6 +62,7 @@ vi.mock('motion/react', async () => {
 
 vi.mock('react-router-dom', () => ({
   useParams: () => ({ slug: 'crime-underground' }),
+  useOutletContext: () => null,
 }));
 
 const { default: CategoryPage } = await import('../../src/pages/CategoryPage.jsx');

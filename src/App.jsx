@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate } from 'react-router-dom';
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider, useAdminData, usePublicData, useSessionData } from './context/DataContext';
 import { AnimatePresence, motion } from 'motion/react';
@@ -9,6 +9,9 @@ import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import { appCopy } from './content/uiCopy';
 import { isChunkLoadError, shouldReloadForChunkError } from './utils/chunkReload';
+import useEasterEggHunt from './hooks/useEasterEggHunt';
+import EasterHuntBadge from './components/seasonal/EasterHuntBadge';
+import { shouldRenderDecorations } from './utils/seasonalCampaigns';
 import { reportChunkLoadIssue } from './utils/clientMonitoring';
 import { showChunkReloadToast } from './utils/systemToasts';
 
@@ -261,6 +264,22 @@ function PublicGameRoute({ slug, children }) {
 }
 function PublicLayout() {
   const location = useLocation();
+  const { siteSettings } = usePublicData();
+  const easterHunt = useEasterEggHunt(siteSettings);
+  const easterDecorationsActive = useMemo(
+    () => shouldRenderDecorations(siteSettings),
+    [siteSettings],
+  );
+
+  useEffect(() => {
+    if (easterDecorationsActive) {
+      document.body.classList.add('easter-active');
+    } else {
+      document.body.classList.remove('easter-active');
+    }
+    return () => document.body.classList.remove('easter-active');
+  }, [easterDecorationsActive]);
+
   return (
     <div className="min-h-screen flex flex-col">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-zn-purple focus:text-white focus:font-display focus:font-bold focus:text-sm focus:uppercase focus:tracking-wider" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
@@ -278,11 +297,22 @@ function PublicLayout() {
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
             <Suspense fallback={<PublicPageFallback />}>
-              <Outlet />
+              <Outlet context={{ easterHunt }} />
             </Suspense>
           </motion.div>
         </AnimatePresence>
       </main>
+      {easterHunt.huntActive && (
+        <EasterHuntBadge
+          collected={easterHunt.collected}
+          total={easterHunt.total}
+          isComplete={easterHunt.isComplete}
+          rewardText={easterHunt.rewardText}
+          showProgress={easterHunt.showProgress}
+          badgeDismissed={easterHunt.badgeDismissed}
+          onDismiss={easterHunt.dismissBadge}
+        />
+      )}
       <Suspense fallback={null}>
         <Footer />
       </Suspense>

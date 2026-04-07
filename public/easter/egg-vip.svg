@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 210" width="140" height="210" fill="none">
+  <defs>
+    <path id="eggShape" d="M131.2,101.7c4.1,56.2-28.6,86.3-64.6,86.3S-3.7,157.2,1,101.7C6,43,45,1,66.1,1C86,1,127,44,131.2,101.7z"/>
+    <clipPath id="eggClip1">
+      <use href="#eggShape"/>
+    </clipPath>
+    <pattern id="vipDots" width="10" height="10" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#F7D979" opacity="0.22"/>
+    </pattern>
+    <linearGradient id="glossGrad1" x1="18" y1="16" x2="58" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.42"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(5 10)">
+    <use href="#eggShape" fill="#B80E1C" stroke="#1F0E0E" stroke-width="4"/>
+
+    <g clip-path="url(#eggClip1)">
+      <rect x="-6" y="74" width="145" height="42" fill="#D8A321"/>
+      <rect x="-6" y="116" width="145" height="14" fill="#F1C84D"/>
+      <rect x="-6" y="132" width="145" height="58" fill="url(#vipDots)"/>
+
+      <path d="M6 76 C23 65 39 84 56 76 C73 68 89 85 106 76 C118 70 127 73 137 68"
+            stroke="#FFE8A0" stroke-width="5" stroke-linecap="round"/>
+
+      <circle cx="97" cy="53" r="13" fill="#E3B12E" stroke="#1F0E0E" stroke-width="3"/>
+      <circle cx="97" cy="53" r="7" fill="#F8E3A2"/>
+      <path d="M97 46.5 L99.1 50.6 L103.7 51.1 L100.3 54.2 L101.2 58.8 L97 56.6 L92.8 58.8 L93.7 54.2 L90.3 51.1 L94.9 50.6 Z"
+            fill="#B80E1C"/>
+
+      <path d="M16 104 C32 94 46 112 62 104 C78 96 93 114 113 102"
+            stroke="#8D0D17" stroke-width="4.5" stroke-linecap="round" opacity="0.55"/>
+
+      <path d="M24 28 C10 48 10 88 18 118 C23 138 30 154 42 168"
+            stroke="url(#glossGrad1)" stroke-width="13" stroke-linecap="round"/>
+      <ellipse cx="42" cy="46" rx="11" ry="20" fill="#FFFFFF" opacity="0.14" transform="rotate(18 42 46)"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 210" width="140" height="210" fill="none">
+  <defs>
+    <path id="eggShape" d="M131.2,101.7c4.1,56.2-28.6,86.3-64.6,86.3S-3.7,157.2,1,101.7C6,43,45,1,66.1,1C86,1,127,44,131.2,101.7z"/>
+    <clipPath id="clipEgg2"><use href="#eggShape"/></clipPath>
+    <pattern id="goldHatch1" width="12" height="12" patternUnits="userSpaceOnUse">
+      <path d="M2 10 L10 2" stroke="#8C6410" stroke-width="2.2" stroke-linecap="round" opacity="0.45"/>
+    </pattern>
+    <linearGradient id="glossGrad" x1="18" y1="16" x2="58" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.42"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(4 4)">
+    <use href="#eggShape" fill="#E8B830" stroke="#9A7310" stroke-width="3"/>
+
+    <g clip-path="url(#clipEgg2)">
+      <rect x="-8" y="0" width="150" height="190" fill="url(#goldHatch1)"/>
+
+      <g stroke="#6E4D08" stroke-width="1.8" stroke-linecap="round" opacity="0.25">
+        <path d="M117 52 L43 -12"/>
+        <path d="M126 82 L28 -2"/>
+        <path d="M130 113 L22 18"/>
+        <path d="M126 145 L22 48"/>
+      </g>
+
+      <circle cx="96" cy="70" r="9.5" fill="#CC0A1A" stroke="#7E0711" stroke-width="2.5"/>
+      <circle cx="96" cy="70" r="3.5" fill="#FFD9D9"/>
+
+      <path d="M24 28 C10 48 10 88 18 118 C23 138 30 154 42 168"
+            stroke="url(#glossGrad)" stroke-width="13" stroke-linecap="round"/>
+      <ellipse cx="42" cy="46" rx="11" ry="20" fill="#FFFFFF" opacity="0.12" transform="rotate(18 42 46)"/>
+    </g>
+  </g>
+</svg>

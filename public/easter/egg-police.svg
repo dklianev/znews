@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 210" width="140" height="210" fill="none">
+  <defs>
+    <path id="eggShape" d="M131.2,101.7c4.1,56.2-28.6,86.3-64.6,86.3S-3.7,157.2,1,101.7C6,43,45,1,66.1,1C86,1,127,44,131.2,101.7z"/>
+    <clipPath id="eggClip2">
+      <use href="#eggShape"/>
+    </clipPath>
+    <pattern id="policeDots" width="9" height="9" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#0E4FA8" opacity="0.18"/>
+    </pattern>
+    <linearGradient id="glossGrad2" x1="18" y1="16" x2="58" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.40"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(5 10)">
+    <use href="#eggShape" fill="#1E63C6" stroke="#10233D" stroke-width="4"/>
+
+    <g clip-path="url(#eggClip2)">
+      <rect x="-8" y="62" width="150" height="24" fill="#F6FAFF"/>
+      <rect x="-8" y="86" width="150" height="18" fill="#0F4EA6"/>
+      <rect x="-8" y="104" width="150" height="18" fill="#F6FAFF"/>
+      <rect x="-8" y="122" width="150" height="18" fill="#0F4EA6"/>
+      <rect x="-8" y="140" width="150" height="52" fill="url(#policeDots)"/>
+
+      <circle cx="66" cy="50" r="15" fill="#F6FAFF" stroke="#10233D" stroke-width="3"/>
+      <circle cx="66" cy="50" r="8.5" fill="#1E63C6"/>
+      <path d="M66 41.8 L68.2 46.3 L73.2 46.9 L69.5 50.2 L70.5 55.2 L66 52.9 L61.5 55.2 L62.5 50.2 L58.8 46.9 L63.8 46.3 Z"
+            fill="#F6FAFF"/>
+
+      <path d="M15 90 H118" stroke="#9BC1FF" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+      <path d="M15 126 H118" stroke="#9BC1FF" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+
+      <path d="M18 153 C28 147 39 160 49 153 C59 146 70 159 80 153 C90 147 100 159 112 151"
+            stroke="#EAF4FF" stroke-width="4.5" stroke-linecap="round" opacity="0.85"/>
+
+      <path d="M24 28 C10 48 10 88 18 118 C23 138 30 154 42 168"
+            stroke="url(#glossGrad2)" stroke-width="13" stroke-linecap="round"/>
+      <ellipse cx="42" cy="46" rx="11" ry="20" fill="#FFFFFF" opacity="0.12" transform="rotate(18 42 46)"/>
+    </g>
+  </g>
+</svg>

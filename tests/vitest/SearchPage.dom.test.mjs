@@ -94,6 +94,7 @@ vi.mock('react-router-dom', () => ({
   useSearchParams: () => [new URLSearchParams('q=test')],
   useNavigate: () => navigate,
   Link: ({ to, children, ...props }) => createElement('a', { href: to, ...props }, children),
+  useOutletContext: () => null,
 }));
 
 const { default: SearchPage } = await import('../../src/pages/SearchPage.jsx');

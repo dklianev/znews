@@ -8,6 +8,7 @@ import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
+import EasterDecorations from '../components/seasonal/EasterDecorations';
 
 const PER_PAGE = 6;
 const CATEGORY_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt';
@@ -144,6 +145,7 @@ export default function CategoryPage() {
     >
       {/* Header */}
       <div className="newspaper-page comic-panel comic-dots p-6 mb-6 relative">
+        <EasterDecorations pageId="category" />
         <div className="absolute -top-2 right-8 w-14 h-5 bg-yellow-200/70 border border-black/5 transform rotate-4 z-10" style={{boxShadow:'1px 1px 2px rgba(0,0,0,0.1)'}} />
         <h1 className="font-display text-3xl font-black text-zn-text tracking-wider uppercase text-shadow-brutal relative z-[2]">{category.name}</h1>
         <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mt-2 mb-2 relative z-[2]" />

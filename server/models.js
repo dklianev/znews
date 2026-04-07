@@ -588,6 +588,22 @@ const siteSettingsSchema = new mongoose.Schema({
     beneficiary: String,
     currency: String,
   },
+  seasonalCampaigns: {
+    easter: {
+      enabled: { type: Boolean, default: false },
+      autoWindow: { type: Boolean, default: true },
+      startAt: { type: Date, default: null },
+      endAt: { type: Date, default: null },
+      decorationsEnabled: { type: Boolean, default: true },
+      variantSet: { type: String, default: 'classic' },
+      maxVisibleEggs: { type: Number, default: 2 },
+      huntEnabled: { type: Boolean, default: false },
+      huntEggCount: { type: Number, default: 6 },
+      huntRewardText: { type: String, default: '' },
+      huntVersion: { type: Number, default: 1 },
+      showProgress: { type: Boolean, default: true },
+    },
+  },
 }, opts);
 
 // ─── Article Revisions ───

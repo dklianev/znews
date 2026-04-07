@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
 import { Save, Plus, Trash2, RotateCcw, RefreshCw, ShieldAlert, History, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { COMIC_LAYOUT_PRESET_OPTIONS } from '../../utils/comicCardDesign';
@@ -96,9 +96,27 @@ const DEFAULT_SETTINGS = {
     beneficiary: 'zNews',
     currency: '$',
   },
+  seasonalCampaigns: {
+    easter: {
+      enabled: false,
+      autoWindow: true,
+      startAt: '',
+      endAt: '',
+      decorationsEnabled: true,
+      variantSet: 'classic',
+      maxVisibleEggs: 2,
+      huntEnabled: false,
+      huntEggCount: 6,
+      huntRewardText: 'Браво! Намери всички яйца!',
+      huntVersion: 1,
+      showProgress: true,
+    },
+  },
 };
 
 const SPOTLIGHT_ICON_OPTIONS = ['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'Newspaper', 'ShieldAlert', 'Gamepad2', 'Tag'];
+const SiteSettingsRevisionsList = lazy(() => import('../../components/admin/SiteSettingsRevisionsList'));
+const SeasonalCampaignSettingsSection = lazy(() => import('../../components/admin/SeasonalCampaignSettingsSection'));
 
 function resolveSettings(raw) {
   const input = raw && typeof raw === 'object' ? raw : {};
@@ -154,6 +172,12 @@ function resolveSettings(raw) {
         standard: { ...DEFAULT_SETTINGS.classifieds.tiers.standard, ...(input.classifieds?.tiers?.standard || {}) },
         highlighted: { ...DEFAULT_SETTINGS.classifieds.tiers.highlighted, ...(input.classifieds?.tiers?.highlighted || {}) },
         vip: { ...DEFAULT_SETTINGS.classifieds.tiers.vip, ...(input.classifieds?.tiers?.vip || {}) },
+      },
+    },
+    seasonalCampaigns: {
+      easter: {
+        ...DEFAULT_SETTINGS.seasonalCampaigns.easter,
+        ...(input.seasonalCampaigns?.easter || {}),
       },
     },
   };
@@ -461,33 +485,14 @@ export default function ManageSiteSettings() {
             Обнови
           </button>
         </div>
-        <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-          {loadingHistory && <p className="text-xs font-sans text-gray-400 py-2">Зареждане на версии...</p>}
-          {!loadingHistory && siteSettingsRevisions.slice(0, 30).map((revision) => (
-            <div key={revision.revisionId} className="flex items-center justify-between gap-2 border border-gray-200 bg-white px-2.5 py-1.5">
-              <div className="min-w-0">
-                <p className="text-xs font-sans font-semibold text-gray-700 truncate">
-                  v{revision.version} · {revision.source}
-                </p>
-                <p className="text-[10px] font-sans text-gray-400">
-                  {new Date(revision.createdAt).toLocaleString('bg-BG', { dateStyle: 'short', timeStyle: 'short' })}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleRestoreHistory(revision.revisionId)}
-                disabled={restoringHistory === revision.revisionId}
-                className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-sans font-semibold text-zn-purple border border-zn-purple/30 hover:bg-zn-purple/5 transition-colors disabled:opacity-50"
-              >
-                <RotateCcw className="w-3 h-3" />
-                {restoringHistory === revision.revisionId ? '...' : 'Restore'}
-              </button>
-            </div>
-          ))}
-          {!loadingHistory && siteSettingsRevisions.length === 0 && (
-            <p className="text-xs font-sans text-gray-400 py-2">Няма запазени версии на Site settings.</p>
-          )}
-        </div>
+        <Suspense fallback={<p className="py-2 text-xs font-sans text-gray-400">Зареждане на версии...</p>}>
+          <SiteSettingsRevisionsList
+            loadingHistory={loadingHistory}
+            siteSettingsRevisions={siteSettingsRevisions}
+            restoringHistory={restoringHistory}
+            handleRestoreHistory={handleRestoreHistory}
+          />
+        </Suspense>
       </section>
 
       <section className={listSectionCls}>
@@ -1121,6 +1126,16 @@ export default function ManageSiteSettings() {
           </div>
         </div>
       </section>
+      <Suspense fallback={<section className={listSectionCls}><p className="text-xs font-sans text-gray-400">Зареждане на великденските настройки...</p></section>}>
+        <SeasonalCampaignSettingsSection
+          form={form}
+          setForm={setForm}
+          clearFeedback={clearFeedback}
+          listSectionCls={listSectionCls}
+          inputCls={inputCls}
+          tinyLabelCls={tinyLabelCls}
+        />
+      </Suspense>
       <section ref={registerFieldRef('about.adPlans')} className={listSectionCls}>
         <div className="flex items-center justify-between">
           <h2 className="font-sans font-semibold text-gray-900">About рекламни планове</h2>

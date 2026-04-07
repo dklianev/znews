@@ -5,6 +5,7 @@ import { getTodayStr } from '../utils/gameDate';
 import GamesHubCard from '../components/games/GamesHubCard';
 import { sortGamesCatalog } from '../utils/gamesCatalog';
 import { Gamepad2, Loader2 } from 'lucide-react';
+import EasterDecorations from '../components/seasonal/EasterDecorations';
 
 export default function GamesPage() {
     const { games, publicSectionStatus, loadGamesCatalog } = usePublicData();
@@ -30,7 +31,8 @@ export default function GamesPage() {
     })), [games, todayStr]);
 
     return (
-        <div className="min-h-screen bg-zn-paper comic-dots dark:bg-zinc-950 text-black dark:text-white pb-20 pt-10">
+        <div className="min-h-screen bg-zn-paper comic-dots dark:bg-zinc-950 text-black dark:text-white pb-20 pt-10 relative">
+            <EasterDecorations pageId="games" />
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
                 <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-end mb-12">

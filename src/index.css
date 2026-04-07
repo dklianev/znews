@@ -3463,6 +3463,22 @@
       0 0 0 2px rgba(255, 136, 64, 0.2);
   }
 
+  /* ── Easter seasonal dot override ── */
+  body.easter-active .comic-dots::after {
+    background:
+      radial-gradient(circle, rgba(168, 85, 247, 0.04) 1px, transparent 1px),
+      radial-gradient(circle, rgba(251, 146, 60, 0.03) 1.2px, transparent 1.2px);
+    background-size: 6px 6px, 9px 9px;
+    background-position: 0 0, 3px 3px;
+  }
+  body.easter-active .comic-dots-red::after {
+    background:
+      radial-gradient(circle, rgba(204, 10, 26, 0.04) 1px, transparent 1px),
+      radial-gradient(circle, rgba(168, 85, 247, 0.03) 1.2px, transparent 1.2px);
+    background-size: 6px 6px, 9px 9px;
+    background-position: 0 0, 3px 3px;
+  }
+
   /* ── Halftone dots: inverted for dark ── */
   .dark .comic-dots::after {
     background: radial-gradient(
