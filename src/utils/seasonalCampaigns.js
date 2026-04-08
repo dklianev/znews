@@ -8,7 +8,7 @@ const VARIANT_SETS = {
 const DECORATION_PAGE_MAX = {
   homepage: 2,
   article: 1,
-  classifiedDetail: 1,
+  classifieds: 1,
   games: 3,
   category: 1,
   about: 1,
@@ -21,9 +21,9 @@ const DECORATION_SLOTS = {
     { eggId: 'egg-home-section', position: 'bottom-left-inset', size: 'sm', withTape: false, mobileHidden: false },
   ],
   article: [
-    { eggId: 'egg-article-body', position: 'bottom-right', size: 'sm', withTape: true, tapeRotation: '-8deg', mobileHidden: false },
+    { eggId: 'egg-article-body', position: 'top-right', size: 'sm', withTape: true, tapeRotation: '-8deg', mobileHidden: false },
   ],
-  classifiedDetail: [
+  classifieds: [
     { eggId: 'egg-classifieds-main', position: 'top-right', size: 'sm', withTape: false, mobileHidden: false },
   ],
   games: [
@@ -46,11 +46,11 @@ const HUNT_SLOT_ORDER = [
   { pageId: 'homepage', eggId: 'egg-home-hero', position: 'top-right', size: 'md', withTape: true, tapeRotation: '12deg', mobileHidden: true },
   { pageId: 'homepage', eggId: 'egg-home-section', position: 'bottom-left-inset', size: 'sm', withTape: false, mobileHidden: false },
   { pageId: 'article', eggId: 'egg-article-lead', position: 'top-left', size: 'sm', withTape: true, tapeRotation: '-6deg', mobileHidden: false },
-  { pageId: 'article', eggId: 'egg-article-footer', position: 'bottom-right', size: 'sm', withTape: false, mobileHidden: false },
+  { pageId: 'article', eggId: 'egg-article-footer', position: 'bottom-left', size: 'sm', withTape: false, mobileHidden: false },
   { pageId: 'category', eggId: 'egg-category-top', position: 'top-right', size: 'sm', withTape: true, tapeRotation: '8deg', mobileHidden: false },
   { pageId: 'category', eggId: 'egg-category-bottom', position: 'bottom-left', size: 'sm', withTape: false, mobileHidden: false },
-  { pageId: 'classifiedDetail', eggId: 'egg-classifieds-top', position: 'top-right', size: 'sm', withTape: false, mobileHidden: false },
-  { pageId: 'classifiedDetail', eggId: 'egg-classifieds-bottom', position: 'bottom-left', size: 'sm', withTape: true, tapeRotation: '5deg', mobileHidden: false },
+  { pageId: 'classifieds', eggId: 'egg-classifieds-top', position: 'top-right', size: 'sm', withTape: false, mobileHidden: false },
+  { pageId: 'classifieds', eggId: 'egg-classifieds-bottom', position: 'bottom-left', size: 'sm', withTape: true, tapeRotation: '5deg', mobileHidden: false },
   { pageId: 'games', eggId: 'egg-games', position: 'top-right-inset', size: 'lg', withTape: true, tapeRotation: '6deg', mobileHidden: false },
   { pageId: 'about', eggId: 'egg-about', position: 'bottom-right', size: 'sm', withTape: false, mobileHidden: false },
   { pageId: 'search', eggId: 'egg-search-top', position: 'top-left', size: 'sm', withTape: true, tapeRotation: '-6deg', mobileHidden: false },

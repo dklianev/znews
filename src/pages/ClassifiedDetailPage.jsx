@@ -8,7 +8,7 @@ import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useEntryHeadingScroll } from '../hooks/useEntryHeadingScroll';
 import { addRecentlyViewed, useRecentlyViewed } from '../hooks/useRecentlyViewed';
 import { copyToClipboard } from '../utils/copyToClipboard';
-import EasterDecorations from '../components/seasonal/EasterDecorations';
+
 
 const CATEGORY_LABELS = {
   cars: 'Коли', properties: 'Имоти', services: 'Услуги',
@@ -333,7 +333,6 @@ export default function ClassifiedDetailPage() {
       </Link>
 
       <div className={`comic-panel ${item.tier !== 'standard' ? 'comic-dots' : ''} bg-white dark:bg-[#2A2438] p-0 border-4 ${tierStyle} relative overflow-hidden`} style={{ boxShadow: `5px 5px 0 ${tierShadow}` }}>
-        <EasterDecorations pageId="classifiedDetail" />
         {/* Top badges bar */}
           <div className="flex items-center gap-2 p-4 pb-0 flex-wrap">
             <span className="px-2.5 py-1 bg-zinc-800 text-white text-[10px] font-display font-black uppercase tracking-wider">

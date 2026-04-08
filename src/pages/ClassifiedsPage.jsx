@@ -5,6 +5,7 @@ import { Tag, Car, Building, Wrench, Search, Package, ShoppingCart, Plus, Phone,
 import { usePublicData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
+import EasterDecorations from '../components/seasonal/EasterDecorations';
 
 const CATEGORIES = [
   { value: '', label: 'Всички', icon: Tag },
@@ -310,6 +311,7 @@ export default function ClassifiedsPage() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-5xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="newspaper-page comic-panel comic-dots p-6 mb-6 relative">
+        <EasterDecorations pageId="classifieds" />
         <div className="absolute -top-2 left-10 w-16 h-5 bg-yellow-200/70 border border-black/5 transform -rotate-6 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
         <div className="flex items-center justify-between gap-3 relative z-[2] flex-wrap">
           <div className="flex items-center gap-3">
