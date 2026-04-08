@@ -8,6 +8,7 @@ export default function BreakingTicker() {
 
   const tickerText = items.join('  ★  ');
   const mobileTickerText = items.slice(0, 3).join('  ★  ');
+  const easterActive = shouldRenderDecorations(siteSettings);
 
   return (
     <div
@@ -22,8 +23,8 @@ export default function BreakingTicker() {
 
       <div className="max-w-6xl mx-auto relative z-[2] px-2 sm:px-3 md:px-0">
         <div className="flex items-center gap-2 py-2 md:hidden" aria-hidden="true">
-          <span className="shrink-0 rounded-full border-2 border-white/70 bg-black/20 px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-[0.18em] text-white inline-flex items-center gap-1">
-            {shouldRenderDecorations(siteSettings) && (
+          <span className={`shrink-0 rounded-full border-2 border-white/70 bg-black/20 px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-[0.18em] text-white${easterActive ? ' inline-flex items-center gap-1' : ''}`}>
+            {easterActive && (
               <img
                 src="/easter/ticker-egg.svg"
                 alt=""

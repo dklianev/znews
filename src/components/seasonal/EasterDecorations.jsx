@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { usePublicData } from '../../context/DataContext';
 import * as ReactRouterDom from 'react-router-dom';
 import { getEggPlacements, getHuntPlacements, isHuntActive, shouldRenderDecorations } from '../../utils/seasonalCampaigns';
@@ -14,7 +15,18 @@ const POSITION_MAP = {
   'bottom-left-inset': 'bottom-4 left-4',
 };
 
+function useParentOverflow(markerRef, active) {
+  useEffect(() => {
+    const el = markerRef.current?.parentElement;
+    if (!el || !active) return;
+    const prev = el.style.overflow;
+    el.style.overflow = 'visible';
+    return () => { el.style.overflow = prev; };
+  }, [markerRef, active]);
+}
+
 export default function EasterDecorations({ pageId, hunt }) {
+  const markerRef = useRef(null);
   const { siteSettings } = usePublicData();
   const outletContext = typeof ReactRouterDom.useOutletContext === 'function'
     ? ReactRouterDom.useOutletContext()
@@ -27,9 +39,14 @@ export default function EasterDecorations({ pageId, hunt }) {
       ? getEggPlacements(pageId, siteSettings)
       : [];
 
-  if (placements.length === 0) return null;
+  const active = placements.length > 0;
+  useParentOverflow(markerRef, active);
 
-  return placements.map((slot, i) => {
+  if (!active) return <span ref={markerRef} className="hidden" />;
+
+  return (<>
+    <span ref={markerRef} className="hidden" />
+    {placements.map((slot, i) => {
     if (huntMode) {
       const posClass = POSITION_MAP[slot.position] || POSITION_MAP['top-right'];
       return (
@@ -67,5 +84,6 @@ export default function EasterDecorations({ pageId, hunt }) {
         opacityClass={slot.opacityClass}
       />
     );
-  });
+  })}
+  </>);
 }

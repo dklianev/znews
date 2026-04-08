@@ -34,9 +34,8 @@ export default function GamesPage() {
         <div className="min-h-screen bg-zn-paper comic-dots dark:bg-zinc-950 text-black dark:text-white pb-20 pt-10 relative">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
-                <div className="relative mb-12 overflow-visible">
+                <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-end mb-12 relative">
                     <EasterDecorations pageId="games" />
-                    <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-end">
                     <div>
                         <h1 className="text-4xl md:text-6xl font-black uppercase tracking-wider mb-4 text-black dark:text-white font-display flex items-center gap-4">
                             <Gamepad2 className="w-10 h-10 md:w-14 md:h-14 text-zn-hot" />
@@ -45,8 +44,6 @@ export default function GamesPage() {
                         <p className="text-zn-comic-black dark:text-zinc-200 font-semibold text-lg max-w-2xl bg-white dark:bg-zinc-900 p-3 border-2 border-black dark:border-zinc-700 shadow-comic dark:shadow-none transform -rotate-1">
                             Тренирай ума си с ежедневни пъзели и новинарски тестове. Нови предизвикателства всяка сутрин!
                         </p>
-                    </div>
-
                     </div>
                 </div>
 

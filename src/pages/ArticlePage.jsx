@@ -762,6 +762,7 @@ export default function ArticlePage() {
 
           {/* Featured image or Video */}
           <div className="mb-6 comic-panel comic-dots relative p-2 bg-white flex justify-center">
+            <EasterDecorations pageId="article" />
             {article.youtubeUrl ? (
               <YouTubeEmbed
                 url={article.youtubeUrl}
@@ -881,7 +882,6 @@ export default function ArticlePage() {
               </div>
             </section>
           )}
-          <EasterDecorations pageId="article" />
         </article>
 
         {/* Sidebar */}

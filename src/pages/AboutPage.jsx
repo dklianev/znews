@@ -146,7 +146,6 @@ export default function AboutPage() {
       className="max-w-4xl mx-auto px-4 py-8"
     >
       <div className="text-center mb-12 relative">
-        <EasterDecorations pageId="about" />
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -222,6 +221,7 @@ export default function AboutPage() {
         transition={{ duration: 0.5 }}
         className="newspaper-page comic-panel comic-dots p-8 mb-12 relative"
       >
+        <EasterDecorations pageId="about" />
         <div className="absolute -top-2 right-8 w-14 h-5 bg-yellow-200/70 border border-black/5 transform rotate-3 z-10" style={{ boxShadow: '1px 1px 2px rgba(0,0,0,0.1)' }} />
         <h2 className="font-display text-2xl font-black text-zn-text mb-4 tracking-wider uppercase relative z-[2]">{about.missionTitle}</h2>
         <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-5 relative z-[2]" />

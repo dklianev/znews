@@ -332,10 +332,9 @@ export default function ClassifiedDetailPage() {
         <ArrowLeft className="w-4 h-4" /> Назад към обявите
       </Link>
 
-      <div className="relative overflow-visible">
+      <div className={`comic-panel ${item.tier !== 'standard' ? 'comic-dots' : ''} bg-white dark:bg-[#2A2438] p-0 border-4 ${tierStyle} relative overflow-hidden`} style={{ boxShadow: `5px 5px 0 ${tierShadow}` }}>
         <EasterDecorations pageId="classifiedDetail" />
-        <div className={`comic-panel ${item.tier !== 'standard' ? 'comic-dots' : ''} bg-white dark:bg-[#2A2438] p-0 border-4 ${tierStyle} relative overflow-hidden`} style={{ boxShadow: `5px 5px 0 ${tierShadow}` }}>
-          {/* Top badges bar */}
+        {/* Top badges bar */}
           <div className="flex items-center gap-2 p-4 pb-0 flex-wrap">
             <span className="px-2.5 py-1 bg-zinc-800 text-white text-[10px] font-display font-black uppercase tracking-wider">
               {CATEGORY_LABELS[item.category] || item.category}
@@ -428,7 +427,6 @@ export default function ClassifiedDetailPage() {
             </div>
           </div>
         </div>
-      </div>
 
       {/* Similar listings */}
       {similar.length > 0 && (
