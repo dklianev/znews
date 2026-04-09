@@ -30,6 +30,17 @@ function CopyInline({ text }) {
   );
 }
 
+function formatAdminAmount(amount, currency) {
+  const normalizedCurrency = typeof currency === 'string' && currency.trim()
+    ? currency.trim()
+    : '$';
+  const numericAmount = Number(amount);
+  const formattedAmount = Number.isFinite(numericAmount)
+    ? numericAmount.toLocaleString('bg-BG')
+    : '0';
+  return `${normalizedCurrency}${formattedAmount}`;
+}
+
 export default function ManageClassifieds() {
   const { classifieds, classifiedsReady, refreshClassifieds, ensureClassifiedsLoaded, approveClassified, rejectClassified, deleteClassified, bumpClassified, renewClassified } = useAdminData();
   const toast = useToast();
@@ -255,7 +266,7 @@ export default function ManageClassifieds() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-gray-400">Сума:</span>
-                  <span className="font-mono font-bold text-green-700">${item.amountDue?.toLocaleString('bg-BG')}</span>
+                  <span className="font-mono font-bold text-green-700">{formatAdminAmount(item.amountDue, item.currency)}</span>
                 </div>
                 {item.paidBy && <div className="flex items-center gap-1.5"><span className="text-gray-400">Платено от:</span><span className="font-bold">{item.paidBy}</span></div>}
                 {item.expiresAt && <div className="flex items-center gap-1.5"><span className="text-gray-400">Изтича:</span><span className="font-bold">{new Date(item.expiresAt).toLocaleString('bg-BG')}</span></div>}

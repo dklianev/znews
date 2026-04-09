@@ -10,6 +10,7 @@ const SECTION_LABELS = {
     breaking: 'Тикер / Извънредни',
     wanted: 'Издирвани',
     jobs: 'Обяви',
+    classifieds: 'Малки обяви',
     court: 'Съд',
     events: 'Събития',
     polls: 'Анкети',

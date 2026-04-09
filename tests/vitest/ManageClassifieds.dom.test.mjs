@@ -101,4 +101,40 @@ describe('ManageClassifieds', () => {
     expect(refreshClassifieds).toHaveBeenCalledTimes(1);
     expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Network failed'));
   });
+
+  it('renders the stored classifieds currency instead of a hardcoded dollar symbol', async () => {
+    adminDataState = {
+      classifieds: [
+        {
+          id: 17,
+          status: 'awaiting_payment',
+          category: 'selling',
+          tier: 'vip',
+          title: 'Продавам Sultan RS',
+          description: 'Лека козметика.',
+          contactName: 'Диего',
+          phone: '9652438',
+          createdAt: '2026-04-08T12:00:00.000Z',
+          paymentRef: 'ZN-DF4D1B295FF89904',
+          amountDue: 2000,
+          currency: 'лв.',
+          images: [],
+        },
+      ],
+      classifiedsReady: true,
+      refreshClassifieds,
+      ensureClassifiedsLoaded,
+      approveClassified,
+      rejectClassified,
+      deleteClassified,
+      bumpClassified,
+      renewClassified,
+    };
+
+    ({ root, container } = await renderIntoBody(ManageClassifieds));
+    await flushEffects();
+
+    expect(container.textContent).toContain('лв.2000');
+    expect(container.textContent).not.toContain('$2000');
+  });
 });
