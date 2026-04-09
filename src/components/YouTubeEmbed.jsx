@@ -1,8 +1,19 @@
-import { useState } from 'react';
-import { Play, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Play, VideoOff, ExternalLink } from 'lucide-react';
 
 export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' }) {
     const [isPlaying, setIsPlaying] = useState(false);
+    const [isCEF, setIsCEF] = useState(false);
+
+    useEffect(() => {
+        // Detect if we are running inside FiveM CEF or standard Chrome 103 CEF
+        if (typeof navigator !== 'undefined') {
+            const ua = navigator.userAgent;
+            if (ua.includes('CitizenFX') || ua.includes('Chrome/103.0')) {
+                setIsCEF(true);
+            }
+        }
+    }, []);
 
     // Extract Video ID
     const getYouTubeId = (url) => {
@@ -18,6 +29,19 @@ export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' 
 
     // If we don't have a poster image, use the default maxresdefault from youtube
     const posterUrl = thumbnailUrl || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+    if (isCEF) {
+        return (
+            <div className={`relative w-full aspect-video bg-black rounded overflow-hidden border-4 border-zn-black ${className}`} style={{ boxShadow: '4px 4px 0 #1C1428' }}>
+                <img src={posterUrl} alt={title || "YouTube video thumbnail"} className="absolute inset-0 w-full h-full object-cover opacity-20" loading="lazy" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10">
+                    <VideoOff className="w-12 h-12 text-zinc-500 mb-3" />
+                    <p className="text-zn-hot font-display text-2xl uppercase tracking-wide mb-1 drop-shadow-md">Видео плейърът е недостъпен</p>
+                    <p className="text-white/80 text-sm max-w-sm drop-shadow">Поради ограничения на браузъра в играта, YouTube не се поддържа тук. Моля, отворете <span className="font-bold text-white">znews.live/article/{(typeof window !== 'undefined' && window.location.pathname.split('/').pop()) || ''}</span> от браузъра на вашия компютър или телефон.</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={`relative w-full aspect-video bg-black rounded overflow-hidden group border-4 border-zn-black ${className}`} style={{ boxShadow: '4px 4px 0 #1C1428' }}>
@@ -52,8 +76,8 @@ export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' 
                         href={`https://www.youtube.com/watch?v=${videoId}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="absolute top-3 right-3 bg-[#1C1428]/80 hover:bg-zn-hot text-white text-xs font-display tracking-widest px-3 py-2 rounded-lg border border-white/20 transition-colors flex items-center gap-1.5 z-20 shadow-lg"
-                        title="Отвори видеото в нов прозорец (решава проблем с Error 153)"
+                        className="absolute top-3 right-3 bg-[#1C1428]/90 hover:bg-zn-hot text-white text-xs font-display tracking-widest px-3 py-2 rounded-lg border border-white/20 transition-colors flex items-center gap-1.5 z-20 shadow-lg backdrop-blur-sm"
+                        title="Отвори видеото в нов прозорец"
                     >
                         <ExternalLink className="w-3.5 h-3.5" />
                         ГЛЕДАЙ В YOUTUBE
