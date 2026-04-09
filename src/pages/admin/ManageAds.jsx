@@ -3,11 +3,13 @@ import { Plus, Pencil, Trash2, X, Save, ExternalLink, ImageIcon, AlertTriangle, 
 import { usePublicData } from '../../context/DataContext';
 import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
 import { AdBannerHorizontal, AdBannerSide, AdBannerInline } from '../../components/AdBanner';
 import { AD_PAGE_TYPES, AD_SLOT_DEFINITIONS, AD_STATUS_OPTIONS, getAdSlot } from '../../../shared/adSlots.js';
 import { explainAdResolution, normalizeAdImageMeta, normalizeAdRecord, resolveAdCreative } from '../../../shared/adResolver.js';
 import { buildAdSlotOccupancy } from '../../../shared/adOccupancy.js';
 import { api } from '../../utils/api';
+import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 
 const AD_TYPES = [
   {
@@ -362,6 +364,11 @@ function formatScheduleRange(ad) {
 function getAdDisplayName(ad) {
   return ad?.campaignName || ad?.title || `Реклама #${ad?.id ?? 'na'}`;
 }
+
+function serializeAdDraft(form) {
+  return JSON.stringify(buildPayloadFromForm(form));
+}
+
 export default function ManageAds() {
   const { ads, categories, articles, addAd, updateAd, deleteAd } = usePublicData();
   const [editing, setEditing] = useState(null);
@@ -372,7 +379,9 @@ export default function ManageAds() {
   const [previewSlotId, setPreviewSlotId] = useState('');
   const [creativeViewport, setCreativeViewport] = useState('desktop');
   const toast = useToast();
+  const confirm = useConfirm();
   const fieldRefs = useRef(new Map());
+  const initialDraftRef = useRef(serializeAdDraft(normalizeAdForm(emptyForm)));
 
   const normalizedAds = useMemo(() => (Array.isArray(ads) ? ads : []).map((ad) => normalizeAdRecord(ad)).sort((a, b) => (b.priority || 0) - (a.priority || 0) || (b.id || 0) - (a.id || 0)), [ads]);
   const categoriesById = useMemo(() => new Map((Array.isArray(categories) ? categories : []).map((category) => [category.id, category])), [categories]);
@@ -480,6 +489,14 @@ export default function ManageAds() {
   }, [draftPayload]);
 
   const validationMessages = useMemo(() => Object.fromEntries(validationEntries), [validationEntries]);
+  const isFormDirty = useMemo(
+    () => Boolean(editing) && serializeAdDraft(form) !== initialDraftRef.current,
+    [editing, form],
+  );
+  const { confirmDiscardChanges } = useUnsavedChangesGuard({
+    isDirty: isFormDirty,
+    confirm,
+  });
 
   const registerFieldRef = (field) => (node) => {
     if (node) fieldRefs.current.set(field, node);
@@ -548,6 +565,7 @@ export default function ManageAds() {
         await updateAd(editing, draftPayload);
         toast.success('Рекламата е обновена.');
       }
+      initialDraftRef.current = serializeAdDraft(form);
       setEditing(null);
       setForm(normalizeAdForm(emptyForm));
     } catch (e) {
@@ -558,8 +576,43 @@ export default function ManageAds() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Сигурен ли си, че искаш да изтриеш тази реклама?')) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на реклама',
+      message: 'Рекламата ще бъде изтрита безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     await deleteAd(id);
+  };
+
+  const handleStartNew = async () => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    setError('');
+    setEditing('new');
+    setCreativeViewport('desktop');
+    const nextForm = normalizeAdForm(emptyForm);
+    initialDraftRef.current = serializeAdDraft(nextForm);
+    setForm(nextForm);
+  };
+
+  const handleStartEdit = async (ad) => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    setError('');
+    setEditing(ad.id);
+    setCreativeViewport('desktop');
+    const nextForm = normalizeAdForm(ad);
+    initialDraftRef.current = serializeAdDraft(nextForm);
+    setForm(nextForm);
+  };
+
+  const handleCancelEdit = async () => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    setEditing(null);
+    setError('');
   };
 
   return (
@@ -575,7 +628,7 @@ export default function ManageAds() {
             <span className="border border-gray-200 bg-gray-100 px-2 py-1">CTR: {analyticsSummary.loading ? '...' : `${analyticsSummary.totals.ctr}%`}</span>
           </div>
         </div>
-        <button onClick={() => { setError(''); setEditing('new'); setCreativeViewport('desktop'); setForm(normalizeAdForm(emptyForm)); }} className="flex items-center gap-2 bg-zn-purple px-4 py-2 text-sm font-semibold text-white hover:bg-zn-purple-dark">
+        <button onClick={() => void handleStartNew()} className="flex items-center gap-2 bg-zn-purple px-4 py-2 text-sm font-semibold text-white hover:bg-zn-purple-dark">
           <Plus className="h-4 w-4" />
           {'Нова реклама'}
         </button>
@@ -1052,7 +1105,7 @@ export default function ManageAds() {
 
             <div className="flex gap-2 pt-2">
               <button onClick={handleSave} disabled={saving} aria-busy={saving} className="flex items-center gap-2 bg-zn-purple px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{saving ? 'Записване...' : 'Запази'}</button>
-              <button onClick={() => { setEditing(null); setError(''); }} className="flex items-center gap-2 border border-gray-200 px-5 py-2 text-sm text-gray-600"><X className="h-4 w-4" />{'Отказ'}</button>
+            <button onClick={() => void handleCancelEdit()} className="flex items-center gap-2 border border-gray-200 px-5 py-2 text-sm text-gray-600"><X className="h-4 w-4" />{'Отказ'}</button>
             </div>
           </div>
 
@@ -1132,7 +1185,7 @@ export default function ManageAds() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {normalizedAds.map((ad) => {
           const metrics = analyticsByAdId.get(Number(ad.id)) || { impressions: 0, clicks: 0, ctr: 0, lastImpressionAt: null, lastClickAt: null };
-          return <div key={ad.id} className="border border-gray-200 bg-white"><div className="relative overflow-hidden p-4 text-white" style={{ backgroundColor: ad.color || '#990F3D' }}>{ad.image && <img src={ad.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${ad.imagePlacement === 'cover' ? 'opacity-100' : 'opacity-30'}`} style={getAdAdminCardImageStyle(ad)} />}<div className="relative z-10 flex items-center gap-2"><span className="text-xl">{ad.icon}</span><div><p className="text-sm font-bold">{ad.campaignName || ad.title}</p><p className="text-xs opacity-90">{ad.subtitle}</p></div></div>{ad.showButton !== false && ad.clickable !== false ? <span className="relative z-10 mt-3 inline-block bg-white/20 px-3 py-1 text-xs font-semibold">{ad.cta}</span> : <span className="relative z-10 mt-3 inline-block bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">{'Без бутон'}</span>}</div><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider"><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_TYPE_LABELS[ad.type] || ad.type}</span><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_STATUS_LABELS[ad.status] || ad.status}</span><span className="bg-blue-100 px-1.5 py-0.5 text-blue-700">P {ad.priority}</span><span className="bg-violet-100 px-1.5 py-0.5 text-violet-700">W {ad.weight}</span>{ad.clickable !== false && ad.link && ad.link !== '#' && <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-zn-hot"><ExternalLink className="h-3.5 w-3.5" /></a>}{ad.image && <span className="bg-purple-100 px-1.5 py-0.5 text-purple-700"><ImageIcon className="mr-0.5 inline h-3 w-3" />media</span>}</div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{'Позиции'}</p><div className="flex flex-wrap gap-1.5">{ad.placements.map((placement) => <span key={placement} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">{AD_SLOT_DEFINITIONS.find((slot) => slot.id === placement)?.label || placement}</span>)}</div></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Targeting</p><p className="text-sm text-gray-600">{summarizeTargeting(ad, categoriesById, articlesById)}</p></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Analytics</p><div className="grid grid-cols-3 gap-2 text-xs text-gray-600"><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Impr.</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.impressions}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Clicks</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.clicks}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">CTR</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : `${metrics.ctr}%`}</div></div></div></div><div className="flex items-center gap-1 border-t border-gray-100 pt-2"><button onClick={() => { setError(''); setEditing(ad.id); setCreativeViewport('desktop'); setForm(normalizeAdForm(ad)); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="h-4 w-4" /></button><button onClick={() => handleDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div></div>;
+          return <div key={ad.id} className="border border-gray-200 bg-white"><div className="relative overflow-hidden p-4 text-white" style={{ backgroundColor: ad.color || '#990F3D' }}>{ad.image && <img src={ad.image} alt="" className={`absolute inset-0 h-full w-full object-cover ${ad.imagePlacement === 'cover' ? 'opacity-100' : 'opacity-30'}`} style={getAdAdminCardImageStyle(ad)} />}<div className="relative z-10 flex items-center gap-2"><span className="text-xl">{ad.icon}</span><div><p className="text-sm font-bold">{ad.campaignName || ad.title}</p><p className="text-xs opacity-90">{ad.subtitle}</p></div></div>{ad.showButton !== false && ad.clickable !== false ? <span className="relative z-10 mt-3 inline-block bg-white/20 px-3 py-1 text-xs font-semibold">{ad.cta}</span> : <span className="relative z-10 mt-3 inline-block bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">{'Без бутон'}</span>}</div><div className="space-y-3 p-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider"><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_TYPE_LABELS[ad.type] || ad.type}</span><span className="bg-gray-100 px-1.5 py-0.5 text-gray-600">{AD_STATUS_LABELS[ad.status] || ad.status}</span><span className="bg-blue-100 px-1.5 py-0.5 text-blue-700">P {ad.priority}</span><span className="bg-violet-100 px-1.5 py-0.5 text-violet-700">W {ad.weight}</span>{ad.clickable !== false && ad.link && ad.link !== '#' && <a href={ad.link} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-zn-hot"><ExternalLink className="h-3.5 w-3.5" /></a>}{ad.image && <span className="bg-purple-100 px-1.5 py-0.5 text-purple-700"><ImageIcon className="mr-0.5 inline h-3 w-3" />media</span>}</div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">{'Позиции'}</p><div className="flex flex-wrap gap-1.5">{ad.placements.map((placement) => <span key={placement} className="bg-gray-100 px-2 py-1 text-[11px] text-gray-600">{AD_SLOT_DEFINITIONS.find((slot) => slot.id === placement)?.label || placement}</span>)}</div></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Targeting</p><p className="text-sm text-gray-600">{summarizeTargeting(ad, categoriesById, articlesById)}</p></div><div><p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Analytics</p><div className="grid grid-cols-3 gap-2 text-xs text-gray-600"><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Impr.</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.impressions}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">Clicks</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : metrics.clicks}</div></div><div className="border border-gray-200 p-2"><div className="text-[10px] uppercase tracking-wider text-gray-400">CTR</div><div className="font-semibold text-gray-900">{analyticsSummary.loading ? '...' : `${metrics.ctr}%`}</div></div></div></div><div className="flex items-center gap-1 border-t border-gray-100 pt-2"><button onClick={() => void handleStartEdit(ad)} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="h-4 w-4" /></button><button onClick={() => void handleDelete(ad.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div></div></div>;
         })}
         {normalizedAds.length === 0 && <div className="col-span-full py-12 text-center text-sm text-gray-400">{'Няма реклами'}</div>}
       </div>

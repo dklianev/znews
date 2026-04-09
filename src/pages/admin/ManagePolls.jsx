@@ -1,7 +1,14 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePublicData } from '../../context/DataContext';
 import { Plus, Trash2, X, Save, ToggleLeft, ToggleRight, Pencil, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
+import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readEnumSearchParam, readSearchParam } from '../../utils/adminSearchParams';
 
 function createOption(text = '', votes = 0) {
   return {
@@ -61,8 +68,19 @@ function getFirstPollErrorField(fieldErrors) {
   return '';
 }
 
+function serializePollDraft(question, options) {
+  return JSON.stringify({
+    question: String(question || ''),
+    options: (Array.isArray(options) ? options : []).map((option) => ({
+      text: String(typeof option === 'string' ? option : option?.text || ''),
+      votes: Number.isFinite(Number(option?.votes)) ? Number(option.votes) : 0,
+    })),
+  });
+}
+
 export default function ManagePolls() {
   const { polls, addPoll, updatePoll, deletePoll } = usePublicData();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
@@ -79,7 +97,31 @@ export default function ManagePolls() {
   const createOptionsRef = useRef(null);
   const editQuestionRef = useRef(null);
   const editOptionsRef = useRef(null);
+  const initialCreateDraftRef = useRef(serializePollDraft('', ['', '']));
+  const initialEditDraftRef = useRef(serializePollDraft('', [createOption(), createOption()]));
   const toast = useToast();
+  const confirm = useConfirm();
+  const searchQuery = readSearchParam(searchParams, 'q', '');
+  const statusFilter = readEnumSearchParam(searchParams, 'status', ['all', 'active', 'inactive'], 'all');
+  const isCreateDirty = useMemo(
+    () => creating && serializePollDraft(question, options) !== initialCreateDraftRef.current,
+    [creating, options, question],
+  );
+  const isEditDirty = useMemo(
+    () => editingPollId !== null && serializePollDraft(editQuestion, editOptions) !== initialEditDraftRef.current,
+    [editOptions, editQuestion, editingPollId],
+  );
+  const { confirmDiscardChanges } = useUnsavedChangesGuard({
+    isDirty: isCreateDirty || isEditDirty,
+    confirm,
+  });
+
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
+  };
 
   const focusCreateField = (field) => {
     if (field === 'question') createQuestionRef.current?.focus();
@@ -109,6 +151,7 @@ export default function ManagePolls() {
     setCreating(false);
     setQuestion('');
     setOptions(['', '']);
+    initialCreateDraftRef.current = serializePollDraft('', ['', '']);
     setCreatingErrors(EMPTY_POLL_ERRORS);
   };
 
@@ -116,7 +159,33 @@ export default function ManagePolls() {
     setEditingPollId(null);
     setEditQuestion('');
     setEditOptions([createOption(), createOption()]);
+    initialEditDraftRef.current = serializePollDraft('', [createOption(), createOption()]);
     setEditErrors(EMPTY_POLL_ERRORS);
+  };
+
+  const openCreateDraft = async () => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    setCreating(true);
+    setEditingPollId(null);
+    setError('');
+    setQuestion('');
+    setOptions(['', '']);
+    initialCreateDraftRef.current = serializePollDraft('', ['', '']);
+    setCreatingErrors(EMPTY_POLL_ERRORS);
+    setEditErrors(EMPTY_POLL_ERRORS);
+  };
+
+  const handleCancelCreate = async () => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    resetCreateForm();
+  };
+
+  const handleCancelEdit = async () => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    cancelEdit();
   };
 
   const handleCreate = async () => {
@@ -141,6 +210,7 @@ export default function ManagePolls() {
         options: normalizedOptions.map((option) => ({ text: option.text, votes: 0 })),
         active: false,
       });
+      initialCreateDraftRef.current = serializePollDraft(normalizedQuestion, normalizedOptions);
       resetCreateForm();
       toast.success('Анкетата е добавена');
     } catch (e) {
@@ -187,11 +257,19 @@ export default function ManagePolls() {
       .map((option) => createOption(option?.text || '', option?.votes || 0))
       .filter((option) => option.text || option.votes > 0);
     while (nextOptions.length < 2) nextOptions.push(createOption());
+    setCreating(false);
     setEditingPollId(poll.id);
     setEditQuestion(poll.question || '');
     setEditOptions(nextOptions);
+    initialEditDraftRef.current = serializePollDraft(poll.question || '', nextOptions);
     setEditErrors(EMPTY_POLL_ERRORS);
     setError('');
+  };
+
+  const requestStartEdit = async (poll) => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    startEdit(poll);
   };
 
   const handleUpdate = async () => {
@@ -229,10 +307,42 @@ export default function ManagePolls() {
     }
   };
 
+  const handleDelete = async (pollId) => {
+    const confirmed = await confirm({
+      title: 'Изтриване на анкета',
+      message: 'Анкетата ще бъде изтрита безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    try {
+      await deletePoll(pollId);
+      toast.success('Анкетата е изтрита');
+    } catch (e) {
+      setError(e?.message || 'Грешка при изтриване на анкетата');
+      toast.error('Грешка при изтриване');
+    }
+  };
+
   const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple';
   const labelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
   const activeFieldErrors = editingPollId !== null ? editErrors : creating ? creatingErrors : EMPTY_POLL_ERRORS;
   const validationEntries = Object.entries(activeFieldErrors).filter(([, message]) => Boolean(message));
+  const filteredPolls = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    return polls.filter((poll) => {
+      if (statusFilter === 'active' && !poll.active) return false;
+      if (statusFilter === 'inactive' && poll.active) return false;
+      if (!normalizedQuery) return true;
+
+      const optionMatch = (Array.isArray(poll.options) ? poll.options : []).some((option) => (
+        String(option?.text || '').toLowerCase().includes(normalizedQuery)
+      ));
+
+      return String(poll.question || '').toLowerCase().includes(normalizedQuery) || optionMatch;
+    });
+  }, [polls, searchQuery, statusFilter]);
 
   return (
     <div className="p-8">
@@ -241,10 +351,37 @@ export default function ManagePolls() {
           <h1 className="text-2xl font-display font-bold text-gray-900">Анкети</h1>
           <p className="text-sm font-sans text-gray-500 mt-1">Управление и редакция на анкети</p>
         </div>
-        <button onClick={() => { setCreating(true); setError(''); setCreatingErrors(EMPTY_POLL_ERRORS); }} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold">
+        <button onClick={() => void openCreateDraft()} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold">
           <Plus className="w-4 h-4" /> Нова анкета
         </button>
       </div>
+
+      <AdminFilterBar>
+        {[
+          { value: 'all', label: `Всички (${polls.length})` },
+          { value: 'active', label: `Активни (${polls.filter((poll) => poll.active).length})` },
+          { value: 'inactive', label: `Неактивни (${polls.filter((poll) => !poll.active).length})` },
+        ].map((filterOption) => (
+          <button
+            key={filterOption.value}
+            type="button"
+            onClick={() => setListSearchParams({ status: filterOption.value, q: searchQuery })}
+            className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${statusFilter === filterOption.value
+              ? 'bg-zn-hot text-white border-zn-hot'
+              : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
+              }`}
+          >
+            {filterOption.label}
+          </button>
+        ))}
+        <AdminSearchField
+          value={searchQuery}
+          onChange={(event) => setListSearchParams({ status: statusFilter, q: event.target.value })}
+          placeholder="Търси по въпрос или опция..."
+          ariaLabel="Търси анкета по въпрос или опция"
+          className="ml-auto min-w-[260px]"
+        />
+      </AdminFilterBar>
 
       {(error || validationEntries.length > 0) && (
         <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
@@ -323,7 +460,7 @@ export default function ManagePolls() {
           </div>
           <div className="flex gap-2 mt-5">
             <button onClick={handleCreate} disabled={creatingBusy} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold disabled:opacity-50"><Save className="w-4 h-4" /> Запази</button>
-            <button onClick={resetCreateForm} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans"><X className="w-4 h-4" /> Отказ</button>
+            <button onClick={() => void handleCancelCreate()} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans"><X className="w-4 h-4" /> Отказ</button>
           </div>
         </div>
       ) : null}
@@ -389,13 +526,13 @@ export default function ManagePolls() {
           </div>
           <div className="flex gap-2 mt-5">
             <button onClick={handleUpdate} disabled={editingBusy} className="flex items-center gap-2 px-5 py-2 bg-zn-purple text-white text-sm font-sans font-semibold disabled:opacity-50"><Save className="w-4 h-4" /> Запази промените</button>
-            <button onClick={cancelEdit} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans"><X className="w-4 h-4" /> Отказ</button>
+            <button onClick={() => void handleCancelEdit()} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans"><X className="w-4 h-4" /> Отказ</button>
           </div>
         </div>
       ) : null}
 
       <div className="space-y-3">
-        {polls.map((poll) => {
+        {filteredPolls.map((poll) => {
           const safeOptions = Array.isArray(poll.options) ? poll.options : [];
           const total = safeOptions.reduce((sum, option) => sum + (option?.votes || 0), 0);
           return (
@@ -406,13 +543,13 @@ export default function ManagePolls() {
                   <span className="text-xs font-sans text-gray-400">{poll.createdAt} • {total} гласа</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => startEdit(poll)} className="p-1.5 text-gray-400 hover:text-zn-hot" title="Редактирай">
+                  <button onClick={() => void requestStartEdit(poll)} className="p-1.5 text-gray-400 hover:text-zn-hot" title="Редактирай" aria-label="Редактирай анкетата">
                     <Pencil className="w-4 h-4" />
                   </button>
-                  <button onClick={() => toggleActive(poll)} disabled={togglingId === poll.id} className="p-1.5 text-gray-400 hover:text-zn-hot disabled:opacity-50" title={poll.active ? 'Деактивирай' : 'Активирай'}>
+                  <button onClick={() => toggleActive(poll)} disabled={togglingId === poll.id} className="p-1.5 text-gray-400 hover:text-zn-hot disabled:opacity-50" title={poll.active ? 'Деактивирай' : 'Активирай'} aria-label={poll.active ? 'Деактивирай анкетата' : 'Активирай анкетата'}>
                     {poll.active ? <ToggleRight className="w-5 h-5 text-zn-hot" /> : <ToggleLeft className="w-5 h-5" />}
                   </button>
-                  <button onClick={() => { if (confirm('Сигурен ли си?')) deletePoll(poll.id); }} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => void handleDelete(poll.id)} className="p-1.5 text-gray-400 hover:text-red-600" aria-label="Изтрий анкетата" title="Изтрий"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
               <h3 className="font-sans font-semibold text-gray-900 mb-3">{poll.question}</h3>
@@ -435,10 +572,13 @@ export default function ManagePolls() {
         })}
       </div>
 
-      {polls.length === 0 ? (
-        <div className="text-center py-12 text-sm font-sans text-gray-400">
-          Няма анкети.
-        </div>
+      {filteredPolls.length === 0 ? (
+        <AdminEmptyState
+          title="Няма анкети"
+          description={searchQuery.trim() || statusFilter !== 'all'
+            ? 'Няма анкети, които да съвпадат с текущите филтри.'
+            : 'Все още няма създадени анкети.'}
+        />
       ) : null}
     </div>
   );

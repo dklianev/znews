@@ -213,6 +213,7 @@ export default function AdminLayout() {
           <button
             onClick={toggleDark}
             className="p-1.5 text-white/40 hover:text-zn-text transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-bg"
+            aria-label={isDark ? 'Светла тема' : 'Тъмна тема'}
             aria-pressed={isDark}
             title={isDark ? 'Светла тема' : 'Тъмна тема'}
           >

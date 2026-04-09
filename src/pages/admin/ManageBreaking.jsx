@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { usePublicData } from '../../context/DataContext';
-import { Plus, Trash2, X, Save, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, X, Save, AlertTriangle, Newspaper } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
 
 export default function ManageBreaking() {
   const { breaking, saveBreaking } = usePublicData();
@@ -66,22 +68,21 @@ export default function ManageBreaking() {
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Тикер / Извънредни новини</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">Управление на бягащия ред с новини</p>
-        </div>
-        {hasChanges && (
-          <div className="flex gap-2">
+      <AdminPageHeader
+        title="Тикер / Извънредни новини"
+        description="Управление на бягащия ред с новини"
+        icon={Newspaper}
+        actions={hasChanges ? (
+          <>
             <button onClick={handleReset} className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
               <X className="w-4 h-4" /> Откажи
             </button>
             <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors disabled:opacity-50">
               <Save className="w-4 h-4" /> Запази промените
             </button>
-          </div>
-        )}
-      </div>
+          </>
+        ) : null}
+      />
 
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
@@ -138,6 +139,7 @@ export default function ManageBreaking() {
               <button
                 onClick={() => moveItem(index, -1)}
                 disabled={index === 0}
+                aria-label="Премести новината нагоре"
                 className="px-2 py-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 text-xs"
               >
                 ▲
@@ -145,6 +147,7 @@ export default function ManageBreaking() {
               <button
                 onClick={() => moveItem(index, 1)}
                 disabled={index === items.length - 1}
+                aria-label="Премести новината надолу"
                 className="px-2 py-1 text-gray-400 hover:text-gray-700 disabled:opacity-30 text-xs"
               >
                 ▼
@@ -154,10 +157,12 @@ export default function ManageBreaking() {
             <input
               className="flex-1 px-2 py-2.5 text-sm font-sans text-gray-900 outline-none bg-transparent"
               value={item}
+              aria-label={`Редактирай новина ${index + 1}`}
               onChange={e => updateItem(index, e.target.value)}
             />
             <button
               onClick={() => removeItem(index)}
+              aria-label="Премахни новината"
               className="p-2 text-gray-400 hover:text-red-600 transition-colors mr-1"
             >
               <Trash2 className="w-4 h-4" />
@@ -165,7 +170,10 @@ export default function ManageBreaking() {
           </div>
         ))}
         {items.length === 0 && (
-          <div className="text-center py-12 text-sm font-sans text-gray-400">Няма извънредни новини в тикера</div>
+          <AdminEmptyState
+            title="Няма извънредни новини"
+            description="Добави поне една новина, за да се покаже в тикера на сайта."
+          />
         )}
       </div>
 

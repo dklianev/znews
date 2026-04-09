@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminData } from '../../context/DataContext';
-import { Upload, Trash2, Copy, RefreshCw, Search, Image as ImageIcon, Sparkles, Loader2 } from 'lucide-react';
+import { Upload, Trash2, Copy, RefreshCw, Sparkles, Loader2 } from 'lucide-react';
 import UploadWatermarkToggle from '../../components/admin/UploadWatermarkToggle';
 import { useToast } from '../../components/admin/Toast';
 import ImageEditorDialog from '../../components/admin/ImageEditorDialog';
 import useUploadWatermarkPreference from '../../hooks/useUploadWatermarkPreference';
+import { copyToClipboard } from '../../utils/copyToClipboard';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
 
 export default function ManageMedia() {
   const { media, mediaPipelineStatus, ensureMediaLoaded, uploadMedia, deleteMedia, refreshMedia, backfillMediaPipeline } = useAdminData();
@@ -22,6 +27,7 @@ export default function ManageMedia() {
   const [applyWatermark, setApplyWatermark] = useUploadWatermarkPreference();
   const fileRef = useRef(null);
   const uploadLockRef = useRef(false);
+  const confirm = useConfirm();
 
   useEffect(() => {
     void ensureMediaLoaded();
@@ -94,7 +100,13 @@ export default function ManageMedia() {
   };
 
   const handleDelete = async (item) => {
-    if (!confirm(`Изтрий ${item.name}?`)) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на файл',
+      message: `Файлът "${item.name}" ще бъде изтрит безвъзвратно.`,
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     setWorkingFile(item.name);
     try {
       await deleteMedia(item.name);
@@ -107,11 +119,11 @@ export default function ManageMedia() {
   };
 
   const copyUrl = async (url) => {
-    try {
-      await navigator.clipboard.writeText(url);
+    const copied = await copyToClipboard(url);
+    if (copied) {
       toast.success('URL е копиран');
-    } catch {
-      // ignore
+    } else {
+      toast.error('URL не можа да бъде копиран');
     }
   };
 
@@ -196,17 +208,15 @@ export default function ManageMedia() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Медийна библиотека</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">
-            {media.length} файла · {totalSize} общо — провлачи снимки навсякъде на страницата
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <AdminPageHeader
+        title="Медийна библиотека"
+        description={`${media.length} файла · ${totalSize} общо — провлачи снимки навсякъде на страницата`}
+        actions={(
+          <div className="flex flex-wrap items-center gap-2">
           <UploadWatermarkToggle checked={applyWatermark} onChange={setApplyWatermark} />
           <button
             onClick={refreshMedia}
+            aria-label="Обнови медийната библиотека"
             className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
@@ -232,8 +242,9 @@ export default function ManageMedia() {
               onChange={handleUpload}
             />
           </label>
-        </div>
-      </div>
+          </div>
+        )}
+      />
 
       <div className="mb-5 border border-gray-200 bg-white p-3.5">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-sans text-gray-600">
@@ -276,23 +287,27 @@ export default function ManageMedia() {
         )}
       </div>
 
-      <div className="mb-4 relative max-w-md">
-        <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-        <input
+      <AdminFilterBar className="mb-4">
+        <AdminSearchField
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(event) => setQuery(event.target.value)}
           placeholder="Търси по име на файл..."
-          className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
+          ariaLabel="Търси файлове в медийната библиотека"
+          className="max-w-md"
         />
-      </div>
+      </AdminFilterBar>
 
       {filtered.length === 0 ? (
         <div className="text-center py-14 border-2 border-dashed border-gray-300 bg-white cursor-pointer hover:border-zn-purple/40 transition-colors"
           onClick={() => fileRef.current?.click()}
         >
           <Upload className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm font-sans text-gray-500 font-semibold">Провлачи снимки тук или натисни за качване</p>
-          <p className="text-xs font-sans text-gray-400 mt-1">JPEG, PNG, GIF, WebP</p>
+          <p className="text-sm font-sans text-gray-500 font-semibold">
+            {query.trim() ? 'Няма файлове за текущото търсене' : 'Провлачи снимки тук или натисни за качване'}
+          </p>
+          <p className="text-xs font-sans text-gray-400 mt-1">
+            {query.trim() ? 'Пробвай с друго име на файл или изчисти търсенето.' : 'JPEG, PNG, GIF, WebP'}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -320,6 +335,7 @@ export default function ManageMedia() {
                 <div className="mt-2 flex items-center gap-1">
                   <button
                     onClick={() => copyUrl(item.url)}
+                    aria-label={`Копирай URL за ${item.name}`}
                     className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] font-sans font-semibold text-gray-600 border border-gray-200 hover:text-zn-purple hover:border-zn-purple/40 transition-colors"
                   >
                     <Copy className="w-3 h-3" />
@@ -328,6 +344,7 @@ export default function ManageMedia() {
                   <button
                     onClick={() => handleDelete(item)}
                     disabled={workingFile === item.name}
+                    aria-label={`Изтрий файла ${item.name}`}
                     className="p-1.5 text-gray-400 border border-gray-200 hover:text-red-600 hover:border-red-300 transition-colors disabled:opacity-40"
                     title="Изтрий"
                   >

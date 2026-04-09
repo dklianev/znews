@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, AlertTriangle, Database, HardDrive, RefreshCw, ShieldAlert } from 'lucide-react';
 import { api } from '../../utils/api';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
 
 function formatDateTime(value) {
   if (!value) return '-';
@@ -219,20 +220,21 @@ export default function AdminDiagnostics() {
 
   return (
     <div className="p-8 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Диагностика</h1>
-          <p className="mt-1 text-sm font-sans text-gray-500">Здраве на системата, кеша, фоновите задачи, медийната опашка и последните грешки.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => loadDiagnostics({ silent: true })}
-          className="inline-flex items-center gap-2 border border-gray-200 px-4 py-2 text-sm font-sans font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Обновяване...' : 'Обнови'}
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Диагностика"
+        description="Здраве на системата, кеша, фоновите задачи, медийната опашка и последните грешки."
+        icon={Activity}
+        actions={(
+          <button
+            type="button"
+            onClick={() => loadDiagnostics({ silent: true })}
+            className="inline-flex items-center gap-2 border border-gray-200 px-4 py-2 text-sm font-sans font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Обновяване...' : 'Обнови'}
+          </button>
+        )}
+      />
 
       {error ? (
         <div className="flex items-start gap-2 border border-red-200 bg-red-50 px-4 py-3 text-sm font-sans text-red-700">

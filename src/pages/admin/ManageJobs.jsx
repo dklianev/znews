@@ -1,7 +1,12 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
 
 const JOB_TYPES = [
   { value: 'police', label: 'Полиция' },
@@ -71,8 +76,10 @@ export default function ManageJobs() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
   const [fieldErrors, setFieldErrors] = useState(EMPTY_FIELD_ERRORS);
   const toast = useToast();
+  const confirm = useConfirm();
   const titleRef = useRef(null);
   const orgRef = useRef(null);
   const typeRef = useRef(null);
@@ -184,7 +191,13 @@ export default function ManageJobs() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Сигурен ли си?')) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на обява',
+      message: 'Обявата за работа ще бъде изтрита безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     setError('');
     try {
       await deleteJob(id);
@@ -198,18 +211,38 @@ export default function ManageJobs() {
   const validationEntries = Object.entries(fieldErrors).filter(([, message]) => Boolean(message));
   const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple';
   const labelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
+  const filteredJobs = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return jobs;
+    return jobs.filter((job) => (
+      (job.title || '').toLowerCase().includes(normalizedQuery) ||
+      (job.org || '').toLowerCase().includes(normalizedQuery) ||
+      (job.salary || '').toLowerCase().includes(normalizedQuery) ||
+      (job.contact || '').toLowerCase().includes(normalizedQuery) ||
+      (job.requirements || '').toLowerCase().includes(normalizedQuery)
+    ));
+  }, [jobs, query]);
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Обяви за работа</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">Управление на RP обявите за работа</p>
-        </div>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold">
+      <AdminPageHeader
+        title="Обяви за работа"
+        description="Управление на RP обявите за работа"
+        actions={(
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold">
           <Plus className="w-4 h-4" /> Нова обява
-        </button>
-      </div>
+          </button>
+        )}
+      />
+
+      <AdminFilterBar className="mb-6">
+        <AdminSearchField
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Търси по заглавие, организация, заплащане или контакт..."
+          ariaLabel="Търси обяви за работа"
+        />
+      </AdminFilterBar>
 
       {(error || validationEntries.length > 0) ? (
         <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
@@ -326,7 +359,7 @@ export default function ManageJobs() {
       ) : null}
 
       <div className="space-y-2">
-        {jobs.map((job) => (
+        {filteredJobs.map((job) => (
           <div key={job.id} className="bg-white border border-gray-200 p-4 flex items-center gap-4 group">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
@@ -337,18 +370,21 @@ export default function ManageJobs() {
               <p className="text-xs font-sans text-gray-500">{job.org} • {job.salary}</p>
             </div>
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => toggleActive(job)} className="p-1.5 text-gray-400 hover:text-zn-hot" title={job.active ? 'Скрий' : 'Покажи'}>
+              <button onClick={() => toggleActive(job)} aria-label={job.active ? 'Скрий обявата' : 'Покажи обявата'} className="p-1.5 text-gray-400 hover:text-zn-hot" title={job.active ? 'Скрий' : 'Покажи'}>
                 {job.active ? <ToggleRight className="w-5 h-5 text-zn-hot" /> : <ToggleLeft className="w-5 h-5" />}
               </button>
-              <button onClick={() => openEdit(job)} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => handleDelete(job.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => openEdit(job)} aria-label="Редактирай обявата" className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
+              <button onClick={() => handleDelete(job.id)} aria-label="Изтрий обявата" className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}
-        {jobs.length === 0 ? (
-          <div className="text-center py-12 text-sm font-sans text-gray-400">
-            Няма обяви за работа.
-          </div>
+        {filteredJobs.length === 0 ? (
+          <AdminEmptyState
+            title="Няма обяви за работа"
+            description={query.trim()
+              ? 'Няма обяви за работа, които да съвпадат с текущото търсене.'
+              : 'Все още няма публикувани RP обяви за работа.'}
+          />
         ) : null}
       </div>
     </div>

@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { dashboardCopy } from '../../content/uiCopy';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
 
 const DashboardAnalytics = lazy(() => import('../../components/admin/DashboardAnalytics'));
 
@@ -51,6 +52,7 @@ export default function Dashboard() {
   const [adminActionError, setAdminActionError] = useState('');
   const [contactMessages, setContactMessages] = useState([]);
   const [contactMessagesReady, setContactMessagesReady] = useState(false);
+  const confirm = useConfirm();
 
   const isAdmin = session?.role === 'admin';
   const canSeeAnalytics = hasPermission('articles');
@@ -191,7 +193,13 @@ export default function Dashboard() {
   const handleReset = async () => {
     if (!isAdmin) return;
     setAdminActionError('');
-    if (!confirm(dashboardCopy.resetConfirm)) return;
+    const confirmed = await confirm({
+      title: 'Пълно нулиране',
+      message: dashboardCopy.resetConfirm,
+      confirmLabel: dashboardCopy.resetLabel,
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     setResetting(true);
     try {
       await resetAll();

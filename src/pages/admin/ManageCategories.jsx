@@ -1,8 +1,12 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import DataTable from '../../components/admin/DataTable';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
 
 const ICONS = ['📰', '🚨', '🏛️', '💰', '🎭', '🏎️', '🎯', '⚖️', '🏥', '🔥', '🌆', '🎤', '🎬', '🕵️', '📡', '🌃', '📸', '🧨'];
 const EMPTY_FIELD_ERRORS = Object.freeze({ id: '', name: '' });
@@ -52,9 +56,11 @@ export default function ManageCategories() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState(EMPTY_FIELD_ERRORS);
+  const [query, setQuery] = useState('');
   const slugInputRef = useRef(null);
   const nameInputRef = useRef(null);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const focusField = (field) => {
     if (field === 'id') slugInputRef.current?.focus();
@@ -134,7 +140,13 @@ export default function ManageCategories() {
 
   const handleDelete = async (id) => {
     if (id === 'all') return;
-    if (!confirm('Сигурен ли си?')) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на категория',
+      message: 'Категорията ще бъде изтрита. Това действие е необратимо.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     setError('');
     try {
       await deleteCategory(id);
@@ -147,18 +159,35 @@ export default function ManageCategories() {
   const validationEntries = Object.entries(fieldErrors).filter(([, message]) => Boolean(message));
   const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple';
   const labelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
+  const filteredCategories = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return categories;
+    return categories.filter((category) => (
+      (category.id || '').toLowerCase().includes(normalizedQuery) ||
+      (category.name || '').toLowerCase().includes(normalizedQuery)
+    ));
+  }, [categories, query]);
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Категории</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">Управление на категориите на новините</p>
-        </div>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors">
-          <Plus className="w-4 h-4" /> Нова категория
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Категории"
+        description="Управление на категориите на новините"
+        actions={(
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors">
+            <Plus className="w-4 h-4" /> Нова категория
+          </button>
+        )}
+      />
+
+      <AdminFilterBar className="mb-6">
+        <AdminSearchField
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Търси по slug или име..."
+          ariaLabel="Търси категории"
+        />
+      </AdminFilterBar>
 
       {(error || validationEntries.length > 0) && (
         <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
@@ -255,14 +284,14 @@ export default function ManageCategories() {
             key: 'actions', label: 'Действия', align: 'right',
             render: (_v, row) => (
               <div className="flex items-center justify-end gap-1">
-                <button onClick={() => openEdit(row)} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
-                {row.id !== 'all' ? <button onClick={() => handleDelete(row.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button> : null}
+                <button onClick={() => openEdit(row)} aria-label="Редактирай категорията" className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
+                {row.id !== 'all' ? <button onClick={() => handleDelete(row.id)} aria-label="Изтрий категорията" className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button> : null}
               </div>
             ),
           },
         ]}
-        data={categories}
-        emptyMessage="Няма категории"
+        data={filteredCategories}
+        emptyMessage={query.trim() ? 'Няма категории за текущото търсене' : 'Няма категории'}
       />
     </div>
   );

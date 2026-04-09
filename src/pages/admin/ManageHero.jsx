@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminData, usePublicData } from '../../context/DataContext';
 import { Crown, Search, Save, X, ExternalLink, Flame, History, RotateCcw, AlertTriangle, Loader2, Megaphone, Clock, Eye } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
 import { buildScaledClamp, normalizeHeroTitleScale } from '../../utils/heroTitleScale';
+import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 
 const heroPreviewFallbackImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="800" height="450" fill="#EDE4D0"/><text x="400" y="240" text-anchor="middle" font-family="Oswald,sans-serif" font-size="42" font-weight="900" fill="#C4B49A">LOS SANTOS NEWSWIRE</text></svg>');
 
@@ -33,6 +35,7 @@ export default function ManageHero() {
     restoreHeroSettingsRevision,
   } = useAdminData();
   const toast = useToast();
+  const confirm = useConfirm();
   const [query, setQuery] = useState('');
   const [savingId, setSavingId] = useState(null);
   const [clearing, setClearing] = useState(false);
@@ -115,13 +118,10 @@ export default function ManageHero() {
       || ref.photoArticleId1 !== copyForm.photoArticleId1 || ref.photoArticleId2 !== copyForm.photoArticleId2;
   }, [copyForm]);
 
-  // Unsaved changes warning
-  useEffect(() => {
-    if (!isCopyDirty) return undefined;
-    const handler = (e) => { e.preventDefault(); e.returnValue = ''; };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [isCopyDirty]);
+  useUnsavedChangesGuard({
+    isDirty: isCopyDirty,
+    confirm,
+  });
 
   // Memos
   const categoryMap = useMemo(() => {
@@ -292,7 +292,13 @@ export default function ManageHero() {
 
   const handleRestoreHistory = async (revisionId) => {
     if (!revisionId) return;
-    if (!confirm('Да върна тази Hero версия? Текущите незапазени промени ще бъдат заменени.')) return;
+    const confirmed = await confirm({
+      title: 'Възстановяване на Hero версия',
+      message: 'Да върна тази Hero версия? Текущите незапазени промени ще бъдат заменени.',
+      confirmLabel: 'Възстанови',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
     setRestoringHistory(revisionId);
     setError('');
     try {

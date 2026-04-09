@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, CalendarClock, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
 
 const SEVERITIES = [
   { value: 'heavy', label: 'Тежко', color: 'bg-red-600 text-white' },
@@ -23,7 +28,9 @@ export default function ManageCourt() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
   const toast = useToast();
+  const confirm = useConfirm();
 
   const handleSave = async () => {
     if (!form.title) return;
@@ -44,7 +51,13 @@ export default function ManageCourt() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Изтрий?')) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на дело',
+      message: 'Записът ще бъде изтрит безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     setError('');
     try {
       await deleteCourtCase(id);
@@ -57,18 +70,37 @@ export default function ManageCourt() {
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
   const labelCls = "block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1";
+  const filteredCourt = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return court;
+    return court.filter((item) => (
+      (item.title || '').toLowerCase().includes(normalizedQuery) ||
+      (item.defendant || '').toLowerCase().includes(normalizedQuery) ||
+      (item.charge || '').toLowerCase().includes(normalizedQuery) ||
+      (item.judge || '').toLowerCase().includes(normalizedQuery)
+    ));
+  }, [court, query]);
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Съдебна хроника</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">Дела, присъди и насрочени заседания</p>
-        </div>
-        <button onClick={() => { setEditing('new'); setForm(emptyForm); }} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold">
-          <Plus className="w-4 h-4" /> Ново дело
-        </button>
-      </div>
+      <AdminPageHeader
+        title="Съдебна хроника"
+        description="Дела, присъди и насрочени заседания"
+        actions={(
+          <button onClick={() => { setEditing('new'); setForm(emptyForm); }} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold">
+            <Plus className="w-4 h-4" /> Ново дело
+          </button>
+        )}
+      />
+
+      <AdminFilterBar className="mb-6">
+        <AdminSearchField
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Търси по дело, подсъдим, обвинение или съдия..."
+          ariaLabel="Търси съдебни дела"
+        />
+      </AdminFilterBar>
 
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
@@ -110,7 +142,7 @@ export default function ManageCourt() {
       )}
 
       <div className="space-y-2">
-        {court.map(item => {
+        {filteredCourt.map(item => {
           const st = STATUSES.find(s => s.value === item.status) || STATUSES[0];
           const StatusIcon = st.icon;
           return (
@@ -130,16 +162,19 @@ export default function ManageCourt() {
                 <p className="text-xs font-sans text-gray-500">{item.defendant} · {item.status === 'completed' ? item.verdict : 'Очаква се'}</p>
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { setEditing(item.id); setForm(item); }} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
-                <button onClick={() => handleDelete(item.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => { setEditing(item.id); setForm(item); }} aria-label="Редактирай делото" className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
+                <button onClick={() => handleDelete(item.id)} aria-label="Изтрий делото" className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
           );
         })}
-        {court.length === 0 && (
-          <div className="text-center py-12 text-sm font-sans text-gray-400">
-            Няма записи.
-          </div>
+        {filteredCourt.length === 0 && (
+          <AdminEmptyState
+            title="Няма съдебни записи"
+            description={query.trim()
+              ? 'Няма дела, които да съвпадат с текущото търсене.'
+              : 'Все още няма добавени дела в съдебната хроника.'}
+          />
         )}
       </div>
     </div>

@@ -3,6 +3,8 @@ import { useAdminData, usePublicData, useSessionData } from '../../context/DataC
 import { Save, Plus, Trash2, RotateCcw, RefreshCw, ShieldAlert, History, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { COMIC_LAYOUT_PRESET_OPTIONS } from '../../utils/comicCardDesign';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
+import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 
 const DEFAULT_SETTINGS = {
   navbarLinks: [
@@ -200,10 +202,14 @@ export default function ManageSiteSettings() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [restoringHistory, setRestoringHistory] = useState(null);
   const fieldRefs = useRef(new Map());
+  const initialFormRef = useRef(JSON.stringify(resolveSettings(siteSettings)));
   const toast = useToast();
+  const confirm = useConfirm();
 
   useEffect(() => {
-    setForm(resolveSettings(siteSettings));
+    const nextForm = resolveSettings(siteSettings);
+    setForm(nextForm);
+    initialFormRef.current = JSON.stringify(nextForm);
   }, [siteSettings]);
 
   useEffect(() => {
@@ -229,6 +235,11 @@ export default function ManageSiteSettings() {
   const tinyLabelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
 
   const canEdit = useMemo(() => hasPermission('permissions'), [hasPermission]);
+  const isFormDirty = useMemo(() => JSON.stringify(form) !== initialFormRef.current, [form]);
+  const { confirmDiscardChanges } = useUnsavedChangesGuard({
+    isDirty: isFormDirty,
+    confirm,
+  });
   const validationEntries = useMemo(() => {
     const errors = [];
     const email = String(form.contact?.email || '').trim();
@@ -337,6 +348,7 @@ export default function ManageSiteSettings() {
     setSaving(true);
     try {
       await saveSiteSettings(form);
+      initialFormRef.current = JSON.stringify(form);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
       toast.success('Site настройките са запазени');
@@ -351,7 +363,13 @@ export default function ManageSiteSettings() {
 
   const handleRestoreHistory = async (revisionId) => {
     if (!revisionId) return;
-    if (!confirm('Да върна тази Site версия? Текущите незапазени промени ще бъдат заменени.')) return;
+    const confirmed = await confirm({
+      title: 'Възстановяване на Site версия',
+      message: 'Да върна тази Site версия? Текущите незапазени промени ще бъдат заменени.',
+      confirmLabel: 'Възстанови',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
     setRestoringHistory(revisionId);
     setError('');
     try {
@@ -364,6 +382,14 @@ export default function ManageSiteSettings() {
     } finally {
       setRestoringHistory(null);
     }
+  };
+
+  const handleResetToDefaults = async () => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    setForm(resolveSettings(DEFAULT_SETTINGS));
+    setSaved(false);
+    setError('');
   };
 
   const handleForceHomepageCacheRefresh = async () => {
@@ -417,7 +443,7 @@ export default function ManageSiteSettings() {
             {refreshingHomepageCache ? 'Обновяване кеш...' : 'Force cache refresh'}
           </button>
           <button
-            onClick={() => setForm(resolveSettings(DEFAULT_SETTINGS))}
+            onClick={() => void handleResetToDefaults()}
             className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors"
           >
             <RotateCcw className="w-4 h-4" />

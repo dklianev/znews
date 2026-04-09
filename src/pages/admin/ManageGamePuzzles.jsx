@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, Edit2, FileText, Globe, Loader2, Plus, Puzzle, Sparkles, Trash2, Wand2 } from 'lucide-react';
 import GamePuzzleEditor from '../../components/admin/GamePuzzleEditor';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
 import { api } from '../../utils/api';
 import { getTodayStr, isValidDateStr } from '../../utils/gameDate';
 import { addPuzzleDays, getPuzzleDurationDays, normalizePuzzleActiveUntilDate } from '../../utils/puzzleDateUtils';
@@ -191,6 +192,7 @@ export default function ManageGamePuzzles() {
         overwriteDrafts: false,
     });
     const toast = useToast();
+    const confirm = useConfirm();
 
     const selectedGame = useMemo(() => games.find((game) => game.slug === selectedGameSlug) || null, [games, selectedGameSlug]);
     const guide = GAME_EDITOR_GUIDES[selectedGameSlug];
@@ -432,7 +434,13 @@ export default function ManageGamePuzzles() {
                 return;
             }
         }
-        if (!window.confirm('Сигурни ли сте, че искате да публикувате този пъзел?')) return;
+        const confirmed = await confirm({
+            title: 'Публикуване на пъзел',
+            message: 'Сигурни ли сте, че искате да публикувате този пъзел?',
+            confirmLabel: 'Публикувай',
+            variant: 'warning',
+        });
+        if (!confirmed) return;
         try {
             await api.adminGames.publishPuzzle(selectedGameSlug, id);
             toast.success('Пъзелът е публикуван.');
@@ -443,7 +451,13 @@ export default function ManageGamePuzzles() {
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Сигурни ли сте, че искате да изтриете този пъзел?')) return;
+        const confirmed = await confirm({
+            title: 'Изтриване на пъзел',
+            message: 'Пъзелът ще бъде изтрит безвъзвратно.',
+            confirmLabel: 'Изтрий',
+            variant: 'danger',
+        });
+        if (!confirmed) return;
         try {
             await api.adminGames.deletePuzzle(selectedGameSlug, id);
             toast.success('Пъзелът е изтрит.');
@@ -572,9 +586,9 @@ export default function ManageGamePuzzles() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex justify-end gap-2">
-                                                    {puzzle.status !== 'published' && <button onClick={() => handlePublish(puzzle.id)} disabled={hasPlaceholders || crosswordPublishBlocked} className="text-green-600 hover:text-green-800 p-2 disabled:text-gray-300 disabled:hover:text-gray-300" title={hasPlaceholders ? 'Премахни placeholder съдържанието преди publish' : crosswordPublishBlocked ? 'Има проблеми за публикуване' : 'Публикувай'}><Globe className="w-4 h-4" /></button>}
-                                                    <button onClick={() => handleEdit(puzzle)} className="text-gray-500 hover:text-blue-600 p-2" title="Редактирай"><Edit2 className="w-4 h-4" /></button>
-                                                    <button onClick={() => handleDelete(puzzle.id)} className="text-gray-500 hover:text-red-600 p-2" title="Изтрий"><Trash2 className="w-4 h-4" /></button>
+                                                    {puzzle.status !== 'published' && <button onClick={() => handlePublish(puzzle.id)} disabled={hasPlaceholders || crosswordPublishBlocked} className="text-green-600 hover:text-green-800 p-2 disabled:text-gray-300 disabled:hover:text-gray-300" title={hasPlaceholders ? 'Премахни placeholder съдържанието преди publish' : crosswordPublishBlocked ? 'Има проблеми за публикуване' : 'Публикувай'} aria-label={hasPlaceholders ? 'Премахни placeholder съдържанието преди публикуване' : crosswordPublishBlocked ? 'Има проблеми за публикуване' : 'Публикувай пъзела'}><Globe className="w-4 h-4" /></button>}
+                                                    <button onClick={() => handleEdit(puzzle)} className="text-gray-500 hover:text-blue-600 p-2" title="Редактирай" aria-label="Редактирай пъзела"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => handleDelete(puzzle.id)} className="text-gray-500 hover:text-red-600 p-2" title="Изтрий" aria-label="Изтрий пъзела"><Trash2 className="w-4 h-4" /></button>
                                                 </div>
                                             </td>
                                         </tr>

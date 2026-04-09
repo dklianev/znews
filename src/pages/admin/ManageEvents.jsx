@@ -1,7 +1,12 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
 
 const EVENT_TYPES = [
   { value: 'race', label: 'Race / Circuit' },
@@ -71,8 +76,10 @@ export default function ManageEvents() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
   const [fieldErrors, setFieldErrors] = useState(EMPTY_FIELD_ERRORS);
   const toast = useToast();
+  const confirm = useConfirm();
   const titleRef = useRef(null);
   const dateRef = useRef(null);
   const locationRef = useRef(null);
@@ -171,7 +178,13 @@ export default function ManageEvents() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Сигурен ли си?')) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на събитие',
+      message: 'Събитието ще бъде изтрито безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     setError('');
     try {
       await deleteEvent(id);
@@ -185,18 +198,37 @@ export default function ManageEvents() {
   const validationEntries = Object.entries(fieldErrors).filter(([, message]) => Boolean(message));
   const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple';
   const labelCls = 'block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-1';
+  const filteredEvents = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return events;
+    return events.filter((eventItem) => (
+      (eventItem.title || '').toLowerCase().includes(normalizedQuery) ||
+      (eventItem.location || '').toLowerCase().includes(normalizedQuery) ||
+      (eventItem.organizer || '').toLowerCase().includes(normalizedQuery) ||
+      (eventItem.description || '').toLowerCase().includes(normalizedQuery)
+    ));
+  }, [events, query]);
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Събития</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">Управление на календарa и публичните събития</p>
-        </div>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold">
+      <AdminPageHeader
+        title="Събития"
+        description="Управление на календара и публичните събития"
+        actions={(
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold">
           <Plus className="w-4 h-4" /> Ново събитие
-        </button>
-      </div>
+          </button>
+        )}
+      />
+
+      <AdminFilterBar className="mb-6">
+        <AdminSearchField
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Търси по заглавие, локация, организатор или описание..."
+          ariaLabel="Търси събития"
+        />
+      </AdminFilterBar>
 
       {(error || validationEntries.length > 0) ? (
         <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
@@ -324,7 +356,7 @@ export default function ManageEvents() {
       ) : null}
 
       <div className="space-y-2">
-        {events.map((eventItem) => (
+        {filteredEvents.map((eventItem) => (
           <div key={eventItem.id} className="bg-white border border-gray-200 p-4 flex items-center gap-4 group">
             <span className="text-2xl">{eventItem.image || '📍'}</span>
             <div className="flex-1 min-w-0">
@@ -336,15 +368,18 @@ export default function ManageEvents() {
               <p className="text-xs font-sans text-gray-500">{eventItem.location} • {eventItem.organizer}</p>
             </div>
             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => openEdit(eventItem)} className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
-              <button onClick={() => handleDelete(eventItem.id)} className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => openEdit(eventItem)} aria-label="Редактирай събитието" className="p-1.5 text-gray-400 hover:text-zn-hot"><Pencil className="w-4 h-4" /></button>
+              <button onClick={() => handleDelete(eventItem.id)} aria-label="Изтрий събитието" className="p-1.5 text-gray-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         ))}
-        {events.length === 0 ? (
-          <div className="text-center py-12 text-sm font-sans text-gray-400">
-            Няма събития.
-          </div>
+        {filteredEvents.length === 0 ? (
+          <AdminEmptyState
+            title="Няма събития"
+            description={query.trim()
+              ? 'Няма събития, които да съвпадат с текущото търсене.'
+              : 'Все още няма добавени събития в календара.'}
+          />
         ) : null}
       </div>
     </div>

@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle, Search, Phone, Mail } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
+import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
+import { buildAdminSearchParams, readEnumSearchParam, readSearchParam } from '../../utils/adminSearchParams';
 
 const BASE_ROLES = Object.freeze(['admin', 'editor', 'reporter', 'photographer', 'intern']);
 const ROLE_LABELS = Object.freeze({
@@ -75,32 +78,66 @@ function getFirstUserErrorField(fieldErrors) {
   return '';
 }
 
+function serializeUserEditorState(form) {
+  return JSON.stringify({
+    name: String(form?.name || ''),
+    username: String(form?.username || ''),
+    password: String(form?.password || ''),
+    role: String(form?.role || ''),
+    profession: String(form?.profession || ''),
+    avatar: String(form?.avatar || ''),
+  });
+}
+
+function serializeAuthorEditorState(form) {
+  return JSON.stringify({
+    name: String(form?.name || ''),
+    avatar: String(form?.avatar || ''),
+    avatarImage: String(form?.avatarImage || ''),
+    avatarImageMeta: form?.avatarImageMeta || null,
+    role: String(form?.role || ''),
+    bio: String(form?.bio || ''),
+    phone: String(form?.phone || ''),
+    email: String(form?.email || ''),
+  });
+}
+
 export default function ManageProfiles() {
   const { authors, articles, addAuthor, updateAuthor, deleteAuthor } = usePublicData();
   const { users, ensureUsersLoaded, addUser, updateUser, deleteUser, permissions, createRole } = useAdminData();
   const { session } = useSessionData();
   const canManageUsers = session?.role === 'admin';
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [tab, setTab] = useState('users');
   const [newRoleKey, setNewRoleKey] = useState('');
   const [newRoleError, setNewRoleError] = useState('');
   const [creatingRole, setCreatingRole] = useState(false);
   const [savingUser, setSavingUser] = useState(false);
   const [userFormError, setUserFormError] = useState('');
   const [userFieldErrors, setUserFieldErrors] = useState(EMPTY_USER_FIELD_ERRORS);
-  const [searchQuery, setSearchQuery] = useState('');
   const toast = useToast();
   const confirm = useConfirm();
+  const tab = readEnumSearchParam(searchParams, 'tab', ['users', 'authors'], 'users');
+  const searchQuery = readSearchParam(searchParams, 'q', '');
   const nameRef = useRef(null);
   const usernameRef = useRef(null);
   const passwordRef = useRef(null);
   const roleRef = useRef(null);
+  const initialUserFormRef = useRef(serializeUserEditorState(emptyForm));
+  const initialAuthorFormRef = useRef(serializeAuthorEditorState({ name: '', avatar: '👤', avatarImage: '', avatarImageMeta: null, role: '', bio: '', phone: '', email: '' }));
 
   useEffect(() => {
     if (tab !== 'users') return;
     void ensureUsersLoaded();
   }, [tab, ensureUsersLoaded]);
+
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
+  };
 
   const isValidRoleKey = (role) => /^[a-z][a-z0-9_-]{1,31}$/.test(role);
 
@@ -118,6 +155,18 @@ export default function ManageProfiles() {
 
   const [authorForm, setAuthorForm] = useState({ name: '', avatar: '👤', avatarImage: '', avatarImageMeta: null, role: '', bio: '', phone: '', email: '' });
   const [editingAuthor, setEditingAuthor] = useState(null);
+  const isUserEditorDirty = useMemo(
+    () => Boolean(editing) && serializeUserEditorState(form) !== initialUserFormRef.current,
+    [editing, form],
+  );
+  const isAuthorEditorDirty = useMemo(
+    () => Boolean(editingAuthor) && serializeAuthorEditorState(authorForm) !== initialAuthorFormRef.current,
+    [authorForm, editingAuthor],
+  );
+  const { confirmDiscardChanges } = useUnsavedChangesGuard({
+    isDirty: isUserEditorDirty || isAuthorEditorDirty,
+    confirm,
+  });
 
   const focusUserField = (field) => {
     if (field === 'name') nameRef.current?.focus();
@@ -136,31 +185,39 @@ export default function ManageProfiles() {
   const resetUserEditor = () => {
     setEditing(null);
     setForm(emptyForm);
+    initialUserFormRef.current = serializeUserEditorState(emptyForm);
     setUserFormError('');
     setUserFieldErrors(EMPTY_USER_FIELD_ERRORS);
     setNewRoleError('');
     setNewRoleKey('');
   };
 
-  const openCreateUser = () => {
+  const openCreateUser = async () => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
     setEditing('new');
     setForm(emptyForm);
+    initialUserFormRef.current = serializeUserEditorState(emptyForm);
     setUserFormError('');
     setUserFieldErrors(EMPTY_USER_FIELD_ERRORS);
     setNewRoleError('');
     setNewRoleKey('');
   };
 
-  const openEditUser = (user) => {
-    setEditing(user.id);
-    setForm({
+  const openEditUser = async (user) => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    const nextForm = {
       name: user.name || '',
       username: user.username || '',
       password: '',
       role: user.role || 'reporter',
       profession: user.profession || '',
       avatar: user.avatar || '👤',
-    });
+    };
+    setEditing(user.id);
+    setForm(nextForm);
+    initialUserFormRef.current = serializeUserEditorState(nextForm);
     setUserFormError('');
     setUserFieldErrors(EMPTY_USER_FIELD_ERRORS);
     setNewRoleError('');
@@ -267,6 +324,40 @@ export default function ManageProfiles() {
     }
   };
 
+  const resetAuthorEditor = () => {
+    const nextForm = { name: '', avatar: '👤', avatarImage: '', avatarImageMeta: null, role: '', bio: '', phone: '', email: '' };
+    setEditingAuthor(null);
+    setAuthorForm(nextForm);
+    initialAuthorFormRef.current = serializeAuthorEditorState(nextForm);
+  };
+
+  const openCreateAuthor = async () => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    const nextForm = { name: '', avatar: '👤', avatarImage: '', avatarImageMeta: null, role: '', bio: '', phone: '', email: '' };
+    setEditingAuthor('new');
+    setAuthorForm(nextForm);
+    initialAuthorFormRef.current = serializeAuthorEditorState(nextForm);
+  };
+
+  const openEditAuthor = async (author) => {
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    const nextForm = {
+      name: author.name || '',
+      avatar: author.avatar || '👤',
+      avatarImage: author.avatarImage || '',
+      avatarImageMeta: author.avatarImageMeta || null,
+      role: author.role || '',
+      bio: author.bio || '',
+      phone: author.phone || '',
+      email: author.email || '',
+    };
+    setEditingAuthor(author.id);
+    setAuthorForm(nextForm);
+    initialAuthorFormRef.current = serializeAuthorEditorState(nextForm);
+  };
+
   const handleSaveAuthor = async () => {
     if (!authorForm.name) return;
     if (editingAuthor === 'new') {
@@ -276,8 +367,7 @@ export default function ManageProfiles() {
       await updateAuthor(editingAuthor, authorForm);
       toast.success('Авторът е обновен');
     }
-    setEditingAuthor(null);
-    setAuthorForm({ name: '', avatar: '👤', avatarImage: '', avatarImageMeta: null, role: '', bio: '', phone: '', email: '' });
+    resetAuthorEditor();
   };
 
   const handleDeleteAuthor = async (id) => {
@@ -290,6 +380,13 @@ export default function ManageProfiles() {
     if (!confirmed) return;
     await deleteAuthor(id);
     toast.success('Авторът е изтрит');
+  };
+
+  const handleTabChange = async (nextTab) => {
+    if (nextTab === tab) return;
+    const canProceed = await confirmDiscardChanges();
+    if (!canProceed) return;
+    setListSearchParams({ tab: nextTab, q: searchQuery });
   };
 
   const filteredUsers = useMemo(() => {
@@ -331,7 +428,7 @@ export default function ManageProfiles() {
         ].map((currentTab) => (
           <button
             key={currentTab.id}
-            onClick={() => setTab(currentTab.id)}
+            onClick={() => void handleTabChange(currentTab.id)}
             className={`px-5 py-3 text-sm font-sans font-medium border-b-2 transition-colors ${
               tab === currentTab.id
                 ? 'border-zn-purple text-zn-hot'
@@ -348,7 +445,7 @@ export default function ManageProfiles() {
         <input
           type="text"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => setListSearchParams({ tab, q: e.target.value })}
           placeholder={tab === 'users' ? 'Търси по име, username или роля...' : 'Търси по име или позиция...'}
           className="pl-9 pr-3 py-1.5 text-sm font-sans bg-white border border-gray-200 outline-none focus:border-zn-purple w-64"
         />
@@ -358,7 +455,7 @@ export default function ManageProfiles() {
         <>
           {canManageUsers ? (
             <button
-              onClick={openCreateUser}
+              onClick={() => void openCreateUser()}
               className="mb-4 flex items-center gap-2 px-4 py-2 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -533,7 +630,7 @@ export default function ManageProfiles() {
                   {savingUser ? 'Запис...' : 'Запази'}
                 </button>
                 <button
-                  onClick={resetUserEditor}
+                  onClick={() => void resetUserEditor()}
                   className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors"
                 >
                   <X className="w-4 h-4" />
@@ -578,7 +675,7 @@ export default function ManageProfiles() {
                         {canManageUsers ? (
                           <>
                             <button
-                              onClick={() => openEditUser(user)}
+                              onClick={() => void openEditUser(user)}
                               className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors"
                             >
                               <Pencil className="w-4 h-4" />
@@ -608,10 +705,7 @@ export default function ManageProfiles() {
       {tab === 'authors' && (
         <>
           <button
-            onClick={() => {
-              setEditingAuthor('new');
-              setAuthorForm({ name: '', avatar: '👤', avatarImage: '', avatarImageMeta: null, role: '', bio: '', phone: '', email: '' });
-            }}
+            onClick={() => void openCreateAuthor()}
             className="mb-4 flex items-center gap-2 px-4 py-2 bg-zn-hot text-white text-sm font-sans font-semibold hover:bg-zn-hot transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -710,7 +804,7 @@ export default function ManageProfiles() {
                 <button onClick={handleSaveAuthor} className="flex items-center gap-2 px-5 py-2 bg-zn-hot text-white text-sm font-sans font-semibold hover:bg-zn-hot transition-colors">
                   <Save className="w-4 h-4" /> Запази
                 </button>
-                <button onClick={() => setEditingAuthor(null)} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
+                <button onClick={() => void resetAuthorEditor()} className="flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors">
                   <X className="w-4 h-4" /> Отказ
                 </button>
               </div>
@@ -745,10 +839,7 @@ export default function ManageProfiles() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => {
-                            setEditingAuthor(author.id);
-                            setAuthorForm(author);
-                          }}
+                          onClick={() => void openEditAuthor(author)}
                           className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors"
                         >
                           <Pencil className="w-4 h-4" />
