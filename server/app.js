@@ -536,7 +536,7 @@ app.use(helmet({
       imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
       fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', 'https:'],
       connectSrc: ["'self'"],
-      frameSrc: ["'self'", 'https://www.youtube.com', 'https://youtube.com', 'https://player.vimeo.com', 'https://www.facebook.com'],
+      frameSrc: ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://youtube.com', 'https://player.vimeo.com', 'https://www.facebook.com'],
       objectSrc: ["'none'"],
       frameAncestors: [(req) => getFrameAncestorsDirectiveValue(req)],
       baseUri: ["'self'"],
