@@ -1,7 +1,13 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePublicData } from '../../context/DataContext';
-import { Clock3, FilePenLine, Search, Send, CalendarClock, CirclePause, Loader2 } from 'lucide-react';
+import { Clock3, FilePenLine, Send, CalendarClock, CirclePause, Loader2, ClipboardList } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readEnumSearchParam, readSearchParam } from '../../utils/adminSearchParams';
 
 function isScheduledArticle(article) {
   if (article?.status !== 'published') return false;
@@ -20,11 +26,19 @@ function toLocalDateLabel(value) {
 
 export default function EditorialQueue() {
   const { articles, categories, authors, updateArticle } = usePublicData();
-  const [tab, setTab] = useState('drafts');
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = readEnumSearchParam(searchParams, 'tab', ['drafts', 'scheduled', 'today'], 'drafts');
+  const query = readSearchParam(searchParams, 'q', '');
+  const category = readSearchParam(searchParams, 'category', 'all');
   const [workingId, setWorkingId] = useState(null);
   const toast = useToast();
+
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
+  };
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const byStatus = useMemo(() => {
@@ -84,7 +98,7 @@ export default function EditorialQueue() {
   const tabButton = (key, label, count) => (
     <button
       type="button"
-      onClick={() => setTab(key)}
+      onClick={() => setListSearchParams({ tab: key, q: query, category })}
       className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${tab === key ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'}`}
     >
       {label} ({count})
@@ -93,10 +107,11 @@ export default function EditorialQueue() {
 
   return (
     <div className="p-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-display font-bold text-gray-900">Editorial Queue</h1>
-        <p className="text-sm font-sans text-gray-500 mt-1">Чернови, планирани и публикувани днес с бързи действия</p>
-      </div>
+      <AdminPageHeader
+        title="Editorial Queue"
+        description="Чернови, планирани и публикувани днес с бързи действия"
+        icon={ClipboardList}
+      />
 
       <div className="flex flex-wrap gap-2 mb-4">
         {tabButton('drafts', 'Чернови', byStatus.drafts.length)}
@@ -104,19 +119,17 @@ export default function EditorialQueue() {
         {tabButton('today', 'Публикувани днес', byStatus.publishedToday.length)}
       </div>
 
-      <div className="bg-white border border-gray-200 p-4 mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="relative md:col-span-2">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Търси по заглавие или резюме..."
-            className="w-full pl-9 pr-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
-          />
-        </div>
+      <AdminFilterBar className="mb-4 rounded border border-gray-200 bg-white p-4">
+        <AdminSearchField
+          value={query}
+          onChange={(event) => setListSearchParams({ tab, q: event.target.value, category })}
+          placeholder="Търси по заглавие или резюме"
+          ariaLabel="Търси по заглавие или резюме"
+          className="md:col-span-2"
+        />
         <select
           value={category}
-          onChange={(event) => setCategory(event.target.value)}
+          onChange={(event) => setListSearchParams({ tab, q: query, category: event.target.value })}
           className="w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple"
         >
           <option value="all">Всички категории</option>
@@ -124,7 +137,7 @@ export default function EditorialQueue() {
             <option key={item.id} value={item.id}>{item.name}</option>
           ))}
         </select>
-      </div>
+      </AdminFilterBar>
 
       <div className="space-y-2">
         {activeItems.map((article) => {
@@ -221,9 +234,10 @@ export default function EditorialQueue() {
         })}
 
         {activeItems.length === 0 && (
-          <div className="text-center py-12 text-sm font-sans text-gray-400 bg-white border border-gray-200">
-            Няма публикации в тази опашка
-          </div>
+          <AdminEmptyState
+            title="Няма публикации"
+            description="Промени филтрите или избери друг таб, за да видиш публикации в editorial queue."
+          />
         )}
       </div>
     </div>

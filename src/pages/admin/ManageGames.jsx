@@ -1,13 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../../utils/api';
 import { useToast } from '../../components/admin/Toast';
 import { Gamepad2, Loader2, Check, X, RefreshCw } from 'lucide-react';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readSearchParam } from '../../utils/adminSearchParams';
 
 export default function ManageGames() {
     const [games, setGames] = useState([]);
     const [loading, setLoading] = useState(true);
     const [savingId, setSavingId] = useState(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const query = readSearchParam(searchParams, 'q', '');
     const toast = useToast();
+
+    const setListSearchParams = (updates) => {
+        setSearchParams(
+            (current) => buildAdminSearchParams(current, updates),
+            { replace: true },
+        );
+    };
 
     const loadGames = async () => {
         setLoading(true);
@@ -24,6 +39,17 @@ export default function ManageGames() {
     useEffect(() => {
         loadGames();
     }, []);
+
+    const filteredGames = useMemo(() => {
+        const normalizedQuery = query.trim().toLowerCase();
+        if (!normalizedQuery) return games;
+        return games.filter((game) =>
+            String(game.id || '').toLowerCase().includes(normalizedQuery)
+            || String(game.slug || '').toLowerCase().includes(normalizedQuery)
+            || String(game.title || '').toLowerCase().includes(normalizedQuery)
+            || String(game.description || '').toLowerCase().includes(normalizedQuery)
+        );
+    }, [games, query]);
 
     const toggleActive = async (game) => {
         setSavingId(game.id);
@@ -48,42 +74,52 @@ export default function ManageGames() {
 
     return (
         <div className="p-8 max-w-5xl mx-auto">
-            <div className="flex items-center justify-between mb-8">
-                <div>
-                    <h1 className="text-2xl font-display font-bold text-gray-900 flex items-center gap-2">
-                        <Gamepad2 className="w-6 h-6 text-zn-purple" />
-                        Управление на Игри
-                    </h1>
-                    <p className="text-sm font-sans text-gray-500 mt-1">Активирайте или деактивирайте модулите с игри (Word, Connections, Ерудит, Судоку).</p>
-                </div>
-                <button
-                    onClick={loadGames}
-                    className="p-2 text-gray-500 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded transition-colors"
-                    title="Презареди"
-                >
-                    <RefreshCw className="w-5 h-5" />
-                </button>
-            </div>
+            <AdminPageHeader
+                title="Управление на Игри"
+                description="Активирайте или деактивирайте модулите с игри (Word, Connections, Ерудит, Судоку)."
+                icon={Gamepad2}
+                actions={(
+                    <button
+                        onClick={loadGames}
+                        className="rounded bg-gray-100 p-2 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-900"
+                        aria-label="Презареди игрите"
+                        title="Презареди"
+                    >
+                        <RefreshCw className="h-5 w-5" />
+                    </button>
+                )}
+            />
+
+            <AdminFilterBar className="mb-6">
+                <AdminSearchField
+                    value={query}
+                    onChange={(event) => setListSearchParams({ q: event.target.value })}
+                    placeholder="Търси игра по име, slug или описание"
+                    ariaLabel="Търси игра по име, slug или описание"
+                />
+            </AdminFilterBar>
 
             <div className="bg-white border border-gray-200 overflow-hidden shadow-sm">
-                <table className="w-full text-left font-sans text-sm">
-                    <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                            <th className="px-6 py-4 font-bold uppercase tracking-wider text-gray-500 text-xs">ID / Slug</th>
-                            <th className="px-6 py-4 font-bold uppercase tracking-wider text-gray-500 text-xs">Име / Описание</th>
-                            <th className="px-6 py-4 font-bold uppercase tracking-wider text-gray-500 text-xs text-center">Статус</th>
-                            <th className="px-6 py-4 font-bold uppercase tracking-wider text-gray-500 text-xs text-right">Действие</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {games.length === 0 ? (
-                            <tr>
-                                <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
-                                    Няма намерени дефиниции на игри. Моля стартирайте seed скрипта.
-                                </td>
+                {filteredGames.length === 0 ? (
+                    <AdminEmptyState
+                        title={games.length === 0 ? 'Няма игри' : 'Няма съвпадения'}
+                        description={games.length === 0
+                            ? 'Няма намерени дефиниции на игри. Моля стартирайте seed скрипта.'
+                            : 'Промени търсенето, за да видиш съвпадащи игрови модули.'}
+                        className="m-4"
+                    />
+                ) : (
+                    <table className="w-full text-left font-sans text-sm">
+                        <thead>
+                            <tr className="bg-gray-50 border-b border-gray-200">
+                                <th className="px-6 py-4 font-bold uppercase tracking-wider text-gray-500 text-xs">ID / Slug</th>
+                                <th className="px-6 py-4 font-bold uppercase tracking-wider text-gray-500 text-xs">Име / Описание</th>
+                                <th className="px-6 py-4 font-bold uppercase tracking-wider text-gray-500 text-xs text-center">Статус</th>
+                                <th className="px-6 py-4 font-bold uppercase tracking-wider text-gray-500 text-xs text-right">Действие</th>
                             </tr>
-                        ) : (
-                            games.map(game => (
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {filteredGames.map(game => (
                                 <tr key={game.id} className="hover:bg-gray-50/50 transition-colors">
                                     <td className="px-6 py-4">
                                         <p className="font-bold text-gray-900">{game.id}</p>
@@ -117,10 +153,10 @@ export default function ManageGames() {
                                         </button>
                                     </td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
             </div>
             <div className="mt-4 p-4 bg-blue-50 border border-blue-200 text-blue-800 text-sm font-sans flex items-start gap-2">
                 ℹ️ За да създадете пъзели към активните игри, отидете в меню "Игрови Пъзели".

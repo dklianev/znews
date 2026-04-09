@@ -12,6 +12,8 @@ const toast = {
 
 let adminDataState = {};
 let sessionDataState = {};
+let searchParamsState = '';
+const setSearchParamsSpy = vi.fn();
 
 vi.mock('../../src/context/DataContext', () => ({
   useAdminData: () => adminDataState,
@@ -20,6 +22,26 @@ vi.mock('../../src/context/DataContext', () => ({
 
 vi.mock('../../src/components/admin/Toast', () => ({
   useToast: () => toast,
+}));
+
+vi.mock('react-router-dom', () => ({
+  useSearchParams: () => {
+    const [params, setParams] = React.useState(() => new URLSearchParams(searchParamsState));
+
+    const updateParams = (nextInit, options) => {
+      setParams((currentParams) => {
+        const resolvedParams = typeof nextInit === 'function'
+          ? nextInit(currentParams)
+          : nextInit;
+        const nextParams = new URLSearchParams(resolvedParams);
+        searchParamsState = nextParams.toString();
+        setSearchParamsSpy(searchParamsState, options ?? null);
+        return nextParams;
+      });
+    };
+
+    return [params, updateParams];
+  },
 }));
 
 const { default: ManagePermissions } = await import('../../src/pages/admin/ManagePermissions.jsx');
@@ -33,8 +55,10 @@ describe('ManagePermissions', () => {
     createRole.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
+    setSearchParamsSpy.mockReset();
     adminDataState = {};
     sessionDataState = {};
+    searchParamsState = '';
     await unmountRoot(root, container);
     root = null;
     container = null;

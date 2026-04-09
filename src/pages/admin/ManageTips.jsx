@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useOptimistic, useState } from 'react';
 import { useAdminData } from '../../context/DataContext';
-import { RefreshCw, Trash2, Edit3, Image as ImageIcon, MapPin, Search } from 'lucide-react';
+import { RefreshCw, Trash2, Edit3, Image as ImageIcon, MapPin } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readSearchParam } from '../../utils/adminSearchParams';
 
 export default function ManageTips() {
   const { tips, tipsReady, refreshTips, ensureTipsLoaded, updateTip, deleteTip } = useAdminData();
   const toast = useToast();
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
+  const confirm = useConfirm();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [busyTip, setBusyTip] = useState(null);
   const [optimisticTips, applyTipUpdate] = useOptimistic(
     tips,
@@ -37,6 +44,15 @@ export default function ManageTips() {
     void ensureTipsLoaded();
   }, [ensureTipsLoaded]);
 
+  const query = readSearchParam(searchParams, 'q', '');
+
+  const setQueryValue = (value) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, { q: value }),
+      { replace: true },
+    );
+  };
+
   const filteredTips = useMemo(() => {
     const q = query.toLowerCase();
     return optimisticTips.filter((tip) => (
@@ -52,7 +68,13 @@ export default function ManageTips() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Сигурни ли сте, че искате да изтриете този сигнал?')) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на сигнал',
+      message: 'Сигналът ще бъде изтрит безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
 
     setBusyTip({ id, action: 'delete' });
     applyTipUpdate({ type: 'delete', id });
@@ -102,41 +124,37 @@ export default function ManageTips() {
 
   return (
     <div className="p-8 min-h-full">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Сигнали (типлайн)</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">Преглед на получените потребителски сигнали</p>
-        </div>
-        <div className="flex items-center gap-2">
+      <AdminPageHeader
+        title="Сигнали (типлайн)"
+        description="Преглед на получените потребителски сигнали"
+        actions={(
           <button
             type="button"
             onClick={refreshTips}
+            aria-label="Обнови сигналите"
             className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Обнови
           </button>
-        </div>
-      </div>
+        )}
+      />
 
-      <div className="mb-6 relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="w-5 h-5 text-gray-400" />
-        </div>
-        <input
-          type="text"
-          className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-zn-purple/20 focus:border-zn-purple font-sans"
-          placeholder="Търси сигнал по текст или локация..."
+      <AdminFilterBar className="mb-6">
+        <AdminSearchField
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => setQueryValue(event.target.value)}
+          placeholder="Търси сигнал по текст или локация..."
+          ariaLabel="Търси сигнал по текст или локация"
         />
-      </div>
+      </AdminFilterBar>
 
       <div className="space-y-4">
         {tipsReady && filteredTips.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 font-sans border border-gray-200 border-dashed bg-gray-50">
-            Няма намерени сигнали.
-          </div>
+          <AdminEmptyState
+            title="Няма сигнали"
+            description={query.trim() ? 'Няма сигнали, които да съвпадат с текущото търсене.' : 'Все още няма постъпили сигнали в типлайна.'}
+          />
         ) : (
           filteredTips.map((tip) => (
             <div
@@ -199,6 +217,7 @@ export default function ManageTips() {
                       type="button"
                       onClick={() => void handleDelete(tip.id)}
                       disabled={isTipBusy(tip.id)}
+                      aria-label="Изтрий сигнал"
                       className="p-1.5 text-gray-400 hover:text-red-500 disabled:opacity-50 transition-colors"
                     >
                       {isTipBusy(tip.id) ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}

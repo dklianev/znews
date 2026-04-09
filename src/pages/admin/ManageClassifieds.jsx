@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useOptimistic, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAdminData } from '../../context/DataContext';
-import { RefreshCw, Trash2, CheckCircle, XCircle, Search, Image as ImageIcon, Phone, User, DollarSign, Clock, Copy, Check, Tag, Star, ArrowUp, RotateCcw, Eye, Camera } from 'lucide-react';
+import { RefreshCw, Trash2, CheckCircle, XCircle, Image as ImageIcon, Phone, User, DollarSign, Clock, Copy, Check, Star, ArrowUp, RotateCcw, Eye, Camera } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import { copyToClipboard } from '../../utils/copyToClipboard';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readEnumSearchParam, readSearchParam } from '../../utils/adminSearchParams';
 
 const STATUS_CONFIG = {
   awaiting_payment: { label: 'Чака плащане', bg: 'bg-yellow-100 text-yellow-800', dotColor: 'bg-yellow-500' },
@@ -19,12 +27,13 @@ const TIER_LABELS = { standard: 'Стандартна', highlighted: 'Удебе
 function CopyInline({ text }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    try { await navigator.clipboard.writeText(text); } catch { const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
+    const success = await copyToClipboard(text);
+    if (!success) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
   return (
-    <button type="button" onClick={copy} className="inline-flex items-center gap-1 text-zn-purple hover:text-zn-hot transition-colors" title="Копирай">
+    <button type="button" onClick={copy} aria-label={`Копирай кода ${text}`} className="inline-flex items-center gap-1 text-zn-purple hover:text-zn-hot transition-colors" title="Копирай">
       {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   );
@@ -44,10 +53,17 @@ function formatAdminAmount(amount, currency) {
 export default function ManageClassifieds() {
   const { classifieds, classifiedsReady, refreshClassifieds, ensureClassifiedsLoaded, approveClassified, rejectClassified, deleteClassified, bumpClassified, renewClassified } = useAdminData();
   const toast = useToast();
-  const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const confirm = useConfirm();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [busyId, setBusyId] = useState(null);
   const [paidByInputs, setPaidByInputs] = useState({});
+  const query = readSearchParam(searchParams, 'q', '');
+  const statusFilter = readEnumSearchParam(
+    searchParams,
+    'status',
+    ['all', 'awaiting_payment', 'active', 'rejected', 'expired'],
+    'all',
+  );
 
   const isAuthError = (error) => {
     const status = Number(error?.status);
@@ -90,6 +106,13 @@ export default function ManageClassifieds() {
     } catch (error) {
       showClassifiedsError(error, 'Не успяхме да обновим малките обяви.');
     }
+  };
+
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
   };
 
   const filtered = useMemo(() => {
@@ -137,7 +160,13 @@ export default function ManageClassifieds() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Сигурни ли сте, че искате да изтриете тази обява?')) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на обява',
+      message: 'Обявата ще бъде изтрита безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     setBusyId(id);
     applyUpdate({ type: 'delete', id });
     try {
@@ -182,35 +211,41 @@ export default function ManageClassifieds() {
 
   return (
     <div className="p-8 min-h-full">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Малки обяви</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">Управление и потвърждаване на плащания</p>
-        </div>
-        <button type="button" onClick={handleRefresh} aria-label="Обнови обявите" className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors">
+      <AdminPageHeader
+        title="Малки обяви"
+        description="Управление и потвърждаване на плащания"
+        actions={(
+          <button type="button" onClick={handleRefresh} aria-label="Обнови обявите" className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors">
           <RefreshCw className="w-4 h-4" /> Обнови
-        </button>
-      </div>
+          </button>
+        )}
+      />
 
-      {/* Status tabs */}
-      <div className="flex gap-2 mb-4">
+      <AdminFilterBar className="mb-4">
         {STATUS_TABS.map(tab => (
-          <button key={tab.value} type="button" onClick={() => setStatusFilter(tab.value)} className={`px-3 py-1.5 text-xs font-sans font-bold rounded-full border transition-colors ${statusFilter === tab.value ? 'bg-zn-purple text-white border-zn-purple' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+          <button key={tab.value} type="button" onClick={() => setListSearchParams({ status: tab.value, q: query })} className={`px-3 py-1.5 text-xs font-sans font-bold rounded-full border transition-colors ${statusFilter === tab.value ? 'bg-zn-purple text-white border-zn-purple' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
             {tab.label} ({counts[tab.value] || 0})
           </button>
         ))}
-      </div>
+      </AdminFilterBar>
 
-      {/* Search */}
-      <div className="mb-6 relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Search className="w-5 h-5 text-gray-400" /></div>
-        <input type="text" className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 focus:outline-none focus:ring-2 focus:ring-zn-purple/20 focus:border-zn-purple font-sans" placeholder="Търси по заглавие, описание, име или код за плащане..." value={query} onChange={e => setQuery(e.target.value)} />
-      </div>
+      <AdminFilterBar className="mb-6">
+        <AdminSearchField
+          value={query}
+          onChange={(event) => setListSearchParams({ status: statusFilter, q: event.target.value })}
+          placeholder="Търси по заглавие, описание, име или код за плащане..."
+          ariaLabel="Търси малки обяви"
+        />
+      </AdminFilterBar>
 
-      {/* List */}
       <div className="space-y-4">
         {classifiedsReady && filtered.length === 0 ? (
-          <div className="p-8 text-center text-gray-500 font-sans border border-gray-200 border-dashed bg-gray-50">Няма намерени обяви.</div>
+          <AdminEmptyState
+            title="Няма обяви"
+            description={query.trim() || statusFilter !== 'all'
+              ? 'Няма обяви, които да съвпадат с текущите филтри.'
+              : 'Все още няма подадени малки обяви за модерация.'}
+          />
         ) : filtered.map(item => {
           const stCfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.awaiting_payment;
           const isBusy = busyId === item.id;
@@ -307,7 +342,7 @@ export default function ManageClassifieds() {
                     </button>
                   </>
                 )}
-                <button type="button" onClick={() => handleDelete(item.id)} disabled={isBusy} className="p-1.5 text-gray-400 hover:text-red-500 disabled:opacity-50 transition-colors ml-auto">
+                <button type="button" onClick={() => handleDelete(item.id)} disabled={isBusy} aria-label="Изтрий обявата" className="p-1.5 text-gray-400 hover:text-red-500 disabled:opacity-50 transition-colors ml-auto">
                   {isBusy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 </button>
               </div>

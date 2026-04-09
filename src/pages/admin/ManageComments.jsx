@@ -1,8 +1,14 @@
 import { useMemo, useOptimistic, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePublicData } from '../../context/DataContext';
-import { Check, Trash2, XCircle, Eye, AlertTriangle, Search } from 'lucide-react';
+import { Check, Trash2, XCircle, Eye, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readEnumSearchParam, readSearchParam } from '../../utils/adminSearchParams';
 
 function collectCommentThreadIds(comments, rootId) {
   const list = Array.isArray(comments) ? comments : [];
@@ -29,12 +35,13 @@ function collectCommentThreadIds(comments, rootId) {
 
 export default function ManageComments() {
   const { comments, articles, updateComment, deleteComment } = usePublicData();
-  const [filter, setFilter] = useState('all'); // all | pending | approved
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState('');
   const toast = useToast();
   const confirm = useConfirm();
+  const filter = readEnumSearchParam(searchParams, 'status', ['all', 'pending', 'approved'], 'all');
+  const searchQuery = readSearchParam(searchParams, 'q', '');
   const [optimisticComments, applyCommentMutation] = useOptimistic(
     comments,
     (currentComments, mutation) => {
@@ -162,10 +169,17 @@ export default function ManageComments() {
     }
   };
 
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
+  };
+
   const filterBtn = (value, label, count) => (
     <button
       type="button"
-      onClick={() => setFilter(value)}
+      onClick={() => setListSearchParams({ status: value, q: searchQuery })}
       className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filter === value
         ? 'bg-zn-hot text-white border-zn-hot'
         : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
@@ -177,19 +191,15 @@ export default function ManageComments() {
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900">Коментари</h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">
-            Управление на потребителски коментари
-            {pendingCount > 0 && (
-              <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded-full">
-                {pendingCount} чакащи
-              </span>
-            )}
-          </p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Коментари"
+        description="Управление на потребителски коментари"
+        meta={pendingCount > 0 ? (
+          <span className="inline-flex px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-bold rounded-full">
+            {pendingCount} чакащи
+          </span>
+        ) : null}
+      />
 
       {error && (
         <div className="mb-5 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
@@ -198,22 +208,20 @@ export default function ManageComments() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 mb-5 items-center">
+      <AdminFilterBar>
         {filterBtn('all', 'Всички', optimisticComments.length)}
         {filterBtn('pending', 'Чакащи', pendingCount)}
         {filterBtn('approved', 'Одобрени', approvedCount)}
 
-        <div className="ml-auto relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Търси по автор или текст..."
-            className="pl-9 pr-3 py-1.5 text-sm font-sans bg-white border border-gray-200 outline-none focus:border-zn-purple w-64"
-          />
-        </div>
-      </div>
+        <AdminSearchField
+          value={searchQuery}
+          onChange={(event) => setListSearchParams({ status: filter, q: event.target.value })}
+          placeholder="Търси по автор или текст..."
+          ariaLabel="Търси коментар по автор или текст"
+          className="ml-auto min-w-[260px]"
+          inputClassName="py-1.5"
+        />
+      </AdminFilterBar>
 
       <div className="space-y-2">
         {sortedComments.map((comment) => {
@@ -300,9 +308,14 @@ export default function ManageComments() {
           );
         })}
         {sortedComments.length === 0 && (
-          <div className="text-center py-12 text-sm font-sans text-gray-400">
-            {searchQuery.trim() ? 'Няма резултати за търсенето' : 'Няма коментари в този филтър'}
-          </div>
+          <AdminEmptyState
+            title="Няма коментари"
+            description={searchQuery.trim()
+              ? 'Няма коментари, които да съвпадат с текущото търсене.'
+              : filter === 'all'
+                ? 'Все още няма постъпили коментари.'
+                : 'Няма коментари в избрания филтър.'}
+          />
         )}
       </div>
     </div>

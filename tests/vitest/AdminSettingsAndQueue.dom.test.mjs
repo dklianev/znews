@@ -1,6 +1,6 @@
 import React, { createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { click, renderIntoBody, unmountRoot } from './helpers/domHarness.mjs';
+import { click, flushEffects, inputValue, renderIntoBody, unmountRoot } from './helpers/domHarness.mjs';
 
 const saveSiteSettings = vi.fn(async () => {});
 const forceRefreshHomepageCache = vi.fn(async () => ({ ok: true }));
@@ -27,6 +27,8 @@ const toast = {
 let adminDataState = {};
 let publicDataState = {};
 let sessionDataState = {};
+let searchParamsState = '';
+const setSearchParamsSpy = vi.fn();
 
 vi.mock('../../src/context/DataContext', () => ({
   useAdminData: () => adminDataState,
@@ -96,6 +98,26 @@ vi.mock('../../../shared/spellingBee.js', () => ({
   SPELLING_BEE_MIN_WORD_LENGTH: 4,
 }));
 
+vi.mock('react-router-dom', () => ({
+  useSearchParams: () => {
+    const [params, setParams] = React.useState(() => new URLSearchParams(searchParamsState));
+
+    const updateParams = (nextInit, options) => {
+      setParams((currentParams) => {
+        const resolvedParams = typeof nextInit === 'function'
+          ? nextInit(currentParams)
+          : nextInit;
+        const nextParams = new URLSearchParams(resolvedParams);
+        searchParamsState = nextParams.toString();
+        setSearchParamsSpy(searchParamsState, options ?? null);
+        return nextParams;
+      });
+    };
+
+    return [params, updateParams];
+  },
+}));
+
 const { default: ManageSiteSettings } = await import('../../src/pages/admin/ManageSiteSettings.jsx');
 const { default: EditorialQueue } = await import('../../src/pages/admin/EditorialQueue.jsx');
 const { default: ManageGamePuzzles } = await import('../../src/pages/admin/ManageGamePuzzles.jsx');
@@ -120,9 +142,11 @@ describe('AdminSettingsAndQueue', () => {
     toast.success.mockClear();
     toast.error.mockClear();
     toast.warning.mockClear();
+    setSearchParamsSpy.mockClear();
     adminDataState = {};
     publicDataState = {};
     sessionDataState = {};
+    searchParamsState = '';
     await unmountRoot(root, container);
     root = null;
     container = null;
@@ -186,6 +210,53 @@ describe('AdminSettingsAndQueue', () => {
 
     expect(updateArticle).toHaveBeenCalledWith(9, expect.objectContaining({ status: 'published', publishAt: null }));
     expect(toast.success).toHaveBeenCalled();
+    expect(container.querySelector('input[aria-label="Търси по заглавие или резюме"]')).not.toBeNull();
+  });
+
+  it('shows the shared empty state in editorial queue when filters miss', async () => {
+    publicDataState = {
+      articles: [
+        { id: 9, title: 'Чернова статия', excerpt: 'Късо резюме', status: 'draft', category: 'crime', authorId: 3, date: '2026-04-03' },
+      ],
+      categories: [{ id: 'crime', name: 'Криминални' }],
+      authors: [{ id: 3, name: 'Репортер' }],
+      updateArticle,
+    };
+
+    ({ root, container } = await renderIntoBody(EditorialQueue));
+
+    const searchInput = container.querySelector('input[aria-label="Търси по заглавие или резюме"]');
+    await inputValue(searchInput, 'несъществуващ');
+
+    expect(container.textContent).toContain('Няма публикации');
+  });
+
+  it('hydrates editorial queue filters from the URL and syncs search updates', async () => {
+    searchParamsState = 'tab=today&category=crime&q=%D1%87%D0%B5%D1%80';
+    publicDataState = {
+      articles: [
+        { id: 9, title: 'Чернова статия', excerpt: 'Късо резюме', status: 'draft', category: 'crime', authorId: 3, date: '2026-04-09' },
+        { id: 10, title: 'Черна хроника', excerpt: 'Публикувана днес', status: 'published', category: 'crime', authorId: 3, date: '2026-04-09' },
+        { id: 11, title: 'Бизнес обзор', excerpt: 'Друго', status: 'published', category: 'business', authorId: 3, date: '2026-04-09' },
+      ],
+      categories: [
+        { id: 'crime', name: 'Криминални' },
+        { id: 'business', name: 'Бизнес' },
+      ],
+      authors: [{ id: 3, name: 'Репортер' }],
+      updateArticle,
+    };
+
+    ({ root, container } = await renderIntoBody(EditorialQueue));
+
+    const searchInput = container.querySelector('input[aria-label="Търси по заглавие или резюме"]');
+    expect(searchInput?.value).toBe('чер');
+    expect(container.textContent).toContain('Публикувани днес');
+    expect(container.textContent).toContain('Черна хроника');
+    expect(container.textContent).not.toContain('Бизнес обзор');
+
+    await inputValue(searchInput, 'публ');
+    expect(setSearchParamsSpy).toHaveBeenLastCalledWith('tab=today&category=crime&q=%D0%BF%D1%83%D0%B1%D0%BB', { replace: true });
   });
 
   it('loads game puzzle data and opens the editor for a new draft', async () => {
@@ -198,5 +269,29 @@ describe('AdminSettingsAndQueue', () => {
     await click(newPuzzleButton);
 
     expect(container.querySelector('[data-testid="game-puzzle-editor"]')?.textContent).toContain('word');
+  });
+
+  it('exposes accessible puzzle row actions', async () => {
+    getAll.mockResolvedValue([
+      { slug: 'word', title: 'Дума', active: true },
+    ]);
+    getPuzzles.mockResolvedValue([
+      {
+        id: 12,
+        gameSlug: 'word',
+        puzzleDate: '2026-04-03',
+        status: 'draft',
+        payload: {},
+        solution: {},
+        difficulty: 'easy',
+      },
+    ]);
+
+    ({ root, container } = await renderIntoBody(ManageGamePuzzles));
+    await flushEffects();
+
+    expect(container.querySelector('button[aria-label="Публикувай пъзела"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-label="Редактирай пъзела"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-label="Изтрий пъзела"]')).not.toBeNull();
   });
 });

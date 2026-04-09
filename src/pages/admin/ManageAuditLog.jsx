@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ClipboardList, Plus, Pencil, Trash2, Filter, Clock, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { useAdminData, useSessionData } from '../../context/DataContext';
 import { api } from '../../utils/api';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readSearchParam } from '../../utils/adminSearchParams';
 
 const ACTION_ICONS = { create: Plus, update: Pencil, delete: Trash2 };
 const ACTION_COLORS = { create: 'bg-emerald-100 text-emerald-700', update: 'bg-blue-100 text-blue-700', delete: 'bg-red-100 text-red-700' };
@@ -17,12 +21,13 @@ const RESOURCE_LABELS = {
 export default function ManageAuditLog() {
     const { session } = useSessionData();
     const { hasPermission } = useAdminData();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [nextCursor, setNextCursor] = useState(null);
     const [error, setError] = useState('');
-    const [filterResource, setFilterResource] = useState('all');
+    const filterResource = readSearchParam(searchParams, 'resource', 'all') || 'all';
 
     useEffect(() => {
         if (!session?.token) {
@@ -73,21 +78,27 @@ export default function ManageAuditLog() {
         }
     };
 
+    const setListSearchParams = (updates) => {
+        setSearchParams(
+            (current) => buildAdminSearchParams(current, updates),
+            { replace: true },
+        );
+    };
+
     const filtered = filterResource === 'all' ? logs : logs.filter(l => l.resource === filterResource);
     const resources = [...new Set(logs.map(l => l.resource))];
 
     return (
         <div className="p-8">
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <ClipboardList className="w-6 h-6 text-zn-purple" />
-                    Журнал на действията
-                </h1>
-                <div className="flex items-center gap-2">
+            <AdminPageHeader
+                title="Журнал на действията"
+                icon={ClipboardList}
+                actions={(
+                    <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-gray-400" />
                     <select
                         value={filterResource}
-                        onChange={e => setFilterResource(e.target.value)}
+                        onChange={e => setListSearchParams({ resource: e.target.value })}
                         className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm"
                     >
                         <option value="all">Всички</option>
@@ -95,8 +106,9 @@ export default function ManageAuditLog() {
                             <option key={r} value={r}>{RESOURCE_LABELS[r] || r}</option>
                         ))}
                     </select>
-                </div>
-            </div>
+                    </div>
+                )}
+            />
 
             {!hasPermission('permissions') ? (
                 <div className="bg-red-50 border border-red-200 p-6 text-center">
@@ -116,7 +128,10 @@ export default function ManageAuditLog() {
             {loading ? (
                 <div className="text-center py-12 text-gray-400">Зареждане...</div>
             ) : filtered.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">Няма записи</div>
+                <AdminEmptyState
+                    title="Няма записи"
+                    description={filterResource === 'all' ? 'Все още няма действия в журнала.' : 'Няма записи за избрания ресурс.'}
+                />
             ) : (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     <table className="w-full text-sm">

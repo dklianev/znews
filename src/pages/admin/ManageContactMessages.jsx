@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Mail, AlertTriangle, Trash2, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../../utils/api';
 import { useAdminData, useSessionData } from '../../context/DataContext';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
+import AdminPageHeader from '../../components/admin/AdminPageHeader';
+import AdminFilterBar from '../../components/admin/AdminFilterBar';
+import AdminSearchField from '../../components/admin/AdminSearchField';
+import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readEnumSearchParam, readSearchParam } from '../../utils/adminSearchParams';
 
 const STATUS_LABELS = Object.freeze({
   new: 'Ново',
@@ -16,16 +23,21 @@ const STATUS_STYLES = Object.freeze({
   archived: 'bg-gray-100 text-gray-600 border-gray-200',
 });
 
+const CONTACT_FILTERS = ['all', 'new', 'read', 'archived'];
+
 export default function ManageContactMessages() {
   const { session } = useSessionData();
   const { hasPermission } = useAdminData();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState('all');
   const [busyId, setBusyId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const toast = useToast();
+  const confirm = useConfirm();
+  const filter = readEnumSearchParam(searchParams, 'status', CONTACT_FILTERS, 'all');
+  const query = readSearchParam(searchParams, 'q', '');
 
   const canView = Boolean(session?.token && hasPermission('contact'));
 
@@ -53,10 +65,30 @@ export default function ManageContactMessages() {
     void load();
   }, [canView]);
 
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
+  };
+
   const filteredItems = useMemo(() => {
-    if (filter === 'all') return items;
-    return items.filter((item) => item?.status === filter);
-  }, [filter, items]);
+    const normalizedQuery = query.trim().toLowerCase();
+    let result = filter === 'all'
+      ? items
+      : items.filter((item) => item?.status === filter);
+
+    if (normalizedQuery) {
+      result = result.filter((item) => (
+        (item?.name || '').toLowerCase().includes(normalizedQuery) ||
+        (item?.phone || '').toLowerCase().includes(normalizedQuery) ||
+        (item?.email || '').toLowerCase().includes(normalizedQuery) ||
+        (item?.message || '').toLowerCase().includes(normalizedQuery)
+      ));
+    }
+
+    return result;
+  }, [filter, items, query]);
 
   const counts = useMemo(() => ({
     all: items.length,
@@ -92,7 +124,13 @@ export default function ManageContactMessages() {
   const runOptimisticDelete = async (id) => {
     const numericId = Number.parseInt(String(id), 10);
     if (!Number.isInteger(numericId)) return;
-    if (!confirm('Изтриване на съобщението?')) return;
+    const confirmed = await confirm({
+      title: 'Изтриване на съобщение',
+      message: 'Съобщението ще бъде изтрито безвъзвратно.',
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
 
     const previousItems = items;
     const previousExpandedId = expandedId;
@@ -115,10 +153,10 @@ export default function ManageContactMessages() {
   };
 
   const filterBtn = (value, label) => (
-    <button
-      type="button"
-      onClick={() => setFilter(value)}
-      className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filter === value
+      <button
+        type="button"
+        onClick={() => setListSearchParams({ status: value, q: query })}
+        className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filter === value
         ? 'bg-zn-hot text-white border-zn-hot'
         : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'
         }`}
@@ -141,26 +179,23 @@ export default function ManageContactMessages() {
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-display font-bold text-gray-900 flex items-center gap-2">
-            <Mail className="w-6 h-6 text-zn-purple" />
-            Контактни съобщения
-          </h1>
-          <p className="text-sm font-sans text-gray-500 mt-1">
-            {counts.all} съобщения • {counts.new} нови
-          </p>
-        </div>
-        <button
+      <AdminPageHeader
+        title="Контактни съобщения"
+        description={`${counts.all} съобщения • ${counts.new} нови`}
+        icon={Mail}
+        actions={(
+          <button
           type="button"
           onClick={() => void load()}
           disabled={loading}
+          aria-label="Обнови контактните съобщения"
           className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Обнови
-        </button>
-      </div>
+          </button>
+        )}
+      />
 
       {error && (
         <div className="mb-6 bg-red-50 border border-red-200 px-4 py-3 text-sm font-sans text-red-800 flex items-start gap-2" role="alert">
@@ -169,17 +204,31 @@ export default function ManageContactMessages() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2 mb-5">
+      <AdminFilterBar>
         {filterBtn('all', `Всички (${counts.all})`)}
         {filterBtn('new', `Нови (${counts.new})`)}
         {filterBtn('read', `Прочетени (${counts.read})`)}
         {filterBtn('archived', `Архив (${counts.archived})`)}
-      </div>
+        <AdminSearchField
+          value={query}
+          onChange={(event) => setListSearchParams({ status: filter, q: event.target.value })}
+          placeholder="Търси по име, телефон, имейл или текст..."
+          ariaLabel="Търси контактни съобщения"
+          className="ml-auto min-w-[280px]"
+        />
+      </AdminFilterBar>
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">Зареждане...</div>
       ) : filteredItems.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">Няма съобщения</div>
+        <AdminEmptyState
+          title="Няма съобщения"
+          description={query.trim()
+            ? 'Няма контактни съобщения, които да съвпадат с текущото търсене.'
+            : filter === 'all'
+              ? 'Все още няма изпратени контактни съобщения.'
+              : `Няма съобщения в статуса „${STATUS_LABELS[filter] || filter}“.`}
+        />
       ) : (
         <div className="space-y-2">
           {filteredItems.map((message) => {
@@ -218,6 +267,7 @@ export default function ManageContactMessages() {
                         type="button"
                         onClick={() => void runOptimisticStatusUpdate(message.id, 'read')}
                         disabled={isBusy}
+                        aria-label="Маркирай съобщението като прочетено"
                         className="p-2 text-gray-400 hover:text-emerald-700 disabled:opacity-50"
                         title="Маркирай като прочетено"
                       >
@@ -229,6 +279,7 @@ export default function ManageContactMessages() {
                         type="button"
                         onClick={() => void runOptimisticStatusUpdate(message.id, 'archived')}
                         disabled={isBusy}
+                        aria-label="Архивирай съобщението"
                         className="p-2 text-gray-400 hover:text-gray-700 disabled:opacity-50"
                         title="Архивирай"
                       >
@@ -239,6 +290,7 @@ export default function ManageContactMessages() {
                       type="button"
                       onClick={() => void runOptimisticDelete(message.id)}
                       disabled={isBusy}
+                      aria-label="Изтрий съобщение"
                       className="p-2 text-gray-400 hover:text-red-700 disabled:opacity-50"
                       title="Изтрий"
                     >

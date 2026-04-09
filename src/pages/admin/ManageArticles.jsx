@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAdminData, usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2, Search, Copy, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, CheckSquare, Square, ArrowUp, Archive, ArchiveRestore } from 'lucide-react';
 import RichTextEditor from '../../components/admin/RichTextEditor';
@@ -9,6 +10,7 @@ import { normalizeArticleAdminForm, trimArticleAdminText } from '../../utils/art
 import { api } from '../../utils/api';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
+import { buildAdminSearchParams, readPositiveIntSearchParam, readSearchParam } from '../../utils/adminSearchParams';
 
 const ARTICLE_DRAFT_KEY = 'zn_manage_articles_draft_v1';
 const ARTICLE_HISTORY_KEY = 'zn_manage_articles_history_v1';
@@ -135,6 +137,7 @@ const emptyForm = {
 };
 
 export default function ManageArticles() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     authors,
     categories,
@@ -155,7 +158,6 @@ export default function ManageArticles() {
   const [lastServerVersion, setLastServerVersion] = useState(null);
   const [concurrentWarning, setConcurrentWarning] = useState(null);
   const [form, setForm] = useState(emptyForm);
-  const [filterCat, setFilterCat] = useState('all');
   const [contentMode, setContentMode] = useState('write');
   const [draftSavedAt, setDraftSavedAt] = useState(null);
   const [autosavedAt, setAutosavedAt] = useState(null);
@@ -167,14 +169,15 @@ export default function ManageArticles() {
   const [loadingRevisionDetails, setLoadingRevisionDetails] = useState({});
   const [saving, setSaving] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const ARTICLES_PER_PAGE = 15;
+  const searchQuery = readSearchParam(searchParams, 'q', '');
+  const requestedFilterCategory = readSearchParam(searchParams, 'category', 'all');
+  const currentPage = readPositiveIntSearchParam(searchParams, 'page', 1);
+  const showArchived = readSearchParam(searchParams, 'view', '') === 'archived';
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const initialFormRef = useRef(emptyForm);
   const fieldRefs = useRef({});
   const [selectedIds, setSelectedIds] = useState([]);
-  const [showArchived, setShowArchived] = useState(false);
   const [archivedArticles, setArchivedArticles] = useState([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
   const [listArticles, setListArticles] = useState([]);
@@ -193,6 +196,12 @@ export default function ManageArticles() {
   const relatedRequestRef = useRef(0);
   const toast = useToast();
   const confirm = useConfirm();
+  const filterCat = useMemo(() => {
+    if (requestedFilterCategory === 'all') return 'all';
+    return categories.some((category) => category.id === requestedFilterCategory)
+      ? requestedFilterCategory
+      : 'all';
+  }, [categories, requestedFilterCategory]);
 
   const registerFieldRef = useCallback((field) => (node) => {
     if (node) {
@@ -288,6 +297,34 @@ export default function ManageArticles() {
     setListReloadNonce((prev) => prev + 1);
   }, []);
 
+  const setListSearchParams = useCallback((updates, { replace = true } = {}) => {
+    setSearchParams((current) => {
+      const next = buildAdminSearchParams(current, {
+        q: Object.prototype.hasOwnProperty.call(updates, 'q') ? updates.q : readSearchParam(current, 'q', ''),
+        category: Object.prototype.hasOwnProperty.call(updates, 'category') ? updates.category : readSearchParam(current, 'category', 'all'),
+      });
+
+      const nextPage = Object.prototype.hasOwnProperty.call(updates, 'page')
+        ? updates.page
+        : readSearchParam(current, 'page', '');
+      if (typeof nextPage === 'string') {
+        const normalizedPage = nextPage.trim();
+        if (!normalizedPage || normalizedPage === '1') next.delete('page');
+        else next.set('page', normalizedPage);
+      }
+
+      const nextView = Object.prototype.hasOwnProperty.call(updates, 'view')
+        ? updates.view
+        : readSearchParam(current, 'view', '');
+      if (typeof nextView === 'string') {
+        if (!nextView.trim()) next.delete('view');
+        else next.set('view', nextView.trim());
+      }
+
+      return next;
+    }, { replace });
+  }, [setSearchParams]);
+
   const mergeRelatedArticles = useCallback((items) => {
     setRelatedArticleMap((prev) => {
       const next = { ...prev };
@@ -340,7 +377,7 @@ export default function ManageArticles() {
       setListTotalPages(totalPages);
 
       if (safePage !== currentPage) {
-        setCurrentPage(safePage);
+        setListSearchParams({ page: String(safePage) });
       }
     } catch (error) {
       if (listRequestRef.current !== requestId) return;
@@ -825,7 +862,7 @@ export default function ManageArticles() {
       if (editing === 'new') {
         await addArticle(data);
         clearDraft();
-        setCurrentPage(1);
+        setListSearchParams({ page: '1' });
         toast.success('Статията е създадена успешно');
       } else {
         await updateArticle(editing, data);
@@ -904,8 +941,7 @@ export default function ManageArticles() {
     try {
       await api.articles.restore(id);
       setArchivedArticles(prev => prev.filter(a => a.id !== id));
-      setShowArchived(false);
-      setCurrentPage(1);
+      setListSearchParams({ view: '', page: '1' });
       refreshList();
       void refresh().catch((err) => { console.warn('Refresh after restore failed:', err); });
       toast.success('Статията е възстановена като чернова');
@@ -995,8 +1031,16 @@ export default function ManageArticles() {
     }
   };
 
-  const handleCancel = () => {
-    if (hasDraftUnsavedChanges && !confirm('Имаш незапазени промени. Сигурен ли си, че искаш да излезеш?')) return;
+  const handleCancel = async () => {
+    if (hasDraftUnsavedChanges) {
+      const confirmed = await confirm({
+        title: 'Незапазени промени',
+        message: 'Имаш незапазени промени. Сигурен ли си, че искаш да излезеш?',
+        confirmLabel: 'Излез без запис',
+        variant: 'warning',
+      });
+      if (!confirmed) return;
+    }
     setEditing(null);
     setActiveTab('content');
     setForm(emptyForm);
@@ -1017,7 +1061,13 @@ export default function ManageArticles() {
 
   const handleRestoreServerRevision = async (revisionId) => {
     if (!editing || editing === 'new') return;
-    if (!confirm('Възстанови тази версия? Текущите незапазени промени ще бъдат заменени.')) return;
+    const confirmed = await confirm({
+      title: 'Възстановяване на версия',
+      message: 'Възстанови тази версия? Текущите незапазени промени ще бъдат заменени.',
+      confirmLabel: 'Възстанови',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
     setRestoringRevision(revisionId);
     try {
       const restored = await restoreArticleRevision(editing, revisionId);
@@ -1097,7 +1147,7 @@ export default function ManageArticles() {
     };
     delete dup.id;
     await addArticle(dup);
-    setCurrentPage(1);
+    setListSearchParams({ page: '1' });
     refreshList();
     toast.success('Статията е дублирана като чернова');
   };
@@ -1123,14 +1173,17 @@ export default function ManageArticles() {
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasDraftUnsavedChanges]);
 
-  // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [filterCat, searchQuery]);
-
   useEffect(() => {
     if (showArchived) return undefined;
     loadArticlePage();
     return undefined;
   }, [loadArticlePage, listReloadNonce, showArchived]);
+
+  useEffect(() => {
+    if (!showArchived) return undefined;
+    loadArchivedArticles();
+    return undefined;
+  }, [loadArchivedArticles, showArchived]);
 
   useEffect(() => {
     loadAdminMeta();
@@ -1227,8 +1280,7 @@ export default function ManageArticles() {
           <button
             onClick={() => {
               const next = !showArchived;
-              setShowArchived(next);
-              if (next) loadArchivedArticles();
+              setListSearchParams({ view: next ? 'archived' : '', page: '1' });
             }}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-sans font-semibold border transition-colors ${showArchived ? 'bg-amber-50 text-amber-700 border-amber-300' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'}`}
           >
@@ -1976,15 +2028,15 @@ export default function ManageArticles() {
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <input
-            className={inputCls + ' !pl-9'}
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Търси по заглавие..."
-          />
+              className={inputCls + ' !pl-9'}
+              value={searchQuery}
+              onChange={(e) => setListSearchParams({ q: e.target.value, page: '1' })}
+              placeholder="Търси по заглавие..."
+            />
         </div>
         <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setFilterCat('all')}
+            <button
+              onClick={() => setListSearchParams({ category: 'all', page: '1' })}
             className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filterCat === 'all' ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'}`}
           >
             Всички ({adminMeta.total})
@@ -1992,9 +2044,9 @@ export default function ManageArticles() {
           {categories.filter(c => c.id !== 'all').map(c => {
             const count = Number(adminMeta.byCategory?.[c.id]) || 0;
             return (
-              <button
-                key={c.id}
-                onClick={() => setFilterCat(c.id)}
+                <button
+                  key={c.id}
+                  onClick={() => setListSearchParams({ category: c.id, page: '1' })}
                 className={`px-3 py-1.5 text-xs font-sans font-semibold uppercase tracking-wider border transition-colors ${filterCat === c.id ? 'bg-zn-hot text-white border-zn-hot' : 'bg-white text-gray-500 border-gray-200 hover:text-gray-700'}`}
               >
                 {c.name} ({count})
@@ -2068,19 +2120,24 @@ export default function ManageArticles() {
                 </p>
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => handleQuickStatusToggle(article)} className="p-1.5 text-gray-400 hover:text-zn-purple transition-colors" title={article.status === 'draft' ? 'Публикувай' : 'Върни в чернова'}>
+                <button
+                  onClick={() => handleQuickStatusToggle(article)}
+                  className="p-1.5 text-gray-400 hover:text-zn-purple transition-colors"
+                  title={article.status === 'draft' ? 'Публикувай' : 'Върни в чернова'}
+                  aria-label={article.status === 'draft' ? 'Публикувай статията' : 'Върни статията в чернова'}
+                >
                   {article.status === 'draft' ? <ToggleLeft className="w-4 h-4" /> : <ToggleRight className="w-4 h-4 text-green-500" />}
                 </button>
-                <button onClick={() => handleDuplicate(article)} className="p-1.5 text-gray-400 hover:text-zn-purple transition-colors" title="Дублирай">
+                <button onClick={() => handleDuplicate(article)} className="p-1.5 text-gray-400 hover:text-zn-purple transition-colors" title="Дублирай" aria-label="Дублирай статията">
                   <Copy className="w-4 h-4" />
                 </button>
-                <a href={`/article/${article.id}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors">
+                <a href={`/article/${article.id}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors" aria-label="Виж статията" title="Виж статията">
                   <Eye className="w-4 h-4" />
                 </a>
-                <button onClick={() => startEdit(article)} className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors">
+                <button onClick={() => startEdit(article)} className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors" aria-label="Редактирай статията" title="Редактирай">
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button onClick={() => handleDelete(article.id)} className="p-1.5 text-gray-400 hover:text-amber-600 transition-colors" title="Архивирай">
+                <button onClick={() => handleDelete(article.id)} className="p-1.5 text-gray-400 hover:text-amber-600 transition-colors" title="Архивирай" aria-label="Архивирай статията">
                   <Archive className="w-4 h-4" />
                 </button>
               </div>
@@ -2095,8 +2152,8 @@ export default function ManageArticles() {
       {/* Pagination */}
       {listTotalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-6">
-          <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            <button
+              onClick={() => setListSearchParams({ page: String(Math.max(1, currentPage - 1)) })}
             disabled={currentPage <= 1}
             className="p-2 text-gray-500 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
@@ -2105,8 +2162,8 @@ export default function ManageArticles() {
           <span className="text-sm font-sans text-gray-600">
             {currentPage} / {listTotalPages}
           </span>
-          <button
-            onClick={() => setCurrentPage(p => Math.min(listTotalPages, p + 1))}
+            <button
+              onClick={() => setListSearchParams({ page: String(Math.min(listTotalPages, currentPage + 1)) })}
             disabled={currentPage >= listTotalPages}
             className="p-2 text-gray-500 hover:text-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >

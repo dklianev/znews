@@ -1,6 +1,7 @@
 import React, { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { inputValue } from './helpers/domHarness.mjs';
 
 const refresh = vi.fn(() => Promise.resolve());
 const toast = {
@@ -10,8 +11,10 @@ const toast = {
 const confirm = vi.fn(() => Promise.resolve(true));
 const loadArticleRevisions = vi.fn();
 const getById = vi.fn();
+const setSearchParamsSpy = vi.fn();
 
 let listMode = 'initial';
+let searchParamsState = '';
 
 const publishedArticle = {
   id: 1,
@@ -113,6 +116,26 @@ vi.mock('../../src/components/admin/LivePreviewModal', () => ({
   default: () => null,
 }));
 
+vi.mock('react-router-dom', () => ({
+  useSearchParams: () => {
+    const [params, setParams] = React.useState(() => new URLSearchParams(searchParamsState));
+
+    const updateParams = (nextInit, options) => {
+      setParams((currentParams) => {
+        const resolvedParams = typeof nextInit === 'function'
+          ? nextInit(currentParams)
+          : nextInit;
+        const nextParams = new URLSearchParams(resolvedParams);
+        searchParamsState = nextParams.toString();
+        setSearchParamsSpy(searchParamsState, options ?? null);
+        return nextParams;
+      });
+    };
+
+    return [params, updateParams];
+  },
+}));
+
 vi.mock('lucide-react', () => {
   function Icon(props) {
     return createElement('svg', { ...props, 'data-testid': 'icon' });
@@ -210,6 +233,8 @@ describe('ManageArticles', () => {
     restore.mockClear();
     loadArticleRevisions.mockClear();
     getById.mockReset();
+    setSearchParamsSpy.mockReset();
+    searchParamsState = '';
 
     if (root) {
       act(() => {
@@ -272,6 +297,35 @@ describe('ManageArticles', () => {
     expect(container.textContent).toContain('Restored Gamma');
     expect(container.textContent).not.toContain('Архивирани статии (0)');
     expect(listAdmin.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(searchParamsState).toBe('');
+  });
+
+  it('hydrates filters and pagination from the URL and keeps them in sync', async () => {
+    searchParamsState = 'q=beta&category=crime&page=2';
+    main = document.createElement('main');
+    container = document.createElement('div');
+    main.appendChild(container);
+    document.body.appendChild(main);
+    root = createRoot(container);
+    installLocalStorageStub();
+
+    act(() => {
+      root.render(createElement(ManageArticles));
+    });
+    await flush();
+
+    const searchInput = container.querySelector('input[placeholder="Търси по заглавие..."]');
+    expect(searchInput?.value).toBe('beta');
+    expect(listAdmin).toHaveBeenCalledWith(expect.objectContaining({
+      page: 2,
+      category: 'crime',
+      q: 'beta',
+    }));
+
+    await inputValue(searchInput, 'alpha');
+    await flush();
+
+    expect(searchParamsState).toBe('q=alpha&category=crime');
   });
 
   it('keeps the editor closed when loading the full article for edit fails', async () => {
@@ -290,6 +344,8 @@ describe('ManageArticles', () => {
 
     const editButton = findEditButtonForArticle(container, 'Detail Beta');
     expect(editButton).not.toBeNull();
+    expect(container.querySelector('button[aria-label="Дублирай статията"]')).not.toBeNull();
+    expect(container.querySelector('a[aria-label="Виж статията"]')).not.toBeNull();
 
     act(() => {
       editButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
