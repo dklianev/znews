@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useOptimistic, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAdminData } from '../../context/DataContext';
 import { RefreshCw, Trash2, CheckCircle, XCircle, Image as ImageIcon, Phone, User, DollarSign, Clock, Copy, Check, Star, ArrowUp, RotateCcw, Eye, Camera } from 'lucide-react';
@@ -59,6 +59,7 @@ export default function ManageClassifieds() {
   const [bulkActionLabel, setBulkActionLabel] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [paidByInputs, setPaidByInputs] = useState({});
+  const [optimistic, setOptimistic] = useState(() => (Array.isArray(classifieds) ? classifieds : []));
   const query = readSearchParam(searchParams, 'q', '');
   const statusFilter = readEnumSearchParam(
     searchParams,
@@ -88,19 +89,25 @@ export default function ManageClassifieds() {
     }
   };
 
-  const [optimistic, applyUpdate] = useOptimistic(classifieds, (current, mutation) => {
-    if (!Array.isArray(current)) return [];
-    if (mutation.type === 'status') return current.map(c => c.id === mutation.id ? { ...c, status: mutation.status } : c);
-    if (mutation.type === 'delete') return current.filter(c => c.id !== mutation.id);
-    if (mutation.type === 'bump') return current.map(c => c.id === mutation.id ? { ...c, bumpedAt: new Date().toISOString() } : c);
-    return current;
-  });
-
   useEffect(() => {
     ensureClassifiedsLoaded().catch((error) => {
       showClassifiedsError(error, 'Не успяхме да заредим малките обяви.');
     });
   }, [ensureClassifiedsLoaded]);
+
+  useEffect(() => {
+    setOptimistic(Array.isArray(classifieds) ? classifieds : []);
+  }, [classifieds]);
+
+  const applyUpdate = (mutation) => {
+    setOptimistic((current) => {
+      if (!Array.isArray(current)) return [];
+      if (mutation.type === 'status') return current.map((c) => (c.id === mutation.id ? { ...c, status: mutation.status } : c));
+      if (mutation.type === 'delete') return current.filter((c) => c.id !== mutation.id);
+      if (mutation.type === 'bump') return current.map((c) => (c.id === mutation.id ? { ...c, bumpedAt: new Date().toISOString() } : c));
+      return current;
+    });
+  };
 
   const handleRefresh = async () => {
     try {

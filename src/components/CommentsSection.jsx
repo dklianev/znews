@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useOptimistic, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { MessageCircle, Send, User, ThumbsUp, ThumbsDown, CornerDownRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
@@ -484,10 +484,15 @@ export default function CommentsSection({ articleId }) {
       .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
   }, [articleId, comments]);
 
-  const [optimisticComments, addOptimisticReaction] = useOptimistic(
-    articleComments,
-    (currentComments, mutation) => applyOptimisticReaction(currentComments, mutation),
-  );
+  const [optimisticComments, setOptimisticComments] = useState(() => (Array.isArray(articleComments) ? articleComments : []));
+
+  useEffect(() => {
+    setOptimisticComments(Array.isArray(articleComments) ? articleComments : []);
+  }, [articleComments]);
+
+  const addOptimisticReaction = useCallback((mutation) => {
+    setOptimisticComments((currentComments) => applyOptimisticReaction(currentComments, mutation));
+  }, []);
 
   const threadedComments = useMemo(() => buildCommentTree(optimisticComments), [optimisticComments]);
 

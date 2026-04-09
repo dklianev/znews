@@ -49,7 +49,9 @@ export async function inputValue(node, value) {
   await act(async () => {
     const prototype = node instanceof HTMLTextAreaElement
       ? HTMLTextAreaElement.prototype
-      : HTMLInputElement.prototype;
+      : node instanceof HTMLSelectElement
+        ? HTMLSelectElement.prototype
+        : HTMLInputElement.prototype;
     const valueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
     valueSetter?.call(node, value);
     node.dispatchEvent(new Event('input', { bubbles: true }));

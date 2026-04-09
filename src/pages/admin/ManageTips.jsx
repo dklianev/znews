@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useOptimistic, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAdminData } from '../../context/DataContext';
 import { RefreshCw, Trash2, Edit3, Image as ImageIcon, MapPin, Inbox } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
@@ -19,32 +19,15 @@ export default function ManageTips() {
   const [busyTip, setBusyTip] = useState(null);
   const [bulkActionLabel, setBulkActionLabel] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
-  const [optimisticTips, applyTipUpdate] = useOptimistic(
-    tips,
-    (currentTips, mutation) => {
-      if (!Array.isArray(currentTips)) return [];
-
-      if (mutation.type === 'status') {
-        return currentTips.map((tip) => (
-          tip.id === mutation.id ? { ...tip, status: mutation.status } : tip
-        ));
-      }
-
-      if (mutation.type === 'delete') {
-        return currentTips.filter((tip) => tip.id !== mutation.id);
-      }
-
-      if (mutation.type === 'reset') {
-        return Array.isArray(mutation.tips) ? mutation.tips : [];
-      }
-
-      return currentTips;
-    },
-  );
+  const [optimisticTips, setOptimisticTips] = useState(() => (Array.isArray(tips) ? tips : []));
 
   useEffect(() => {
     void ensureTipsLoaded();
   }, [ensureTipsLoaded]);
+
+  useEffect(() => {
+    setOptimisticTips(Array.isArray(tips) ? tips : []);
+  }, [tips]);
 
   const query = readSearchParam(searchParams, 'q', '');
 
@@ -84,8 +67,30 @@ export default function ManageTips() {
 
   const isTipBusy = (id) => bulkBusy || busyTip?.id === id;
 
+  const applyTipMutation = (mutation) => {
+    setOptimisticTips((currentTips) => {
+      if (!Array.isArray(currentTips)) return [];
+
+      if (mutation.type === 'status') {
+        return currentTips.map((tip) => (
+          tip.id === mutation.id ? { ...tip, status: mutation.status } : tip
+        ));
+      }
+
+      if (mutation.type === 'delete') {
+        return currentTips.filter((tip) => tip.id !== mutation.id);
+      }
+
+      if (mutation.type === 'reset') {
+        return Array.isArray(mutation.tips) ? mutation.tips : [];
+      }
+
+      return currentTips;
+    });
+  };
+
   const resetTipsView = () => {
-    applyTipUpdate({ type: 'reset', tips });
+    applyTipMutation({ type: 'reset', tips });
   };
 
   const toggleSelection = (id) => {
@@ -113,7 +118,7 @@ export default function ManageTips() {
     if (!confirmed) return;
 
     setBusyTip({ id, action: 'delete' });
-    applyTipUpdate({ type: 'delete', id });
+    applyTipMutation({ type: 'delete', id });
 
     try {
       await deleteTip(id);
@@ -130,7 +135,7 @@ export default function ManageTips() {
   const runOptimisticStatusUpdate = async (id, status) => {
     if (bulkBusy) return;
     setBusyTip({ id, action: 'status' });
-    applyTipUpdate({ type: 'status', id, status });
+    applyTipMutation({ type: 'status', id, status });
 
     try {
       await updateTip(id, status);
@@ -169,7 +174,7 @@ export default function ManageTips() {
     }
 
     setBulkActionLabel(label);
-    targetIds.forEach((id) => applyTipUpdate({ type: 'status', id, status }));
+    targetIds.forEach((id) => applyTipMutation({ type: 'status', id, status }));
 
     try {
       await Promise.all(targetIds.map((id) => updateTip(id, status)));
@@ -202,7 +207,7 @@ export default function ManageTips() {
 
     const targetIds = selectedTips.map((tip) => tip.id);
     setBulkActionLabel('Изтриване');
-    targetIds.forEach((id) => applyTipUpdate({ type: 'delete', id }));
+    targetIds.forEach((id) => applyTipMutation({ type: 'delete', id }));
 
     try {
       await Promise.all(targetIds.map((id) => deleteTip(id)));

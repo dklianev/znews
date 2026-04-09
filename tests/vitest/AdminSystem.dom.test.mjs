@@ -510,13 +510,12 @@ describe('AdminSystem', () => {
     await inputValue(assigneeInput, 'Ани Петрова');
     await inputValue(tagsInput, 'корекция, следене');
     await inputValue(dueAtInput, '2026-04-12');
-    prioritySelect.value = 'high';
-    prioritySelect.dispatchEvent(new Event('change', { bubbles: true }));
-    await flushEffects();
+    await inputValue(prioritySelect, 'high');
 
     const saveButton = Array.from(container.querySelectorAll('button'))
       .find((button) => button.textContent?.includes('Запази'));
     await click(saveButton);
+    await flushEffects();
     await flushEffects();
 
     expect(updateTip).toHaveBeenLastCalledWith(11, {
@@ -952,8 +951,8 @@ describe('AdminSystem', () => {
     await flushEffects();
 
     expect(updateComment).toHaveBeenCalledTimes(2);
-    expect(updateComment).toHaveBeenNthCalledWith(1, 21, { approved: true });
-    expect(updateComment).toHaveBeenNthCalledWith(2, 22, { approved: true });
+    expect(updateComment).toHaveBeenCalledWith(21, { approved: true });
+    expect(updateComment).toHaveBeenCalledWith(22, { approved: true });
     expect(toast.success).toHaveBeenCalledWith('Одобрени коментари: 2');
   });
 
@@ -1317,8 +1316,8 @@ describe('AdminSystem', () => {
     expect(container.textContent).toContain('Редакция');
     expect(container.querySelector('a[href="/admin/articles?q=7"]')).not.toBeNull();
 
-    resourceSelect.value = 'all';
-    resourceSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    await inputValue(resourceSelect, 'all');
+    await flushEffects();
     await flushEffects();
     expect(setSearchParamsSpy).toHaveBeenLastCalledWith('action=update&resourceId=7&q=%D1%80%D0%B5%D0%B4', { replace: true });
   });

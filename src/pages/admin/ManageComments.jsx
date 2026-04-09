@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useOptimistic, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { usePublicData } from '../../context/DataContext';
 import { Check, Trash2, XCircle, Eye, AlertTriangle } from 'lucide-react';
@@ -40,42 +40,15 @@ export default function ManageComments() {
   const [bulkActionLabel, setBulkActionLabel] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [error, setError] = useState('');
+  const [optimisticComments, setOptimisticComments] = useState(() => (Array.isArray(comments) ? comments : []));
   const toast = useToast();
   const confirm = useConfirm();
   const filter = readEnumSearchParam(searchParams, 'status', ['all', 'pending', 'approved'], 'all');
   const searchQuery = readSearchParam(searchParams, 'q', '');
-  const [optimisticComments, applyCommentMutation] = useOptimistic(
-    comments,
-    (currentComments, mutation) => {
-      if (mutation?.type === 'reset') {
-        return Array.isArray(mutation.comments) ? mutation.comments : [];
-      }
 
-      const list = Array.isArray(currentComments) ? currentComments : [];
-      const numericId = Number.parseInt(String(mutation?.id), 10);
-      if (!Number.isInteger(numericId)) return list;
-
-      if (mutation.type === 'delete') {
-        const threadIds = collectCommentThreadIds(list, numericId);
-        return list.filter((comment) => !threadIds.has(Number.parseInt(comment?.id, 10)));
-      }
-
-      if (mutation.type === 'approval') {
-        const nextApproved = mutation.approved === true;
-        const hiddenThreadIds = nextApproved ? null : collectCommentThreadIds(list, numericId);
-
-        return list.map((comment) => {
-          const commentId = Number.parseInt(comment?.id, 10);
-          if (!Number.isInteger(commentId)) return comment;
-          if (commentId === numericId) return { ...comment, approved: nextApproved };
-          if (!nextApproved && hiddenThreadIds?.has(commentId)) return { ...comment, approved: false };
-          return comment;
-        });
-      }
-
-      return list;
-    },
-  );
+  useEffect(() => {
+    setOptimisticComments(Array.isArray(comments) ? comments : []);
+  }, [comments]);
 
   const filteredComments = useMemo(() => {
     let result = optimisticComments;
@@ -139,6 +112,38 @@ export default function ManageComments() {
   };
 
   const isCommentBusy = (id) => busyId === Number.parseInt(String(id), 10);
+
+  const applyCommentMutation = (mutation) => {
+    setOptimisticComments((currentComments) => {
+      if (mutation?.type === 'reset') {
+        return Array.isArray(mutation.comments) ? mutation.comments : [];
+      }
+
+      const list = Array.isArray(currentComments) ? currentComments : [];
+      const numericId = Number.parseInt(String(mutation?.id), 10);
+      if (!Number.isInteger(numericId)) return list;
+
+      if (mutation.type === 'delete') {
+        const threadIds = collectCommentThreadIds(list, numericId);
+        return list.filter((comment) => !threadIds.has(Number.parseInt(comment?.id, 10)));
+      }
+
+      if (mutation.type === 'approval') {
+        const nextApproved = mutation.approved === true;
+        const hiddenThreadIds = nextApproved ? null : collectCommentThreadIds(list, numericId);
+
+        return list.map((comment) => {
+          const commentId = Number.parseInt(comment?.id, 10);
+          if (!Number.isInteger(commentId)) return comment;
+          if (commentId === numericId) return { ...comment, approved: nextApproved };
+          if (!nextApproved && hiddenThreadIds?.has(commentId)) return { ...comment, approved: false };
+          return comment;
+        });
+      }
+
+      return list;
+    });
+  };
 
   const resetOptimisticComments = () => {
     applyCommentMutation({ type: 'reset', comments });

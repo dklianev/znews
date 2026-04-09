@@ -349,12 +349,13 @@ export default function ManageIntakeQueue() {
   );
 
   const isItemBusy = (item) => busyKey === item.queueKey;
-  const getDraft = (item) => drafts[item.queueKey] || {
+  const getDraft = (item) => ({
     assignedEditor: item.assignedEditor || '',
     priority: item.priority || 'normal',
     tagsInput: serializeAdminIntakeTags(item.tags),
     dueAtInput: item.dueAtInputValue || '',
-  };
+    ...(drafts[item.queueKey] || {}),
+  });
 
   const updateDraft = (queueKey, updates) => {
     setDrafts((currentDrafts) => ({

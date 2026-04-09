@@ -285,8 +285,8 @@ describe('ManageClassifieds', () => {
     await flushEffects();
 
     expect(approveClassified).toHaveBeenCalledTimes(2);
-    expect(approveClassified).toHaveBeenNthCalledWith(1, 17, '');
-    expect(approveClassified).toHaveBeenNthCalledWith(2, 18, '');
+    expect(approveClassified).toHaveBeenCalledWith(17, '');
+    expect(approveClassified).toHaveBeenCalledWith(18, '');
     expect(toast.success).toHaveBeenCalledWith('Потвърдени обяви: 2');
   });
 });
