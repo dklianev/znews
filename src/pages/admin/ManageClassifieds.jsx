@@ -10,6 +10,21 @@ import AdminFilterBar from '../../components/admin/AdminFilterBar';
 import AdminSearchField from '../../components/admin/AdminSearchField';
 import AdminEmptyState from '../../components/admin/AdminEmptyState';
 import { buildAdminSearchParams, readEnumSearchParam, readSearchParam } from '../../utils/adminSearchParams';
+import { useOptimisticList } from '../../hooks/useOptimisticList';
+
+const classifiedsReducer = (current, mutation) => {
+  if (!Array.isArray(current)) return [];
+  if (mutation.type === 'status') {
+    return current.map((c) => (c.id === mutation.id ? { ...c, status: mutation.status } : c));
+  }
+  if (mutation.type === 'delete') {
+    return current.filter((c) => c.id !== mutation.id);
+  }
+  if (mutation.type === 'bump') {
+    return current.map((c) => (c.id === mutation.id ? { ...c, bumpedAt: new Date().toISOString() } : c));
+  }
+  return current;
+};
 
 const STATUS_CONFIG = {
   awaiting_payment: { label: 'Чака плащане', bg: 'bg-yellow-100 text-yellow-800', dotColor: 'bg-yellow-500' },
@@ -59,7 +74,10 @@ export default function ManageClassifieds() {
   const [bulkActionLabel, setBulkActionLabel] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [paidByInputs, setPaidByInputs] = useState({});
-  const [optimistic, setOptimistic] = useState(() => (Array.isArray(classifieds) ? classifieds : []));
+  const [
+    optimistic,
+    { apply: applyUpdate, beginPending, endPending },
+  ] = useOptimisticList(classifieds, classifiedsReducer);
   const query = readSearchParam(searchParams, 'q', '');
   const statusFilter = readEnumSearchParam(
     searchParams,
@@ -94,20 +112,6 @@ export default function ManageClassifieds() {
       showClassifiedsError(error, 'Не успяхме да заредим малките обяви.');
     });
   }, [ensureClassifiedsLoaded]);
-
-  useEffect(() => {
-    setOptimistic(Array.isArray(classifieds) ? classifieds : []);
-  }, [classifieds]);
-
-  const applyUpdate = (mutation) => {
-    setOptimistic((current) => {
-      if (!Array.isArray(current)) return [];
-      if (mutation.type === 'status') return current.map((c) => (c.id === mutation.id ? { ...c, status: mutation.status } : c));
-      if (mutation.type === 'delete') return current.filter((c) => c.id !== mutation.id);
-      if (mutation.type === 'bump') return current.map((c) => (c.id === mutation.id ? { ...c, bumpedAt: new Date().toISOString() } : c));
-      return current;
-    });
-  };
 
   const handleRefresh = async () => {
     try {

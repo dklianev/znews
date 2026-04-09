@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ClipboardList, Clock, Filter, Pencil, Plus, Search, ShieldAlert, Trash2, AlertTriangle } from 'lucide-react';
 import { useAdminData, useSessionData } from '../../context/DataContext';
@@ -347,13 +347,13 @@ export default function ManageAuditLog() {
                         </td>
                         <td className="px-4 py-3">
                           {href ? (
-                            <a
-                              href={href}
+                            <Link
+                              to={href}
                               className="inline-flex items-center gap-1.5 text-xs font-sans font-semibold text-zn-purple hover:underline"
                             >
                               <Search className="w-3.5 h-3.5" />
                               Отвори
-                            </a>
+                            </Link>
                           ) : (
                             <span className="text-xs font-sans text-gray-400">—</span>
                           )}

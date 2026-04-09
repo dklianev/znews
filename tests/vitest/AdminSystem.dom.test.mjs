@@ -134,6 +134,9 @@ vi.mock('react-router-dom', () => ({
 
     return [params, updateParams];
   },
+  Link: React.forwardRef(({ to, children, ...rest }, ref) =>
+    React.createElement('a', { ...rest, href: to, ref }, children),
+  ),
 }));
 
 const { default: ManageTips } = await import('../../src/pages/admin/ManageTips.jsx');

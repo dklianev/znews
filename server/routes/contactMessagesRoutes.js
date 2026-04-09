@@ -120,74 +120,79 @@ export function createContactMessagesRouter(deps) {
     return ['low', 'normal', 'high', 'urgent'].includes(priority);
   }
 
-  contactMessagesRouter.get('/right-of-reply/:articleId', async (req, res) => {
-    const articleId = Number.parseInt(req.params.articleId, 10);
-    if (!Number.isInteger(articleId) || articleId <= 0) {
-      return res.status(400).json({ error: 'Invalid article id' });
-    }
+  contactMessagesRouter.get('/right-of-reply/:articleId', contactMessageLimiter, async (req, res) => {
+    try {
+      const articleId = Number.parseInt(req.params.articleId, 10);
+      if (!Number.isInteger(articleId) || articleId <= 0) {
+        return res.status(400).json({ error: 'Invalid article id' });
+      }
 
-    const requestRows = await ContactMessage.find({
-      requestKind: 'right_of_reply',
-      relatedArticleId: articleId,
-      responseArticleStatus: 'published',
-    })
-      .sort({ lastActionAt: -1, createdAt: -1, id: -1 })
-      .limit(6)
-      .select({ _id: 0, id: 1, responseArticleId: 1, createdAt: 1 })
-      .lean();
-
-    const responseIds = [...new Set(
-      (Array.isArray(requestRows) ? requestRows : [])
-        .map((row) => Number.parseInt(String(row?.responseArticleId || ''), 10))
-        .filter((value) => Number.isInteger(value) && value > 0),
-    )];
-
-    if (responseIds.length === 0 || !Article?.find) {
-      return res.json([]);
-    }
-
-    const publishedFilter = typeof getPublishedFilter === 'function'
-      ? getPublishedFilter()
-      : { status: 'published' };
-    const responseArticles = await Article.find({
-      id: { $in: responseIds },
-      ...publishedFilter,
-    })
-      .select({
-        _id: 0,
-        __v: 0,
-        id: 1,
-        title: 1,
-        excerpt: 1,
-        category: 1,
-        date: 1,
-        image: 1,
-        cardSticker: 1,
-        shareBadge: 1,
+      const requestRows = await ContactMessage.find({
+        requestKind: 'right_of_reply',
+        relatedArticleId: articleId,
+        responseArticleStatus: 'published',
       })
-      .lean();
+        .sort({ lastActionAt: -1, createdAt: -1, id: -1 })
+        .limit(6)
+        .select({ _id: 0, id: 1, responseArticleId: 1, createdAt: 1 })
+        .lean();
 
-    const responseArticleMap = new Map(
-      (Array.isArray(responseArticles) ? responseArticles : [])
-        .filter((item) => Number.isInteger(Number(item?.id)))
-        .map((item) => [Number(item.id), item]),
-    );
-    const usedArticleIds = new Set();
-    const items = [];
+      const responseIds = [...new Set(
+        (Array.isArray(requestRows) ? requestRows : [])
+          .map((row) => Number.parseInt(String(row?.responseArticleId || ''), 10))
+          .filter((value) => Number.isInteger(value) && value > 0),
+      )];
 
-    (Array.isArray(requestRows) ? requestRows : []).forEach((row) => {
-      const responseArticleId = Number.parseInt(String(row?.responseArticleId || ''), 10);
-      if (!Number.isInteger(responseArticleId) || usedArticleIds.has(responseArticleId)) return;
-      const article = responseArticleMap.get(responseArticleId);
-      if (!article) return;
-      usedArticleIds.add(responseArticleId);
-      items.push({
-        ...article,
-        responseRequestId: Number.parseInt(String(row?.id || ''), 10) || null,
+      if (responseIds.length === 0 || !Article?.find) {
+        return res.json([]);
+      }
+
+      const publishedFilter = typeof getPublishedFilter === 'function'
+        ? getPublishedFilter()
+        : { status: 'published' };
+      const responseArticles = await Article.find({
+        id: { $in: responseIds },
+        ...publishedFilter,
+      })
+        .select({
+          _id: 0,
+          __v: 0,
+          id: 1,
+          title: 1,
+          excerpt: 1,
+          category: 1,
+          date: 1,
+          image: 1,
+          cardSticker: 1,
+          shareBadge: 1,
+        })
+        .lean();
+
+      const responseArticleMap = new Map(
+        (Array.isArray(responseArticles) ? responseArticles : [])
+          .filter((item) => Number.isInteger(Number(item?.id)))
+          .map((item) => [Number(item.id), item]),
+      );
+      const usedArticleIds = new Set();
+      const items = [];
+
+      (Array.isArray(requestRows) ? requestRows : []).forEach((row) => {
+        const responseArticleId = Number.parseInt(String(row?.responseArticleId || ''), 10);
+        if (!Number.isInteger(responseArticleId) || usedArticleIds.has(responseArticleId)) return;
+        const article = responseArticleMap.get(responseArticleId);
+        if (!article) return;
+        usedArticleIds.add(responseArticleId);
+        items.push({
+          ...article,
+          responseRequestId: Number.parseInt(String(row?.id || ''), 10) || null,
+        });
       });
-    });
 
-    return res.json(items);
+      return res.json(items);
+    } catch (error) {
+      console.error('[contactMessages] right-of-reply lookup failed:', error);
+      return res.status(500).json({ error: 'Failed to load right-of-reply responses' });
+    }
   });
 
   contactMessagesRouter.post('/', contactMessageLimiter, async (req, res) => {
@@ -253,6 +258,18 @@ export function createContactMessagesRouter(deps) {
           relatedArticleId: 'Правото на отговор трябва да е свързано с публикация.',
         },
       });
+    }
+
+    if (Number.isInteger(relatedArticleId) && Article?.exists) {
+      const articleExists = await Article.exists({ id: relatedArticleId });
+      if (!articleExists) {
+        return res.status(400).json({
+          error: 'Публикацията не съществува',
+          fieldErrors: {
+            relatedArticleId: 'Избраната публикация не е намерена.',
+          },
+        });
+      }
     }
 
     const id = await nextNumericId(ContactMessage);
@@ -347,6 +364,13 @@ export function createContactMessagesRouter(deps) {
         return res.status(400).json({ error: 'Invalid related article id' });
       }
       data.relatedArticleId = normalizedRelatedArticleId;
+
+      if (Number.isInteger(normalizedRelatedArticleId) && Article?.exists) {
+        const articleExists = await Article.exists({ id: normalizedRelatedArticleId });
+        if (!articleExists) {
+          return res.status(400).json({ error: 'Related article not found' });
+        }
+      }
     }
 
     if (hasOwn(req.body, 'relatedArticleTitle')) {

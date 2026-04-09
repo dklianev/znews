@@ -22,13 +22,13 @@ export function buildAdminSearchParams(currentSearchParams, updates) {
       return;
     }
 
-    const normalizedValue = value.trim();
-    if (!normalizedValue || normalizedValue === 'all') {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === 'all') {
       next.delete(key);
       return;
     }
 
-    next.set(key, normalizedValue);
+    next.set(key, trimmed);
   });
 
   return next;

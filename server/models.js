@@ -24,6 +24,7 @@ const articleSchema = new mongoose.Schema({
   readTime: Number,
   image: String,
   imageMeta: { type: mongoose.Schema.Types.Mixed, default: null },
+  youtubeUrl: { type: String, default: '' },
   featured: { type: Boolean, default: false, index: true },
   breaking: { type: Boolean, default: false, index: true },
   sponsored: { type: Boolean, default: false, index: true },

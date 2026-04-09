@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { usePublicData } from '../../context/DataContext';
 import { Check, Trash2, XCircle, Eye, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
@@ -9,6 +9,7 @@ import AdminFilterBar from '../../components/admin/AdminFilterBar';
 import AdminSearchField from '../../components/admin/AdminSearchField';
 import AdminEmptyState from '../../components/admin/AdminEmptyState';
 import { buildAdminSearchParams, readEnumSearchParam, readSearchParam } from '../../utils/adminSearchParams';
+import { useOptimisticList } from '../../hooks/useOptimisticList';
 
 function collectCommentThreadIds(comments, rootId) {
   const list = Array.isArray(comments) ? comments : [];
@@ -33,6 +34,32 @@ function collectCommentThreadIds(comments, rootId) {
   return ids;
 }
 
+const commentsReducer = (current, mutation) => {
+  if (!Array.isArray(current)) return [];
+  const numericId = Number.parseInt(String(mutation?.id), 10);
+  if (!Number.isInteger(numericId)) return current;
+
+  if (mutation.type === 'delete') {
+    const threadIds = collectCommentThreadIds(current, numericId);
+    return current.filter((comment) => !threadIds.has(Number.parseInt(comment?.id, 10)));
+  }
+
+  if (mutation.type === 'approval') {
+    const nextApproved = mutation.approved === true;
+    const hiddenThreadIds = nextApproved ? null : collectCommentThreadIds(current, numericId);
+
+    return current.map((comment) => {
+      const commentId = Number.parseInt(comment?.id, 10);
+      if (!Number.isInteger(commentId)) return comment;
+      if (commentId === numericId) return { ...comment, approved: nextApproved };
+      if (!nextApproved && hiddenThreadIds?.has(commentId)) return { ...comment, approved: false };
+      return comment;
+    });
+  }
+
+  return current;
+};
+
 export default function ManageComments() {
   const { comments, articles, updateComment, deleteComment } = usePublicData();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -40,15 +67,14 @@ export default function ManageComments() {
   const [bulkActionLabel, setBulkActionLabel] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [error, setError] = useState('');
-  const [optimisticComments, setOptimisticComments] = useState(() => (Array.isArray(comments) ? comments : []));
+  const [
+    optimisticComments,
+    { apply: applyCommentMutation, beginPending, endPending, reset: resetOptimisticComments },
+  ] = useOptimisticList(comments, commentsReducer);
   const toast = useToast();
   const confirm = useConfirm();
   const filter = readEnumSearchParam(searchParams, 'status', ['all', 'pending', 'approved'], 'all');
   const searchQuery = readSearchParam(searchParams, 'q', '');
-
-  useEffect(() => {
-    setOptimisticComments(Array.isArray(comments) ? comments : []);
-  }, [comments]);
 
   const filteredComments = useMemo(() => {
     let result = optimisticComments;
@@ -113,41 +139,7 @@ export default function ManageComments() {
 
   const isCommentBusy = (id) => busyId === Number.parseInt(String(id), 10);
 
-  const applyCommentMutation = (mutation) => {
-    setOptimisticComments((currentComments) => {
-      if (mutation?.type === 'reset') {
-        return Array.isArray(mutation.comments) ? mutation.comments : [];
-      }
 
-      const list = Array.isArray(currentComments) ? currentComments : [];
-      const numericId = Number.parseInt(String(mutation?.id), 10);
-      if (!Number.isInteger(numericId)) return list;
-
-      if (mutation.type === 'delete') {
-        const threadIds = collectCommentThreadIds(list, numericId);
-        return list.filter((comment) => !threadIds.has(Number.parseInt(comment?.id, 10)));
-      }
-
-      if (mutation.type === 'approval') {
-        const nextApproved = mutation.approved === true;
-        const hiddenThreadIds = nextApproved ? null : collectCommentThreadIds(list, numericId);
-
-        return list.map((comment) => {
-          const commentId = Number.parseInt(comment?.id, 10);
-          if (!Number.isInteger(commentId)) return comment;
-          if (commentId === numericId) return { ...comment, approved: nextApproved };
-          if (!nextApproved && hiddenThreadIds?.has(commentId)) return { ...comment, approved: false };
-          return comment;
-        });
-      }
-
-      return list;
-    });
-  };
-
-  const resetOptimisticComments = () => {
-    applyCommentMutation({ type: 'reset', comments });
-  };
 
   useEffect(() => {
     const visibleIds = new Set(
@@ -187,16 +179,18 @@ export default function ManageComments() {
 
     setBusyId(numericId);
     setError('');
+    beginPending(numericId);
     applyCommentMutation({ type: 'approval', id: numericId, approved });
 
     try {
       await updateComment(numericId, { approved });
       toast.success(approved ? 'Коментарът е одобрен' : 'Коментарът е скрит');
     } catch (e) {
-      resetOptimisticComments();
+      resetOptimisticComments(comments);
       setError(e?.message || (approved ? 'Грешка при одобрение' : 'Грешка при скриване'));
       toast.error(approved ? 'Грешка при одобрение' : 'Грешка при скриване');
     } finally {
+      endPending(numericId);
       setBusyId(null);
     }
   };
@@ -215,16 +209,18 @@ export default function ManageComments() {
 
     setBusyId(numericId);
     setError('');
+    beginPending(numericId);
     applyCommentMutation({ type: 'delete', id: numericId });
 
     try {
       await deleteComment(numericId);
       toast.success('Коментарът е изтрит');
     } catch (e) {
-      resetOptimisticComments();
+      resetOptimisticComments(comments);
       setError(e?.message || 'Грешка при изтриване');
       toast.error('Грешка при изтриване');
     } finally {
+      endPending(numericId);
       setBusyId(null);
     }
   };
@@ -260,6 +256,7 @@ export default function ManageComments() {
 
     try {
       for (const targetId of targetIds) {
+        beginPending(targetId);
         applyCommentMutation({ type: 'approval', id: targetId, approved });
         try {
           await updateComment(targetId, { approved });
@@ -267,11 +264,13 @@ export default function ManageComments() {
         } catch (actionError) {
           failedCount += 1;
           failureMessage = actionError?.message || (approved ? 'Грешка при одобрение' : 'Грешка при скриване');
+        } finally {
+          endPending(targetId);
         }
       }
 
       if (failedCount > 0) {
-        resetOptimisticComments();
+        resetOptimisticComments(comments);
         setError(failureMessage);
         toast.warning(`Неуспешни действия: ${failedCount}`);
       }
@@ -313,6 +312,7 @@ export default function ManageComments() {
 
     try {
       for (const targetId of targetIds) {
+        beginPending(targetId);
         applyCommentMutation({ type: 'delete', id: targetId });
         try {
           await deleteComment(targetId);
@@ -320,11 +320,13 @@ export default function ManageComments() {
         } catch (actionError) {
           failedCount += 1;
           failureMessage = actionError?.message || 'Грешка при изтриване';
+        } finally {
+          endPending(targetId);
         }
       }
 
       if (failedCount > 0) {
-        resetOptimisticComments();
+        resetOptimisticComments(comments);
         setError(failureMessage);
         toast.warning(`Неуспешни изтривания: ${failedCount}`);
       }
@@ -468,9 +470,9 @@ export default function ManageComments() {
                 </div>
                 <p className="text-sm font-sans text-gray-700 mb-1">{comment.text}</p>
                 <p className="text-[10px] font-sans text-gray-400">
-                  Към: <a href={`/article/${comment.articleId}`} target="_blank" rel="noopener noreferrer" className="text-zn-hot hover:underline">
+                  Към: <Link to={`/article/${comment.articleId}`} target="_blank" rel="noopener noreferrer" className="text-zn-hot hover:underline">
                     {getArticleTitle(comment.articleId)}
-                  </a>
+                  </Link>
                 </p>
                 <div className="mt-1 flex items-center gap-2 flex-wrap">
                   {Number.isInteger(Number(comment.parentId)) && (
@@ -511,9 +513,9 @@ export default function ManageComments() {
                     <XCircle className="w-4 h-4" />
                   </button>
                 )}
-                <a href={`/article/${comment.articleId}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors" title="Виж статията" aria-label="Виж статията">
+                <Link to={`/article/${comment.articleId}`} target="_blank" rel="noopener noreferrer" className="p-1.5 text-gray-400 hover:text-zn-hot transition-colors" title="Виж статията" aria-label="Виж статията">
                   <Eye className="w-4 h-4" />
-                </a>
+                </Link>
                 <button
                   type="button"
                   onClick={() => void runOptimisticDelete(comment.id)}

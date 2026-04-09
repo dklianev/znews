@@ -3,6 +3,7 @@ import { MessageCircle, Send, User, ThumbsUp, ThumbsDown, CornerDownRight } from
 import { motion, AnimatePresence } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
 import { formatNewsDate } from '../utils/newsDate';
+import { useOptimisticList } from '../hooks/useOptimisticList';
 
 const AVATAR_COLORS = ['bg-zn-purple', 'bg-zn-hot', 'bg-blue-700', 'bg-emerald-700', 'bg-amber-700', 'bg-violet-700', 'bg-rose-700', 'bg-teal-700'];
 const COMMENT_AUTHOR_MAX_LEN = 50;
@@ -166,7 +167,8 @@ function buildCommentTree(items) {
 }
 
 function applyOptimisticReaction(items, mutation) {
-  if (!Array.isArray(items) || !mutation || mutation.type !== 'reaction') return Array.isArray(items) ? items : [];
+  if (!Array.isArray(items)) return [];
+  if (!mutation || mutation.type !== 'reaction') return items;
 
   const targetId = Number(mutation.commentId);
   return items.map((comment) => {
@@ -484,15 +486,7 @@ export default function CommentsSection({ articleId }) {
       .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
   }, [articleId, comments]);
 
-  const [optimisticComments, setOptimisticComments] = useState(() => (Array.isArray(articleComments) ? articleComments : []));
-
-  useEffect(() => {
-    setOptimisticComments(Array.isArray(articleComments) ? articleComments : []);
-  }, [articleComments]);
-
-  const addOptimisticReaction = useCallback((mutation) => {
-    setOptimisticComments((currentComments) => applyOptimisticReaction(currentComments, mutation));
-  }, []);
+  const [optimisticComments, { apply: addOptimisticReaction }] = useOptimisticList(articleComments, applyOptimisticReaction);
 
   const threadedComments = useMemo(() => buildCommentTree(optimisticComments), [optimisticComments]);
 

@@ -2,13 +2,28 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAdminData } from '../../context/DataContext';
 import { RefreshCw, Trash2, Edit3, Image as ImageIcon, MapPin, Inbox } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminFilterBar from '../../components/admin/AdminFilterBar';
 import AdminSearchField from '../../components/admin/AdminSearchField';
 import AdminEmptyState from '../../components/admin/AdminEmptyState';
 import { buildAdminSearchParams, readSearchParam } from '../../utils/adminSearchParams';
+import { useOptimisticList } from '../../hooks/useOptimisticList';
+
+const tipsReducer = (current, mutation) => {
+  if (!Array.isArray(current)) return [];
+  if (mutation.type === 'status') {
+    return current.map((tip) => (tip.id === mutation.id ? { ...tip, status: mutation.status } : tip));
+  }
+  if (mutation.type === 'delete') {
+    return current.filter((tip) => tip.id !== mutation.id);
+  }
+  if (mutation.type === 'reset') {
+    return Array.isArray(mutation.tips) ? mutation.tips : [];
+  }
+  return current;
+};
 
 export default function ManageTips() {
   const { tips, tipsReady, refreshTips, ensureTipsLoaded, updateTip, deleteTip } = useAdminData();
@@ -19,15 +34,14 @@ export default function ManageTips() {
   const [busyTip, setBusyTip] = useState(null);
   const [bulkActionLabel, setBulkActionLabel] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
-  const [optimisticTips, setOptimisticTips] = useState(() => (Array.isArray(tips) ? tips : []));
+  const [
+    optimisticTips,
+    { apply: applyTipMutation, beginPending, endPending, reset: resetOptimisticTips },
+  ] = useOptimisticList(tips, tipsReducer);
 
   useEffect(() => {
     void ensureTipsLoaded();
   }, [ensureTipsLoaded]);
-
-  useEffect(() => {
-    setOptimisticTips(Array.isArray(tips) ? tips : []);
-  }, [tips]);
 
   const query = readSearchParam(searchParams, 'q', '');
 
@@ -67,30 +81,8 @@ export default function ManageTips() {
 
   const isTipBusy = (id) => bulkBusy || busyTip?.id === id;
 
-  const applyTipMutation = (mutation) => {
-    setOptimisticTips((currentTips) => {
-      if (!Array.isArray(currentTips)) return [];
-
-      if (mutation.type === 'status') {
-        return currentTips.map((tip) => (
-          tip.id === mutation.id ? { ...tip, status: mutation.status } : tip
-        ));
-      }
-
-      if (mutation.type === 'delete') {
-        return currentTips.filter((tip) => tip.id !== mutation.id);
-      }
-
-      if (mutation.type === 'reset') {
-        return Array.isArray(mutation.tips) ? mutation.tips : [];
-      }
-
-      return currentTips;
-    });
-  };
-
   const resetTipsView = () => {
-    applyTipMutation({ type: 'reset', tips });
+    resetOptimisticTips(tips);
   };
 
   const toggleSelection = (id) => {
@@ -118,6 +110,7 @@ export default function ManageTips() {
     if (!confirmed) return;
 
     setBusyTip({ id, action: 'delete' });
+    beginPending(id);
     applyTipMutation({ type: 'delete', id });
 
     try {
@@ -128,6 +121,7 @@ export default function ManageTips() {
       await refreshTips();
       toast.error(`Грешка: ${e.message}`);
     } finally {
+      endPending(id);
       setBusyTip(null);
     }
   };
@@ -135,6 +129,7 @@ export default function ManageTips() {
   const runOptimisticStatusUpdate = async (id, status) => {
     if (bulkBusy) return;
     setBusyTip({ id, action: 'status' });
+    beginPending(id);
     applyTipMutation({ type: 'status', id, status });
 
     try {
@@ -145,6 +140,7 @@ export default function ManageTips() {
       await refreshTips();
       toast.error(`Грешка: ${e.message}`);
     } finally {
+      endPending(id);
       setBusyTip(null);
     }
   };
@@ -174,7 +170,10 @@ export default function ManageTips() {
     }
 
     setBulkActionLabel(label);
-    targetIds.forEach((id) => applyTipMutation({ type: 'status', id, status }));
+    targetIds.forEach((id) => {
+      beginPending(id);
+      applyTipMutation({ type: 'status', id, status });
+    });
 
     try {
       await Promise.all(targetIds.map((id) => updateTip(id, status)));
@@ -185,6 +184,7 @@ export default function ManageTips() {
       await refreshTips();
       toast.error(`Грешка: ${e.message}`);
     } finally {
+      targetIds.forEach((id) => endPending(id));
       setBulkActionLabel('');
     }
   };
@@ -207,7 +207,10 @@ export default function ManageTips() {
 
     const targetIds = selectedTips.map((tip) => tip.id);
     setBulkActionLabel('Изтриване');
-    targetIds.forEach((id) => applyTipMutation({ type: 'delete', id }));
+    targetIds.forEach((id) => {
+      beginPending(id);
+      applyTipMutation({ type: 'delete', id });
+    });
 
     try {
       await Promise.all(targetIds.map((id) => deleteTip(id)));
@@ -218,6 +221,7 @@ export default function ManageTips() {
       await refreshTips();
       toast.error(`Грешка: ${e.message}`);
     } finally {
+      targetIds.forEach((id) => endPending(id));
       setBulkActionLabel('');
     }
   };
@@ -229,13 +233,13 @@ export default function ManageTips() {
         description="Преглед на получените потребителски сигнали"
         actions={(
           <div className="flex flex-wrap items-center gap-2">
-            <a
-              href="/admin/intake?source=tip"
+            <Link
+              to="/admin/intake?source=tip"
               className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors"
             >
               <Inbox className="w-4 h-4" />
               Входяща опашка
-            </a>
+            </Link>
             <button
               type="button"
               onClick={refreshTips}

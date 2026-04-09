@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Archive, CheckCircle2, ExternalLink, Inbox, Mail, RefreshCw, Save, Trash2, UserCheck } from 'lucide-react';
 import { api } from '../../utils/api';
 import { useAdminData, useSessionData } from '../../context/DataContext';
@@ -523,17 +523,19 @@ export default function ManageIntakeQueue() {
       // ignore storage cleanup issues
     }
 
+    let shouldNavigate = false;
     try {
       await updateTip(item.id, 'processed');
       toast.success('Сигналът е подготвен за статия');
+      shouldNavigate = true;
     } catch (updateError) {
       setError(updateError?.message || 'Статията е подготвена, но статусът на сигнала не бе обновен');
       toast.warning('Статията е подготвена, но статусът на сигнала не бе обновен');
       await refreshTips();
     } finally {
       setBusyKey('');
-      navigate('/admin/articles');
     }
+    if (shouldNavigate) navigate('/admin/articles');
   };
 
   const handlePrepareRightOfReply = async (item) => {
@@ -557,19 +559,21 @@ export default function ManageIntakeQueue() {
       return;
     }
 
+    let shouldNavigate = false;
     try {
       if (item.rawStatus !== 'read') {
         const updated = await api.contactMessages.update(item.id, { status: 'read' });
         replaceContactItem(updated);
       }
       toast.success('Подготвихме чернова за право на отговор');
+      shouldNavigate = true;
     } catch (updateError) {
       setError(updateError?.message || 'Черновата е подготвена, но статусът на заявката не беше обновен.');
       toast.warning('Черновата е подготвена, но статусът не беше обновен');
     } finally {
       setBusyKey('');
-      navigate('/admin/articles');
     }
+    if (shouldNavigate) navigate('/admin/articles');
   };
 
   const runTipMetaSave = async (item, payload) => {
@@ -1196,13 +1200,13 @@ export default function ManageIntakeQueue() {
                       <ExternalLink className="w-3.5 h-3.5" />
                       Отвори източника
                     </button>
-                    <a
-                      href={buildAdminAuditLogUrl(item)}
+                    <Link
+                      to={buildAdminAuditLogUrl(item)}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 text-xs font-sans font-semibold text-gray-600 hover:bg-gray-50"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
                       Журнал
-                    </a>
+                    </Link>
                     {!isTip && item.relatedArticleId ? (
                       <>
                         <a
@@ -1214,13 +1218,13 @@ export default function ManageIntakeQueue() {
                           <ExternalLink className="w-3.5 h-3.5" />
                           Публична публикация
                         </a>
-                        <a
-                          href={buildAdminRelatedArticleUrl(item)}
+                        <Link
+                          to={buildAdminRelatedArticleUrl(item)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-violet-200/70 text-xs font-sans font-semibold text-violet-700 hover:bg-violet-50"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                           Публикация в админа
-                        </a>
+                        </Link>
                       </>
                     ) : null}
                     {!isTip && item.responseArticleId ? (
@@ -1236,13 +1240,13 @@ export default function ManageIntakeQueue() {
                             Публичен отговор
                           </a>
                         ) : null}
-                        <a
-                          href={buildAdminResponseArticleUrl(item)}
+                        <Link
+                          to={buildAdminResponseArticleUrl(item)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-emerald-200 text-xs font-sans font-semibold text-emerald-700 hover:bg-emerald-50"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
                           {item.responseArticleStatus === 'published' ? 'Отговор в админа' : 'Чернова в админа'}
-                        </a>
+                        </Link>
                       </>
                     ) : null}
 
