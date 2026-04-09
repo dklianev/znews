@@ -24,6 +24,8 @@ export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' 
     };
 
     const videoId = getYouTubeId(url);
+    const safeTitle = title || 'Видео';
+    const thumbnailAlt = title ? `Миниатюра на видеото ${title}` : 'Миниатюра на видеото';
 
     if (!videoId) return null;
 
@@ -33,7 +35,7 @@ export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' 
     if (isCEF) {
         return (
             <div className={`relative w-full aspect-video bg-black rounded overflow-hidden border-4 border-zn-black ${className}`} style={{ boxShadow: '4px 4px 0 #1C1428' }}>
-                <img src={posterUrl} alt={title || "YouTube video thumbnail"} className="absolute inset-0 w-full h-full object-cover opacity-20" loading="lazy" />
+                <img src={posterUrl} alt={thumbnailAlt} className="absolute inset-0 w-full h-full object-cover opacity-20" loading="lazy" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10">
                     <VideoOff className="w-12 h-12 text-zinc-500 mb-3" />
                     <p className="text-zn-hot font-display text-2xl uppercase tracking-wide mb-1 drop-shadow-md">Видео плейърът е недостъпен</p>
@@ -49,11 +51,11 @@ export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' 
                 <button
                     onClick={() => setIsPlaying(true)}
                     className="absolute inset-0 w-full h-full cursor-pointer focus:outline-none"
-                    aria-label={`Play video ${title}`}
+                    aria-label={`Пусни видеото ${safeTitle}`}
                 >
                     <img
                         src={posterUrl}
-                        alt={title || "YouTube video thumbnail"}
+                        alt={thumbnailAlt}
                         className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-300"
                         loading="lazy"
                     />
@@ -67,7 +69,7 @@ export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' 
                     <iframe
                         className="absolute inset-0 w-full h-full"
                         src={`https://www.youtube.com/embed/${videoId}?rel=0`}
-                        title={title || "YouTube video player"}
+                        title={title ? `Видео плейър на YouTube: ${title}` : 'Видео плейър на YouTube'}
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                         referrerPolicy="strict-origin-when-cross-origin"

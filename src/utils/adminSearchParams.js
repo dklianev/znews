@@ -23,12 +23,12 @@ export function buildAdminSearchParams(currentSearchParams, updates) {
     }
 
     const trimmed = value.trim();
-    if (!trimmed || trimmed === 'all') {
+    if (!trimmed || value === 'all') {
       next.delete(key);
       return;
     }
 
-    next.set(key, trimmed);
+    next.set(key, value);
   });
 
   return next;
