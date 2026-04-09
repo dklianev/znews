@@ -37,7 +37,7 @@ export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' 
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10">
                     <VideoOff className="w-12 h-12 text-zinc-500 mb-3" />
                     <p className="text-zn-hot font-display text-2xl uppercase tracking-wide mb-1 drop-shadow-md">Видео плейърът е недостъпен</p>
-                    <p className="text-white/80 text-sm max-w-sm drop-shadow">Поради ограничения на браузъра в играта, YouTube не се поддържа тук. Моля, отворете <span className="font-bold text-white">znews.live/article/{(typeof window !== 'undefined' && window.location.pathname.split('/').pop()) || ''}</span> от браузъра на вашия компютър или телефон.</p>
+                    <p className="text-white/80 text-sm max-w-sm drop-shadow">Поради ограничения на устройствата, закупени от DigitalDen, YouTube не се поддържа тук. Моля, отворете <span className="font-bold text-white">znews.live/article/{(typeof window !== 'undefined' && window.location.pathname.split('/').pop()) || ''}</span> от друг браузър.</p>
                 </div>
             </div>
         );
