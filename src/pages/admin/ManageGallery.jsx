@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePublicData } from '../../context/DataContext';
 import { Image, Plus, Trash2, Edit3, Star, StarOff, X, AlertTriangle } from 'lucide-react';
 import AdminImageField from '../../components/admin/AdminImageField';
@@ -8,6 +9,7 @@ import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminFilterBar from '../../components/admin/AdminFilterBar';
 import AdminSearchField from '../../components/admin/AdminSearchField';
 import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readSearchParam } from '../../utils/adminSearchParams';
 
 const emptyItem = { title: '', description: '', image: '', category: '', featured: false };
 
@@ -32,15 +34,22 @@ function parseGalleryDate(value) {
 
 export default function ManageGallery() {
   const { gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem } = usePublicData();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyItem);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
   const toast = useToast();
   const confirm = useConfirm();
+  const query = readSearchParam(searchParams, 'q', '');
 
   const categories = [...new Set(gallery.map(g => g.category))];
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
+  };
 
   const openNew = () => { setError(''); setForm(emptyItem); setEditing('new'); };
   const openEdit = (item) => { setError(''); setForm({ title: item.title, description: item.description, image: item.image, category: item.category, featured: item.featured }); setEditing(item.id); };
@@ -125,7 +134,7 @@ export default function ManageGallery() {
       <AdminFilterBar className="mb-6">
         <AdminSearchField
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => setListSearchParams({ q: event.target.value })}
           placeholder="Търси по заглавие, описание, категория или дата..."
           ariaLabel="Търси снимки в галерията"
         />

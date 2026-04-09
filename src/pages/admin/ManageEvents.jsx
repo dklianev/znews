@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
@@ -7,6 +8,7 @@ import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminFilterBar from '../../components/admin/AdminFilterBar';
 import AdminSearchField from '../../components/admin/AdminSearchField';
 import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readSearchParam } from '../../utils/adminSearchParams';
 
 const EVENT_TYPES = [
   { value: 'race', label: 'Race / Circuit' },
@@ -72,11 +74,11 @@ function getFirstErrorField(fieldErrors) {
 
 export default function ManageEvents() {
   const { events, addEvent, updateEvent, deleteEvent } = usePublicData();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
   const [fieldErrors, setFieldErrors] = useState(EMPTY_FIELD_ERRORS);
   const toast = useToast();
   const confirm = useConfirm();
@@ -84,6 +86,14 @@ export default function ManageEvents() {
   const dateRef = useRef(null);
   const locationRef = useRef(null);
   const typeRef = useRef(null);
+  const query = readSearchParam(searchParams, 'q', '');
+
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
+  };
 
   const focusField = (field) => {
     if (field === 'title') titleRef.current?.focus();
@@ -224,7 +234,7 @@ export default function ManageEvents() {
       <AdminFilterBar className="mb-6">
         <AdminSearchField
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => setListSearchParams({ q: event.target.value })}
           placeholder="Търси по заглавие, локация, организатор или описание..."
           ariaLabel="Търси събития"
         />

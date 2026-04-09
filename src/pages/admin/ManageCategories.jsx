@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
@@ -7,6 +8,7 @@ import { useConfirm } from '../../components/admin/ConfirmDialog';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminFilterBar from '../../components/admin/AdminFilterBar';
 import AdminSearchField from '../../components/admin/AdminSearchField';
+import { buildAdminSearchParams, readSearchParam } from '../../utils/adminSearchParams';
 
 const ICONS = ['📰', '🚨', '🏛️', '💰', '🎭', '🏎️', '🎯', '⚖️', '🏥', '🔥', '🌆', '🎤', '🎬', '🕵️', '📡', '🌃', '📸', '🧨'];
 const EMPTY_FIELD_ERRORS = Object.freeze({ id: '', name: '' });
@@ -51,16 +53,24 @@ function getFirstErrorField(fieldErrors) {
 
 export default function ManageCategories() {
   const { categories, addCategory, updateCategory, deleteCategory } = usePublicData();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ id: '', name: '', icon: '📰' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState(EMPTY_FIELD_ERRORS);
-  const [query, setQuery] = useState('');
   const slugInputRef = useRef(null);
   const nameInputRef = useRef(null);
   const toast = useToast();
   const confirm = useConfirm();
+  const query = readSearchParam(searchParams, 'q', '');
+
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
+  };
 
   const focusField = (field) => {
     if (field === 'id') slugInputRef.current?.focus();
@@ -183,7 +193,7 @@ export default function ManageCategories() {
       <AdminFilterBar className="mb-6">
         <AdminSearchField
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => setListSearchParams({ q: event.target.value })}
           placeholder="Търси по slug или име..."
           ariaLabel="Търси категории"
         />

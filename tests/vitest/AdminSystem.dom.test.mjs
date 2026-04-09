@@ -343,6 +343,30 @@ describe('AdminSystem', () => {
     expect(container.querySelector('button[aria-label="Редактирай обявата"]')).not.toBeNull();
   });
 
+  it('hydrates jobs search from the URL and syncs updates back', async () => {
+    searchParamsState = 'q=ems';
+    publicDataState = {
+      jobs: [
+        { id: 1, title: 'Механик в сервиз', org: 'Los Santos Customs', type: 'mechanic', salary: '$4000', contact: '9652438', requirements: 'Опит', active: true },
+        { id: 2, title: 'Парамедик', org: 'EMS', type: 'ems', salary: '$5000', contact: '7771234', requirements: 'Лиценз', active: false },
+      ],
+      addJob,
+      updateJob,
+      deleteJob,
+    };
+
+    ({ root, container } = await renderIntoBody(ManageJobs));
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="Търси обяви за работа"]');
+    expect(searchInput?.value).toBe('ems');
+    expect(container.textContent).toContain('Парамедик');
+    expect(container.textContent).not.toContain('Механик в сервиз');
+
+    await inputValue(searchInput, 'mechanic');
+    expect(setSearchParamsSpy).toHaveBeenLastCalledWith('q=mechanic', { replace: true });
+  });
+
   it('filters events and keeps event row actions accessible', async () => {
     publicDataState = {
       events: [
@@ -385,6 +409,30 @@ describe('AdminSystem', () => {
     expect(container.querySelector('button[aria-label="Редактирай събитието"]')).not.toBeNull();
   });
 
+  it('hydrates events search from the URL and syncs updates back', async () => {
+    searchParamsState = 'q=docks';
+    publicDataState = {
+      events: [
+        { id: 11, title: 'Illegal Drift Night', location: 'Docks', organizer: 'Midnight Crew', description: 'Нощни дрифтове', type: 'race', image: '🏁', date: '2026-04-09', time: '23:00' },
+        { id: 12, title: 'City Hall Briefing', location: 'City Hall', organizer: 'Община', description: 'Официална среща', type: 'meeting', image: '🤝', date: '2026-04-10', time: '18:00' },
+      ],
+      addEvent,
+      updateEvent,
+      deleteEvent,
+    };
+
+    ({ root, container } = await renderIntoBody(ManageEvents));
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="Търси събития"]');
+    expect(searchInput?.value).toBe('docks');
+    expect(container.textContent).toContain('Illegal Drift Night');
+    expect(container.textContent).not.toContain('City Hall Briefing');
+
+    await inputValue(searchInput, 'hall');
+    expect(setSearchParamsSpy).toHaveBeenLastCalledWith('q=hall', { replace: true });
+  });
+
   it('filters wanted records and keeps wanted row actions accessible', async () => {
     publicDataState = {
       wanted: [
@@ -405,6 +453,30 @@ describe('AdminSystem', () => {
     expect(container.textContent).toContain('Марко Лисицата');
     expect(container.textContent).not.toContain('Иван Ковача');
     expect(container.querySelector('button[aria-label="Изтрий издирваното лице"]')).not.toBeNull();
+  });
+
+  it('hydrates wanted search from the URL and syncs updates back', async () => {
+    searchParamsState = 'q=%D0%B8%D0%B7%D0%BC%D0%B0%D0%BC%D0%B0';
+    publicDataState = {
+      wanted: [
+        { id: 7, name: 'Иван Ковача', bounty: '$50000', charge: 'Въоръжен грабеж', danger: 'high' },
+        { id: 8, name: 'Марко Лисицата', bounty: '$10000', charge: 'Измама', danger: 'medium' },
+      ],
+      addWanted,
+      updateWanted,
+      deleteWanted,
+    };
+
+    ({ root, container } = await renderIntoBody(ManageMostWanted));
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="Търси издирвани лица"]');
+    expect(searchInput?.value).toBe('измама');
+    expect(container.textContent).toContain('Марко Лисицата');
+    expect(container.textContent).not.toContain('Иван Ковача');
+
+    await inputValue(searchInput, 'ковача');
+    expect(setSearchParamsSpy).toHaveBeenLastCalledWith('q=%D0%BA%D0%BE%D0%B2%D0%B0%D1%87%D0%B0', { replace: true });
   });
 
   it('filters gallery records and shows the shared empty state on search miss', async () => {
@@ -429,6 +501,30 @@ describe('AdminSystem', () => {
     expect(container.textContent).toContain('Няма снимки');
   });
 
+  it('hydrates gallery search from the URL and syncs updates back', async () => {
+    searchParamsState = 'q=%D0%BF%D0%B0%D1%80%D1%82%D0%B8';
+    publicDataState = {
+      gallery: [
+        { id: 21, title: 'Полицейска акция', description: 'Център', image: '/img/a.jpg', category: 'Криминални', featured: false, date: '2026-04-09' },
+        { id: 22, title: 'Нощен клуб', description: 'Парти', image: '/img/b.jpg', category: 'Общество', featured: true, date: '2026-04-08' },
+      ],
+      addGalleryItem,
+      updateGalleryItem,
+      deleteGalleryItem,
+    };
+
+    ({ root, container } = await renderIntoBody(ManageGallery));
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="Търси снимки в галерията"]');
+    expect(searchInput?.value).toBe('парти');
+    expect(container.textContent).toContain('Нощен клуб');
+    expect(container.textContent).not.toContain('Полицейска акция');
+
+    await inputValue(searchInput, 'акция');
+    expect(setSearchParamsSpy).toHaveBeenLastCalledWith('q=%D0%B0%D0%BA%D1%86%D0%B8%D1%8F', { replace: true });
+  });
+
   it('filters categories through the shared search field and keeps row actions accessible', async () => {
     publicDataState = {
       categories: [
@@ -451,6 +547,30 @@ describe('AdminSystem', () => {
     expect(container.querySelector('button[aria-label="Редактирай категорията"]')).not.toBeNull();
   });
 
+  it('hydrates categories search from the URL and syncs updates back', async () => {
+    searchParamsState = 'q=politics';
+    publicDataState = {
+      categories: [
+        { id: 'crime', name: 'Криминални', icon: '🚨' },
+        { id: 'politics', name: 'Политика', icon: '🏛️' },
+      ],
+      addCategory,
+      updateCategory,
+      deleteCategory,
+    };
+
+    ({ root, container } = await renderIntoBody(ManageCategories));
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="Търси категории"]');
+    expect(searchInput?.value).toBe('politics');
+    expect(container.textContent).toContain('Политика');
+    expect(container.textContent).not.toContain('Криминални');
+
+    await inputValue(searchInput, 'crime');
+    expect(setSearchParamsSpy).toHaveBeenLastCalledWith('q=crime', { replace: true });
+  });
+
   it('filters court cases with the shared search field and shows accessible row actions', async () => {
     publicDataState = {
       court: [
@@ -471,6 +591,30 @@ describe('AdminSystem', () => {
     expect(container.textContent).toContain('Дело срещу Петър');
     expect(container.textContent).not.toContain('Дело срещу Иван');
     expect(container.querySelector('button[aria-label="Изтрий делото"]')).not.toBeNull();
+  });
+
+  it('hydrates court search from the URL and syncs updates back', async () => {
+    searchParamsState = 'q=%D0%B8%D0%B7%D0%BC%D0%B0%D0%BC%D0%B0';
+    publicDataState = {
+      court: [
+        { id: 1, title: 'Дело срещу Иван', defendant: 'Иван', charge: 'Грабеж', judge: 'Съдия Роси', severity: 'heavy', status: 'scheduled', date: '2026-04-09', nextHearing: '' },
+        { id: 2, title: 'Дело срещу Петър', defendant: 'Петър', charge: 'Измама', judge: 'Съдия Николова', severity: 'medium', status: 'completed', date: '2026-04-08', verdict: '6 години' },
+      ],
+      addCourtCase,
+      updateCourtCase,
+      deleteCourtCase,
+    };
+
+    ({ root, container } = await renderIntoBody(ManageCourt));
+    await flushEffects();
+
+    const searchInput = container.querySelector('input[aria-label="Търси съдебни дела"]');
+    expect(searchInput?.value).toBe('измама');
+    expect(container.textContent).toContain('Дело срещу Петър');
+    expect(container.textContent).not.toContain('Дело срещу Иван');
+
+    await inputValue(searchInput, 'роси');
+    expect(setSearchParamsSpy).toHaveBeenLastCalledWith('q=%D1%80%D0%BE%D1%81%D0%B8', { replace: true });
   });
 
   it('shows the shared empty state in audit log when there are no records', async () => {

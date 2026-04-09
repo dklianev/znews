@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
@@ -7,6 +8,7 @@ import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminFilterBar from '../../components/admin/AdminFilterBar';
 import AdminSearchField from '../../components/admin/AdminSearchField';
 import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { buildAdminSearchParams, readSearchParam } from '../../utils/adminSearchParams';
 
 const DANGERS = [
   { value: 'high', label: 'Висока опасност', color: 'bg-red-600 text-white' },
@@ -18,13 +20,21 @@ const emptyForm = { name: '', bounty: '', charge: '', danger: 'high' };
 
 export default function ManageMostWanted() {
   const { wanted, addWanted, updateWanted, deleteWanted } = usePublicData();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
   const toast = useToast();
   const confirm = useConfirm();
+  const query = readSearchParam(searchParams, 'q', '');
+
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
+  };
 
   const handleSave = async () => {
     if (!form.name) return;
@@ -89,7 +99,7 @@ export default function ManageMostWanted() {
       <AdminFilterBar className="mb-6">
         <AdminSearchField
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => setListSearchParams({ q: event.target.value })}
           placeholder="Търси по име, обвинение или награда..."
           ariaLabel="Търси издирвани лица"
         />
