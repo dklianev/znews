@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play } from 'lucide-react';
+import { Play, ExternalLink } from 'lucide-react';
 
 export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' }) {
     const [isPlaying, setIsPlaying] = useState(false);
@@ -39,14 +39,26 @@ export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' 
                     </div>
                 </button>
             ) : (
-                <iframe
-                    className="absolute inset-0 w-full h-full"
-                    src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
-                    title={title || "YouTube video player"}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                />
+                <>
+                    <iframe
+                        className="absolute inset-0 w-full h-full"
+                        src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
+                        title={title || "YouTube video player"}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                    />
+                    <a
+                        href={`https://www.youtube.com/watch?v=${videoId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute top-3 right-3 bg-[#1C1428]/80 hover:bg-zn-hot text-white text-xs font-display tracking-widest px-3 py-2 rounded-lg border border-white/20 transition-colors flex items-center gap-1.5 z-20 shadow-lg"
+                        title="Отвори видеото в нов прозорец (решава проблем с Error 153)"
+                    >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        ГЛЕДАЙ В YOUTUBE
+                    </a>
+                </>
             )}
         </div>
     );
