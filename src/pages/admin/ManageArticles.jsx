@@ -1,16 +1,17 @@
-import { useDeferredValue, useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAdminData, usePublicData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2, Search, Copy, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, CheckSquare, Square, ArrowUp, Archive, ArchiveRestore } from 'lucide-react';
-import RichTextEditor from '../../components/admin/RichTextEditor';
-import AdminImageField from '../../components/admin/AdminImageField';
-import LivePreviewModal from '../../components/admin/LivePreviewModal';
 import { estimateReadTimeFromHtml, normalizeRichTextHtml } from '../../utils/richText';
 import { normalizeArticleAdminForm, trimArticleAdminText } from '../../utils/articleAdminForm';
 import { api } from '../../utils/api';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
 import { buildAdminSearchParams, readPositiveIntSearchParam, readSearchParam } from '../../utils/adminSearchParams';
+
+const LazyRichTextEditor = lazy(() => import('../../components/admin/RichTextEditor'));
+const LazyAdminImageField = lazy(() => import('../../components/admin/AdminImageField'));
+const LazyLivePreviewModal = lazy(() => import('../../components/admin/LivePreviewModal'));
 
 const ARTICLE_DRAFT_KEY = 'zn_manage_articles_draft_v1';
 const ARTICLE_HISTORY_KEY = 'zn_manage_articles_history_v1';
@@ -1497,12 +1498,19 @@ export default function ManageArticles() {
                       aria-describedby={validationErrors.content ? 'article-content-error' : undefined}
                       className={`overflow-hidden border rounded-sm shadow-sm ${validationErrors.content ? 'border-red-400' : 'border-gray-200'}`}
                     >
-                      <RichTextEditor
-                        className="min-h-[500px] border-none"
-                        value={form.content}
-                        onChange={(nextHtml) => { setForm(prev => ({ ...prev, content: nextHtml })); clearValidationError('content'); }}
-                        placeholder="Напиши текста на статията..."
-                      />
+                      <Suspense fallback={(
+                        <div className="flex min-h-[500px] items-center justify-center bg-white text-sm font-sans text-gray-500">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Зареждане на редактора...
+                        </div>
+                      )}>
+                        <LazyRichTextEditor
+                          className="min-h-[500px] border-none"
+                          value={form.content}
+                          onChange={(nextHtml) => { setForm(prev => ({ ...prev, content: nextHtml })); clearValidationError('content'); }}
+                          placeholder="Напиши текста на статията..."
+                        />
+                      </Suspense>
                     </div>
                   ) : (
                     <div className="border border-gray-200 min-h-[500px] p-6 bg-white overflow-auto shadow-sm">
@@ -1644,16 +1652,23 @@ export default function ManageArticles() {
                   aria-describedby={validationErrors.image ? 'article-image-error' : undefined}
                   className={`p-4 border bg-gray-50/30 ${validationErrors.image ? 'border-red-300 bg-red-50/20' : 'border-gray-200'}`}
                 >
-                  <AdminImageField
-                    label="Основна Снимка"
-                    required
-                    value={form.image}
-                    onChange={(nextValue) => { setForm(prev => ({ ...prev, image: nextValue })); clearValidationError('image'); }}
-                    imageMeta={form.imageMeta}
-                    onChangeMeta={(nextMeta) => { setForm(prev => ({ ...prev, imageMeta: nextMeta })); clearValidationError('image'); }}
-                    helperText="Избери снимка (16:9 препоръчително) или качи нова от компютъра."
-                    previewClassName="h-64"
-                  />
+                  <Suspense fallback={(
+                    <div className="flex h-64 items-center justify-center rounded border border-dashed border-gray-300 bg-white text-sm font-sans text-gray-500">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Зареждане на полето за снимка...
+                    </div>
+                  )}>
+                    <LazyAdminImageField
+                      label="Основна Снимка"
+                      required
+                      value={form.image}
+                      onChange={(nextValue) => { setForm(prev => ({ ...prev, image: nextValue })); clearValidationError('image'); }}
+                      imageMeta={form.imageMeta}
+                      onChangeMeta={(nextMeta) => { setForm(prev => ({ ...prev, imageMeta: nextMeta })); clearValidationError('image'); }}
+                      helperText="Избери снимка (16:9 препоръчително) или качи нова от компютъра."
+                      previewClassName="h-64"
+                    />
+                  </Suspense>
                   {validationErrors.image && <p id="article-image-error" className="text-xs text-red-500 mt-3 font-sans">{validationErrors.image}</p>}
                 </div>
 
@@ -1984,14 +1999,21 @@ export default function ManageArticles() {
                 </div>
 
                 <div>
-                  <AdminImageField
-                    label="Отделна Share снимка (Опционално, 1200x630)"
-                    value={form.shareImage || ''}
-                    onChange={(nextValue) => setForm({ ...form, shareImage: nextValue })}
-                    helperText="Ако е празно, ще се ползва основната снимка."
-                    previewClassName="h-48"
-                    required={false}
-                  />
+                  <Suspense fallback={(
+                    <div className="flex h-48 items-center justify-center rounded border border-dashed border-gray-300 bg-white text-sm font-sans text-gray-500">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Зареждане на share изображението...
+                    </div>
+                  )}>
+                    <LazyAdminImageField
+                      label="Отделна Share снимка (Опционално, 1200x630)"
+                      value={form.shareImage || ''}
+                      onChange={(nextValue) => setForm({ ...form, shareImage: nextValue })}
+                      helperText="Ако е празно, ще се ползва основната снимка."
+                      previewClassName="h-48"
+                      required={false}
+                    />
+                  </Suspense>
                 </div>
 
                 {editing !== 'new' && (
@@ -2185,10 +2207,19 @@ export default function ManageArticles() {
       )}
 
       {showPreviewModal && (
-        <LivePreviewModal
-          form={form}
-          onClose={() => setShowPreviewModal(false)}
-        />
+        <Suspense fallback={(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-4">
+            <div className="rounded-2xl bg-white px-6 py-5 text-sm font-sans text-gray-600 shadow-xl">
+              <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-gray-400" />
+              Зареждане на live preview...
+            </div>
+          </div>
+        )}>
+          <LazyLivePreviewModal
+            form={form}
+            onClose={() => setShowPreviewModal(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

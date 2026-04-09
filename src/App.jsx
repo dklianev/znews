@@ -4,7 +4,6 @@ import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider, useAdminData, usePublicData, useSessionData } from './context/DataContext';
 import { AnimatePresence, motion } from 'motion/react';
 import Navbar from './components/Navbar';
-import BreakingTicker from './components/BreakingTicker';
 import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import { appCopy } from './content/uiCopy';
@@ -51,6 +50,7 @@ const CourtPage = lazyRetry(() => import('./pages/CourtPage'));
 const EventsPage = lazyRetry(() => import('./pages/EventsPage'));
 const NotFoundPage = lazyRetry(() => import('./pages/NotFoundPage'));
 const TipLine = lazyRetry(() => import('./pages/TipLine'));
+const BreakingTicker = lazyRetry(() => import('./components/BreakingTicker'));
 const Footer = lazyRetry(() => import('./components/Footer'));
 const EasterHuntBadge = lazyRetry(() => import('./components/seasonal/EasterHuntBadge'));
 const ClassifiedsPage = lazyRetry(() => import('./pages/ClassifiedsPage'));
@@ -283,7 +283,9 @@ function PublicLayout() {
         Към съдържанието
       </a>
       <Navbar />
-      <BreakingTicker />
+      <Suspense fallback={null}>
+        <BreakingTicker />
+      </Suspense>
       <main id="main-content" className="flex-1 comic-stage">
         <AnimatePresence mode="wait">
           <motion.div

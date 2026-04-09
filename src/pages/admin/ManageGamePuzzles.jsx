@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, Edit2, FileText, Globe, Loader2, Plus, Puzzle, Sparkles, Trash2, Wand2 } from 'lucide-react';
-import GamePuzzleEditor from '../../components/admin/GamePuzzleEditor';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
 import { api } from '../../utils/api';
@@ -17,6 +16,7 @@ const CROSSWORD_SIZE_MAX = 15;
 const CROSSWORD_CHAR_PATTERN = /^[\p{L}\p{N}\?]$/u;
 const SPELLING_BEE_MIN_LENGTH_MIN = SPELLING_BEE_MIN_WORD_LENGTH;
 const SPELLING_BEE_MIN_LENGTH_MAX = 12;
+const LazyGamePuzzleEditor = lazy(() => import('../../components/admin/GamePuzzleEditor'));
 
 function cloneValue(value) {
     return JSON.parse(JSON.stringify(value));
@@ -541,7 +541,14 @@ export default function ManageGamePuzzles() {
             </div>
 
             {isEditing ? (
-                <GamePuzzleEditor gameSlug={selectedGameSlug} editForm={editForm} guide={guide} saving={saving} onCancel={() => { setIsEditing(false); setEditForm(null); }} onSave={handleSave} actions={actions} />
+                <Suspense fallback={(
+                    <div className="rounded-2xl border border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-500 shadow-sm">
+                        <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-gray-400" />
+                        Зареждане на редактора за пъзели...
+                    </div>
+                )}>
+                    <LazyGamePuzzleEditor gameSlug={selectedGameSlug} editForm={editForm} guide={guide} saving={saving} onCancel={() => { setIsEditing(false); setEditForm(null); }} onSave={handleSave} actions={actions} />
+                </Suspense>
             ) : (
                 <div className="bg-white border border-gray-200 overflow-hidden shadow-sm rounded-2xl">
                     <table className="w-full text-left font-sans text-sm">

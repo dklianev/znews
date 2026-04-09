@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Pencil, Trash2, X, Save, ExternalLink, ImageIcon, AlertTriangle, Loader2, Eye, Info } from 'lucide-react';
 import { usePublicData } from '../../context/DataContext';
-import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
-import { AdBannerHorizontal, AdBannerSide, AdBannerInline } from '../../components/AdBanner';
 import { AD_PAGE_TYPES, AD_SLOT_DEFINITIONS, AD_STATUS_OPTIONS, getAdSlot } from '../../../shared/adSlots.js';
 import { explainAdResolution, normalizeAdImageMeta, normalizeAdRecord, resolveAdCreative } from '../../../shared/adResolver.js';
 import { buildAdSlotOccupancy } from '../../../shared/adOccupancy.js';
 import { api } from '../../utils/api';
 import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
+
+const LazyAdminImageField = lazy(() => import('../../components/admin/AdminImageField'));
+const LazyAdminAdPreviewBanner = lazy(() => import('../../components/admin/AdminAdPreviewBanner'));
 
 const AD_TYPES = [
   {
@@ -331,12 +332,6 @@ function buildCreativeRequirements(selectedTypeMeta, slotMeta, viewport) {
     minimum: computed?.minimum || parseSizeLabel(selectedTypeMeta?.minSize),
     ratioLabel,
   };
-}
-
-function PreviewBanner({ ad, slotMeta = null, showSafeArea = false, viewport = 'auto' }) {
-  if (ad.type === 'side') return <AdBannerSide ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} viewport={viewport} />;
-  if (ad.type === 'inline') return <AdBannerInline ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} viewport={viewport} />;
-  return <AdBannerHorizontal ad={ad} slotMeta={slotMeta} showSafeArea={showSafeArea} viewport={viewport} />;
 }
 
 function formatDateTimeShort(value) {
@@ -886,46 +881,60 @@ export default function ManageAds() {
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
-                  <AdminImageField
-                    label={'Десктоп creative'}
-                    value={form.image}
-                    onChange={(nextValue) => setForm((prev) => ({
-                      ...prev,
-                      image: nextValue,
-                      imageMeta: nextValue && nextValue !== prev.image ? { ...AD_DEFAULT_IMAGE_META } : prev.imageMeta,
-                    }))}
-                    imageMeta={form.imageMeta}
-                    onChangeMeta={(nextMeta) => setForm((prev) => ({
-                      ...prev,
-                      imageMeta: normalizeAdImageMeta(nextMeta),
-                    }))}
-                    helperText={form.imagePlacement === 'cover' ? 'Широката версия за десктоп slot-овете.' : imageHelperText}
-                    previewClassName="h-36"
-                    editorAspectPresets={editorAspectPresets}
-                    defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
-                    guideMode={previewGuideMode}
-                    imageRequirements={buildCreativeRequirements(selectedTypeMeta, previewSlotMeta, 'desktop')}
-                  />
-                  <AdminImageField
-                    label={'Mobile creative'}
-                    value={form.imageMobile}
-                    onChange={(nextValue) => setForm((prev) => ({
-                      ...prev,
-                      imageMobile: nextValue,
-                      imageMetaMobile: nextValue && nextValue !== prev.imageMobile ? { ...AD_DEFAULT_IMAGE_META } : prev.imageMetaMobile,
-                    }))}
-                    imageMeta={form.imageMetaMobile}
-                    onChangeMeta={(nextMeta) => setForm((prev) => ({
-                      ...prev,
-                      imageMetaMobile: normalizeAdImageMeta(nextMeta),
-                    }))}
-                    helperText={form.imagePlacement === 'cover' ? 'Опционално, но силно препоръчително за mobile ratio fallback-и.' : imageHelperText}
-                    previewClassName="h-36"
-                    editorAspectPresets={editorAspectPresets}
-                    defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
-                    guideMode={previewGuideMode}
-                    imageRequirements={buildCreativeRequirements(selectedTypeMeta, previewSlotMeta, 'mobile')}
-                  />
+                  <Suspense fallback={(
+                    <div className="flex h-36 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white text-sm font-sans text-gray-500">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Зареждане на редактора за creative...
+                    </div>
+                  )}>
+                    <LazyAdminImageField
+                      label={'Десктоп creative'}
+                      value={form.image}
+                      onChange={(nextValue) => setForm((prev) => ({
+                        ...prev,
+                        image: nextValue,
+                        imageMeta: nextValue && nextValue !== prev.image ? { ...AD_DEFAULT_IMAGE_META } : prev.imageMeta,
+                      }))}
+                      imageMeta={form.imageMeta}
+                      onChangeMeta={(nextMeta) => setForm((prev) => ({
+                        ...prev,
+                        imageMeta: normalizeAdImageMeta(nextMeta),
+                      }))}
+                      helperText={form.imagePlacement === 'cover' ? 'Широката версия за десктоп slot-овете.' : imageHelperText}
+                      previewClassName="h-36"
+                      editorAspectPresets={editorAspectPresets}
+                      defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
+                      guideMode={previewGuideMode}
+                      imageRequirements={buildCreativeRequirements(selectedTypeMeta, previewSlotMeta, 'desktop')}
+                    />
+                  </Suspense>
+                  <Suspense fallback={(
+                    <div className="flex h-36 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white text-sm font-sans text-gray-500">
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Зареждане на мобилния creative...
+                    </div>
+                  )}>
+                    <LazyAdminImageField
+                      label={'Mobile creative'}
+                      value={form.imageMobile}
+                      onChange={(nextValue) => setForm((prev) => ({
+                        ...prev,
+                        imageMobile: nextValue,
+                        imageMetaMobile: nextValue && nextValue !== prev.imageMobile ? { ...AD_DEFAULT_IMAGE_META } : prev.imageMetaMobile,
+                      }))}
+                      imageMeta={form.imageMetaMobile}
+                      onChangeMeta={(nextMeta) => setForm((prev) => ({
+                        ...prev,
+                        imageMetaMobile: normalizeAdImageMeta(nextMeta),
+                      }))}
+                      helperText={form.imagePlacement === 'cover' ? 'Опционално, но силно препоръчително за mobile ratio fallback-и.' : imageHelperText}
+                      previewClassName="h-36"
+                      editorAspectPresets={editorAspectPresets}
+                      defaultEditorMode={form.imagePlacement === 'cover' ? 'focal' : 'crop'}
+                      guideMode={previewGuideMode}
+                      imageRequirements={buildCreativeRequirements(selectedTypeMeta, previewSlotMeta, 'mobile')}
+                    />
+                  </Suspense>
                 </div>
                 {mobileCreativeWarning && (
                   <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -1133,14 +1142,32 @@ export default function ManageAds() {
                       <span>Desktop preview</span>
                       <span>{previewSlotMeta?.desktopAspectRatio || selectedTypeMeta.aspectRatio}</span>
                     </div>
-                    <div className="newspaper-page bg-[#EDE6DA] p-3 overflow-visible"><PreviewBanner ad={previewAd} slotMeta={previewSlotMeta} showSafeArea viewport="desktop" /></div>
+                    <div className="newspaper-page bg-[#EDE6DA] p-3 overflow-visible">
+                      <Suspense fallback={(
+                        <div className="flex min-h-[140px] items-center justify-center text-sm font-sans text-gray-500">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Зареждане на desktop preview...
+                        </div>
+                      )}>
+                        <LazyAdminAdPreviewBanner ad={previewAd} slotMeta={previewSlotMeta} showSafeArea viewport="desktop" />
+                      </Suspense>
+                    </div>
                   </div>
                   <div className="rounded-2xl border border-gray-200 bg-[#faf6ee] p-3">
                     <div className="mb-2 flex items-center justify-between gap-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">
                       <span>Mobile preview</span>
                       <span>{previewSlotMeta?.mobileAspectRatio || '4:1'}</span>
                     </div>
-                    <div className="mx-auto max-w-[22rem] newspaper-page bg-[#EDE6DA] p-3 overflow-visible"><PreviewBanner ad={previewAd} slotMeta={previewSlotMeta} showSafeArea viewport="mobile" /></div>
+                    <div className="mx-auto max-w-[22rem] newspaper-page bg-[#EDE6DA] p-3 overflow-visible">
+                      <Suspense fallback={(
+                        <div className="flex min-h-[140px] items-center justify-center text-sm font-sans text-gray-500">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Зареждане на mobile preview...
+                        </div>
+                      )}>
+                        <LazyAdminAdPreviewBanner ad={previewAd} slotMeta={previewSlotMeta} showSafeArea viewport="mobile" />
+                      </Suspense>
+                    </div>
                   </div>
                 </div>
                 <div className="rounded-2xl border border-dashed border-gray-200 bg-[#fbfaf7] p-4 text-xs text-gray-600">
