@@ -179,6 +179,7 @@ describe('settingsHelpers', () => {
         source: 'update',
         editorName: 'Admin',
         createdAt: firstRevision.createdAt,
+        snapshot: serializedHero,
       },
       {
         revisionId: 'revision-2',
@@ -187,6 +188,10 @@ describe('settingsHelpers', () => {
         source: 'restore',
         editorName: 'Editor',
         createdAt: secondRevision.createdAt,
+        snapshot: {
+          ...serializedHero,
+          headline: 'Different hero',
+        },
       },
     ]);
   });

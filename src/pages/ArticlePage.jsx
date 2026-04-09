@@ -1,5 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
-import { Clock, Eye, ChevronRight } from 'lucide-react';
+import { Clock, Eye, ChevronRight, Mail } from 'lucide-react';
 import { motion } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
 import AdSlot from '../components/ads/AdSlot';
@@ -115,6 +115,18 @@ function ArticlePageSkeleton() {
     </div>
   );
 }
+
+const INITIAL_RIGHT_OF_REPLY_FORM = Object.freeze({
+  name: '',
+  phone: '',
+  message: '',
+});
+
+const INITIAL_RIGHT_OF_REPLY_STATE = Object.freeze({
+  status: 'idle',
+  message: '',
+  fieldErrors: {},
+});
 
 function serializeArticleBodyNode(node) {
   if (!node) return '';
@@ -415,6 +427,11 @@ export default function ArticlePage() {
   const [copyFailed, setCopyFailed] = useState(false);
   const [yapperOpen, setYapperOpen] = useState(false);
   const [yapperCopied, setYapperCopied] = useState(false);
+  const [rightOfReplyForm, setRightOfReplyForm] = useState(INITIAL_RIGHT_OF_REPLY_FORM);
+  const [rightOfReplyState, setRightOfReplyState] = useState(INITIAL_RIGHT_OF_REPLY_STATE);
+  const [rightOfReplyPending, setRightOfReplyPending] = useState(false);
+  const [publishedReplyArticles, setPublishedReplyArticles] = useState([]);
+  const [publishedReplyLoading, setPublishedReplyLoading] = useState(false);
   const yapperRef = useRef(null);
   const yapperInputRef = useRef(null);
 
@@ -458,6 +475,42 @@ export default function ArticlePage() {
     });
     return () => window.cancelAnimationFrame(t);
   }, [yapperOpen]);
+
+  useEffect(() => {
+    setRightOfReplyForm(INITIAL_RIGHT_OF_REPLY_FORM);
+    setRightOfReplyState(INITIAL_RIGHT_OF_REPLY_STATE);
+    setRightOfReplyPending(false);
+    setPublishedReplyArticles([]);
+    setPublishedReplyLoading(false);
+  }, [article?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!Number.isInteger(article?.id) || article.id <= 0) {
+      setPublishedReplyArticles([]);
+      setPublishedReplyLoading(false);
+      return undefined;
+    }
+
+    setPublishedReplyLoading(true);
+    api.contactMessages.getPublishedRightOfReply(article.id)
+      .then((payload) => {
+        if (cancelled) return;
+        setPublishedReplyArticles(Array.isArray(payload) ? payload : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setPublishedReplyArticles([]);
+      })
+      .finally(() => {
+        if (!cancelled) setPublishedReplyLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [article?.id]);
 
   useEffect(() => {
     if (!nextArticle?.image || typeof Image === 'undefined') return undefined;
@@ -601,6 +654,83 @@ export default function ArticlePage() {
     if (ok) {
       setYapperCopied(true);
       setTimeout(() => setYapperCopied(false), 2000);
+    }
+  };
+
+  const handleRightOfReplyFieldChange = (field, value) => {
+    setRightOfReplyForm((currentForm) => ({
+      ...currentForm,
+      [field]: value,
+    }));
+
+    setRightOfReplyState((currentState) => {
+      if (!currentState.fieldErrors?.[field] && currentState.status !== 'success') return currentState;
+      return {
+        ...currentState,
+        status: currentState.status === 'success' ? 'idle' : currentState.status,
+        fieldErrors: {
+          ...currentState.fieldErrors,
+          [field]: '',
+        },
+      };
+    });
+  };
+
+  const handleRightOfReplySubmit = async (event) => {
+    event.preventDefault();
+    if (!article?.id) return;
+
+    const nextForm = {
+      name: String(rightOfReplyForm.name || '').trim(),
+      phone: String(rightOfReplyForm.phone || '').trim(),
+      message: String(rightOfReplyForm.message || '').trim(),
+    };
+
+    const fieldErrors = {};
+    if (!nextForm.name) fieldErrors.name = 'Името е задължително.';
+    if (!nextForm.phone) fieldErrors.phone = 'Телефонът е задължителен.';
+    if (!nextForm.message) fieldErrors.message = 'Опиши какъв е твоят отговор по публикацията.';
+    if (nextForm.phone && nextForm.phone.replace(/\D/g, '').length < 5) {
+      fieldErrors.phone = 'Въведи валиден телефон.';
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      setRightOfReplyState({
+        status: 'error',
+        message: 'Попълни коректно полетата за право на отговор.',
+        fieldErrors,
+      });
+      return;
+    }
+
+    setRightOfReplyPending(true);
+    setRightOfReplyState(INITIAL_RIGHT_OF_REPLY_STATE);
+
+    try {
+      await api.contactMessages.submit({
+        ...nextForm,
+        requestKind: 'right_of_reply',
+        relatedArticleId: article.id,
+        relatedArticleTitle: article.title,
+      });
+      setRightOfReplyForm(INITIAL_RIGHT_OF_REPLY_FORM);
+      setRightOfReplyState({
+        status: 'success',
+        message: 'Искането за право на отговор е изпратено към редакцията.',
+        fieldErrors: {},
+      });
+    } catch (error) {
+      const payloadFieldErrors = error?.payload?.fieldErrors && typeof error.payload.fieldErrors === 'object'
+        ? error.payload.fieldErrors
+        : {};
+
+      setRightOfReplyState({
+        status: 'error',
+        message: error?.message || 'Не успяхме да изпратим искането. Опитай отново.',
+        fieldErrors: payloadFieldErrors,
+      });
+    } finally {
+      setRightOfReplyPending(false);
     }
   };
 
@@ -848,6 +978,158 @@ export default function ArticlePage() {
 
           {/* Reactions */}
           <ArticleReactions articleId={article.id} reactions={article.reactions} />
+
+          <section className="mt-8 mb-8 newspaper-page comic-panel comic-dots p-5 md:p-6 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-zn-purple/8 pointer-events-none" />
+            <div className="relative z-[2]">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span className="headline-banner-purple text-[10px] sm:text-xs">ПРАВО НА ОТГОВОР</span>
+                <span className="comic-chip text-[10px] sm:text-xs">Свързано с тази публикация</span>
+              </div>
+              <div className="flex items-start gap-3 mb-4">
+                <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-3 border-[#1C1428] bg-white text-zn-purple">
+                  <Mail className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="font-display text-lg md:text-xl font-black uppercase tracking-wider text-zn-text">
+                    Засегнат си от тази публикация?
+                  </h2>
+                  <p className="mt-1 text-sm md:text-[15px] font-sans text-zn-text/80 leading-relaxed">
+                    Ако статията засяга пряко теб, твоята организация или твоята позиция, изпрати искане за право на
+                    отговор. Редакцията го разглежда по установения ред и го свързва директно с тази публикация.
+                  </p>
+                </div>
+              </div>
+
+              {publishedReplyLoading ? (
+                <div className="mb-4 border border-zn-purple/15 bg-white/85 px-4 py-3 text-sm font-sans text-zn-text/75">
+                  Зареждаме публикуваните отговори по тази публикация...
+                </div>
+              ) : null}
+
+              {publishedReplyArticles.length > 0 ? (
+                <div className="mb-5 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="headline-banner-hot text-[10px] sm:text-xs">ПУБЛИКУВАНИ ОТГОВОРИ</span>
+                    <span className="comic-chip text-[10px] sm:text-xs">
+                      {publishedReplyArticles.length === 1
+                        ? '1 публикуван отговор'
+                        : `${publishedReplyArticles.length} публикувани отговора`}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {publishedReplyArticles.map((replyArticle) => (
+                      <Link
+                        key={replyArticle.id}
+                        to={`/article/${replyArticle.id}`}
+                        className="comic-story-card group relative flex h-full flex-col gap-2 bg-white p-4 transition-transform hover:-translate-y-0.5"
+                        aria-label={`Отвори публикувания отговор "${replyArticle.title}"`}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="comic-chip-hot text-[10px]">
+                            {replyArticle.cardSticker || replyArticle.shareBadge || 'ОТГОВОР'}
+                          </span>
+                          {replyArticle.date ? (
+                            <span className="text-[11px] font-sans text-zn-text/55">
+                              {formatNewsDate(replyArticle.date)}
+                            </span>
+                          ) : null}
+                        </div>
+                        <h3 className="font-display text-sm font-black uppercase tracking-wide text-zn-text transition-colors group-hover:text-zn-hot">
+                          {replyArticle.title}
+                        </h3>
+                        {replyArticle.excerpt ? (
+                          <p className="line-clamp-3 text-sm font-sans leading-relaxed text-zn-text/75">
+                            {replyArticle.excerpt}
+                          </p>
+                        ) : null}
+                        <span className="mt-auto inline-flex items-center gap-1 text-[11px] font-display font-bold uppercase tracking-[0.18em] text-zn-purple">
+                          Отвори отговора
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {rightOfReplyState.status === 'success' ? (
+                <div className="mb-4 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-sans text-emerald-800" role="status">
+                  {rightOfReplyState.message}
+                </div>
+              ) : null}
+
+              {rightOfReplyState.status === 'error' && rightOfReplyState.message ? (
+                <div className="mb-4 border border-red-200 bg-red-50 px-4 py-3 text-sm font-sans text-red-800" role="alert">
+                  {rightOfReplyState.message}
+                </div>
+              ) : null}
+
+              <form className="grid grid-cols-1 gap-4 md:grid-cols-2" onSubmit={handleRightOfReplySubmit}>
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-display font-bold uppercase tracking-[0.18em] text-zn-text/60">
+                    Име
+                  </span>
+                  <input
+                    type="text"
+                    value={rightOfReplyForm.name}
+                    onChange={(event) => handleRightOfReplyFieldChange('name', event.target.value)}
+                    aria-label="Име за право на отговор"
+                    className="w-full border-3 border-[#1C1428] bg-white px-3 py-2 font-sans text-sm text-zn-text outline-none focus:border-zn-purple"
+                  />
+                  {rightOfReplyState.fieldErrors?.name ? (
+                    <span className="mt-1 block text-xs font-sans text-zn-hot">{rightOfReplyState.fieldErrors.name}</span>
+                  ) : null}
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-display font-bold uppercase tracking-[0.18em] text-zn-text/60">
+                    Телефон
+                  </span>
+                  <input
+                    type="text"
+                    value={rightOfReplyForm.phone}
+                    onChange={(event) => handleRightOfReplyFieldChange('phone', event.target.value)}
+                    aria-label="Телефон за право на отговор"
+                    className="w-full border-3 border-[#1C1428] bg-white px-3 py-2 font-sans text-sm text-zn-text outline-none focus:border-zn-purple"
+                  />
+                  {rightOfReplyState.fieldErrors?.phone ? (
+                    <span className="mt-1 block text-xs font-sans text-zn-hot">{rightOfReplyState.fieldErrors.phone}</span>
+                  ) : null}
+                </label>
+
+                <label className="block md:col-span-2">
+                  <span className="mb-1 block text-[11px] font-display font-bold uppercase tracking-[0.18em] text-zn-text/60">
+                    Твоят отговор
+                  </span>
+                  <textarea
+                    value={rightOfReplyForm.message}
+                    onChange={(event) => handleRightOfReplyFieldChange('message', event.target.value)}
+                    aria-label="Текст на правото на отговор"
+                    rows={5}
+                    className="w-full resize-y border-3 border-[#1C1428] bg-white px-3 py-2 font-sans text-sm text-zn-text outline-none focus:border-zn-purple"
+                  />
+                  {rightOfReplyState.fieldErrors?.message ? (
+                    <span className="mt-1 block text-xs font-sans text-zn-hot">{rightOfReplyState.fieldErrors.message}</span>
+                  ) : null}
+                </label>
+
+                <div className="md:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-sans text-zn-text/65">
+                    Искането ще бъде заведено към редакцията като право на отговор по статия №{article.id}.
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={rightOfReplyPending}
+                    className="btn-primary min-w-[220px] disabled:opacity-60"
+                    aria-busy={rightOfReplyPending}
+                  >
+                    {rightOfReplyPending ? 'Изпращане...' : 'Изпрати искане'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
 
           {/* Comments */}
           <CommentsSection articleId={article.id} />

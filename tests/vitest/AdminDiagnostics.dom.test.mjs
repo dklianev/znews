@@ -21,6 +21,7 @@ vi.mock('lucide-react', () => {
     Activity: Icon,
     AlertTriangle: Icon,
     Database: Icon,
+    ExternalLink: Icon,
     HardDrive: Icon,
     RefreshCw: Icon,
     ShieldAlert: Icon,
@@ -104,10 +105,15 @@ describe('AdminDiagnostics', () => {
     expect(container.textContent).toContain('/article/27');
     expect(container.textContent).toContain('client / ErrorBoundary');
     expect(container.textContent).toContain('Видяна 10 пъти');
+    expect(container.textContent).toContain('Към журнала');
+    expect(container.textContent).toContain('Отвори засегнатата страница');
     expect(container.querySelectorAll('details')).toHaveLength(3);
     expect(container.textContent).toContain('at ArticlePage');
     expect(container.textContent).toContain('Error: Minified React error #185');
     expect(container.textContent).toContain('Mozilla/5.0 Codex Safe Smoke');
+    const links = Array.from(container.querySelectorAll('a')).map((element) => element.getAttribute('href'));
+    expect(links).toContain('/admin/articles?q=27');
+    expect(links).toContain('/admin/audit-log?resource=articles&resourceId=27');
   });
 
   it('shows an inline error banner when diagnostics loading fails', async () => {

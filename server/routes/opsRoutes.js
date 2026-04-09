@@ -27,15 +27,56 @@ export function registerOpsRoutes(app, deps) {
     };
   }
 
+  function escapeRegex(value) {
+    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   app.get('/api/audit-log', requireAuth, requirePermission('permissions'), async (req, res) => {
     const limit = parsePositiveInt(req.query.limit, 200, { min: 1, max: 200 });
     const cursor = parseAuditLogCursor(req.query.cursor);
+    const resource = normalizeText(req.query.resource, 80).toLowerCase();
+    const action = normalizeText(req.query.action, 20).toLowerCase();
+    const query = normalizeText(req.query.q, 120);
+    const resourceId = Number.parseInt(normalizeText(req.query.resourceId, 32), 10);
     const filter = {};
 
+    if (resource && resource !== 'all') {
+      filter.resource = resource;
+    }
+
+    if (Number.isInteger(resourceId) && resourceId > 0) {
+      filter.resourceId = resourceId;
+    }
+
+    if (['create', 'update', 'delete'].includes(action)) {
+      filter.action = action;
+    }
+
+    if (query) {
+      const regex = new RegExp(escapeRegex(query), 'i');
+      const numericQuery = Number.parseInt(query, 10);
+      filter.$and = [
+        ...(Array.isArray(filter.$and) ? filter.$and : []),
+        {
+          $or: [
+            { user: regex },
+            { details: regex },
+            { resource: regex },
+            ...(Number.isInteger(numericQuery) ? [{ resourceId: numericQuery }] : []),
+          ],
+        },
+      ];
+    }
+
     if (cursor) {
-      filter.$or = [
-        { timestamp: { $lt: cursor.timestamp } },
-        { timestamp: cursor.timestamp, _id: { $lt: cursor.id } },
+      filter.$and = [
+        ...(Array.isArray(filter.$and) ? filter.$and : []),
+        {
+          $or: [
+            { timestamp: { $lt: cursor.timestamp } },
+            { timestamp: cursor.timestamp, _id: { $lt: cursor.id } },
+          ],
+        },
       ];
     }
 

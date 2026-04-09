@@ -53,6 +53,7 @@ export function createSettingsHelpers({
       source: revision.source,
       editorName: revision.editorName || '',
       createdAt: revision.createdAt,
+      snapshot: serializeSettingsSnapshot(revision.scope, revision.snapshot),
     }));
   }
 

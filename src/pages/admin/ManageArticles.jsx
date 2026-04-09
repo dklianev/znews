@@ -7,6 +7,7 @@ import { normalizeArticleAdminForm, trimArticleAdminText } from '../../utils/art
 import { api } from '../../utils/api';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
+import RevisionComparePanel from '../../components/admin/RevisionComparePanel';
 import { buildAdminSearchParams, readPositiveIntSearchParam, readSearchParam } from '../../utils/adminSearchParams';
 
 const LazyRichTextEditor = lazy(() => import('../../components/admin/RichTextEditor'));
@@ -15,6 +16,8 @@ const LazyLivePreviewModal = lazy(() => import('../../components/admin/LivePrevi
 
 const ARTICLE_DRAFT_KEY = 'zn_manage_articles_draft_v1';
 const ARTICLE_HISTORY_KEY = 'zn_manage_articles_history_v1';
+const ARTICLE_INTAKE_PREFILL_KEY = 'znews_intake_article_prefill_v1';
+const LEGACY_TIP_PREFILL_KEY = 'znews_tip_prefill';
 const FIELD_TAB_BY_KEY = Object.freeze({
   title: 'content',
   excerpt: 'content',
@@ -45,6 +48,55 @@ function safeJsonParse(value, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function readIncomingArticlePrefill() {
+  if (typeof window === 'undefined') return null;
+  const keys = [ARTICLE_INTAKE_PREFILL_KEY, LEGACY_TIP_PREFILL_KEY];
+  for (const key of keys) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch {
+      // ignore malformed storage payloads
+    }
+  }
+  return null;
+}
+
+function clearIncomingArticlePrefill() {
+  if (typeof window === 'undefined') return;
+  [ARTICLE_INTAKE_PREFILL_KEY, LEGACY_TIP_PREFILL_KEY].forEach((key) => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // ignore storage cleanup errors
+    }
+  });
+}
+
+function getRightOfReplyIntakeMeta(value) {
+  if (!value || typeof value !== 'object') return null;
+  const source = String(value.source || '').trim();
+  const requestKind = String(value.requestKind || '').trim();
+  const requestId = Number.parseInt(String(value.requestId || ''), 10);
+  if (source !== 'contact' || requestKind !== 'right_of_reply' || !Number.isInteger(requestId) || requestId <= 0) {
+    return null;
+  }
+
+  const relatedArticleId = Number.parseInt(String(value.relatedArticleId || ''), 10);
+  const relatedArticleTitle = String(value.relatedArticleTitle || '').trim();
+  return {
+    source,
+    requestKind,
+    requestId,
+    relatedArticleId: Number.isInteger(relatedArticleId) && relatedArticleId > 0 ? relatedArticleId : null,
+    relatedArticleTitle,
+  };
 }
 
 const REVISION_COMPARE_FIELDS = [
@@ -779,9 +831,8 @@ export default function ManageArticles() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const raw = window.localStorage.getItem('znews_tip_prefill');
-      if (raw) {
-        const prefill = JSON.parse(raw);
+      const prefill = readIncomingArticlePrefill();
+      if (prefill) {
         setEditing('new');
         setContentMode('write');
         setAutosavedAt(null);
@@ -790,11 +841,32 @@ export default function ManageArticles() {
         const normalizedPrefill = normalizeArticleAdminForm(prefill, emptyForm);
         setForm(normalizedPrefill);
         initialFormRef.current = normalizedPrefill;
-        window.localStorage.removeItem('znews_tip_prefill');
+        clearIncomingArticlePrefill();
       }
     } catch {
-      window.localStorage.removeItem('znews_tip_prefill');
+      clearIncomingArticlePrefill();
     }
+  }, []);
+
+  const syncRightOfReplyRequest = useCallback(async (intakeMeta, articleRecord, articleStatus) => {
+    const normalizedMeta = getRightOfReplyIntakeMeta(intakeMeta);
+    const responseArticleId = Number.parseInt(String(articleRecord?.id || ''), 10);
+    if (!normalizedMeta || !Number.isInteger(responseArticleId) || responseArticleId <= 0) return false;
+
+    const responseArticleStatus = articleStatus === 'archived'
+      ? 'archived'
+      : articleStatus === 'draft'
+        ? 'draft'
+        : 'published';
+
+    await api.contactMessages.update(normalizedMeta.requestId, {
+      status: responseArticleStatus === 'published' ? 'archived' : 'read',
+      responseArticleId,
+      responseArticleStatus,
+      relatedArticleId: normalizedMeta.relatedArticleId,
+      relatedArticleTitle: normalizedMeta.relatedArticleTitle,
+    });
+    return true;
   }, []);
 
   const validateForm = useCallback(() => {
@@ -859,16 +931,27 @@ export default function ManageArticles() {
         publishAt: localInputToIso(form.publishAt),
         cardSticker: (form.cardSticker || '').trim(),
       };
+      const intakeMeta = getRightOfReplyIntakeMeta(form.intakeMeta);
+      let savedArticle = null;
 
       if (editing === 'new') {
-        await addArticle(data);
+        savedArticle = await addArticle(data);
         clearDraft();
         setListSearchParams({ page: '1' });
         toast.success('Статията е създадена успешно');
       } else {
-        await updateArticle(editing, data);
+        savedArticle = await updateArticle(editing, data);
         await loadArticleRevisions(editing);
         toast.success('Промените са запазени');
+      }
+
+      if (intakeMeta) {
+        try {
+          await syncRightOfReplyRequest(intakeMeta, savedArticle, data.status);
+        } catch (syncError) {
+          console.error('Failed to sync right-of-reply intake request:', syncError);
+          toast.warning('Статията е запазена, но заявката за право на отговор не беше обновена');
+        }
       }
 
       refreshList();
@@ -1610,33 +1693,13 @@ export default function ManageArticles() {
                 {/* Revision Comparison Details */}
                 {selectedRevisionIds.length > 0 && (
                   <div className="mt-4 border border-gray-200 bg-white p-4">
-                    <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-3">
-                      Сравнение на версии {selectedRevisionIds.length === 1 ? '(избрана срещу текуща форма)' : '(две избрани)'}
-                    </p>
-                    {!revisionCompare && !compareLoadError && (
-                      <p className="text-xs font-sans text-gray-400">Зареждам...</p>
-                    )}
-                    {revisionCompare && (
-                      <>
-                        <div className="flex items-center gap-2 text-[11px] font-sans text-gray-600 mb-4 pb-2 border-b border-gray-100">
-                          <span className="font-semibold text-red-500 bg-red-50 px-2 py-0.5">{revisionCompare.leftLabel}</span>
-                          <span>срещу</span>
-                          <span className="font-semibold text-green-600 bg-green-50 px-2 py-0.5">{revisionCompare.rightLabel}</span>
-                        </div>
-                        <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                          {revisionCompare.rows.map((row) => (
-                            <div key={row.key} className="p-3 border border-gray-100 bg-gray-50 sm:grid sm:grid-cols-2 gap-4">
-                              <div className="col-span-2 text-[10px] font-sans font-bold uppercase tracking-wider text-gray-400 mb-1">{row.label}</div>
-                              <div className="prose prose-sm max-w-none text-xs text-red-700 bg-red-50/50 p-2 border border-red-100/50 break-words whitespace-pre-wrap">{row.left}</div>
-                              <div className="prose prose-sm max-w-none text-xs text-green-800 bg-green-50/50 p-2 border border-green-100/50 break-words whitespace-pre-wrap mt-2 sm:mt-0">{row.right}</div>
-                            </div>
-                          ))}
-                          {revisionCompare.rows.length === 0 && (
-                            <p className="text-xs font-sans text-gray-400 py-2">Няма открити разлики.</p>
-                          )}
-                        </div>
-                      </>
-                    )}
+                    <RevisionComparePanel
+                      title={`Сравнение на версии ${selectedRevisionIds.length === 1 ? '(избрана срещу текуща форма)' : '(две избрани)'}`}
+                      compare={revisionCompare}
+                      loading={!revisionCompare && !compareLoadError}
+                      error={compareLoadError ? 'Някоя от избраните версии не успя да се зареди.' : ''}
+                      emptyMessage="Няма открити разлики."
+                    />
                   </div>
                 )}
               </div>

@@ -121,6 +121,7 @@ vi.mock('react-router-dom', () => ({
 const { default: ManageSiteSettings } = await import('../../src/pages/admin/ManageSiteSettings.jsx');
 const { default: EditorialQueue } = await import('../../src/pages/admin/EditorialQueue.jsx');
 const { default: ManageGamePuzzles } = await import('../../src/pages/admin/ManageGamePuzzles.jsx');
+const { default: SiteSettingsRevisionsSection } = await import('../../src/components/admin/SiteSettingsRevisionsSection.jsx');
 
 describe('AdminSettingsAndQueue', () => {
   let root;
@@ -191,6 +192,98 @@ describe('AdminSettingsAndQueue', () => {
 
     expect(saveSiteSettings).toHaveBeenCalledTimes(1);
     expect(loadSiteSettingsRevisions).toHaveBeenCalledTimes(1);
+  });
+
+  it('compares a site settings revision against the current form', async () => {
+    const currentSnapshot = {
+      breakingBadgeLabel: 'ШОК',
+      navbarLinks: [{ to: '/', label: 'Начало', hot: false }],
+      spotlightLinks: [{ to: '/games', label: 'Игри', icon: 'Gamepad2', hot: false, tilt: '0deg' }],
+      footerPills: [{ to: '/category/crime', label: 'Горещо', hot: true, tilt: '0deg' }],
+      footerQuickLinks: [{ to: '/latest', label: 'Последни новини' }],
+      footerInfoLinks: [{ to: '/about', label: 'За нас' }],
+      contact: { address: 'Адрес', phone: '0888 000 000', email: 'news@znews.live' },
+      about: {
+        heroText: 'Hero text',
+        missionTitle: 'Mission',
+        missionParagraph1: 'P1',
+        missionParagraph2: 'P2',
+        adIntro: 'Ad intro',
+        adPlans: [{ name: 'Plan', price: '100', desc: 'Desc' }],
+      },
+      layoutPresets: { homeFeatured: 'default' },
+      tipLinePromo: {
+        enabled: true,
+        title: 'Tip title',
+        description: 'Tip desc',
+        buttonLabel: 'Tip CTA',
+        buttonLink: '/tipline',
+      },
+      classifieds: {
+        tiers: {
+          standard: { price: 100, durationDays: 7, maxImages: 1 },
+          highlighted: { price: 200, durationDays: 10, maxImages: 2 },
+          vip: { price: 300, durationDays: 14, maxImages: 3 },
+        },
+        bumpPrice: 10,
+        renewalDiscount: 0.5,
+        iban: '123',
+        beneficiary: 'zNews',
+        currency: '$',
+      },
+      seasonalCampaigns: {
+        easter: {
+          enabled: false,
+          autoWindow: true,
+          startAt: '',
+          endAt: '',
+          decorationsEnabled: true,
+          variantSet: 'classic',
+          maxVisibleEggs: 2,
+          huntEnabled: false,
+          huntEggCount: 6,
+          huntRewardText: 'Браво!',
+          huntVersion: 1,
+          showProgress: true,
+        },
+      },
+    };
+    const siteSettingsRevisions = [
+      {
+        revisionId: 'site-rev-1',
+        version: 3,
+        source: 'update',
+        createdAt: '2026-04-09T10:00:00.000Z',
+        snapshot: {
+          ...currentSnapshot,
+          breakingBadgeLabel: 'СТАРО',
+          contact: { address: 'Стар адрес', phone: '0888 000 000', email: 'old@znews.live' },
+          about: {
+            ...currentSnapshot.about,
+            heroText: 'Old hero',
+          },
+        },
+      },
+    ];
+
+    ({ root, container } = await renderIntoBody(SiteSettingsRevisionsSection, {
+      loadingHistory: false,
+      siteSettingsRevisions,
+      restoringHistory: null,
+      handleRestoreHistory: vi.fn(async () => {}),
+      onRefreshHistory: vi.fn(async () => {}),
+      currentSnapshot,
+    }));
+
+    const compareButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Сравни'));
+    expect(compareButton).not.toBeNull();
+    await click(compareButton);
+
+    expect(container.textContent).toContain('Сравнение на Site settings версии');
+    expect(container.textContent).toContain('Контакти');
+    expect(container.textContent).toContain('Breaking badge');
+    expect(container.textContent).toContain('СТАРО');
+    expect(container.textContent).toContain('ШОК');
   });
 
   it('publishes queued drafts without leaving the current admin view', async () => {

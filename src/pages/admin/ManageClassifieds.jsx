@@ -56,6 +56,8 @@ export default function ManageClassifieds() {
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [busyId, setBusyId] = useState(null);
+  const [bulkActionLabel, setBulkActionLabel] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
   const [paidByInputs, setPaidByInputs] = useState({});
   const query = readSearchParam(searchParams, 'q', '');
   const statusFilter = readEnumSearchParam(
@@ -125,6 +127,27 @@ export default function ManageClassifieds() {
         (c.paymentRef || '').toLowerCase().includes(q);
     });
   }, [optimistic, query, statusFilter]);
+  const selectedIdSet = useMemo(
+    () => new Set(selectedIds),
+    [selectedIds],
+  );
+  const selectedItems = useMemo(
+    () => filtered.filter((item) => selectedIdSet.has(Number(item.id))),
+    [filtered, selectedIdSet],
+  );
+  const selectedAwaitingCount = useMemo(
+    () => selectedItems.filter((item) => item.status === 'awaiting_payment').length,
+    [selectedItems],
+  );
+  const selectedActiveCount = useMemo(
+    () => selectedItems.filter((item) => item.status === 'active').length,
+    [selectedItems],
+  );
+  const allVisibleSelected = useMemo(
+    () => filtered.length > 0 && filtered.every((item) => selectedIdSet.has(Number(item.id))),
+    [filtered, selectedIdSet],
+  );
+  const bulkBusy = Boolean(bulkActionLabel);
 
   const counts = useMemo(() => {
     const c = { all: 0, awaiting_payment: 0, active: 0, rejected: 0, expired: 0 };
@@ -135,7 +158,40 @@ export default function ManageClassifieds() {
     return c;
   }, [optimistic]);
 
+  useEffect(() => {
+    const visibleIds = new Set(
+      filtered
+        .map((item) => Number.parseInt(String(item?.id), 10))
+        .filter((id) => Number.isInteger(id)),
+    );
+    setSelectedIds((prev) => prev.filter((id) => visibleIds.has(id)));
+  }, [filtered]);
+
+  const toggleSelection = (id) => {
+    const numericId = Number.parseInt(String(id), 10);
+    if (!Number.isInteger(numericId) || bulkBusy) return;
+    setSelectedIds((prev) => (
+      prev.includes(numericId)
+        ? prev.filter((item) => item !== numericId)
+        : [...prev, numericId]
+    ));
+  };
+
+  const toggleSelectAllVisible = () => {
+    if (bulkBusy || filtered.length === 0) return;
+    const visibleIds = filtered
+      .map((item) => Number.parseInt(String(item?.id), 10))
+      .filter((id) => Number.isInteger(id));
+    setSelectedIds((prev) => {
+      if (allVisibleSelected) {
+        return prev.filter((id) => !visibleIds.includes(id));
+      }
+      return Array.from(new Set([...prev, ...visibleIds]));
+    });
+  };
+
   const handleApprove = async (id) => {
+    if (bulkBusy) return;
     setBusyId(id);
     applyUpdate({ type: 'status', id, status: 'active' });
     try {
@@ -148,6 +204,7 @@ export default function ManageClassifieds() {
   };
 
   const handleReject = async (id) => {
+    if (bulkBusy) return;
     setBusyId(id);
     applyUpdate({ type: 'status', id, status: 'rejected' });
     try {
@@ -160,6 +217,7 @@ export default function ManageClassifieds() {
   };
 
   const handleDelete = async (id) => {
+    if (bulkBusy) return;
     const confirmed = await confirm({
       title: 'Изтриване на обява',
       message: 'Обявата ще бъде изтрита безвъзвратно.',
@@ -179,6 +237,7 @@ export default function ManageClassifieds() {
   };
 
   const handleBump = async (id) => {
+    if (bulkBusy) return;
     setBusyId(id);
     applyUpdate({ type: 'bump', id });
     try {
@@ -191,6 +250,7 @@ export default function ManageClassifieds() {
   };
 
   const handleRenew = async (id) => {
+    if (bulkBusy) return;
     setBusyId(id);
     try {
       await renewClassified(id, '');
@@ -208,6 +268,110 @@ export default function ManageClassifieds() {
     { value: 'rejected', label: 'Отхвърлени' },
     { value: 'expired', label: 'Изтекли' },
   ];
+
+  const runBulkAction = async ({
+    label,
+    items,
+    emptyMessage,
+    confirmConfig = null,
+    optimisticMutation = null,
+    action,
+    successMessage,
+  }) => {
+    if (bulkBusy) return;
+    if (items.length === 0) {
+      toast.info(emptyMessage);
+      return;
+    }
+
+    if (confirmConfig) {
+      const confirmed = await confirm(confirmConfig);
+      if (!confirmed) return;
+    }
+
+    setBulkActionLabel(label);
+    const successfulIds = [];
+    let failedCount = 0;
+
+    try {
+      for (const item of items) {
+        if (typeof optimisticMutation === 'function') {
+          const mutation = optimisticMutation(item);
+          if (mutation) applyUpdate(mutation);
+        }
+
+        try {
+          await action(item);
+          successfulIds.push(Number(item.id));
+        } catch (error) {
+          failedCount += 1;
+          showClassifiedsError(error);
+        }
+      }
+
+      if (failedCount > 0) {
+        await refreshAfterFailure();
+        toast.warning(`Неуспешни действия: ${failedCount}`);
+      }
+      if (successfulIds.length > 0) {
+        toast.success(`${successMessage}: ${successfulIds.length}`);
+      }
+      setSelectedIds((prev) => prev.filter((id) => !successfulIds.includes(id)));
+    } finally {
+      setBulkActionLabel('');
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    await runBulkAction({
+      label: 'Потвърждаване',
+      items: selectedItems.filter((item) => item.status === 'awaiting_payment'),
+      emptyMessage: 'Няма избрани чакащи обяви за потвърждение.',
+      optimisticMutation: (item) => ({ type: 'status', id: item.id, status: 'active' }),
+      action: (item) => approveClassified(item.id, paidByInputs[item.id] || ''),
+      successMessage: 'Потвърдени обяви',
+    });
+  };
+
+  const handleBulkReject = async () => {
+    await runBulkAction({
+      label: 'Отхвърляне',
+      items: selectedItems.filter((item) => item.status === 'awaiting_payment' || item.status === 'active'),
+      emptyMessage: 'Няма избрани активни или чакащи обяви за отхвърляне.',
+      optimisticMutation: (item) => ({ type: 'status', id: item.id, status: 'rejected' }),
+      action: (item) => rejectClassified(item.id),
+      successMessage: 'Отхвърлени обяви',
+    });
+  };
+
+  const handleBulkBump = async () => {
+    await runBulkAction({
+      label: 'Bump',
+      items: selectedItems.filter((item) => item.status === 'active'),
+      emptyMessage: 'Няма избрани активни обяви за bump.',
+      optimisticMutation: (item) => ({ type: 'bump', id: item.id }),
+      action: (item) => bumpClassified(item.id),
+      successMessage: 'Bump-нати обяви',
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const items = selectedItems;
+    await runBulkAction({
+      label: 'Изтриване',
+      items,
+      emptyMessage: 'Няма избрани обяви за изтриване.',
+      confirmConfig: {
+        title: 'Изтриване на избрани обяви',
+        message: `Ще изтриеш ${items.length} обяви безвъзвратно.`,
+        confirmLabel: 'Изтрий',
+        variant: 'danger',
+      },
+      optimisticMutation: (item) => ({ type: 'delete', id: item.id }),
+      action: (item) => deleteClassified(item.id),
+      successMessage: 'Изтрити обяви',
+    });
+  };
 
   return (
     <div className="p-8 min-h-full">
@@ -238,6 +402,57 @@ export default function ManageClassifieds() {
         />
       </AdminFilterBar>
 
+      <AdminFilterBar className="mb-6">
+        <label className="inline-flex items-center gap-2 text-xs font-sans font-semibold text-gray-600">
+          <input
+            type="checkbox"
+            checked={allVisibleSelected}
+            onChange={() => toggleSelectAllVisible()}
+            disabled={bulkBusy || filtered.length === 0}
+            aria-label="Избери всички видими обяви"
+            className="h-4 w-4 rounded border-gray-300 text-zn-purple focus:ring-zn-purple"
+          />
+          Избрани: {selectedItems.length}
+        </label>
+        {bulkBusy ? (
+          <span className="text-xs font-sans font-semibold text-gray-500">{bulkActionLabel}...</span>
+        ) : null}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleBulkApprove()}
+            disabled={bulkBusy || selectedAwaitingCount === 0}
+            className="px-3 py-1.5 text-xs font-sans font-semibold text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+          >
+            Потвърди избраните ({selectedAwaitingCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBulkReject()}
+            disabled={bulkBusy || (selectedAwaitingCount + selectedActiveCount) === 0}
+            className="px-3 py-1.5 text-xs font-sans font-semibold text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+          >
+            Отхвърли избраните ({selectedAwaitingCount + selectedActiveCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBulkBump()}
+            disabled={bulkBusy || selectedActiveCount === 0}
+            className="px-3 py-1.5 text-xs font-sans font-semibold text-blue-700 border border-blue-200 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 transition-colors"
+          >
+            Bump избраните ({selectedActiveCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBulkDelete()}
+            disabled={bulkBusy || selectedItems.length === 0}
+            className="px-3 py-1.5 text-xs font-sans font-semibold text-red-700 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition-colors"
+          >
+            Изтрий избраните ({selectedItems.length})
+          </button>
+        </div>
+      </AdminFilterBar>
+
       <div className="space-y-4">
         {classifiedsReady && filtered.length === 0 ? (
           <AdminEmptyState
@@ -248,7 +463,7 @@ export default function ManageClassifieds() {
           />
         ) : filtered.map(item => {
           const stCfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.awaiting_payment;
-          const isBusy = busyId === item.id;
+          const isBusy = bulkBusy || busyId === item.id;
           const isExpired = item.expiresAt && new Date(item.expiresAt) < new Date();
           const mainImage = item.images?.[0] || null;
           const imageCount = item.images?.length || 0;
@@ -258,6 +473,16 @@ export default function ManageClassifieds() {
               {/* Header row */}
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
+                  <label className="inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIdSet.has(Number(item.id))}
+                      onChange={() => toggleSelection(item.id)}
+                      disabled={isBusy}
+                      aria-label={`Избери обява #${item.id}`}
+                      className="h-4 w-4 rounded border-gray-300 text-zn-purple focus:ring-zn-purple"
+                    />
+                  </label>
                   <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${stCfg.bg}`}>{stCfg.label}</span>
                   <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-full">{CATEGORY_LABELS[item.category] || item.category}</span>
                   <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full">{TIER_LABELS[item.tier] || item.tier}</span>

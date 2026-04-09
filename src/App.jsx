@@ -96,6 +96,7 @@ const ManageSiteSettings = lazyRetry(() => import('./pages/admin/ManageSiteSetti
 const AdminDiagnostics = lazyRetry(() => import('./pages/admin/AdminDiagnostics'));
 const ManageContactMessages = lazyRetry(() => import('./pages/admin/ManageContactMessages'));
 const ManageTips = lazyRetry(() => import('./pages/admin/ManageTips'));
+const ManageIntakeQueue = lazyRetry(() => import('./pages/admin/ManageIntakeQueue'));
 const ManageGames = lazyRetry(() => import('./pages/admin/ManageGames'));
 const ManageGamePuzzles = lazyRetry(() => import('./pages/admin/ManageGamePuzzles'));
 const ManageClassifieds = lazyRetry(() => import('./pages/admin/ManageClassifieds'));
@@ -367,6 +368,7 @@ function AppContent() {
         >
           <Route index element={<Suspense fallback={<PageFallback />}><Dashboard /></Suspense>} />
           <Route path="profiles" element={<AdminPermissionRoute permission="profiles"><Suspense fallback={<PageFallback />}><ManageProfiles /></Suspense></AdminPermissionRoute>} />
+          <Route path="intake" element={<AdminPermissionRoute permission={['articles', 'contact']}><Suspense fallback={<PageFallback />}><ManageIntakeQueue /></Suspense></AdminPermissionRoute>} />
           <Route path="tips" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><ManageTips /></Suspense></AdminPermissionRoute>} />
           <Route path="articles" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><ManageArticles /></Suspense></AdminPermissionRoute>} />
           <Route path="editorial-queue" element={<AdminPermissionRoute permission="articles"><Suspense fallback={<PageFallback />}><EditorialQueue /></Suspense></AdminPermissionRoute>} />

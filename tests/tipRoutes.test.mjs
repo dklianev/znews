@@ -61,6 +61,7 @@ describe('tipRoutes', () => {
       const tipsList = [{ id: 2, text: 'older' }, { id: 1, text: 'newer' }];
       const updatedTips = [];
       const deletedTips = [];
+      const auditEntries = [];
     
       class MockTip {
         constructor(doc) {
@@ -94,6 +95,11 @@ describe('tipRoutes', () => {
     
       const app = createMockApp();
       registerTipRoutes(app, {
+        AuditLog: {
+          create: async (entry) => {
+            auditEntries.push(entry);
+          },
+        },
         Tip: MockTip,
         async ensureImagePipeline() {
           throw new Error('should not run image pipeline for text-only tip');
@@ -124,10 +130,13 @@ describe('tipRoutes', () => {
           return 'tip-test';
         },
         requireAnyPermission() {
-          return (_req, _res, next) => next();
+          return (req, _res, next) => {
+            req.user = { id: 1, name: 'Ана Петрова', username: 'ana' };
+            next();
+          };
         },
         requireAuth(req, _res, next) {
-          req.user = { id: 1 };
+          req.user = { id: 1, name: 'Ана Петрова', username: 'ana' };
           next();
         },
         shouldSkipRateLimit() {
@@ -184,12 +193,49 @@ describe('tipRoutes', () => {
         const res = createResponse();
         await runHandlers(handlers, { body: { status: 'processed' }, params: { id: '55' } }, res);
         assert.equal(res.statusCode, 200);
-        assert.deepEqual(updatedTips, [{
-          query: { id: 55 },
-          update: { status: 'processed' },
-          options: { returnDocument: 'after' },
-        }]);
+        assert.equal(updatedTips.length, 1);
+        assert.deepEqual(updatedTips[0].query, { id: 55 });
+        assert.equal(updatedTips[0].update.status, 'processed');
+        assert.equal(updatedTips[0].update.lastActionBy, 'Ана Петрова');
+        assert.ok(updatedTips[0].update.lastActionAt instanceof Date);
+        assert.deepEqual(updatedTips[0].options, { returnDocument: 'after' });
         assert.deepEqual(res.body, { id: 55, status: 'processed' });
+        assert.equal(auditEntries[0]?.resource, 'tips');
+        assert.equal(auditEntries[0]?.action, 'update');
+        assert.equal(auditEntries[0]?.resourceId, 55);
+      }
+
+      {
+        const handlers = app.routes.get('PATCH /api/tips/:id');
+        const res = createResponse();
+        await runHandlers(handlers, {
+          body: {
+            assignedEditor: '  Ана Петрова  ',
+            priority: 'urgent',
+            tags: ['корекция', 'право на отговор', 'корекция'],
+            dueAt: '2026-04-12',
+          },
+          params: { id: '55' },
+        }, res);
+        assert.equal(res.statusCode, 200);
+        assert.equal(updatedTips[1].query.id, 55);
+        assert.equal(updatedTips[1].update.assignedEditor, 'Ана Петрова');
+        assert.equal(updatedTips[1].update.priority, 'urgent');
+        assert.deepEqual(updatedTips[1].update.tags, ['корекция', 'право на отговор']);
+        assert.equal(updatedTips[1].update.lastActionBy, 'Ана Петрова');
+        assert.ok(updatedTips[1].update.lastActionAt instanceof Date);
+        assert.ok(updatedTips[1].update.dueAt instanceof Date);
+        assert.equal(updatedTips[1].update.dueAt.getFullYear(), 2026);
+        assert.equal(updatedTips[1].update.dueAt.getMonth(), 3);
+        assert.equal(updatedTips[1].update.dueAt.getDate(), 12);
+        assert.equal(updatedTips[1].update.dueAt.getHours(), 23);
+        assert.deepEqual(updatedTips[1], {
+          query: { id: 55 },
+          update: updatedTips[1].update,
+          options: { returnDocument: 'after' },
+        });
+        assert.match(auditEntries[1]?.details || '', /priority:urgent/);
+        assert.match(auditEntries[1]?.details || '', /editor:Ана Петрова/);
       }
     
       {
@@ -199,6 +245,8 @@ describe('tipRoutes', () => {
         assert.equal(res.statusCode, 200);
         assert.deepEqual(deletedTips, [{ id: 55 }]);
         assert.deepEqual(res.body, { ok: true });
+        assert.equal(auditEntries[2]?.action, 'delete');
+        assert.equal(auditEntries[2]?.resource, 'tips');
       }
     
       {

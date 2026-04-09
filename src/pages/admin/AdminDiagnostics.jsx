@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, AlertTriangle, Database, HardDrive, RefreshCw, ShieldAlert } from 'lucide-react';
+import { Activity, AlertTriangle, Database, ExternalLink, HardDrive, RefreshCw, ShieldAlert } from 'lucide-react';
 import { api } from '../../utils/api';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 
@@ -33,6 +33,62 @@ function getMonitoringAssetUrl(event) {
 function getMonitoringPhase(event) {
   const phase = event?.metadata?.extra?.phase;
   return typeof phase === 'string' ? phase.trim() : '';
+}
+
+function buildAuditLogHref({ resource = '', resourceId = '', q = '' } = {}) {
+  const params = new URLSearchParams();
+  const normalizedResource = String(resource || '').trim();
+  const normalizedId = Number.parseInt(String(resourceId || ''), 10);
+  const normalizedQuery = String(q || '').trim();
+
+  if (normalizedResource && normalizedResource !== 'all') params.set('resource', normalizedResource);
+  if (Number.isInteger(normalizedId) && normalizedId > 0) params.set('resourceId', String(normalizedId));
+  if (normalizedQuery) params.set('q', normalizedQuery);
+
+  const search = params.toString();
+  return `/admin/audit-log${search ? `?${search}` : ''}`;
+}
+
+function extractArticleId(value) {
+  const match = String(value || '').match(/(?:\/article\/|\/api\/articles\/)(\d+)/i);
+  return match?.[1] || '';
+}
+
+function buildAuditLogHrefFromText(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return buildAuditLogHref();
+
+  const articleId = extractArticleId(text);
+  if (articleId) return buildAuditLogHref({ resource: 'articles', resourceId: articleId });
+  if (text.includes('site-settings') || text.includes('homepage') || text.includes('settings')) return buildAuditLogHref({ resource: 'site-settings' });
+  if (text.includes('hero-settings') || text.includes('hero')) return buildAuditLogHref({ resource: 'hero-settings' });
+  if (text.includes('/api/comments')) return buildAuditLogHref({ resource: 'comments' });
+  if (text.includes('/api/ads')) return buildAuditLogHref({ resource: 'ads' });
+  if (text.includes('/api/users')) return buildAuditLogHref({ resource: 'users' });
+  if (text.includes('/api/jobs')) return buildAuditLogHref({ resource: 'jobs' });
+  if (text.includes('/api/court')) return buildAuditLogHref({ resource: 'court' });
+  if (text.includes('/api/events')) return buildAuditLogHref({ resource: 'events' });
+  if (text.includes('/api/polls')) return buildAuditLogHref({ resource: 'polls' });
+  if (text.includes('/api/gallery')) return buildAuditLogHref({ resource: 'gallery' });
+  if (text.includes('/api/tips')) return buildAuditLogHref({ resource: 'tips' });
+  if (text.includes('/api/contact')) return buildAuditLogHref({ resource: 'contact-messages' });
+  return buildAuditLogHref();
+}
+
+function buildAdminHrefFromPathname(pathname) {
+  const value = String(pathname || '').trim();
+  if (!value.startsWith('/')) return '';
+
+  const articleMatch = value.match(/^\/article\/(\d+)/);
+  if (articleMatch?.[1]) return `/admin/articles?q=${encodeURIComponent(articleMatch[1])}`;
+  if (value.startsWith('/category/')) return `/admin/articles?q=${encodeURIComponent(value.split('/').pop() || '')}`;
+  if (value.startsWith('/jobs')) return '/admin/jobs';
+  if (value.startsWith('/court')) return '/admin/court';
+  if (value.startsWith('/events')) return '/admin/events';
+  if (value.startsWith('/gallery')) return '/admin/gallery';
+  if (value.startsWith('/games')) return '/admin/games';
+  if (value.startsWith('/tipline')) return '/admin/intake?source=tip';
+  return value;
 }
 
 function formatUptime(seconds) {
@@ -429,6 +485,12 @@ export default function AdminDiagnostics() {
                   <span>{entry.durationMs} ms</span>
                 </div>
                 <p className="mt-1">{entry.method} {entry.path} | {entry.statusCode} | {formatCacheStatus(entry.cacheStatus)}</p>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <a href={buildAuditLogHrefFromText(entry.path || entry.group)} className="inline-flex items-center gap-1 font-semibold text-zn-purple hover:underline">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Към журнала
+                  </a>
+                </div>
               </div>
             ))}
             {slowRequests.length === 0 ? <p className="text-sm font-sans text-gray-400">Няма записани бавни заявки.</p> : null}
@@ -442,6 +504,12 @@ export default function AdminDiagnostics() {
                   <span>{entry.statusCode}</span>
                 </div>
                 <p className="mt-1">{entry.method} {entry.path} | {entry.durationMs} ms | {formatCacheStatus(entry.cacheStatus)}</p>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <a href={buildAuditLogHrefFromText(entry.path || entry.group)} className="inline-flex items-center gap-1 font-semibold text-zn-purple hover:underline">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Към журнала
+                  </a>
+                </div>
               </div>
             ))}
             {recentErrorRequests.length === 0 ? <p className="text-sm font-sans text-gray-400">Няма последни грешни заявки.</p> : null}
@@ -486,6 +554,12 @@ export default function AdminDiagnostics() {
                   <span>{formatDateTime(entry.at)}</span>
                 </div>
                 <p className="mt-1">{entry.keyCount || 0} ключа през {(entry.tags || []).join(', ') || 'шаблон'}</p>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <a href={buildAuditLogHrefFromText(entry.reason || (entry.tags || []).join(' '))} className="inline-flex items-center gap-1 font-semibold text-zn-purple hover:underline">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Свързани действия
+                  </a>
+                </div>
               </div>
             ))}
             {(payload?.cache?.recentInvalidations || []).length === 0 ? <p className="text-sm font-sans text-gray-400">Няма последни инвалидирания.</p> : null}
@@ -507,6 +581,23 @@ export default function AdminDiagnostics() {
                 </div>
                 <p className="mt-2 text-sm font-sans text-gray-700">{event.message}</p>
                 <p className="mt-1 text-[11px] font-sans text-gray-500">Видяна {event.count || 1} пъти</p>
+                <div className="mt-2 flex flex-wrap gap-3 text-[11px] font-sans">
+                  {formatMonitoringPathname(event?.metadata?.pathname) !== '-' ? (
+                    <a href={buildAdminHrefFromPathname(event?.metadata?.pathname)} className="inline-flex items-center gap-1 font-semibold text-zn-purple hover:underline">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Отвори засегнатата страница
+                    </a>
+                  ) : null}
+                  <a
+                    href={buildAuditLogHrefFromText(
+                      `${event?.metadata?.pathname || ''} ${event?.message || ''} ${getMonitoringAssetUrl(event) || ''}`,
+                    )}
+                    className="inline-flex items-center gap-1 font-semibold text-zn-purple hover:underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Към журнала
+                  </a>
+                </div>
                 <div className="mt-2 space-y-1 text-[11px] font-sans text-gray-500">
                   <p><span className="font-semibold text-gray-700">Път:</span> {formatMonitoringPathname(event?.metadata?.pathname)}</p>
                   <p><span className="font-semibold text-gray-700">ID:</span> {formatMonitoringFingerprint(event?.fingerprint)}</p>

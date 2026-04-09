@@ -2,9 +2,49 @@ import { createHash } from 'crypto';
 import { createImageUploadErrorHelpers } from '../services/imageUploadErrorsService.js';
 
 const TIP_ADMIN_PERMISSIONS = ['articles'];
+const TIP_PRIORITY_VALUES = new Set(['low', 'normal', 'high', 'urgent']);
+
+function normalizeAssignedEditor(normalizeText, value) {
+  return normalizeText(value || '', 80);
+}
+
+function normalizeTags(normalizeText, rawValue) {
+  const source = Array.isArray(rawValue)
+    ? rawValue
+    : typeof rawValue === 'string'
+      ? rawValue.split(',')
+      : [];
+
+  const uniqueTags = [];
+  source.forEach((entry) => {
+    const normalized = normalizeText(entry || '', 24);
+    if (!normalized) return;
+    if (uniqueTags.some((tag) => tag.toLowerCase() === normalized.toLowerCase())) return;
+    uniqueTags.push(normalized);
+  });
+
+  return uniqueTags.slice(0, 8);
+}
+
+function normalizeDueAt(rawValue) {
+  if (rawValue == null || rawValue === '') return null;
+  const normalized = String(rawValue).trim();
+  if (!normalized) return null;
+
+  const dateOnlyMatch = /^\d{4}-\d{2}-\d{2}$/.test(normalized);
+  const parsed = new Date(dateOnlyMatch ? `${normalized}T23:59:59.999` : normalized);
+  if (!Number.isFinite(parsed.getTime())) return undefined;
+  return parsed;
+}
+
+function getActorName(req, normalizeText) {
+  const name = normalizeText(req?.user?.name || req?.user?.username || '', 80);
+  return name || 'Редактор';
+}
 
 export function registerTipRoutes(app, deps) {
   const {
+    AuditLog,
     Tip,
     ensureImagePipeline,
     getOriginalUploadUrl,
@@ -27,6 +67,18 @@ export function registerTipRoutes(app, deps) {
     buildEmptyBufferPayload,
     buildUploadErrorPayload,
   } = createImageUploadErrorHelpers({ uploadMaxFileSizeMb });
+
+  function buildTipAuditDetails(update) {
+    const parts = [];
+    if (typeof update.status === 'string' && update.status) parts.push(`status:${update.status}`);
+    if (typeof update.assignedEditor === 'string' && update.assignedEditor) parts.push(`editor:${update.assignedEditor}`);
+    if (typeof update.priority === 'string' && update.priority) parts.push(`priority:${update.priority}`);
+    if (Array.isArray(update.tags) && update.tags.length > 0) parts.push(`tags:${update.tags.join('|')}`);
+    if (update.dueAt instanceof Date && Number.isFinite(update.dueAt.getTime())) {
+      parts.push(`due:${update.dueAt.toISOString().slice(0, 10)}`);
+    }
+    return parts.join(' | ') || 'update';
+  }
 
   const tipRateLimiter = rateLimit({
     windowMs: 60 * 60 * 1000,
@@ -120,18 +172,65 @@ export function registerTipRoutes(app, deps) {
   });
 
   app.patch('/api/tips/:id', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), async (req, res) => {
-    const { status } = req.body;
-    if (!['new', 'processed', 'rejected'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
-    }
     const id = Number.parseInt(req.params.id, 10);
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
+    const data = {};
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'status')) {
+      const { status } = req.body;
+      if (!['new', 'processed', 'rejected'].includes(status)) {
+        return res.status(400).json({ error: 'Invalid status' });
+      }
+      data.status = status;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'assignedEditor')) {
+      data.assignedEditor = normalizeAssignedEditor(normalizeText, req.body.assignedEditor);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'priority')) {
+      const normalizedPriority = normalizeText(req.body.priority || '', 20).toLowerCase();
+      if (!TIP_PRIORITY_VALUES.has(normalizedPriority)) {
+        return res.status(400).json({ error: 'Invalid priority' });
+      }
+      data.priority = normalizedPriority;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'tags')) {
+      data.tags = normalizeTags(normalizeText, req.body.tags);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'dueAt')) {
+      const normalizedDueAt = normalizeDueAt(req.body.dueAt);
+      if (typeof normalizedDueAt === 'undefined') {
+        return res.status(400).json({ error: 'Invalid due date' });
+      }
+      data.dueAt = normalizedDueAt;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    data.lastActionAt = new Date();
+    data.lastActionBy = getActorName(req, normalizeText);
+
     const tip = await Tip.findOneAndUpdate(
       { id },
-      { status },
+      data,
       { returnDocument: 'after' }
     );
     if (!tip) return res.status(404).json({ error: 'Not found' });
+
+    AuditLog?.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'update',
+      resource: 'tips',
+      resourceId: id,
+      details: buildTipAuditDetails(data),
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
+
     res.json(tip);
   });
 
@@ -140,6 +239,16 @@ export function registerTipRoutes(app, deps) {
     if (!Number.isInteger(id)) return res.status(400).json({ error: 'Invalid id' });
     const tip = await Tip.findOneAndDelete({ id });
     if (!tip) return res.status(404).json({ error: 'Not found' });
+
+    AuditLog?.create({
+      user: req.user.name,
+      userId: req.user.userId,
+      action: 'delete',
+      resource: 'tips',
+      resourceId: id,
+      details: '',
+    }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
+
     res.json({ ok: true });
   });
 }

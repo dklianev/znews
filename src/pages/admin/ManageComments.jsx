@@ -1,4 +1,4 @@
-import { useMemo, useOptimistic, useState } from 'react';
+import { useEffect, useMemo, useOptimistic, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { usePublicData } from '../../context/DataContext';
 import { Check, Trash2, XCircle, Eye, AlertTriangle } from 'lucide-react';
@@ -37,6 +37,8 @@ export default function ManageComments() {
   const { comments, articles, updateComment, deleteComment } = usePublicData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [busyId, setBusyId] = useState(null);
+  const [bulkActionLabel, setBulkActionLabel] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
   const [error, setError] = useState('');
   const toast = useToast();
   const confirm = useConfirm();
@@ -107,6 +109,27 @@ export default function ManageComments() {
     () => new Map(optimisticComments.map((comment) => [Number(comment.id), comment])),
     [optimisticComments],
   );
+  const selectedIdSet = useMemo(
+    () => new Set(selectedIds),
+    [selectedIds],
+  );
+  const selectedComments = useMemo(
+    () => sortedComments.filter((comment) => selectedIdSet.has(Number(comment.id))),
+    [selectedIdSet, sortedComments],
+  );
+  const selectedPendingCount = useMemo(
+    () => selectedComments.filter((comment) => !comment.approved).length,
+    [selectedComments],
+  );
+  const selectedApprovedCount = useMemo(
+    () => selectedComments.filter((comment) => comment.approved).length,
+    [selectedComments],
+  );
+  const allVisibleSelected = useMemo(
+    () => sortedComments.length > 0 && sortedComments.every((comment) => selectedIdSet.has(Number(comment.id))),
+    [selectedIdSet, sortedComments],
+  );
+  const bulkBusy = Boolean(bulkActionLabel);
 
   const getArticleTitle = (id) => articles.find((article) => article.id === id)?.title || `Статия #${id}`;
   const getParentLabel = (parentId) => {
@@ -121,9 +144,41 @@ export default function ManageComments() {
     applyCommentMutation({ type: 'reset', comments });
   };
 
+  useEffect(() => {
+    const visibleIds = new Set(
+      sortedComments
+        .map((comment) => Number.parseInt(String(comment?.id), 10))
+        .filter((id) => Number.isInteger(id)),
+    );
+    setSelectedIds((prev) => prev.filter((id) => visibleIds.has(id)));
+  }, [sortedComments]);
+
+  const toggleSelection = (id) => {
+    const numericId = Number.parseInt(String(id), 10);
+    if (!Number.isInteger(numericId) || bulkBusy) return;
+    setSelectedIds((prev) => (
+      prev.includes(numericId)
+        ? prev.filter((item) => item !== numericId)
+        : [...prev, numericId]
+    ));
+  };
+
+  const toggleSelectAllVisible = () => {
+    if (bulkBusy || sortedComments.length === 0) return;
+    const visibleIds = sortedComments
+      .map((comment) => Number.parseInt(String(comment?.id), 10))
+      .filter((id) => Number.isInteger(id));
+    setSelectedIds((prev) => {
+      if (allVisibleSelected) {
+        return prev.filter((id) => !visibleIds.includes(id));
+      }
+      return Array.from(new Set([...prev, ...visibleIds]));
+    });
+  };
+
   const runOptimisticApproval = async (id, approved) => {
     const numericId = Number.parseInt(String(id), 10);
-    if (!Number.isInteger(numericId)) return;
+    if (!Number.isInteger(numericId) || bulkBusy) return;
 
     setBusyId(numericId);
     setError('');
@@ -143,7 +198,7 @@ export default function ManageComments() {
 
   const runOptimisticDelete = async (id) => {
     const numericId = Number.parseInt(String(id), 10);
-    if (!Number.isInteger(numericId)) return;
+    if (!Number.isInteger(numericId) || bulkBusy) return;
 
     const confirmed = await confirm({
       title: 'Изтриване на коментар',
@@ -166,6 +221,114 @@ export default function ManageComments() {
       toast.error('Грешка при изтриване');
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const runBulkApproval = async (approved) => {
+    if (bulkBusy) return;
+
+    const targetIds = selectedComments
+      .filter((comment) => approved ? !comment.approved : comment.approved)
+      .map((comment) => Number.parseInt(String(comment?.id), 10))
+      .filter((id) => Number.isInteger(id));
+
+    if (targetIds.length === 0) {
+      toast.info(approved ? 'Няма избрани чакащи коментари за одобрение.' : 'Няма избрани одобрени коментари за скриване.');
+      return;
+    }
+
+    if (!approved) {
+      const confirmed = await confirm({
+        title: 'Скриване на избрани коментари',
+        message: `Ще скриеш ${targetIds.length} коментара и отговорите под тях.`,
+        confirmLabel: 'Скрий',
+        variant: 'warning',
+      });
+      if (!confirmed) return;
+    }
+
+    setBulkActionLabel(approved ? 'Одобряване' : 'Скриване');
+    setError('');
+    const successfulIds = [];
+    let failedCount = 0;
+    let failureMessage = '';
+
+    try {
+      for (const targetId of targetIds) {
+        applyCommentMutation({ type: 'approval', id: targetId, approved });
+        try {
+          await updateComment(targetId, { approved });
+          successfulIds.push(targetId);
+        } catch (actionError) {
+          failedCount += 1;
+          failureMessage = actionError?.message || (approved ? 'Грешка при одобрение' : 'Грешка при скриване');
+        }
+      }
+
+      if (failedCount > 0) {
+        resetOptimisticComments();
+        setError(failureMessage);
+        toast.warning(`Неуспешни действия: ${failedCount}`);
+      }
+      if (successfulIds.length > 0) {
+        toast.success(
+          approved
+            ? `Одобрени коментари: ${successfulIds.length}`
+            : `Скрити коментари: ${successfulIds.length}`,
+        );
+      }
+      setSelectedIds((prev) => prev.filter((id) => !successfulIds.includes(id)));
+    } finally {
+      setBulkActionLabel('');
+    }
+  };
+
+  const runBulkDelete = async () => {
+    if (bulkBusy || selectedComments.length === 0) {
+      if (!bulkBusy) toast.info('Няма избрани коментари за изтриване.');
+      return;
+    }
+
+    const targetIds = selectedComments
+      .map((comment) => Number.parseInt(String(comment?.id), 10))
+      .filter((id) => Number.isInteger(id));
+    const confirmed = await confirm({
+      title: 'Изтриване на избрани коментари',
+      message: `Ще изтриеш ${targetIds.length} коментара и всички отговори под тях.`,
+      confirmLabel: 'Изтрий',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    setBulkActionLabel('Изтриване');
+    setError('');
+    const successfulIds = [];
+    let failedCount = 0;
+    let failureMessage = '';
+
+    try {
+      for (const targetId of targetIds) {
+        applyCommentMutation({ type: 'delete', id: targetId });
+        try {
+          await deleteComment(targetId);
+          successfulIds.push(targetId);
+        } catch (actionError) {
+          failedCount += 1;
+          failureMessage = actionError?.message || 'Грешка при изтриване';
+        }
+      }
+
+      if (failedCount > 0) {
+        resetOptimisticComments();
+        setError(failureMessage);
+        toast.warning(`Неуспешни изтривания: ${failedCount}`);
+      }
+      if (successfulIds.length > 0) {
+        toast.success(`Изтрити коментари: ${successfulIds.length}`);
+      }
+      setSelectedIds((prev) => prev.filter((id) => !successfulIds.includes(id)));
+    } finally {
+      setBulkActionLabel('');
     }
   };
 
@@ -223,9 +386,52 @@ export default function ManageComments() {
         />
       </AdminFilterBar>
 
+      <AdminFilterBar className="mt-4 mb-4">
+        <label className="inline-flex items-center gap-2 text-xs font-sans font-semibold text-gray-600">
+          <input
+            type="checkbox"
+            checked={allVisibleSelected}
+            onChange={() => toggleSelectAllVisible()}
+            disabled={bulkBusy || sortedComments.length === 0}
+            aria-label="Избери всички видими коментари"
+            className="h-4 w-4 rounded border-gray-300 text-zn-hot focus:ring-zn-hot"
+          />
+          Избрани: {selectedComments.length}
+        </label>
+        {bulkBusy ? (
+          <span className="text-xs font-sans font-semibold text-gray-500">{bulkActionLabel}...</span>
+        ) : null}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void runBulkApproval(true)}
+            disabled={bulkBusy || selectedPendingCount === 0}
+            className="px-3 py-1.5 text-xs font-sans font-semibold text-emerald-700 border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+          >
+            Одобри избраните ({selectedPendingCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => void runBulkApproval(false)}
+            disabled={bulkBusy || selectedApprovedCount === 0}
+            className="px-3 py-1.5 text-xs font-sans font-semibold text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+          >
+            Скрий избраните ({selectedApprovedCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => void runBulkDelete()}
+            disabled={bulkBusy || selectedComments.length === 0}
+            className="px-3 py-1.5 text-xs font-sans font-semibold text-red-700 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition-colors"
+          >
+            Изтрий избраните ({selectedComments.length})
+          </button>
+        </div>
+      </AdminFilterBar>
+
       <div className="space-y-2">
         {sortedComments.map((comment) => {
-          const busy = isCommentBusy(comment.id);
+          const busy = bulkBusy || isCommentBusy(comment.id);
           return (
             <div
               key={comment.id}
@@ -233,6 +439,16 @@ export default function ManageComments() {
                 }`}
               aria-busy={busy}
             >
+              <label className="mt-1 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={selectedIdSet.has(Number(comment.id))}
+                  onChange={() => toggleSelection(comment.id)}
+                  disabled={busy}
+                  aria-label={`Избери коментар #${comment.id}`}
+                  className="h-4 w-4 rounded border-gray-300 text-zn-hot focus:ring-zn-hot"
+                />
+              </label>
               <div className="text-2xl shrink-0">{comment.avatar}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">

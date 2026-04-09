@@ -1,43 +1,45 @@
 import { Navigate, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAdminData, useSessionData } from '../../context/DataContext';
 import { api } from '../../utils/api';
-import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3, Mail, Gamepad2, Puzzle, Activity, Tag } from 'lucide-react';
-import { useEffect, useEffectEvent, useMemo, useState } from 'react';
+import { LayoutDashboard, Users, FileText, Megaphone, AlertTriangle, LogOut, ExternalLink, FolderOpen, Crosshair, Briefcase, Scale, CalendarDays, BarChart3, Menu, X, MessageCircle, Image, Moon, Sun, Shield, ClipboardList, Crown, SlidersHorizontal, Clock3, Mail, Gamepad2, Puzzle, Activity, Tag, Inbox, Search } from 'lucide-react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { makeTitle, useDocumentTitle } from '../../hooks/useDocumentTitle';
 import { ToastProvider } from '../../components/admin/Toast';
 import { ConfirmProvider } from '../../components/admin/ConfirmDialog';
+import AdminCommandPalette from '../../components/admin/AdminCommandPalette';
 
 const navItems = [
-  { to: '/admin', label: 'Табло', icon: LayoutDashboard, exact: true },
-  { to: '/admin/profiles', label: 'Профили', icon: Users, permission: 'profiles' },
-  { to: '/admin/tips', label: 'Сигнали', icon: AlertTriangle, permission: 'articles' },
-  { to: '/admin/articles', label: 'Статии', icon: FileText, permission: 'articles' },
-  { to: '/admin/editorial-queue', label: 'Редакционна опашка', icon: Clock3, permission: 'articles' },
-  { to: '/admin/media', label: 'Медийна библиотека', icon: Image, permission: ['articles', 'ads', 'gallery', 'events'] },
-  { to: '/admin/hero', label: 'Hero секция', icon: Crown, permission: 'articles' },
-  { to: '/admin/categories', label: 'Категории', icon: FolderOpen, permission: 'categories' },
-  { to: '/admin/ads', label: 'Реклами', icon: Megaphone, permission: 'ads' },
-  { to: '/admin/breaking', label: 'Тикер / Извънредни', icon: AlertTriangle, permission: 'breaking' },
+  { to: '/admin', label: 'Табло', icon: LayoutDashboard, exact: true, shortcut: true, searchTerms: ['dashboard', 'overview', 'начало'] },
+  { to: '/admin/profiles', label: 'Профили', icon: Users, permission: 'profiles', searchTerms: ['автори', 'потребители', 'users'] },
+  { to: '/admin/intake', label: 'Входяща опашка', icon: Inbox, permission: ['articles', 'contact'], shortcut: true, searchTerms: ['сигнали', 'запитвания', 'intake', 'queue'] },
+  { to: '/admin/tips', label: 'Сигнали', icon: AlertTriangle, permission: 'articles', searchTerms: ['tips', 'tipline'] },
+  { to: '/admin/articles', label: 'Статии', icon: FileText, permission: 'articles', shortcut: true, searchTerms: ['articles', 'новини', 'редакция'] },
+  { to: '/admin/editorial-queue', label: 'Редакционна опашка', icon: Clock3, permission: 'articles', searchTerms: ['queue', 'редакция', 'workflow'] },
+  { to: '/admin/media', label: 'Медийна библиотека', icon: Image, permission: ['articles', 'ads', 'gallery', 'events'], searchTerms: ['media', 'снимки', 'качвания'] },
+  { to: '/admin/hero', label: 'Hero секция', icon: Crown, permission: 'articles', searchTerms: ['hero', 'headline'] },
+  { to: '/admin/categories', label: 'Категории', icon: FolderOpen, permission: 'categories', searchTerms: ['рубрики', 'sections'] },
+  { to: '/admin/ads', label: 'Реклами', icon: Megaphone, permission: 'ads', searchTerms: ['банери', 'ads', 'advertising'] },
+  { to: '/admin/breaking', label: 'Тикер / Извънредни', icon: AlertTriangle, permission: 'breaking', searchTerms: ['breaking', 'ticker', 'извънредни'] },
   { type: 'divider', label: 'RP Секции' },
-  { to: '/admin/wanted', label: 'Най-издирвани', icon: Crosshair, permission: 'wanted' },
-  { to: '/admin/jobs', label: 'Обяви за работа', icon: Briefcase, permission: 'jobs' },
-  { to: '/admin/classifieds', label: 'Малки обяви', icon: Tag, permission: 'classifieds' },
-  { to: '/admin/court', label: 'Съдебна хроника', icon: Scale, permission: 'court' },
-  { to: '/admin/events', label: 'Събития', icon: CalendarDays, permission: 'events' },
-  { to: '/admin/polls', label: 'Анкети', icon: BarChart3, permission: 'polls' },
+  { to: '/admin/wanted', label: 'Най-издирвани', icon: Crosshair, permission: 'wanted', searchTerms: ['wanted', 'издирвани'] },
+  { to: '/admin/jobs', label: 'Обяви за работа', icon: Briefcase, permission: 'jobs', searchTerms: ['jobs', 'работа'] },
+  { to: '/admin/classifieds', label: 'Малки обяви', icon: Tag, permission: 'classifieds', shortcut: true, searchTerms: ['classifieds', 'обяви', 'плащания'] },
+  { to: '/admin/court', label: 'Съдебна хроника', icon: Scale, permission: 'court', searchTerms: ['court', 'дела'] },
+  { to: '/admin/events', label: 'Събития', icon: CalendarDays, permission: 'events', searchTerms: ['events', 'календар'] },
+  { to: '/admin/polls', label: 'Анкети', icon: BarChart3, permission: 'polls', searchTerms: ['polls', 'гласувания'] },
   { type: 'divider', label: 'Медия & Общност' },
-  { to: '/admin/comments', label: 'Коментари', icon: MessageCircle, permission: 'comments' },
-  { to: '/admin/contact', label: 'Запитвания', icon: Mail, permission: 'contact' },
-  { to: '/admin/gallery', label: 'Галерия', icon: Image, permission: 'gallery' },
+  { to: '/admin/comments', label: 'Коментари', icon: MessageCircle, permission: 'comments', searchTerms: ['comments', 'мнения'] },
+  { to: '/admin/contact', label: 'Запитвания', icon: Mail, permission: 'contact', searchTerms: ['contact', 'писма'] },
+  { to: '/admin/gallery', label: 'Галерия', icon: Image, permission: 'gallery', searchTerms: ['gallery', 'снимки'] },
   { type: 'divider', label: 'Игри & Забавления' },
-  { to: '/admin/games', label: 'Игри', icon: Gamepad2, permission: 'games' },
-  { to: '/admin/games/puzzles', label: 'Игрови Пъзели', icon: Puzzle, permission: 'games' },
+  { to: '/admin/games', label: 'Игри', icon: Gamepad2, permission: 'games', searchTerms: ['games', 'arcade'] },
+  { to: '/admin/games/puzzles', label: 'Игрови Пъзели', icon: Puzzle, permission: 'games', searchTerms: ['puzzles', 'игри', 'кръстословици'] },
   { type: 'divider', label: 'Администрация' },
-  { to: '/admin/site-settings', label: 'Site настройки', icon: SlidersHorizontal, permission: 'permissions' },
-  { to: '/admin/diagnostics', label: 'Диагностика', icon: Activity, permission: 'permissions' },
-  { to: '/admin/permissions', label: 'Права', icon: Shield, permission: 'permissions' },
-  { to: '/admin/audit-log', label: 'Журнал', icon: ClipboardList, permission: 'permissions' },
+  { to: '/admin/site-settings', label: 'Site настройки', icon: SlidersHorizontal, permission: 'permissions', shortcut: true, searchTerms: ['settings', 'конфигурация', 'site'] },
+  { to: '/admin/diagnostics', label: 'Диагностика', icon: Activity, permission: 'permissions', shortcut: true, searchTerms: ['diagnostics', 'мониторинг', 'грешки'] },
+  { to: '/admin/permissions', label: 'Права', icon: Shield, permission: 'permissions', searchTerms: ['permissions', 'roles', 'роли'] },
+  { to: '/admin/audit-log', label: 'Журнал', icon: ClipboardList, permission: 'permissions', shortcut: true, searchTerms: ['audit', 'лог', 'действия'] },
 ];
 
 export default function AdminLayout() {
@@ -47,7 +49,9 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [globalError, setGlobalError] = useState('');
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const { isDark, toggleDark } = useTheme();
+  const canAccessAdminItem = useCallback((permission) => !permission || hasPermission(permission), [hasPermission]);
 
   const adminTitle = useMemo(() => {
     const path = location.pathname;
@@ -118,7 +122,20 @@ export default function AdminLayout() {
 
   useEffect(() => {
     setGlobalError('');
+    setCommandPaletteOpen(false);
   }, [location.pathname]);
+
+  const handleCommandPaletteKeydown = useEffectEvent((event) => {
+    if ((event.ctrlKey || event.metaKey) && event.code === 'KeyK') {
+      event.preventDefault();
+      setCommandPaletteOpen(true);
+      return;
+    }
+
+    if (event.code === 'Escape') {
+      setCommandPaletteOpen(false);
+    }
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -153,11 +170,17 @@ export default function AdminLayout() {
       handleWindowError(event);
     };
 
+    const onKeyDown = (event) => {
+      handleCommandPaletteKeydown(event);
+    };
+
     window.addEventListener('unhandledrejection', onUnhandledRejection);
     window.addEventListener('error', onWindowError);
+    window.addEventListener('keydown', onKeyDown);
     return () => {
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
       window.removeEventListener('error', onWindowError);
+      window.removeEventListener('keydown', onKeyDown);
     };
   }, []);
 
@@ -305,15 +328,34 @@ export default function AdminLayout() {
           )}
           <ConfirmProvider>
             {breadcrumb && (
-              <div className="px-8 pt-5 pb-0">
+              <div className="flex items-center justify-between gap-4 px-8 pt-5 pb-0">
                 <nav aria-label="Breadcrumb" className="text-xs font-sans text-gray-400">
                   <span>Админ</span>
                   <span className="mx-1.5">/</span>
                   <span className="text-gray-700 font-medium">{breadcrumb}</span>
                 </nav>
+                <button
+                  type="button"
+                  onClick={() => setCommandPaletteOpen(true)}
+                  className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-2 text-xs font-sans font-semibold text-gray-600 shadow-sm transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-purple"
+                  aria-label="Отвори търсенето в админ панела"
+                >
+                  <Search className="h-3.5 w-3.5 text-zn-purple" />
+                  <span className="hidden sm:inline">Търси в админа</span>
+                  <span className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
+                    Ctrl+K
+                  </span>
+                </button>
               </div>
             )}
             <Outlet />
+            <AdminCommandPalette
+              open={commandPaletteOpen}
+              navItems={navItems}
+              canAccess={canAccessAdminItem}
+              onClose={() => setCommandPaletteOpen(false)}
+              onNavigate={(to) => navigate(to)}
+            />
           </ConfirmProvider>
         </main>
       </div>

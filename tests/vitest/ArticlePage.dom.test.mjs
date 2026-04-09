@@ -1,8 +1,11 @@
 import React, { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { inputValue } from './helpers/domHarness.mjs';
 
 const incrementArticleView = vi.fn();
+const submitContactMessage = vi.fn(() => Promise.resolve({ ok: true, id: 91 }));
+const getPublishedRightOfReply = vi.fn(() => Promise.resolve([]));
 const getById = vi.fn(() => Promise.resolve({
   id: 27,
   title: 'Test article title',
@@ -35,6 +38,10 @@ vi.mock('../../src/utils/api', () => ({
   api: {
     articles: {
       getById,
+    },
+    contactMessages: {
+      submit: (...args) => submitContactMessage(...args),
+      getPublishedRightOfReply: (...args) => getPublishedRightOfReply(...args),
     },
   },
 }));
@@ -118,6 +125,8 @@ describe('ArticlePage', () => {
   afterEach(async () => {
     incrementArticleView.mockClear();
     getById.mockClear();
+    submitContactMessage.mockClear();
+    getPublishedRightOfReply.mockClear();
     if (root) {
       await act(async () => {
         root.unmount();
@@ -143,8 +152,63 @@ describe('ArticlePage', () => {
 
     expect(getById).toHaveBeenCalledTimes(1);
     expect(getById).toHaveBeenCalledWith(27);
+    expect(getPublishedRightOfReply).toHaveBeenCalledWith(27);
     expect(container.textContent).toContain('Test article title');
     expect(container.textContent).toContain('Test article excerpt');
     expect(incrementArticleView).toHaveBeenCalledWith(27);
+  });
+
+  it('renders the right-of-reply section tied to the current article', async () => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root.render(createElement(ArticlePage));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const nameInput = container.querySelector('input[aria-label="Име за право на отговор"]');
+    const phoneInput = container.querySelector('input[aria-label="Телефон за право на отговор"]');
+    const messageInput = container.querySelector('textarea[aria-label="Текст на правото на отговор"]');
+    const replyForm = messageInput?.closest('form');
+    const submitButton = replyForm?.querySelector('button[type="submit"]');
+
+    expect(container.textContent).toContain('ПРАВО НА ОТГОВОР');
+    expect(nameInput).not.toBeNull();
+    expect(phoneInput).not.toBeNull();
+    expect(messageInput).not.toBeNull();
+    expect(replyForm).not.toBeNull();
+    expect(submitButton).not.toBeNull();
+    expect(container.textContent).toContain('Искането ще бъде заведено към редакцията като право на отговор по статия №27.');
+  });
+
+  it('renders published right-of-reply links when the article has a published response', async () => {
+    getPublishedRightOfReply.mockResolvedValueOnce([
+      {
+        id: 91,
+        title: 'Отговор на засегнатата страна',
+        excerpt: 'Публикуваният отговор вече е свързан с тази статия.',
+        cardSticker: 'ОТГОВОР',
+        date: '2026-04-03',
+      },
+    ]);
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root.render(createElement(ArticlePage));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('ПУБЛИКУВАНИ ОТГОВОРИ');
+    expect(container.textContent).toContain('Отговор на засегнатата страна');
+    const replyLink = container.querySelector('a[href="/article/91"]');
+    expect(replyLink).not.toBeNull();
+    expect(replyLink.getAttribute('aria-label')).toContain('Отговор на засегнатата страна');
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useOptimistic, useState } from 'react';
 import { useAdminData } from '../../context/DataContext';
-import { RefreshCw, Trash2, Edit3, Image as ImageIcon, MapPin } from 'lucide-react';
+import { RefreshCw, Trash2, Edit3, Image as ImageIcon, MapPin, Inbox } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
@@ -17,6 +17,8 @@ export default function ManageTips() {
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [busyTip, setBusyTip] = useState(null);
+  const [bulkActionLabel, setBulkActionLabel] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
   const [optimisticTips, applyTipUpdate] = useOptimistic(
     tips,
     (currentTips, mutation) => {
@@ -60,14 +62,48 @@ export default function ManageTips() {
       (tip.location || '').toLowerCase().includes(q)
     ));
   }, [optimisticTips, query]);
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedTips = useMemo(
+    () => filteredTips.filter((tip) => selectedIdSet.has(tip.id)),
+    [filteredTips, selectedIdSet],
+  );
+  const selectedProcessableCount = useMemo(
+    () => selectedTips.filter((tip) => tip.status !== 'processed').length,
+    [selectedTips],
+  );
+  const selectedRejectableCount = useMemo(
+    () => selectedTips.filter((tip) => tip.status !== 'rejected').length,
+    [selectedTips],
+  );
+  const allVisibleSelected = filteredTips.length > 0 && filteredTips.every((tip) => selectedIdSet.has(tip.id));
+  const bulkBusy = Boolean(bulkActionLabel);
 
-  const isTipBusy = (id) => busyTip?.id === id;
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => filteredTips.some((tip) => tip.id === id)));
+  }, [filteredTips]);
+
+  const isTipBusy = (id) => bulkBusy || busyTip?.id === id;
 
   const resetTipsView = () => {
     applyTipUpdate({ type: 'reset', tips });
   };
 
+  const toggleSelection = (id) => {
+    if (bulkBusy) return;
+    setSelectedIds((prev) => (
+      prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id]
+    ));
+  };
+
+  const toggleSelectAllVisible = () => {
+    if (bulkBusy) return;
+    setSelectedIds(allVisibleSelected ? [] : filteredTips.map((tip) => tip.id));
+  };
+
   const handleDelete = async (id) => {
+    if (bulkBusy) return;
     const confirmed = await confirm({
       title: 'Изтриване на сигнал',
       message: 'Сигналът ще бъде изтрит безвъзвратно.',
@@ -92,6 +128,7 @@ export default function ManageTips() {
   };
 
   const runOptimisticStatusUpdate = async (id, status) => {
+    if (bulkBusy) return;
     setBusyTip({ id, action: 'status' });
     applyTipUpdate({ type: 'status', id, status });
 
@@ -108,6 +145,7 @@ export default function ManageTips() {
   };
 
   const handleConvertToArticle = (tip) => {
+    if (bulkBusy) return;
     void runOptimisticStatusUpdate(tip.id, 'processed');
 
     const prefill = {
@@ -122,21 +160,87 @@ export default function ManageTips() {
     navigate('/admin/articles');
   };
 
+  const runBulkStatusUpdate = async ({ status, label, emptyMessage, successLabel, predicate }) => {
+    if (bulkBusy) return;
+    const targetIds = selectedTips.filter(predicate).map((tip) => tip.id);
+    if (targetIds.length === 0) {
+      toast.info(emptyMessage);
+      return;
+    }
+
+    setBulkActionLabel(label);
+    targetIds.forEach((id) => applyTipUpdate({ type: 'status', id, status }));
+
+    try {
+      await Promise.all(targetIds.map((id) => updateTip(id, status)));
+      setSelectedIds([]);
+      toast.success(`${successLabel}: ${targetIds.length}`);
+    } catch (e) {
+      resetTipsView();
+      await refreshTips();
+      toast.error(`Грешка: ${e.message}`);
+    } finally {
+      setBulkActionLabel('');
+    }
+  };
+
+  const runBulkDelete = async () => {
+    if (bulkBusy) return;
+    if (selectedTips.length === 0) {
+      toast.info('Няма избрани сигнали.');
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: 'Изтриване на сигнали',
+      message: `Ще изтриеш ${selectedTips.length} сигнала безвъзвратно.`,
+      confirmLabel: 'Изтрий избраните',
+      cancelLabel: 'Отказ',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    const targetIds = selectedTips.map((tip) => tip.id);
+    setBulkActionLabel('Изтриване');
+    targetIds.forEach((id) => applyTipUpdate({ type: 'delete', id }));
+
+    try {
+      await Promise.all(targetIds.map((id) => deleteTip(id)));
+      setSelectedIds([]);
+      toast.success(`Изтрити сигнали: ${targetIds.length}`);
+    } catch (e) {
+      resetTipsView();
+      await refreshTips();
+      toast.error(`Грешка: ${e.message}`);
+    } finally {
+      setBulkActionLabel('');
+    }
+  };
+
   return (
     <div className="p-8 min-h-full">
       <AdminPageHeader
         title="Сигнали (типлайн)"
         description="Преглед на получените потребителски сигнали"
         actions={(
-          <button
-            type="button"
-            onClick={refreshTips}
-            aria-label="Обнови сигналите"
-            className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Обнови
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/admin/intake?source=tip"
+              className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <Inbox className="w-4 h-4" />
+              Входяща опашка
+            </a>
+            <button
+              type="button"
+              onClick={refreshTips}
+              aria-label="Обнови сигналите"
+              className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Обнови
+            </button>
+          </div>
         )}
       />
 
@@ -148,6 +252,58 @@ export default function ManageTips() {
           ariaLabel="Търси сигнал по текст или локация"
         />
       </AdminFilterBar>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 border border-gray-200 bg-white px-4 py-3">
+        <label className="inline-flex items-center gap-2 text-sm font-sans text-gray-700">
+          <input
+            type="checkbox"
+            checked={allVisibleSelected}
+            onChange={toggleSelectAllVisible}
+            disabled={bulkBusy || filteredTips.length === 0}
+            aria-label="Избери всички видими сигнали"
+          />
+          Избери всички видими сигнали
+        </label>
+        <span className="text-xs font-sans text-gray-500">
+          {selectedTips.length > 0 ? `Избрани: ${selectedTips.length}` : 'Няма избрани сигнали'}
+        </span>
+        <button
+          type="button"
+          onClick={() => void runBulkStatusUpdate({
+            status: 'processed',
+            label: 'Обработване',
+            emptyMessage: 'Няма избрани сигнали за обработване.',
+            successLabel: 'Обработени сигнали',
+            predicate: (tip) => tip.status !== 'processed',
+          })}
+          disabled={bulkBusy || selectedProcessableCount === 0}
+          className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-sans font-semibold disabled:opacity-50"
+        >
+          {bulkActionLabel === 'Обработване' ? '...' : `Обработи избраните (${selectedProcessableCount})`}
+        </button>
+        <button
+          type="button"
+          onClick={() => void runBulkStatusUpdate({
+            status: 'rejected',
+            label: 'Отхвърляне',
+            emptyMessage: 'Няма избрани сигнали за отхвърляне.',
+            successLabel: 'Отхвърлени сигнали',
+            predicate: (tip) => tip.status !== 'rejected',
+          })}
+          disabled={bulkBusy || selectedRejectableCount === 0}
+          className="px-3 py-1.5 bg-gray-900 text-white text-xs font-sans font-semibold disabled:opacity-50"
+        >
+          {bulkActionLabel === 'Отхвърляне' ? '...' : `Отхвърли избраните (${selectedRejectableCount})`}
+        </button>
+        <button
+          type="button"
+          onClick={() => void runBulkDelete()}
+          disabled={bulkBusy || selectedTips.length === 0}
+          className="px-3 py-1.5 bg-red-600 text-white text-xs font-sans font-semibold disabled:opacity-50"
+        >
+          {bulkActionLabel === 'Изтриване' ? '...' : `Изтрий избраните (${selectedTips.length})`}
+        </button>
+      </div>
 
       <div className="space-y-4">
         {tipsReady && filteredTips.length === 0 ? (
@@ -174,7 +330,17 @@ export default function ManageTips() {
 
               <div className="flex-1 flex flex-col">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
+                  <div className="flex-1">
+                    <label className="mb-2 inline-flex items-center gap-2 text-xs font-sans text-gray-500">
+                      <input
+                        type="checkbox"
+                        checked={selectedIdSet.has(tip.id)}
+                        onChange={() => toggleSelection(tip.id)}
+                        disabled={bulkBusy}
+                        aria-label={`Избери сигнал #${tip.id}`}
+                      />
+                      Избери
+                    </label>
                     {tip.location && (
                       <div className="flex items-center gap-1.5 text-xs font-bold text-zn-purple uppercase tracking-wider mb-2">
                         <MapPin className="w-3.5 h-3.5" />

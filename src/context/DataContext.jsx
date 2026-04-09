@@ -552,8 +552,16 @@ export function DataProvider({ children }) {
   }, []);
 
   // Articles
-  const addArticle = useCallback(async (a) => { const n = await api.articles.create(a); setArticles(prev => [n, ...prev]); }, []);
-  const updateArticle = useCallback(async (id, u) => { const updated = await api.articles.update(id, u); setArticles(prev => prev.map(a => a.id === id ? updated : a)); }, []);
+  const addArticle = useCallback(async (a) => {
+    const created = await api.articles.create(a);
+    setArticles(prev => [created, ...prev]);
+    return created;
+  }, []);
+  const updateArticle = useCallback(async (id, u) => {
+    const updated = await api.articles.update(id, u);
+    setArticles(prev => prev.map(a => a.id === id ? updated : a));
+    return updated;
+  }, []);
   const deleteArticle = useCallback(async (id) => { await api.articles.delete(id); setArticles(prev => prev.filter(a => a.id !== id)); }, []);
   const incrementArticleView = useCallback(async (id) => {
     try {
@@ -983,11 +991,12 @@ export function DataProvider({ children }) {
     setTipsReady(true);
     setTips(prev => prev.filter(t => t.id !== id));
   }, []);
-  const updateTip = useCallback(async (id, status) => {
-    const updated = await api.tips.update(id, status);
+  const updateTip = useCallback(async (id, statusOrData) => {
+    const updated = await api.tips.update(id, statusOrData);
     tipsLoadedRef.current = true;
     setTipsReady(true);
     setTips(prev => prev.map(t => t.id === id ? updated : t));
+    return updated;
   }, []);
   const createTip = useCallback(async (formData) => {
     return await api.tips.create(formData);

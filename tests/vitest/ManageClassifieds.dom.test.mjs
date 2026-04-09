@@ -14,6 +14,8 @@ const setSearchParamsSpy = vi.fn();
 const toast = {
   success: vi.fn(),
   error: vi.fn(),
+  warning: vi.fn(),
+  info: vi.fn(),
 };
 
 let adminDataState = {};
@@ -64,6 +66,8 @@ describe('ManageClassifieds', () => {
     setSearchParamsSpy.mockReset();
     toast.success.mockReset();
     toast.error.mockReset();
+    toast.warning.mockReset();
+    toast.info.mockReset();
     adminDataState = {};
     searchParamsState = '';
     await unmountRoot(root, container);
@@ -222,5 +226,67 @@ describe('ManageClassifieds', () => {
 
     expect(container.textContent).toContain('Продавам Sultan RS');
     expect(setSearchParamsSpy).toHaveBeenLastCalledWith('q=Sultan', { replace: true });
+  });
+
+  it('bulk-approves the selected awaiting classifieds', async () => {
+    adminDataState = {
+      classifieds: [
+        {
+          id: 17,
+          status: 'awaiting_payment',
+          category: 'selling',
+          tier: 'vip',
+          title: 'Продавам Sultan RS',
+          description: 'Лека козметика.',
+          contactName: 'Диего',
+          phone: '9652438',
+          createdAt: '2026-04-08T12:00:00.000Z',
+          paymentRef: 'ZN-DF4D1B295FF89904',
+          amountDue: 2000,
+          currency: 'лв.',
+          images: [],
+        },
+        {
+          id: 18,
+          status: 'awaiting_payment',
+          category: 'cars',
+          tier: 'standard',
+          title: 'Admiral за продажба',
+          description: 'Запазен.',
+          contactName: 'Марко',
+          phone: '7771234',
+          createdAt: '2026-04-08T13:00:00.000Z',
+          paymentRef: 'ZN-ACTIVE',
+          amountDue: 500,
+          currency: '$',
+          images: [],
+        },
+      ],
+      classifiedsReady: true,
+      refreshClassifieds,
+      ensureClassifiedsLoaded,
+      approveClassified,
+      rejectClassified,
+      deleteClassified,
+      bumpClassified,
+      renewClassified,
+    };
+
+    ({ root, container } = await renderIntoBody(ManageClassifieds));
+    await flushEffects();
+
+    const selectAll = container.querySelector('input[aria-label="Избери всички видими обяви"]');
+    await click(selectAll);
+    await flushEffects();
+
+    const bulkApproveButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Потвърди избраните (2)'));
+    await click(bulkApproveButton);
+    await flushEffects();
+
+    expect(approveClassified).toHaveBeenCalledTimes(2);
+    expect(approveClassified).toHaveBeenNthCalledWith(1, 17, '');
+    expect(approveClassified).toHaveBeenNthCalledWith(2, 18, '');
+    expect(toast.success).toHaveBeenCalledWith('Потвърдени обяви: 2');
   });
 });

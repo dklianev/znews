@@ -518,6 +518,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+    getPublishedRightOfReply: (articleId) => request(`/contact-messages/right-of-reply/${articleId}`),
     getAll: (params) => request(`/contact-messages${toQuery(params)}`),
     update: (id, data) => request(`/contact-messages/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => request(`/contact-messages/${id}`, { method: 'DELETE' }),
@@ -669,9 +670,13 @@ export const api = {
       method: 'POST',
       body: formData,
     }),
-    update: (id, status) => request(`/tips/${id}`, {
+    update: (id, statusOrData) => request(`/tips/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(
+        typeof statusOrData === 'string'
+          ? { status: statusOrData }
+          : (statusOrData || {})
+      ),
     }),
     delete: (id) => request(`/tips/${id}`, { method: 'DELETE' }),
   },

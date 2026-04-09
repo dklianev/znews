@@ -1685,8 +1685,11 @@ const commentsRouter = createCommentsRouter({
 app.use('/api/comments', commentsRouter);
 
 const contactMessagesRouter = createContactMessagesRouter({
+  AuditLog,
+  Article,
   ContactMessage,
   contactMessageLimiter,
+  getPublishedFilter,
   hasOwn,
   nextNumericId,
   normalizeText,
@@ -2021,6 +2024,7 @@ registerUploadRoutes(app, {
 });
 
 registerTipRoutes(app, {
+  AuditLog,
   Tip,
   ensureImagePipeline,
   getOriginalUploadUrl,

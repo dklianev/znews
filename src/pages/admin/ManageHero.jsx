@@ -3,7 +3,9 @@ import { useAdminData, usePublicData } from '../../context/DataContext';
 import { Crown, Search, Save, X, ExternalLink, Flame, History, RotateCcw, AlertTriangle, Loader2, Megaphone, Clock, Eye } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
+import RevisionComparePanel from '../../components/admin/RevisionComparePanel';
 import { buildScaledClamp, normalizeHeroTitleScale } from '../../utils/heroTitleScale';
+import { buildRevisionCompare } from '../../utils/adminRevisionCompare';
 import useUnsavedChangesGuard from '../../hooks/useUnsavedChangesGuard';
 
 const heroPreviewFallbackImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="800" height="450" fill="#EDE4D0"/><text x="400" y="240" text-anchor="middle" font-family="Oswald,sans-serif" font-size="42" font-weight="900" fill="#C4B49A">LOS SANTOS NEWSWIRE</text></svg>');
@@ -18,6 +20,37 @@ const DEFAULT_COPY = {
   mainPhotoArticleId: null,
   photoArticleIds: [],
 };
+
+const HERO_REVISION_COMPARE_FIELDS = [
+  { key: 'headline', label: 'Голямо заглавие', group: 'Текстове' },
+  { key: 'headlineBoardText', label: 'Горен board текст', group: 'Текстове' },
+  { key: 'shockLabel', label: 'Starburst текст', group: 'Текстове' },
+  { key: 'ctaLabel', label: 'CTA текст', group: 'Текстове' },
+  { key: 'heroTitleScale', label: 'Размер на Hero заглавието', group: 'Визия', format: (value) => `${Number(value) || 100}%` },
+  { key: 'captions.0', label: 'Лента върху снимка 1', group: 'Снимки' },
+  { key: 'captions.1', label: 'Лента върху снимка 2', group: 'Снимки' },
+  { key: 'captions.2', label: 'Лента върху снимка 3', group: 'Снимки' },
+  {
+    key: 'mainPhotoArticleId',
+    label: 'Главна снимка',
+    group: 'Снимки',
+    format: (value) => {
+      const normalized = Number.parseInt(value, 10);
+      return Number.isInteger(normalized) && normalized > 0 ? `Статия #${normalized}` : 'Автоматично';
+    },
+  },
+  {
+    key: 'photoArticleIds',
+    label: 'Допълнителни снимки',
+    group: 'Снимки',
+    format: (value) => {
+      const ids = Array.isArray(value)
+        ? value.map((item) => Number.parseInt(item, 10)).filter((item) => Number.isInteger(item) && item > 0)
+        : [];
+      return ids.length > 0 ? ids.map((item) => `Статия #${item}`).join('\n') : 'Автоматично';
+    },
+  },
+];
 
 export default function ManageHero() {
   const {
@@ -42,6 +75,7 @@ export default function ManageHero() {
   const [savingCopy, setSavingCopy] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [restoringHistory, setRestoringHistory] = useState(null);
+  const [selectedRevisionIds, setSelectedRevisionIds] = useState([]);
   const [error, setError] = useState('');
   const [copyForm, setCopyForm] = useState({
     headline: DEFAULT_COPY.headline,
@@ -106,6 +140,10 @@ export default function ManageHero() {
       });
     return () => { cancelled = true; };
   }, [loadHeroSettingsRevisions]);
+
+  useEffect(() => {
+    setSelectedRevisionIds((prev) => prev.filter((revisionId) => heroSettingsRevisions.some((revision) => revision.revisionId === revisionId)).slice(0, 2));
+  }, [heroSettingsRevisions]);
 
   // Dirty tracking
   const isCopyDirty = useMemo(() => {
@@ -218,6 +256,49 @@ export default function ManageHero() {
 
   const validationMessages = useMemo(() => Object.fromEntries(validationEntries), [validationEntries]);
 
+  const currentHeroSnapshot = useMemo(() => {
+    const mainPhotoArticleIdRaw = Number.parseInt(copyForm.mainPhotoArticleId, 10);
+    const mainPhotoArticleId = Number.isInteger(mainPhotoArticleIdRaw) && mainPhotoArticleIdRaw > 0
+      ? mainPhotoArticleIdRaw
+      : null;
+    const photoArticleIds = [...new Set(
+      [copyForm.photoArticleId1, copyForm.photoArticleId2]
+        .map((value) => Number.parseInt(value, 10))
+        .filter((value) => Number.isInteger(value) && value > 0)
+    )].slice(0, 2);
+
+    return {
+      headline: copyForm.headline,
+      shockLabel: copyForm.shockLabel,
+      ctaLabel: copyForm.ctaLabel,
+      headlineBoardText: copyForm.headlineBoardText,
+      heroTitleScale: normalizeHeroTitleScale(copyForm.heroTitleScale),
+      captions: [copyForm.caption1, copyForm.caption2, copyForm.caption3],
+      mainPhotoArticleId,
+      photoArticleIds,
+    };
+  }, [copyForm]);
+
+  const heroRevisionCompare = useMemo(() => {
+    if (selectedRevisionIds.length === 0) return null;
+
+    const leftRevision = heroSettingsRevisions.find((revision) => revision.revisionId === selectedRevisionIds[0]);
+    const rightRevision = selectedRevisionIds[1]
+      ? heroSettingsRevisions.find((revision) => revision.revisionId === selectedRevisionIds[1])
+      : null;
+
+    if (!leftRevision?.snapshot) return null;
+    if (selectedRevisionIds[1] && !rightRevision?.snapshot) return null;
+
+    return buildRevisionCompare({
+      fields: HERO_REVISION_COMPARE_FIELDS,
+      leftSnapshot: leftRevision.snapshot,
+      rightSnapshot: rightRevision?.snapshot || currentHeroSnapshot,
+      leftLabel: `v${leftRevision.version} (${leftRevision.source})`,
+      rightLabel: rightRevision ? `v${rightRevision.version} (${rightRevision.source})` : 'Текуща форма',
+    });
+  }, [currentHeroSnapshot, heroSettingsRevisions, selectedRevisionIds]);
+
   // Handlers
   const setHero = async (articleId) => {
     setSavingId(articleId);
@@ -303,6 +384,7 @@ export default function ManageHero() {
     setError('');
     try {
       await restoreHeroSettingsRevision(revisionId);
+      setSelectedRevisionIds([]);
       toast.success('Hero версията е възстановена');
     } catch (e) {
       setError(e?.message || 'Грешка при възстановяване на Hero версия');
@@ -344,6 +426,14 @@ export default function ManageHero() {
   const updateCopyField = (field, value) => {
     clearCopyError();
     setCopyForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const toggleRevisionCompareSelection = (revisionId) => {
+    setSelectedRevisionIds((prev) => {
+      if (prev.includes(revisionId)) return prev.filter((item) => item !== revisionId);
+      if (prev.length >= 2) return [prev[1], revisionId];
+      return [...prev, revisionId];
+    });
   };
 
   // Headline for demo
@@ -753,7 +843,10 @@ export default function ManageHero() {
             <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
               {loadingHistory && <p className="text-xs font-sans text-gray-400 py-2">Зареждане на версии...</p>}
               {!loadingHistory && heroSettingsRevisions.slice(0, 15).map((revision) => (
-                <div key={revision.revisionId} className="flex items-center justify-between gap-2 border border-gray-200 bg-white px-2.5 py-1.5">
+                <div
+                  key={revision.revisionId}
+                  className={`flex flex-col gap-2 border px-2.5 py-1.5 ${selectedRevisionIds.includes(revision.revisionId) ? 'border-zn-purple/40 bg-zn-purple/5' : 'border-gray-200 bg-white'}`}
+                >
                   <div className="min-w-0">
                     <p className="text-xs font-sans font-semibold text-gray-700 truncate">
                       v{revision.version} · {revision.source}
@@ -762,15 +855,24 @@ export default function ManageHero() {
                       {new Date(revision.createdAt).toLocaleString('bg-BG', { dateStyle: 'short', timeStyle: 'short' })}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRestoreHistory(revision.revisionId)}
-                    disabled={restoringHistory === revision.revisionId}
-                    className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-sans font-semibold text-zn-purple border border-zn-purple/30 hover:bg-zn-purple/5 transition-colors disabled:opacity-50"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    {restoringHistory === revision.revisionId ? '...' : 'Restore'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleRevisionCompareSelection(revision.revisionId)}
+                      className={`flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 text-[10px] font-sans font-semibold border transition-colors ${selectedRevisionIds.includes(revision.revisionId) ? 'text-zn-purple border-zn-purple/40 bg-white' : 'text-gray-500 border-gray-200 hover:text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      {selectedRevisionIds.includes(revision.revisionId) ? 'Избрана' : 'Сравни'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRestoreHistory(revision.revisionId)}
+                      disabled={restoringHistory === revision.revisionId}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 text-[10px] font-sans font-semibold text-zn-purple border border-zn-purple/30 hover:bg-zn-purple/5 transition-colors disabled:opacity-50"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      {restoringHistory === revision.revisionId ? '...' : 'Върни'}
+                    </button>
+                  </div>
                 </div>
               ))}
               {!loadingHistory && heroSettingsRevisions.length === 0 && (
@@ -778,6 +880,13 @@ export default function ManageHero() {
               )}
             </div>
           </div>
+
+          <RevisionComparePanel
+            title="Сравнение на Hero версии"
+            subtitle={selectedRevisionIds.length === 1 ? 'Избраната версия се сравнява с текущата форма.' : 'Избери една или две версии от списъка вдясно.'}
+            compare={heroRevisionCompare}
+            emptyMessage="Избери една или две версии, за да видиш разликите."
+          />
         </div>
       </div>
 

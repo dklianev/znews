@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Mail, AlertTriangle, Trash2, CheckCircle2, Archive, RefreshCw } from 'lucide-react';
+import { Mail, AlertTriangle, Trash2, CheckCircle2, Archive, RefreshCw, Inbox } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../../utils/api';
 import { useAdminData, useSessionData } from '../../context/DataContext';
@@ -33,6 +33,8 @@ export default function ManageContactMessages() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState(null);
+  const [bulkActionLabel, setBulkActionLabel] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const toast = useToast();
   const confirm = useConfirm();
@@ -89,6 +91,21 @@ export default function ManageContactMessages() {
 
     return result;
   }, [filter, items, query]);
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedItems = useMemo(
+    () => filteredItems.filter((item) => selectedIdSet.has(item.id)),
+    [filteredItems, selectedIdSet],
+  );
+  const selectedUnreadCount = useMemo(
+    () => selectedItems.filter((item) => item.status !== 'read').length,
+    [selectedItems],
+  );
+  const selectedUnarchivedCount = useMemo(
+    () => selectedItems.filter((item) => item.status !== 'archived').length,
+    [selectedItems],
+  );
+  const allVisibleSelected = filteredItems.length > 0 && filteredItems.every((item) => selectedIdSet.has(item.id));
+  const bulkBusy = Boolean(bulkActionLabel);
 
   const counts = useMemo(() => ({
     all: items.length,
@@ -97,7 +114,26 @@ export default function ManageContactMessages() {
     archived: items.filter((item) => item?.status === 'archived').length,
   }), [items]);
 
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => filteredItems.some((item) => item.id === id)));
+  }, [filteredItems]);
+
+  const toggleSelection = (id) => {
+    if (bulkBusy) return;
+    setSelectedIds((prev) => (
+      prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id]
+    ));
+  };
+
+  const toggleSelectAllVisible = () => {
+    if (bulkBusy) return;
+    setSelectedIds(allVisibleSelected ? [] : filteredItems.map((item) => item.id));
+  };
+
   const runOptimisticStatusUpdate = async (id, status) => {
+    if (bulkBusy) return;
     const numericId = Number.parseInt(String(id), 10);
     if (!Number.isInteger(numericId)) return;
 
@@ -122,6 +158,7 @@ export default function ManageContactMessages() {
   };
 
   const runOptimisticDelete = async (id) => {
+    if (bulkBusy) return;
     const numericId = Number.parseInt(String(id), 10);
     if (!Number.isInteger(numericId)) return;
     const confirmed = await confirm({
@@ -149,6 +186,78 @@ export default function ManageContactMessages() {
       toast.error('Грешка при изтриване');
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const runBulkStatusUpdate = async ({ status, label, emptyMessage, successMessage, predicate }) => {
+    if (bulkBusy) return;
+    const targetItems = selectedItems.filter(predicate);
+    if (targetItems.length === 0) {
+      toast.info(emptyMessage);
+      return;
+    }
+
+    const previousItems = items;
+    setBulkActionLabel(label);
+    setError('');
+    setItems((prev) => prev.map((item) => (
+      targetItems.some((selected) => selected.id === item.id)
+        ? { ...item, status }
+        : item
+    )));
+
+    try {
+      const updatedItems = await Promise.all(
+        targetItems.map((item) => api.contactMessages.update(item.id, { status })),
+      );
+      const updatesById = new Map(updatedItems.map((item) => [item.id, item]));
+      setItems((prev) => prev.map((item) => updatesById.get(item.id) || item));
+      setSelectedIds([]);
+      toast.success(`${successMessage}: ${targetItems.length}`);
+    } catch (e) {
+      setItems(previousItems);
+      setError(e?.message || 'Грешка при масова промяна на статуса');
+      toast.error('Грешка при масова промяна на статуса');
+    } finally {
+      setBulkActionLabel('');
+    }
+  };
+
+  const runBulkDelete = async () => {
+    if (bulkBusy) return;
+    if (selectedItems.length === 0) {
+      toast.info('Няма избрани съобщения.');
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: 'Изтриване на съобщения',
+      message: `Ще изтриеш ${selectedItems.length} съобщения безвъзвратно.`,
+      confirmLabel: 'Изтрий избраните',
+      cancelLabel: 'Отказ',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    const previousItems = items;
+    const previousExpandedId = expandedId;
+    const targetIds = selectedItems.map((item) => item.id);
+    setBulkActionLabel('Изтриване');
+    setError('');
+    setItems((prev) => prev.filter((item) => !targetIds.includes(item.id)));
+    if (expandedId && targetIds.includes(expandedId)) setExpandedId(null);
+
+    try {
+      await Promise.all(targetIds.map((id) => api.contactMessages.delete(id)));
+      setSelectedIds([]);
+      toast.success(`Изтрити съобщения: ${targetIds.length}`);
+    } catch (e) {
+      setItems(previousItems);
+      setExpandedId(previousExpandedId);
+      setError(e?.message || 'Грешка при изтриване');
+      toast.error('Грешка при изтриване');
+    } finally {
+      setBulkActionLabel('');
     }
   };
 
@@ -184,16 +293,25 @@ export default function ManageContactMessages() {
         description={`${counts.all} съобщения • ${counts.new} нови`}
         icon={Mail}
         actions={(
-          <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          aria-label="Обнови контактните съобщения"
-          className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Обнови
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/admin/intake?source=contact"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans font-medium hover:bg-gray-50 transition-colors"
+            >
+              <Inbox className="w-4 h-4" />
+              Входяща опашка
+            </a>
+            <button
+              type="button"
+              onClick={() => void load()}
+              disabled={loading}
+              aria-label="Обнови контактните съобщения"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Обнови
+            </button>
+          </div>
         )}
       />
 
@@ -218,6 +336,58 @@ export default function ManageContactMessages() {
         />
       </AdminFilterBar>
 
+      <div className="mb-4 flex flex-wrap items-center gap-2 border border-gray-200 bg-white px-4 py-3">
+        <label className="inline-flex items-center gap-2 text-sm font-sans text-gray-700">
+          <input
+            type="checkbox"
+            checked={allVisibleSelected}
+            onChange={toggleSelectAllVisible}
+            disabled={bulkBusy || filteredItems.length === 0}
+            aria-label="Избери всички видими съобщения"
+          />
+          Избери всички видими съобщения
+        </label>
+        <span className="text-xs font-sans text-gray-500">
+          {selectedItems.length > 0 ? `Избрани: ${selectedItems.length}` : 'Няма избрани съобщения'}
+        </span>
+        <button
+          type="button"
+          onClick={() => void runBulkStatusUpdate({
+            status: 'read',
+            label: 'Маркиране',
+            emptyMessage: 'Няма избрани непрочетени съобщения.',
+            successMessage: 'Маркирани съобщения',
+            predicate: (item) => item.status !== 'read',
+          })}
+          disabled={bulkBusy || selectedUnreadCount === 0}
+          className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-sans font-semibold disabled:opacity-50"
+        >
+          {bulkActionLabel === 'Маркиране' ? '...' : `Маркирай прочетени (${selectedUnreadCount})`}
+        </button>
+        <button
+          type="button"
+          onClick={() => void runBulkStatusUpdate({
+            status: 'archived',
+            label: 'Архивиране',
+            emptyMessage: 'Няма избрани съобщения за архивиране.',
+            successMessage: 'Архивирани съобщения',
+            predicate: (item) => item.status !== 'archived',
+          })}
+          disabled={bulkBusy || selectedUnarchivedCount === 0}
+          className="px-3 py-1.5 bg-gray-900 text-white text-xs font-sans font-semibold disabled:opacity-50"
+        >
+          {bulkActionLabel === 'Архивиране' ? '...' : `Архивирай избраните (${selectedUnarchivedCount})`}
+        </button>
+        <button
+          type="button"
+          onClick={() => void runBulkDelete()}
+          disabled={bulkBusy || selectedItems.length === 0}
+          className="px-3 py-1.5 bg-red-600 text-white text-xs font-sans font-semibold disabled:opacity-50"
+        >
+          {bulkActionLabel === 'Изтриване' ? '...' : `Изтрий избраните (${selectedItems.length})`}
+        </button>
+      </div>
+
       {loading ? (
         <div className="text-center py-12 text-gray-400">Зареждане...</div>
       ) : filteredItems.length === 0 ? (
@@ -235,18 +405,29 @@ export default function ManageContactMessages() {
             const createdLabel = message?.createdAt ? new Date(message.createdAt).toLocaleString('bg-BG') : '';
             const status = message?.status || 'new';
             const isExpanded = expandedId === message.id;
-            const isBusy = busyId === message.id;
+            const isBusy = bulkBusy || busyId === message.id;
 
             return (
               <div key={message.id} className="bg-white border border-gray-200 p-4" aria-busy={isBusy}>
                 <div className="flex items-start justify-between gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setExpandedId(isExpanded ? null : message.id)}
-                    className="text-left flex-1 min-w-0"
-                    aria-expanded={isExpanded}
-                  >
-                    <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <label className="mb-2 inline-flex items-center gap-2 text-xs font-sans text-gray-500">
+                      <input
+                        type="checkbox"
+                        checked={selectedIdSet.has(message.id)}
+                        onChange={() => toggleSelection(message.id)}
+                        disabled={bulkBusy}
+                        aria-label={`Избери съобщение #${message.id}`}
+                      />
+                      Избери
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(isExpanded ? null : message.id)}
+                      className="text-left w-full"
+                      aria-expanded={isExpanded}
+                    >
+                      <div className="flex items-center gap-2 flex-wrap">
                       <span className={`px-2 py-0.5 text-[10px] font-sans font-bold uppercase tracking-wider border ${STATUS_STYLES[status] || STATUS_STYLES.new}`}>
                         {STATUS_LABELS[status] || status}
                       </span>
@@ -254,12 +435,13 @@ export default function ManageContactMessages() {
                       <span className="text-xs font-sans text-gray-400 truncate">{message.phone || message.email || ''}</span>
                       <span className="text-xs font-sans text-gray-400">{createdLabel}</span>
                     </div>
-                    {!isExpanded && (
-                      <p className="mt-2 text-sm font-sans text-gray-700 line-clamp-2 whitespace-pre-wrap">
-                        {message.message || ''}
-                      </p>
-                    )}
-                  </button>
+                      {!isExpanded && (
+                        <p className="mt-2 text-sm font-sans text-gray-700 line-clamp-2 whitespace-pre-wrap">
+                          {message.message || ''}
+                        </p>
+                      )}
+                    </button>
+                  </div>
 
                   <div className="flex items-center gap-1 shrink-0">
                     {status !== 'read' && (

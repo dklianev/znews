@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAdminData, useSessionData } from '../../context/DataContext';
 import { Shield, Save, Check, X, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
+import { useConfirm } from '../../components/admin/ConfirmDialog';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminFilterBar from '../../components/admin/AdminFilterBar';
 import AdminSearchField from '../../components/admin/AdminSearchField';
@@ -39,12 +40,63 @@ const ROLE_LABELS = {
 const BASE_ROLES = Object.freeze(['admin', 'editor', 'reporter', 'photographer', 'intern']);
 const sections = Object.keys(SECTION_LABELS);
 
+function buildPresetPermissions(enabledSections) {
+    const allowed = new Set(enabledSections);
+    return sections.reduce((result, section) => {
+        result[section] = allowed.has(section);
+        return result;
+    }, {});
+}
+
+const PERMISSION_PRESETS = Object.freeze({
+    editor: {
+        label: 'Редактор',
+        description: 'Редакционна работа, публикации и входящи сигнали.',
+        permissions: buildPresetPermissions(['articles', 'categories', 'breaking', 'comments', 'contact', 'gallery', 'profiles']),
+    },
+    moderator: {
+        label: 'Модератор',
+        description: 'Модерация на общността и входящите канали.',
+        permissions: buildPresetPermissions(['comments', 'contact', 'gallery', 'classifieds']),
+    },
+    classifieds_manager: {
+        label: 'Мениджър обяви',
+        description: 'Управление на малки обяви и входящи клиентски заявки.',
+        permissions: buildPresetPermissions(['classifieds', 'contact']),
+    },
+    games_curator: {
+        label: 'Куратор игри',
+        description: 'Игри, пъзели и леки интерактивни формати.',
+        permissions: buildPresetPermissions(['games', 'polls']),
+    },
+});
+
 function ensureRoleRows(value) {
     const items = Array.isArray(value) ? value : [];
     const byRole = new Map(items.map(p => [p?.role, p]).filter(([role]) => role));
     const baseRows = BASE_ROLES.map(role => byRole.get(role) || { role, permissions: {} });
     const extras = items.filter(p => p?.role && !BASE_ROLES.includes(p.role));
     return [...baseRows, ...extras];
+}
+
+function normalizeRolePermissions(value) {
+    return sections.reduce((result, section) => {
+        result[section] = Boolean(value?.[section]);
+        return result;
+    }, {});
+}
+
+function buildPermissionDiff(currentPermissions, nextPermissions) {
+    const current = normalizeRolePermissions(currentPermissions);
+    const next = normalizeRolePermissions(nextPermissions);
+    return sections.flatMap((section) => {
+        if (current[section] === next[section]) return [];
+        return [{
+            section,
+            label: SECTION_LABELS[section],
+            nextValue: next[section],
+        }];
+    });
 }
 
 export default function ManagePermissions() {
@@ -55,9 +107,12 @@ export default function ManagePermissions() {
     const [error, setError] = useState('');
     const [newRoleKey, setNewRoleKey] = useState('');
     const [creatingRole, setCreatingRole] = useState(false);
+    const [presetRole, setPresetRole] = useState('editor');
+    const [selectedPresetKey, setSelectedPresetKey] = useState('editor');
     const [searchParams, setSearchParams] = useSearchParams();
     const query = readSearchParam(searchParams, 'q', '');
     const toast = useToast();
+    const confirm = useConfirm();
 
     const setListSearchParams = (updates) => {
         setSearchParams(
@@ -77,6 +132,45 @@ export default function ManagePermissions() {
             return roleKey.includes(normalizedQuery) || roleLabel.includes(normalizedQuery);
         });
     }, [permsToShow, query]);
+    const editableRoles = useMemo(
+        () => permsToShow.filter((rolePerm) => rolePerm.role !== 'admin'),
+        [permsToShow],
+    );
+    const selectedPreset = selectedPresetKey ? PERMISSION_PRESETS[selectedPresetKey] : null;
+    const presetTargetRole = useMemo(
+        () => editableRoles.find((rolePerm) => rolePerm.role === presetRole) || null,
+        [editableRoles, presetRole],
+    );
+    const presetDiff = useMemo(() => {
+        if (!presetTargetRole || !selectedPreset) return [];
+        return buildPermissionDiff(presetTargetRole.permissions, selectedPreset.permissions);
+    }, [presetTargetRole, selectedPreset]);
+    const enabledPresetSections = useMemo(() => {
+        if (!selectedPreset) return [];
+        return sections.filter((section) => Boolean(selectedPreset.permissions?.[section]));
+    }, [selectedPreset]);
+    const addedPresetSections = useMemo(
+        () => presetDiff.filter((item) => item.nextValue),
+        [presetDiff],
+    );
+    const removedPresetSections = useMemo(
+        () => presetDiff.filter((item) => !item.nextValue),
+        [presetDiff],
+    );
+
+    useEffect(() => {
+        if (editableRoles.length === 0) {
+            setPresetRole('');
+            return;
+        }
+        if (editableRoles.some((rolePerm) => rolePerm.role === presetRole)) return;
+        setPresetRole(editableRoles[0].role);
+    }, [editableRoles, presetRole]);
+
+    useEffect(() => {
+        if (selectedPresetKey && PERMISSION_PRESETS[selectedPresetKey]) return;
+        setSelectedPresetKey(Object.keys(PERMISSION_PRESETS)[0] || '');
+    }, [selectedPresetKey]);
 
     if (!session || !hasPermission('permissions')) {
         return (
@@ -156,6 +250,48 @@ export default function ManagePermissions() {
         }
     };
 
+    const applyPreset = async () => {
+        if (!presetRole || !selectedPresetKey) return;
+        const preset = PERMISSION_PRESETS[selectedPresetKey];
+        if (!preset) return;
+
+        const roleLabel = ROLE_LABELS[presetRole] || presetRole;
+        const diff = buildPermissionDiff(presetTargetRole?.permissions, preset.permissions);
+        if (diff.length === 0) {
+            toast.info(`Ролята ${roleLabel} вече съвпада с шаблона "${preset.label}"`);
+            return;
+        }
+
+        const addedLabels = diff.filter((item) => item.nextValue).map((item) => item.label);
+        const removedLabels = diff.filter((item) => !item.nextValue).map((item) => item.label);
+        const messageParts = [];
+        if (addedLabels.length > 0) {
+            messageParts.push(`Ще разрешиш: ${addedLabels.join(', ')}`);
+        }
+        if (removedLabels.length > 0) {
+            messageParts.push(`Ще спреш: ${removedLabels.join(', ')}`);
+        }
+
+        const confirmed = await confirm({
+            title: 'Прилагане на шаблон',
+            message: `${roleLabel} ще бъде презаписана с шаблона "${preset.label}". ${messageParts.join(' · ')}`,
+            confirmLabel: 'Приложи',
+            cancelLabel: 'Отказ',
+            variant: 'warning',
+        });
+        if (!confirmed) return;
+
+        setLocalPerms((prev) => {
+            const base = ensureRoleRows(Array.isArray(prev) ? prev : permissions);
+            return base.map((rolePerm) => (
+                rolePerm.role === presetRole
+                    ? { ...rolePerm, permissions: { ...preset.permissions } }
+                    : rolePerm
+            ));
+        });
+        toast.success(`Шаблонът "${preset.label}" е приложен за ${roleLabel}`);
+    };
+
     return (
         <div className="p-8">
             <AdminPageHeader
@@ -201,6 +337,117 @@ export default function ManagePermissions() {
                 <p className="mt-2 text-[10px] font-sans text-gray-400">
                     Формат: малки латински букви, цифри, "_" или "-" (2-32 символа). Новите роли започват без права.
                 </p>
+            </div>
+
+            <div className="mb-4 bg-white border border-gray-200 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500 mb-2">Шаблони за роли</p>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                            <label className="min-w-[220px]">
+                                <span className="mb-1 block text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500">Роля</span>
+                                <select
+                                    value={presetRole}
+                                    onChange={(event) => setPresetRole(event.target.value)}
+                                    aria-label="Избери роля за шаблон"
+                                    className="w-full border border-gray-200 bg-white px-3 py-2 text-sm font-sans text-gray-700 outline-none focus:border-zn-purple"
+                                >
+                                    {editableRoles.map((rolePerm) => (
+                                        <option key={rolePerm.role} value={rolePerm.role}>
+                                            {ROLE_LABELS[rolePerm.role] || rolePerm.role}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                                {Object.entries(PERMISSION_PRESETS).map(([presetKey, preset]) => (
+                                    <button
+                                        key={presetKey}
+                                        type="button"
+                                        onClick={() => setSelectedPresetKey(presetKey)}
+                                        disabled={!presetRole}
+                                        aria-pressed={selectedPresetKey === presetKey}
+                                        className={`px-3 py-2 border text-xs font-sans font-semibold transition-colors disabled:opacity-50 ${
+                                            selectedPresetKey === presetKey
+                                                ? 'border-zn-purple bg-zn-purple/10 text-zn-purple'
+                                                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                                        }`}
+                                        title={preset.description}
+                                    >
+                                        {preset.label}
+                                    </button>
+                                ))}
+                                <button
+                                    type="button"
+                                    onClick={() => void applyPreset()}
+                                    disabled={!presetRole || !selectedPreset}
+                                    className="px-3 py-2 bg-zn-purple text-white text-xs font-sans font-semibold hover:bg-zn-purple-dark disabled:opacity-50"
+                                >
+                                    Приложи шаблона
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <p className="max-w-xl text-xs font-sans text-gray-500">
+                        Приложи готова начална конфигурация, после прецизирай квадратчетата и запази ролята.
+                    </p>
+                </div>
+                {selectedPreset ? (
+                    <div className="mt-4 border border-gray-200 bg-gray-50 px-4 py-3">
+                        <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0">
+                                <p className="text-xs font-sans font-semibold text-gray-900">
+                                    Преглед на шаблона: {selectedPreset.label}
+                                </p>
+                                <p className="mt-1 text-xs font-sans text-gray-500">
+                                    {selectedPreset.description}
+                                </p>
+                                <p className="mt-2 text-[11px] font-sans text-gray-600">
+                                    Активни секции: {enabledPresetSections.map((section) => SECTION_LABELS[section]).join(', ') || 'Няма'}
+                                </p>
+                            </div>
+                            <div className="shrink-0 text-xs font-sans text-gray-500">
+                                Промени за {ROLE_LABELS[presetRole] || presetRole || 'ролята'}: {presetDiff.length}
+                            </div>
+                        </div>
+                        <div className="mt-3 grid gap-3 md:grid-cols-2">
+                            <div>
+                                <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-emerald-600">Ще се разрешат</p>
+                                {addedPresetSections.length > 0 ? (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        {addedPresetSections.map((item) => (
+                                            <span
+                                                key={`added-${item.section}`}
+                                                className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[11px] font-sans font-medium text-emerald-700"
+                                            >
+                                                {item.label}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="mt-2 text-xs font-sans text-gray-400">Няма нови разрешения.</p>
+                                )}
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-sans font-bold uppercase tracking-wider text-red-600">Ще се спрат</p>
+                                {removedPresetSections.length > 0 ? (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        {removedPresetSections.map((item) => (
+                                            <span
+                                                key={`removed-${item.section}`}
+                                                className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-sans font-medium text-red-700"
+                                            >
+                                                {item.label}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="mt-2 text-xs font-sans text-gray-400">Няма секции за спиране.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
             </div>
 
             <div className="bg-white border border-gray-200 overflow-x-auto">

@@ -7,11 +7,16 @@ const refresh = vi.fn(() => Promise.resolve());
 const toast = {
   success: vi.fn(),
   error: vi.fn(),
+  warning: vi.fn(),
 };
 const confirm = vi.fn(() => Promise.resolve(true));
 const loadArticleRevisions = vi.fn();
 const getById = vi.fn();
 const setSearchParamsSpy = vi.fn();
+const addArticle = vi.fn();
+const updateArticle = vi.fn();
+const deleteArticle = vi.fn();
+const updateContactMessage = vi.fn();
 
 let listMode = 'initial';
 let searchParamsState = '';
@@ -68,9 +73,9 @@ vi.mock('../../src/context/DataContext', () => ({
   usePublicData: () => ({
     authors: [{ id: 1, name: 'Автор', role: 'Редактор' }],
     categories: [{ id: 'crime', name: 'Криминални' }],
-    addArticle: vi.fn(),
-    updateArticle: vi.fn(),
-    deleteArticle: vi.fn(),
+    addArticle,
+    updateArticle,
+    deleteArticle,
     refresh,
   }),
   useAdminData: () => ({
@@ -92,6 +97,9 @@ vi.mock('../../src/utils/api', () => ({
       searchRelatedAdmin: vi.fn(() => Promise.resolve({ items: [] })),
       getById,
       getRevision: vi.fn(),
+    },
+    contactMessages: {
+      update: updateContactMessage,
     },
   },
 }));
@@ -226,6 +234,7 @@ describe('ManageArticles', () => {
     refresh.mockClear();
     toast.success.mockClear();
     toast.error.mockClear();
+    toast.warning.mockClear();
     confirm.mockClear();
     listAdmin.mockClear();
     getAdminMeta.mockClear();
@@ -233,6 +242,10 @@ describe('ManageArticles', () => {
     restore.mockClear();
     loadArticleRevisions.mockClear();
     getById.mockReset();
+    addArticle.mockReset();
+    updateArticle.mockReset();
+    deleteArticle.mockReset();
+    updateContactMessage.mockReset();
     setSearchParamsSpy.mockReset();
     searchParamsState = '';
 
@@ -357,5 +370,95 @@ describe('ManageArticles', () => {
     expect(toast.error).toHaveBeenCalledWith('Не успяхме да заредим пълната статия за редакция. Опитайте отново.');
     expect(container.textContent).not.toContain('Редактирай статия');
     expect(container.textContent).not.toContain('editor');
+  });
+
+  it('hydrates a new article draft from the intake prefill payload', async () => {
+    main = document.createElement('main');
+    container = document.createElement('div');
+    main.appendChild(container);
+    document.body.appendChild(main);
+    root = createRoot(container);
+    installLocalStorageStub();
+    window.localStorage.setItem('znews_intake_article_prefill_v1', JSON.stringify({
+      title: 'Право на отговор: Скандал в центъра',
+      excerpt: 'Постъпило право на отговор.',
+      content: '<p>Това е текстът на отговора.</p>',
+      category: 'crime',
+      tags: ['право на отговор'],
+      relatedArticles: [88],
+      status: 'draft',
+      cardSticker: 'ПРАВО НА ОТГОВОР',
+    }));
+
+    act(() => {
+      root.render(createElement(ManageArticles));
+    });
+    await flush();
+
+    expect(container.textContent).toContain('Нова статия');
+    const titleInput = container.querySelector('#article-title');
+    expect(titleInput?.value).toBe('Право на отговор: Скандал в центъра');
+    expect(window.localStorage.getItem('znews_intake_article_prefill_v1')).toBeNull();
+  });
+
+  it('syncs the linked right-of-reply request after saving a prefilled article draft', async () => {
+    main = document.createElement('main');
+    container = document.createElement('div');
+    main.appendChild(container);
+    document.body.appendChild(main);
+    root = createRoot(container);
+    installLocalStorageStub();
+    window.localStorage.setItem('znews_intake_article_prefill_v1', JSON.stringify({
+      title: 'Право на отговор: Скандал в центъра',
+      excerpt: 'Постъпило право на отговор.',
+      content: '<p>Това е текстът на отговора.</p>',
+      category: 'crime',
+      tags: ['право на отговор'],
+      relatedArticles: [88],
+      status: 'draft',
+      cardSticker: 'ПРАВО НА ОТГОВОР',
+      intakeMeta: {
+        source: 'contact',
+        requestId: 41,
+        requestKind: 'right_of_reply',
+        relatedArticleId: 88,
+        relatedArticleTitle: 'Скандал в центъра',
+      },
+    }));
+    addArticle.mockResolvedValueOnce({ id: 212, title: 'Право на отговор: Скандал в центъра' });
+    updateContactMessage.mockResolvedValueOnce({
+      id: 41,
+      status: 'read',
+      requestKind: 'right_of_reply',
+      relatedArticleId: 88,
+      relatedArticleTitle: 'Скандал в центъра',
+      responseArticleId: 212,
+      responseArticleStatus: 'draft',
+    });
+
+    act(() => {
+      root.render(createElement(ManageArticles));
+    });
+    await flush();
+
+    const saveButton = findButton(container, 'Запази');
+    act(() => {
+      saveButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flush();
+
+    expect(addArticle).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Право на отговор: Скандал в центъра',
+      status: 'draft',
+      relatedArticles: [88],
+    }));
+    expect(updateContactMessage).toHaveBeenCalledWith(41, {
+      status: 'read',
+      responseArticleId: 212,
+      responseArticleStatus: 'draft',
+      relatedArticleId: 88,
+      relatedArticleTitle: 'Скандал в центъра',
+    });
+    expect(toast.warning).not.toHaveBeenCalled();
   });
 });

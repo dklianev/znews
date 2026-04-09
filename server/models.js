@@ -457,11 +457,23 @@ const contactMessageSchema = new mongoose.Schema({
   phone: { type: String, required: true, maxlength: 30, index: true },
   email: { type: String, maxlength: 120, index: true },
   message: { type: String, required: true, maxlength: 4000 },
+  requestKind: { type: String, default: 'general', enum: ['general', 'correction', 'right_of_reply'], index: true },
+  relatedArticleId: { type: Number, default: null, index: true },
+  relatedArticleTitle: { type: String, default: '', maxlength: 220 },
+  responseArticleId: { type: Number, default: null, index: true },
+  responseArticleStatus: { type: String, default: '', enum: ['', 'draft', 'published', 'archived'] },
   status: { type: String, default: 'new', enum: ['new', 'read', 'archived'], index: true },
+  assignedEditor: { type: String, default: '', maxlength: 80 },
+  priority: { type: String, default: 'normal', enum: ['low', 'normal', 'high', 'urgent'], index: true },
+  tags: [{ type: String, trim: true, maxlength: 24 }],
+  dueAt: { type: Date, default: null, index: true },
+  lastActionAt: { type: Date, default: null, index: true },
+  lastActionBy: { type: String, default: '', maxlength: 80 },
   createdAt: { type: Date, default: Date.now, index: true },
 }, opts);
 
 contactMessageSchema.index({ status: 1, createdAt: -1, id: -1 }, { name: 'contact_status_createdAt_id' });
+contactMessageSchema.index({ requestKind: 1, createdAt: -1, id: -1 }, { name: 'contact_requestKind_createdAt_id' });
 
 // ─── Gallery ───
 const gallerySchema = new mongoose.Schema({
@@ -695,6 +707,12 @@ const tipSchema = new mongoose.Schema({
   image: String,
   imageMeta: { type: mongoose.Schema.Types.Mixed, default: null },
   status: { type: String, default: 'new', enum: ['new', 'processed', 'rejected'] },
+  assignedEditor: { type: String, default: '', maxlength: 80 },
+  priority: { type: String, default: 'normal', enum: ['low', 'normal', 'high', 'urgent'], index: true },
+  tags: [{ type: String, trim: true, maxlength: 24 }],
+  dueAt: { type: Date, default: null, index: true },
+  lastActionAt: { type: Date, default: null, index: true },
+  lastActionBy: { type: String, default: '', maxlength: 80 },
   ipHash: { type: String, index: true },
   createdAt: { type: Date, default: Date.now, index: true },
 }, opts);

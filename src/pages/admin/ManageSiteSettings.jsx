@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
-import { Save, Plus, Trash2, RotateCcw, RefreshCw, ShieldAlert, History, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
+import { Save, Plus, Trash2, RotateCcw, RefreshCw, ShieldAlert, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { COMIC_LAYOUT_PRESET_OPTIONS } from '../../utils/comicCardDesign';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
@@ -117,7 +117,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const SPOTLIGHT_ICON_OPTIONS = ['Flame', 'Megaphone', 'Bell', 'Siren', 'Zap', 'Newspaper', 'ShieldAlert', 'Gamepad2', 'Tag'];
-const SiteSettingsRevisionsList = lazy(() => import('../../components/admin/SiteSettingsRevisionsList'));
+const SiteSettingsRevisionsSection = lazy(() => import('../../components/admin/SiteSettingsRevisionsSection'));
 const SeasonalCampaignSettingsSection = lazy(() => import('../../components/admin/SeasonalCampaignSettingsSection'));
 
 function resolveSettings(raw) {
@@ -185,6 +185,7 @@ function resolveSettings(raw) {
   };
 }
 
+
 export default function ManageSiteSettings() {
   const { siteSettings, saveSiteSettings, forceRefreshHomepageCache } = usePublicData();
   const {
@@ -236,6 +237,7 @@ export default function ManageSiteSettings() {
 
   const canEdit = useMemo(() => hasPermission('permissions'), [hasPermission]);
   const isFormDirty = useMemo(() => JSON.stringify(form) !== initialFormRef.current, [form]);
+  const currentSiteSettingsSnapshot = useMemo(() => resolveSettings(form), [form]);
   const { confirmDiscardChanges } = useUnsavedChangesGuard({
     isDirty: isFormDirty,
     confirm,
@@ -488,13 +490,13 @@ export default function ManageSiteSettings() {
       )}
 
       <section className={listSectionCls}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="inline-flex items-center gap-2 text-[10px] font-sans font-bold uppercase tracking-wider text-gray-500">
-            <History className="w-3.5 h-3.5" />
-            Site settings revisions
-          </div>
-          <button
-            onClick={async () => {
+        <Suspense fallback={<p className="py-2 text-xs font-sans text-gray-400">Зареждане на версии...</p>}>
+          <SiteSettingsRevisionsSection
+            loadingHistory={loadingHistory}
+            siteSettingsRevisions={siteSettingsRevisions}
+            restoringHistory={restoringHistory}
+            handleRestoreHistory={handleRestoreHistory}
+            onRefreshHistory={async () => {
               setLoadingHistory(true);
               setError('');
               try {
@@ -506,17 +508,7 @@ export default function ManageSiteSettings() {
                 setLoadingHistory(false);
               }
             }}
-            className="text-xs font-sans font-semibold text-zn-purple hover:text-zn-purple-dark transition-colors"
-          >
-            Обнови
-          </button>
-        </div>
-        <Suspense fallback={<p className="py-2 text-xs font-sans text-gray-400">Зареждане на версии...</p>}>
-          <SiteSettingsRevisionsList
-            loadingHistory={loadingHistory}
-            siteSettingsRevisions={siteSettingsRevisions}
-            restoringHistory={restoringHistory}
-            handleRestoreHistory={handleRestoreHistory}
+            currentSnapshot={currentSiteSettingsSnapshot}
           />
         </Suspense>
       </section>
