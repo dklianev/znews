@@ -120,7 +120,7 @@ export function createContactMessagesRouter(deps) {
     return ['low', 'normal', 'high', 'urgent'].includes(priority);
   }
 
-  contactMessagesRouter.get('/right-of-reply/:articleId', contactMessageLimiter, async (req, res) => {
+  contactMessagesRouter.get('/right-of-reply/:articleId', async (req, res) => {
     try {
       const articleId = Number.parseInt(req.params.articleId, 10);
       if (!Number.isInteger(articleId) || articleId <= 0) {
