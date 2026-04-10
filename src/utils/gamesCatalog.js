@@ -8,6 +8,46 @@ const GAME_HUB_DESCRIPTION_BY_SLUG = Object.freeze({
   blockbust: 'Подреждай три фигури наведнъж, чисти редове и колони и трупай комбо бонуси.',
 });
 
+const GAME_SHORT_LABEL_BY_SLUG = Object.freeze({
+  word: 'Дума',
+  connections: 'Връзки',
+  quiz: 'Ерудит',
+  sudoku: 'Судоку',
+  hangman: 'Бесеница',
+  spellingbee: 'Пчела',
+  crossword: 'Кръст.',
+  tetris: 'Тетрис',
+  snake: 'Змия',
+  '2048': '2048',
+  flappybird: 'Flappy',
+  blockbust: 'ZBlast',
+});
+
+const PUZZLE_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword']);
+const ARCADE_TYPES = new Set(['tetris', 'snake', '2048', 'flappybird', 'blockbust']);
+
+export const GAME_GROUPS = Object.freeze([
+  { key: 'all', label: 'Всички' },
+  { key: 'puzzles', label: 'Пъзели' },
+  { key: 'arcade', label: 'Аркадни' },
+]);
+
+const GAME_THEME_VARIANT_BY_THEME = Object.freeze({
+  green: 'eco',
+  indigo: 'underground',
+  orange: 'hot',
+  purple: 'underground',
+  default: 'front',
+});
+
+const GAME_STRIPE_CLASS_BY_THEME = Object.freeze({
+  green: 'from-emerald-500 to-emerald-700',
+  indigo: 'from-indigo-600 to-zn-navy',
+  orange: 'from-zn-hot to-zn-orange',
+  purple: 'from-zn-purple to-zn-purple-dark',
+  default: 'from-zinc-700 to-zinc-900',
+});
+
 export function sortGamesCatalog(items) {
   const safeItems = Array.isArray(items) ? items : [];
   return [...safeItems].sort((left, right) => {
@@ -23,8 +63,40 @@ export function sortGamesCatalog(items) {
   });
 }
 
+export function getGameGroup(game) {
+  if (PUZZLE_TYPES.has(game?.type)) return 'puzzles';
+  if (ARCADE_TYPES.has(game?.type)) return 'arcade';
+  return 'puzzles';
+}
+
 export function getGameHubDescription(game) {
   const slug = String(game?.slug || '').trim().toLowerCase();
   if (GAME_HUB_DESCRIPTION_BY_SLUG[slug]) return GAME_HUB_DESCRIPTION_BY_SLUG[slug];
   return String(game?.description || '').trim();
+}
+
+export function getGameShortLabel(game) {
+  const slug = String(game?.slug || '').trim().toLowerCase();
+  if (GAME_SHORT_LABEL_BY_SLUG[slug]) return GAME_SHORT_LABEL_BY_SLUG[slug];
+  return String(game?.title || '').trim();
+}
+
+export function getGameThemeVariant(game) {
+  return GAME_THEME_VARIANT_BY_THEME[game?.theme] || GAME_THEME_VARIANT_BY_THEME.default;
+}
+
+export function getGameStripeClass(game) {
+  return GAME_STRIPE_CLASS_BY_THEME[game?.theme] || GAME_STRIPE_CLASS_BY_THEME.default;
+}
+
+export function getGameProgressState(progress, streak) {
+  const gameStatus = progress?.gameStatus || '';
+
+  return {
+    gameStatus,
+    isPlayedToday: Boolean(progress) && gameStatus !== 'playing',
+    isWonToday: gameStatus === 'won',
+    isLostToday: gameStatus === 'lost',
+    hasActiveStreak: Number(streak?.currentStreak) > 0,
+  };
 }

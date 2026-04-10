@@ -1,15 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
-import { getGameStreak, loadGameProfile, loadGameProgress } from '../utils/gameStorage';
-import { usePublicData } from '../context/DataContext';
-import { getTodayStr } from '../utils/gameDate';
-import GamesHubCard from '../components/games/GamesHubCard';
-import { sortGamesCatalog } from '../utils/gamesCatalog';
+import { useEffect, useMemo, useState } from 'react';
 import { Gamepad2, Loader2 } from 'lucide-react';
+import { usePublicData } from '../context/DataContext';
 import EasterDecorations from '../components/seasonal/EasterDecorations';
+import GamesProgressBar from '../components/games/GamesProgressBar';
+import GamesSection from '../components/games/GamesSection';
+import GamesSpotlightCard from '../components/games/GamesSpotlightCard';
+import { getTodayStr } from '../utils/gameDate';
+import { getGameStreak, loadGameProfile, loadGameProgress } from '../utils/gameStorage';
+import { GAME_GROUPS, getGameGroup, sortGamesCatalog } from '../utils/gamesCatalog';
 
 export default function GamesPage() {
     const { games, publicSectionStatus, loadGamesCatalog } = usePublicData();
     const [profile, setProfile] = useState(null);
+    const [filter, setFilter] = useState('all');
     const todayStr = getTodayStr();
 
     useEffect(() => {
@@ -28,43 +31,95 @@ export default function GamesPage() {
     const decoratedGames = useMemo(() => sortGamesCatalog(Array.isArray(games) ? games : []).map((game) => ({
         ...game,
         dailyProgress: loadGameProgress(game.slug, todayStr),
-    })), [games, todayStr]);
+        streak: getGameStreak(profile, game.slug),
+    })), [games, profile, todayStr]);
+
+    const firstUnplayed = useMemo(() => decoratedGames.find((game) => {
+        const gameStatus = game.dailyProgress?.gameStatus || '';
+        return !game.dailyProgress || gameStatus === 'playing';
+    }) || null, [decoratedGames]);
+
+    const puzzleGames = useMemo(() => decoratedGames.filter((game) => getGameGroup(game) === 'puzzles'), [decoratedGames]);
+    const arcadeGames = useMemo(() => decoratedGames.filter((game) => getGameGroup(game) === 'arcade'), [decoratedGames]);
+
+    const countsByFilter = useMemo(() => ({
+        all: decoratedGames.length,
+        puzzles: puzzleGames.length,
+        arcade: arcadeGames.length,
+    }), [arcadeGames.length, decoratedGames.length, puzzleGames.length]);
 
     return (
-        <div className="min-h-screen bg-zn-paper comic-dots dark:bg-zinc-950 text-black dark:text-white pb-20 pt-10 relative">
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-
-                <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-end mb-12 relative">
+        <div className="relative min-h-screen bg-zn-paper pb-20 pt-10 text-black comic-dots dark:bg-zinc-950 dark:text-white">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+                <div className="relative mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
                     <EasterDecorations pageId="games" />
                     <div>
-                        <h1 className="text-4xl md:text-6xl font-black uppercase tracking-wider mb-4 text-black dark:text-white font-display flex items-center gap-4">
-                            <Gamepad2 className="w-10 h-10 md:w-14 md:h-14 text-zn-hot" />
+                        <h1 className="flex items-center gap-4 font-display text-4xl font-black uppercase tracking-wider text-black dark:text-white md:text-6xl">
+                            <Gamepad2 className="h-10 w-10 text-zn-hot md:h-14 md:w-14" />
                             zNews ИГРИ
                         </h1>
-                        <p className="text-zn-comic-black dark:text-zinc-200 font-semibold text-lg max-w-2xl bg-white dark:bg-zinc-900 p-3 border-2 border-black dark:border-zinc-700 shadow-comic dark:shadow-none transform -rotate-1">
-                            Тренирай ума си с ежедневни пъзели и новинарски тестове. Нови предизвикателства всяка сутрин!
+                        <p className="mt-4 max-w-2xl -rotate-1 border-2 border-black bg-white p-3 text-lg font-semibold text-zn-comic-black shadow-comic dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:shadow-none">
+                            Тренирай ума си с ежедневни пъзели и аркадни рундове. Избери следващото предизвикателство и следи как върви денят ти.
                         </p>
                     </div>
                 </div>
 
                 {loading ? (
-                    <div className="flex justify-center items-center py-20">
-                        <Loader2 className="w-10 h-10 animate-spin text-zn-hot" />
+                    <div className="flex items-center justify-center py-20">
+                        <Loader2 className="h-10 w-10 animate-spin text-zn-hot" />
                     </div>
                 ) : decoratedGames.length === 0 ? (
-                    <div className="text-center py-20 bg-white dark:bg-zinc-900 border-4 border-black dark:border-zinc-700 shadow-comic dark:shadow-none transform rotate-1">
-                        <p className="text-zn-comic-black dark:text-white font-display text-2xl uppercase tracking-widest">В момента няма активни игри.</p>
+                    <div className="rotate-1 border-4 border-black bg-white py-20 text-center shadow-comic dark:border-zinc-700 dark:bg-zinc-900 dark:shadow-none">
+                        <p className="font-display text-2xl font-black uppercase tracking-widest text-zn-comic-black dark:text-white">В момента няма активни игри.</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
-                        {decoratedGames.map(game => (
-                            <GamesHubCard
-                                key={game.id}
-                                game={game}
-                                progress={game.dailyProgress}
-                                streak={getGameStreak(profile, game.slug)}
+                    <div className="space-y-8">
+                        <GamesProgressBar games={decoratedGames} />
+
+                        <section className="comic-panel comic-dots space-y-4 bg-white p-4 dark:bg-zinc-900 md:p-5">
+                            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                    <p className="comic-kicker mb-2">Избери ритъм</p>
+                                    <h2 className="text-2xl font-display font-black uppercase tracking-[0.02em] text-black dark:text-white">Прегледай целия аркаден каталог</h2>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {GAME_GROUPS.map((group) => {
+                                        const isActive = filter === group.key;
+                                        return (
+                                            <button
+                                                key={group.key}
+                                                type="button"
+                                                onClick={() => setFilter(group.key)}
+                                                className={`border-3 px-4 py-2 font-display text-sm font-black uppercase tracking-[0.18em] transition-all ${
+                                                    isActive
+                                                        ? 'border-black bg-zn-purple text-white shadow-comic dark:border-zinc-700 dark:shadow-none'
+                                                        : 'border-black bg-white text-zn-comic-black shadow-comic hover:-translate-y-0.5 hover:bg-zn-bg dark:border-zinc-700 dark:bg-zinc-950 dark:text-white dark:shadow-none dark:hover:bg-zinc-800'
+                                                }`}
+                                                aria-pressed={isActive}
+                                            >
+                                                {group.label} ({countsByFilter[group.key] || 0})
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </section>
+
+                        {filter === 'all' && firstUnplayed && (
+                            <GamesSpotlightCard
+                                game={firstUnplayed}
+                                progress={firstUnplayed.dailyProgress}
+                                streak={firstUnplayed.streak}
                             />
-                        ))}
+                        )}
+
+                        {(filter === 'all' || filter === 'puzzles') && (
+                            <GamesSection title="Пъзели" variant="purple" games={puzzleGames} />
+                        )}
+
+                        {(filter === 'all' || filter === 'arcade') && (
+                            <GamesSection title="Аркадни" variant="gold" games={arcadeGames} />
+                        )}
                     </div>
                 )}
             </div>

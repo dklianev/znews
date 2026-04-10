@@ -1,36 +1,22 @@
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Flame } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Flame } from 'lucide-react';
 import { getGameIconComponent } from '../../utils/gameIcons';
-import { getGameHubDescription } from '../../utils/gamesCatalog';
+import {
+    getGameHubDescription,
+    getGameProgressState,
+    getGameStripeClass,
+    getGameThemeVariant,
+} from '../../utils/gamesCatalog';
 
 export default function GamesHubCard({ game, progress, streak }) {
     const Icon = getGameIconComponent(game.icon);
     const gameDescription = getGameHubDescription(game);
-    const gameStatus = progress?.gameStatus || '';
-    const isPlayedToday = Boolean(progress) && gameStatus !== 'playing';
-    const isWonToday = gameStatus === 'won';
-    const hasActiveStreak = Number(streak?.currentStreak) > 0;
-
-    const themeVariant = {
-        green: 'eco',
-        indigo: 'underground',
-        orange: 'hot',
-        purple: 'underground',
-        default: 'front'
-    }[game.theme] || 'front';
-
-    const stripeColors = {
-        green: 'from-emerald-500 to-emerald-700',
-        indigo: 'from-indigo-600 to-zn-navy',
-        orange: 'from-zn-hot to-zn-orange',
-        purple: 'from-zn-purple to-zn-purple-dark',
-        default: 'from-zinc-700 to-zinc-900'
-    };
-    const stripeClass = stripeColors[game.theme] || stripeColors.default;
+    const { isPlayedToday, isWonToday, hasActiveStreak } = getGameProgressState(progress, streak);
+    const themeVariant = getGameThemeVariant(game);
+    const stripeClass = getGameStripeClass(game);
 
     return (
-        <motion.div whileHover={{ y: -4, rotate: -1 }} className={`group comic-latest-card comic-panel comic-dots bg-white dark:bg-zinc-900 relative block flex flex-col h-full overflow-visible comic-card-variant-${themeVariant}`}>
+        <div className={`group comic-latest-card comic-panel comic-dots comic-panel-hover bg-white dark:bg-zinc-900 relative block flex flex-col h-full overflow-visible comic-card-variant-${themeVariant}`}>
             <div className={`absolute inset-x-0 top-0 h-2 bg-gradient-to-r ${stripeClass}`} />
 
             <span className="comic-card-tape comic-card-tape-right" />
@@ -71,7 +57,7 @@ export default function GamesHubCard({ game, progress, streak }) {
                     {isPlayedToday ? 'ВИЖ РЕЗУЛТАТА' : 'ИГРАЙ СЕГА'}
                 </Link>
             </div>
-        </motion.div>
+        </div>
     );
 }
 

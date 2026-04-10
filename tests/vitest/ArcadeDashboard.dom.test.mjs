@@ -5,8 +5,8 @@ import { click, flushEffects, installStorageStub, renderIntoBody, unmountRoot } 
 const loadScopedGameProgress = vi.fn();
 const saveScopedGameProgress = vi.fn();
 const loadGamesCatalog = vi.fn(async () => {});
-const getGameStreak = vi.fn(() => 2);
-const loadGameProfile = vi.fn(() => ({ streaks: {} }));
+const getGameStreak = vi.fn(() => ({ currentStreak: 0 }));
+const loadGameProfile = vi.fn(() => ({ streaksByGame: {} }));
 const loadGameProgress = vi.fn(() => ({ gameStatus: 'won' }));
 
 let publicDataState = {};
@@ -32,10 +32,6 @@ vi.mock('../../src/components/games/tetris/TetrisBoard', () => ({
 
 vi.mock('../../src/components/games/tetris/TetrisPreview', () => ({
   default: () => createElement('div', { 'data-testid': 'tetris-preview' }, 'preview'),
-}));
-
-vi.mock('../../src/components/games/GamesHubCard', () => ({
-  default: ({ game, progress, streak }) => createElement('article', { 'data-testid': `game-card-${game.slug}` }, `${game.title}-${progress?.gameStatus}-${streak}`),
 }));
 
 vi.mock('react-router-dom', () => ({
@@ -90,8 +86,15 @@ describe('ArcadeDashboard', () => {
   });
 
   it('loads the games hub and decorates cards with daily progress and streaks', async () => {
+    loadGameProgress.mockImplementation((slug) => (slug === 'word' ? { gameStatus: 'won' } : null));
+    getGameStreak.mockImplementation((_profile, slug) => (slug === 'word'
+      ? { currentStreak: 2 }
+      : { currentStreak: 0 }));
     publicDataState = {
-      games: [{ id: 1, slug: 'word', title: '?????? ??????' }],
+      games: [
+        { id: 1, slug: 'word', title: 'Намери точната дума', icon: 'Type', theme: 'green', type: 'word', sortOrder: 1, description: 'Описание' },
+        { id: 2, slug: 'tetris', title: 'Тетрис', icon: 'Blocks', theme: 'purple', type: 'tetris', sortOrder: 2, description: 'Описание' },
+      ],
       publicSectionStatus: { games: 'idle' },
       loadGamesCatalog,
     };
@@ -100,6 +103,15 @@ describe('ArcadeDashboard', () => {
     await flushEffects();
 
     expect(loadGamesCatalog).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('[data-testid="game-card-word"]')?.textContent).toContain('won-2');
+    expect(container.textContent).toContain('1/2 завършени днес');
+    expect(container.textContent).toContain('Следващо предизвикателство');
+    expect(container.textContent).toContain('Пъзели');
+    expect(container.textContent).toContain('Аркадни');
+
+    const arcadeFilter = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Аркадни (1)'));
+    await click(arcadeFilter);
+
+    expect(container.textContent).not.toContain('Следващо предизвикателство');
+    expect(container.textContent).toContain('Тетрис');
   });
 });
