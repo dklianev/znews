@@ -10,6 +10,7 @@ const runtimeRoot = path.join(repoRoot, '.smoke-safe-runtime');
 const serverPort = 3001;
 const baseUrl = `http://127.0.0.1:${serverPort}`;
 const smokeSession = 'zemun-safe-smoke';
+const browserSnapshotTimeoutMs = process.env.CI ? 20000 : 12000;
 
 function getBin(name) {
   return process.platform === 'win32' ? `${name}.cmd` : name;
@@ -610,6 +611,30 @@ async function runBrowserSmoke() {
     return '';
   }
 
+  function findSnapshotRefContaining(snapshotText, role, labelFragment) {
+    const rolePattern = new RegExp(`-\\s+${escapeRegExp(role)}\\b`, 'u');
+    const fragment = String(labelFragment || '').trim();
+
+    for (const line of String(snapshotText || '').split(/\r?\n/)) {
+      if (!rolePattern.test(line) || !line.includes(fragment)) continue;
+      const refMatch = line.match(/\[ref=(e\d+)\]/);
+      if (refMatch) return refMatch[1];
+    }
+
+    return '';
+  }
+
+  function hasSnapshotEntry(snapshotText, role, labelFragment, extraPattern = null) {
+    const rolePattern = new RegExp(`-\\s+${escapeRegExp(role)}\\b`, 'u');
+    const fragment = String(labelFragment || '').trim();
+
+    return String(snapshotText || '').split(/\r?\n/).some((line) => (
+      rolePattern.test(line)
+      && line.includes(fragment)
+      && (!extraPattern || extraPattern.test(line))
+    ));
+  }
+
   function requireSnapshotRef(snapshotText, role, label, contextLabel) {
     const ref = findSnapshotRef(snapshotText, role, label);
     if (ref) return ref;
@@ -669,9 +694,9 @@ async function runBrowserSmoke() {
     });
     let tiplineSnapshot = await waitForSnapshot(
       (snapshot) => snapshot.url === '/tipline' && snapshot.text.includes('Изпрати сигнала'),
-      { label: 'tipline form' },
+      { label: 'tipline form', timeoutMs: browserSnapshotTimeoutMs },
     );
-    if (!tiplineSnapshot.text.includes('button "Изпрати сигнала" [disabled]')) {
+    if (!hasSnapshotEntry(tiplineSnapshot.text, 'button', 'Изпрати сигнала', /\[disabled\]/u)) {
       throw new Error('Expected the tipline submit button to stay disabled before any text or image is provided.');
     }
     const descriptionRef = requireSnapshotRef(tiplineSnapshot.text, 'textbox', 'Описание на сигнала', 'tipline validation state');
@@ -681,7 +706,7 @@ async function runBrowserSmoke() {
     await clickSnapshotRef(submitRef, 'tipline submit after fill');
     await waitForSnapshot(
       (snapshot) => snapshot.url === '/tipline' && snapshot.text.includes('Сигналът е предаден!'),
-      { label: 'tipline success state' },
+      { label: 'tipline success state', timeoutMs: browserSnapshotTimeoutMs },
     );
     console.log('[smoke:safe] PASS /tipline -> validation and submit flow');
 
@@ -691,16 +716,22 @@ async function runBrowserSmoke() {
       stderrPrefix: '[smoke:browser]',
     });
     let quizSnapshot = await waitForSnapshot(
-      (snapshot) => snapshot.url === '/games/quiz' && snapshot.text.includes('Играй'),
-      { label: 'quiz intro screen' },
+      (snapshot) => snapshot.url === '/games/quiz' && Boolean(findSnapshotRef(snapshot.text, 'button', 'Играй')),
+      { label: 'quiz intro screen', timeoutMs: browserSnapshotTimeoutMs },
     );
     const startRef = requireSnapshotRef(quizSnapshot.text, 'button', 'Играй', 'quiz intro screen');
     await clickSnapshotRef(startRef, 'quiz start');
     quizSnapshot = await waitForSnapshot(
-      (snapshot) => snapshot.url === '/games/quiz' && snapshot.text.includes('50:50') && /Въпрос\s+1(?:\/|\b)/u.test(snapshot.text),
-      { label: 'quiz first question state' },
+      (snapshot) => (
+        snapshot.url === '/games/quiz'
+        && Boolean(findSnapshotRefContaining(snapshot.text, 'button', '50:50'))
+        && Boolean(findSnapshotRefContaining(snapshot.text, 'button', 'Публиката'))
+        && Boolean(findSnapshotRefContaining(snapshot.text, 'button', 'Приятел'))
+        && /Въпрос\s+1(?:\/|\b)/u.test(snapshot.text)
+      ),
+      { label: 'quiz first question state', timeoutMs: browserSnapshotTimeoutMs },
     );
-    if (!quizSnapshot.text.includes('50:50')) {
+    if (!findSnapshotRefContaining(quizSnapshot.text, 'button', '50:50')) {
       throw new Error('Quiz lifelines did not render after starting the game.');
     }
     console.log('[smoke:safe] PASS /games/quiz -> start flow');
