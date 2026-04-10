@@ -121,12 +121,17 @@ const { default: ArticlePage } = await import('../../src/pages/ArticlePage.jsx')
 describe('ArticlePage', () => {
   let container;
   let root;
+  const originalUserAgent = window.navigator.userAgent;
 
   afterEach(async () => {
     incrementArticleView.mockClear();
     getById.mockClear();
     submitContactMessage.mockClear();
     getPublishedRightOfReply.mockClear();
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value: originalUserAgent,
+    });
     if (root) {
       await act(async () => {
         root.unmount();
@@ -210,5 +215,43 @@ describe('ArticlePage', () => {
     const replyLink = container.querySelector('a[href="/article/91"]');
     expect(replyLink).not.toBeNull();
     expect(replyLink.getAttribute('aria-label')).toContain('Отговор на засегнатата страна');
+  });
+
+  it('shows the CEF YouTube fallback text for inline article embeds', async () => {
+    Object.defineProperty(window.navigator, 'userAgent', {
+      configurable: true,
+      value: 'CitizenFX/1.0 Chrome/103.0.0.0',
+    });
+
+    getById.mockResolvedValueOnce({
+      id: 27,
+      title: 'Статия с вградено видео',
+      excerpt: 'Тест за fallback',
+      content: '<p>Преди видеото</p><iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" width="100%" height="400" frameborder="0" allowfullscreen="true"></iframe><p>След видеото</p>',
+      category: 'crime',
+      authorId: 7,
+      date: '2026-04-02',
+      readTime: 4,
+      views: 12,
+      image: '/uploads/test.jpg',
+      reactions: undefined,
+      tags: ['test'],
+      status: 'published',
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root.render(createElement(ArticlePage));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('Видео плейърът е недостъпен');
+    expect(container.textContent).toContain('YouTube не се поддържа тук.');
+    expect(container.textContent).toContain('znews.live/article/27');
+    expect(container.querySelector('.article-body iframe')).toBeNull();
   });
 });

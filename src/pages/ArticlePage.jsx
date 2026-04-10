@@ -18,6 +18,10 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import ArticleReactions from '../components/ArticleReactions';
 import EasterDecorations from '../components/seasonal/EasterDecorations';
 import { formatNewsDate } from '../utils/newsDate';
+import {
+  isCefYouTubeFallbackEnvironment,
+  replaceInlineYouTubeIframesWithFallback,
+} from '../utils/youtubeEmbeds';
 
 const categoryColors = {
   crime: 'bg-zn-purple text-white',
@@ -351,6 +355,10 @@ export default function ArticlePage() {
       const doc = parser.parseFromString(`<div id="article-root">${article.content}</div>`, 'text/html');
       const root = doc.getElementById('article-root');
       if (!root) return fallback;
+
+      if (isCefYouTubeFallbackEnvironment()) {
+        replaceInlineYouTubeIframesWithFallback(root, article.id);
+      }
 
       const usedIds = new Map();
       const headings = [];
@@ -898,6 +906,7 @@ export default function ArticlePage() {
                 url={article.youtubeUrl}
                 title={article.title}
                 thumbnailUrl={article.image}
+                articleId={article.id}
                 className="relative z-[2]"
               />
             ) : (

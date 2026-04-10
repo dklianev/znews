@@ -1,36 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Play, VideoOff, ExternalLink } from 'lucide-react';
+import {
+    extractYouTubeId,
+    getYouTubePosterUrl,
+    getYouTubeThumbnailAlt,
+    getYouTubeUnavailableMessageParts,
+    isCefYouTubeFallbackEnvironment,
+} from '../utils/youtubeEmbeds';
 
-export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' }) {
+export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '', articleId = null }) {
     const [isPlaying, setIsPlaying] = useState(false);
-    const [isCEF, setIsCEF] = useState(false);
-
-    useEffect(() => {
-        // Detect if we are running inside FiveM CEF or standard Chrome 103 CEF
-        if (typeof navigator !== 'undefined') {
-            const ua = navigator.userAgent;
-            if (ua.includes('CitizenFX') || ua.includes('Chrome/103.0')) {
-                setIsCEF(true);
-            }
-        }
-    }, []);
-
-    // Extract Video ID
-    const getYouTubeId = (url) => {
-        if (!url) return null;
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-        const match = url.match(regExp);
-        return (match && match[2].length === 11) ? match[2] : null;
-    };
-
-    const videoId = getYouTubeId(url);
+    const isCEF = isCefYouTubeFallbackEnvironment();
+    const videoId = extractYouTubeId(url);
     const safeTitle = title || 'Видео';
-    const thumbnailAlt = title ? `Миниатюра на видеото ${title}` : 'Миниатюра на видеото';
+    const thumbnailAlt = getYouTubeThumbnailAlt(title);
+    const unavailableMessage = getYouTubeUnavailableMessageParts(articleId);
 
     if (!videoId) return null;
 
     // If we don't have a poster image, use the default maxresdefault from youtube
-    const posterUrl = thumbnailUrl || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    const posterUrl = getYouTubePosterUrl(videoId, thumbnailUrl);
 
     if (isCEF) {
         return (
@@ -38,8 +27,12 @@ export default function YouTubeEmbed({ url, title, thumbnailUrl, className = '' 
                 <img src={posterUrl} alt={thumbnailAlt} className="absolute inset-0 w-full h-full object-cover opacity-20" loading="lazy" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10">
                     <VideoOff className="w-12 h-12 text-zinc-500 mb-3" />
-                    <p className="text-zn-hot font-display text-2xl uppercase tracking-wide mb-1 drop-shadow-md">Видео плейърът е недостъпен</p>
-                    <p className="text-white/80 text-sm max-w-sm drop-shadow">Поради ограничения на устройствата, закупени от DigitalDen, YouTube не се поддържа тук. Моля, отворете <span className="font-bold text-white">znews.live/article/{(typeof window !== 'undefined' && window.location.pathname.split('/').pop()) || ''}</span> от друг браузър.</p>
+                    <p className="text-zn-hot font-display text-2xl uppercase tracking-wide mb-1 drop-shadow-md">{unavailableMessage.heading}</p>
+                    <p className="text-white/80 text-sm max-w-sm drop-shadow">
+                        {unavailableMessage.prefix}{' '}
+                        <span className="font-bold text-white">{unavailableMessage.articlePath}</span>{' '}
+                        {unavailableMessage.suffix}
+                    </p>
                 </div>
             </div>
         );
