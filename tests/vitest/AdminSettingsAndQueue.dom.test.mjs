@@ -128,6 +128,7 @@ describe('AdminSettingsAndQueue', () => {
   let container;
 
   afterEach(async () => {
+    vi.useRealTimers();
     saveSiteSettings.mockClear();
     forceRefreshHomepageCache.mockClear();
     loadSiteSettingsRevisions.mockClear();
@@ -325,6 +326,8 @@ describe('AdminSettingsAndQueue', () => {
   });
 
   it('hydrates editorial queue filters from the URL and syncs search updates', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-09T12:00:00.000Z'));
     searchParamsState = 'tab=today&category=crime&q=%D1%87%D0%B5%D1%80';
     publicDataState = {
       articles: [
