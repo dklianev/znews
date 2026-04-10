@@ -56,6 +56,7 @@ export function registerClassifiedRoutes(app, deps) {
     hasShareCardObject: hasArticleShareCardObject,
     imageMimeToExt,
     invalidateCacheTags,
+    listVipClassifieds,
     loadSharp,
     nextNumericId,
     normalizeText,
@@ -608,12 +609,7 @@ export function registerClassifiedRoutes(app, deps) {
   // ─── Public: VIP widget (latest 3 VIP classifieds, MUST be before /:id) ───
   app.get('/api/classifieds/vip-widget', cacheMiddleware, async (_req, res) => {
     res.setCacheTags?.(['classifieds']);
-    const now = new Date();
-    const items = await Classified.find({
-      status: 'active',
-      tier: 'vip',
-      expiresAt: { $gt: now },
-    }).select(PUBLIC_EXCLUDE).sort({ bumpedAt: -1, approvedAt: -1, id: -1 }).limit(3).lean();
+    const items = await listVipClassifieds();
     res.json(items);
   });
 

@@ -91,6 +91,7 @@ import { createSettingsHelpers } from './services/settingsHelpersService.js';
 import { createArticlePushHelpers } from './services/articlePushHelpersService.js';
 import { createDocumentHelpers } from './services/documentHelpersService.js';
 import { createGamesCatalogService } from './services/gamesCatalogService.js';
+import { createClassifiedHelpersService } from './services/classifiedHelpersService.js';
 import { createAccessHelpers } from './services/accessHelpersService.js';
 import { createAuthTokenHelpers } from './services/authTokenHelpersService.js';
 import { createAuthSessionHelpers } from './services/authSessionHelpersService.js';
@@ -1628,6 +1629,12 @@ const {
   stripDocumentMetadata,
 });
 
+const {
+  listVipClassifieds,
+} = createClassifiedHelpersService({
+  Classified,
+});
+
 const adsRouter = createAdsRouter({
   Ad,
   AuditLog,
@@ -1889,6 +1896,7 @@ registerPublicFeedRoutes(app, {
   hasPermissionForSection,
   listPublicAds,
   listPublicGames,
+  listVipClassifieds,
   parseCollectionPagination,
   parsePositiveInt,
   publicError,
@@ -2063,6 +2071,7 @@ registerClassifiedRoutes(app, {
   getTrustedClientIp,
   imageMimeToExt,
   invalidateCacheTags,
+  listVipClassifieds,
   loadSharp,
   nextNumericId,
   normalizeText,

@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import { Siren } from 'lucide-react';
-import { motion } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
 
 const dangerColors = {
@@ -16,10 +15,7 @@ export default memo(function MostWanted() {
   if (safeWanted.length === 0) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.4, delay: 0.2 }}
+    <div
       className="newspaper-page comic-panel-red p-5 pt-6 relative comic-dots comic-sidebar-widget overflow-visible"
       style={{ '--widget-tilt': '0.35deg' }}
     >
@@ -38,11 +34,8 @@ export default memo(function MostWanted() {
 
       <div className="space-y-1 relative z-[2]">
         {safeWanted.map((person, index) => (
-          <motion.div
+          <div
             key={person.id}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.25 + index * 0.1 }}
             className={`comic-sidebar-row flex items-start gap-3 py-3 px-2 mb-2 last:mb-0 hover:bg-zn-hot/5 transition-all duration-200 group ${
               index === 0 ? 'bg-zn-hot/5 border-l-3 border-l-zn-hot pl-3' : ''
             }`}
@@ -66,7 +59,7 @@ export default memo(function MostWanted() {
                 </span>
               </div>
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
 
@@ -75,6 +68,6 @@ export default memo(function MostWanted() {
           Информация: <span className="text-zn-hot text-xs">911</span>
         </p>
       </div>
-    </motion.div>
+    </div>
   );
 })

@@ -50,6 +50,7 @@ export function registerPublicFeedRoutes(app, deps) {
     hasPermissionForSection,
     listPublicAds,
     listPublicGames,
+    listVipClassifieds,
     parseCollectionPagination,
     parsePositiveInt,
     publicError,
@@ -78,6 +79,7 @@ export function registerPublicFeedRoutes(app, deps) {
       wanted: [],
       polls: [],
       games: [],
+      vipClassifieds: [],
     };
 
     let heroSettings = DEFAULT_HERO_SETTINGS;
@@ -107,6 +109,7 @@ export function registerPublicFeedRoutes(app, deps) {
       wanted: Wanted.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       polls: Poll.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       games: listPublicGames(),
+      vipClassifieds: listVipClassifieds(),
     };
 
     const entries = Object.entries(tasks);
@@ -132,6 +135,7 @@ export function registerPublicFeedRoutes(app, deps) {
     if (!Array.isArray(payload.wanted)) payload.wanted = [];
     if (!Array.isArray(payload.polls)) payload.polls = [];
     if (!Array.isArray(payload.games)) payload.games = [];
+    if (!Array.isArray(payload.vipClassifieds)) payload.vipClassifieds = [];
     payload.totalArticles = Number.isInteger(payload.totalArticles) ? payload.totalArticles : 0;
 
     if (payload.articleCandidates.length === 0) {
@@ -175,6 +179,7 @@ export function registerPublicFeedRoutes(app, deps) {
       wanted: payload.wanted,
       polls: payload.polls,
       games: payload.games,
+      vipClassifieds: payload.vipClassifieds,
       ...(Object.keys(errors).length ? { errors } : {}),
     };
     if (!compactPayload) responsePayload.articles = articlePool;

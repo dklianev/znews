@@ -164,15 +164,14 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                 <Link to={`/article/${article.id}`} prefetch="intent" className="block text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
                     <motion.span
                         initial={{ opacity: 0, scale: 0.96, y: 6 }}
-                        animate={{ opacity: 1, scale: [1, 1.03, 1], y: [0, -2, 0] }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
                         transition={{
-                            opacity: { duration: 0.35, ease: 'easeOut' },
-                            scale: { duration: 2.1, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut' },
-                            y: { duration: 2.1, repeat: Infinity, repeatType: 'loop', ease: 'easeInOut' }
+                            duration: 0.35,
+                            ease: 'easeOut',
                         }}
                         whileHover={{ scale: 1.06, y: -3 }}
-                        className="inline-block section-header-red text-3xl md:text-5xl cursor-pointer tracking-wider"
-                        style={{ textShadow: '3px 3px 0 rgba(153,8,19,0.3), 5px 5px 0 rgba(0,0,0,0.1)' }}
+                        className="inline-block section-header-red text-2xl md:text-4xl cursor-pointer tracking-[0.12em]"
+                        style={{ textShadow: '2px 2px 0 rgba(153,8,19,0.22), 4px 4px 0 rgba(0,0,0,0.08)' }}
                     >
                         {ctaLabel}
                     </motion.span>

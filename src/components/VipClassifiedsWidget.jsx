@@ -1,20 +1,12 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Star, DollarSign, Phone, Tag, ArrowRight } from 'lucide-react';
+import { Star, DollarSign, ArrowRight } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 
 export default function VipClassifiedsWidget() {
-  const { loadVipClassifieds } = usePublicData();
-  const [items, setItems] = useState([]);
-  const [loaded, setLoaded] = useState(false);
+  const { vipClassifieds } = usePublicData();
+  const items = Array.isArray(vipClassifieds) ? vipClassifieds : [];
 
-  useEffect(() => {
-    loadVipClassifieds()
-      .then(data => { setItems(Array.isArray(data) ? data : []); setLoaded(true); })
-      .catch(() => setLoaded(true));
-  }, [loadVipClassifieds]);
-
-  if (!loaded || items.length === 0) return null;
+  if (items.length === 0) return null;
 
   return (
     <div className="comic-panel comic-dots p-5 relative">

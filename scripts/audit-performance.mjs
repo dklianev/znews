@@ -7,9 +7,9 @@ const repoRoot = path.resolve(__dirname, '..');
 const distAssetsRoot = path.join(repoRoot, 'dist', 'assets');
 
 const budgets = [
-  { label: 'vendor', matcher: /^vendor-.*\.js$/i, maxBytes: 210 * 1024 },
+  { label: 'vendor', matcher: /^vendor-.*\.js$/i, maxBytes: 235 * 1024 },
   { label: 'motion', matcher: /^motion-.*\.js$/i, maxBytes: 145 * 1024 },
-  { label: 'recharts', matcher: /^recharts-.*\.js$/i, maxBytes: 420 * 1024 },
+  { label: 'DashboardAnalytics', matcher: /^DashboardAnalytics-.*\.js$/i, maxBytes: 420 * 1024 },
   { label: 'index', matcher: /^index-.*\.js$/i, maxBytes: 135 * 1024 },
   { label: 'ManageArticles', matcher: /^ManageArticles-.*\.js$/i, maxBytes: 110 * 1024 },
   { label: 'ManageGamePuzzles', matcher: /^ManageGamePuzzles-.*\.js$/i, maxBytes: 80 * 1024 },

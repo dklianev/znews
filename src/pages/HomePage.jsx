@@ -1,10 +1,6 @@
-import { useMemo } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import ArticleCard from '../components/ArticleCard';
-import TrendingSidebar from '../components/TrendingSidebar';
-import VipClassifiedsWidget from '../components/VipClassifiedsWidget';
-import MostWanted from '../components/MostWanted';
-import PollWidget from '../components/PollWidget';
 import AdSlot from '../components/ads/AdSlot';
 import { usePublicData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
@@ -15,7 +11,6 @@ import { getComicCardStyle } from '../utils/comicCardDesign';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { homeCopy } from '../content/uiCopy';
 import { buildHomepageSections } from '../../shared/homepageSelectors.js';
-import ErrorBoundary from '../components/ErrorBoundary';
 import GamesDailyStatus from '../components/games/GamesDailyStatus';
 import EasterDecorations from '../components/seasonal/EasterDecorations';
 import { formatNewsDate } from '../utils/newsDate';
@@ -42,6 +37,8 @@ const LATEST_STICKER_FALLBACKS = [
   homeCopy.latestFourthSticker,
   homeCopy.latestFifthSticker,
 ];
+const QUICK_CATEGORY_PREVIEW_COUNT = 8;
+const HomeSidebarRail = lazy(() => import('../components/HomeSidebarRail'));
 
 function formatArticleDateLabel(article) {
   if (article?.publishAt) {
@@ -148,6 +145,25 @@ function HomePageSkeleton() {
   );
 }
 
+function SidebarPlaceholder() {
+  return (
+    <div className="space-y-5" aria-hidden="true">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="comic-panel comic-dots bg-white/85 dark:bg-slate-900/80 p-5 animate-pulse"
+        >
+          <div className="h-4 w-28 bg-zn-text/10 rounded mb-4" />
+          <div className="space-y-3">
+            <div className="h-16 bg-zn-text/10 rounded" />
+            <div className="h-16 bg-zn-text/10 rounded" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SectionActionLink({ to, label, mobile = false }) {
   const className = mobile
     ? 'md:hidden mt-4 inline-flex w-full items-center justify-center gap-1.5 border-3 border-[#1C1428] bg-white px-4 py-3 font-display text-xs font-black uppercase tracking-[0.16em] text-zn-text shadow-[4px_4px_0_#1C1428] transition-all duration-200 hover:bg-zn-purple hover:text-white'
@@ -164,6 +180,7 @@ function SectionActionLink({ to, label, mobile = false }) {
 export default function HomePage() {
   const { articles, ads, categories, heroSettings, siteSettings, loading, loadError, refresh, homepage } = usePublicData();
   const layoutPresets = siteSettings?.layoutPresets || {};
+  const [showAllQuickCategories, setShowAllQuickCategories] = useState(false);
 
   useDocumentTitle();
 
@@ -334,6 +351,10 @@ export default function HomePage() {
       heroSiblings,
     };
   }, [articles, ads, categories, heroSettings, siteSettings, homepage]);
+  const hasExpandableQuickCategories = quickCategoryLinks.length > QUICK_CATEGORY_PREVIEW_COUNT;
+  const visibleQuickCategoryLinks = hasExpandableQuickCategories && !showAllQuickCategories
+    ? quickCategoryLinks.slice(0, QUICK_CATEGORY_PREVIEW_COUNT)
+    : quickCategoryLinks;
 
   if (loading) {
     return <HomePageSkeleton />;
@@ -436,48 +457,53 @@ export default function HomePage() {
         <EasterDecorations pageId="homepage" />
       </section>
 
-      {/* ═══ Games Teaser ═══ */}
-      <section>
-        <GamesDailyStatus />
-      </section>
+      <div className="flex flex-col gap-6">
+        {/* ═══ Games Teaser ═══ */}
+        <section className="order-2 md:order-1">
+          <GamesDailyStatus />
+        </section>
 
-      {/* ═══ Ad ═══ */}
-      <section><AdSlot ads={ads} slot="home.top" pageType="home" /></section>
+        {/* ═══ Ad ═══ */}
+        <section className="order-3 md:order-2"><AdSlot ads={ads} slot="home.top" pageType="home" /></section>
 
-      {/* ═══ Featured — "ГОРЕЩО ОТ РЕДАКЦИЯТА" ═══ */}
-      <section>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="comic-ribbon-hot" style={{ transform: 'rotate(-0.7deg)' }}>
-            <Flame className="w-5 h-5" /> {homeCopy.featuredLabel}
+        {/* ═══ Featured — "ГОРЕЩО ОТ РЕДАКЦИЯТА" ═══ */}
+        <section className="order-1 md:order-3">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="comic-ribbon-hot" style={{ transform: 'rotate(-0.7deg)' }}>
+              <Flame className="w-5 h-5" /> {homeCopy.featuredLabel}
+            </div>
+            <div className="flex-1 h-1 bg-gradient-to-r from-zn-hot/40 to-transparent" />
           </div>
-          <div className="flex-1 h-1 bg-gradient-to-r from-zn-hot/40 to-transparent" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {featuredArticles.map((article, index) => {
-            const design = getComicCardStyle('homeFeatured', index, article, layoutPresets.homeFeatured);
-            return (
-              <ComicNewsCard
-                key={article.id}
-                article={article}
-                tilt={design.tilt}
-                variant={design.variant}
-                sticker={design.sticker}
-                stripe={design.stripe}
-              />
-            );
-          })}
-        </div>
-      </section>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {featuredArticles.map((article, index) => {
+              const design = getComicCardStyle('homeFeatured', index, article, layoutPresets.homeFeatured);
+              return (
+                <ComicNewsCard
+                  key={article.id}
+                  article={article}
+                  tilt={design.tilt}
+                  variant={design.variant}
+                  sticker={design.sticker}
+                  stripe={design.stripe}
+                />
+              );
+            })}
+          </div>
+        </section>
+      </div>
 
       {/* ═══ Sponsored / Платени публикации ═══ */}
       {sponsoredArticles.length > 0 && (
-        <section className="relative">
+        <section className="relative comic-panel bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70 dark:from-emerald-950/30 dark:via-slate-950 dark:to-emerald-900/20 p-4 md:p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="bg-emerald-600 text-white px-4 py-1.5 font-display font-black text-sm uppercase tracking-wider border-2 border-emerald-800 shadow-md flex items-center gap-2" style={{ transform: 'rotate(-0.5deg)' }}>
               💰 {homeCopy.sponsoredLabel}
             </div>
             <div className="flex-1 h-1 bg-gradient-to-r from-emerald-500/40 to-transparent" />
           </div>
+          <p className="mb-4 font-display text-[11px] font-black uppercase tracking-[0.16em] text-emerald-900/80 dark:text-emerald-200/80">
+            {homeCopy.sponsoredDisclosure}
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {sponsoredArticles.map((article, index) => {
               const design = getComicCardStyle('homeFeatured', index, article, layoutPresets.homeFeatured);
@@ -531,7 +557,7 @@ export default function HomePage() {
       {/* ═══ Quick Categories ═══ */}
       <section>
         <div className="flex flex-wrap gap-2 justify-center">
-          {quickCategoryLinks.map((cat, index) => (
+          {visibleQuickCategoryLinks.map((cat, index) => (
             <Link
               key={cat.id}
               to={cat.to}
@@ -542,6 +568,17 @@ export default function HomePage() {
             </Link>
           ))}
         </div>
+        {hasExpandableQuickCategories && (
+          <div className="mt-3 text-center">
+            <button
+              type="button"
+              onClick={() => setShowAllQuickCategories((prev) => !prev)}
+              className="inline-flex items-center gap-2 border-3 border-[#1C1428] bg-white px-4 py-2 font-display text-xs font-black uppercase tracking-[0.16em] text-zn-text shadow-[4px_4px_0_#1C1428] transition-all duration-200 hover:bg-zn-purple hover:text-white"
+            >
+              {showAllQuickCategories ? homeCopy.quickCategoriesLessLabel : homeCopy.quickCategoriesMoreLabel}
+            </button>
+          </div>
+        )}
       </section>
 
       {/* ═══ Main + Sidebar ═══ */}
@@ -767,12 +804,9 @@ export default function HomePage() {
         </div>
 
         <div className="space-y-5">
-          <ErrorBoundary fallback={null}><TrendingSidebar /></ErrorBoundary>
-          <ErrorBoundary fallback={null}><VipClassifiedsWidget /></ErrorBoundary>
-          <ErrorBoundary fallback={null}><MostWanted /></ErrorBoundary>
-          <ErrorBoundary fallback={null}><PollWidget /></ErrorBoundary>
-          <AdSlot ads={ads} slot="home.sidebar.1" pageType="home" />
-          <AdSlot ads={ads} slot="home.sidebar.2" pageType="home" />
+          <Suspense fallback={<SidebarPlaceholder />}>
+            <HomeSidebarRail ads={ads} />
+          </Suspense>
         </div>
       </div>
 

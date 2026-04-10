@@ -33,10 +33,7 @@ export default function PollWidget() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.4, delay: 0.3 }}
+    <div
       className="newspaper-page comic-panel p-5 pt-6 relative comic-dots comic-sidebar-widget overflow-visible"
       style={{ '--widget-tilt': '-0.25deg' }}
     >
@@ -98,6 +95,6 @@ export default function PollWidget() {
       <p className="text-[10px] font-display text-zn-text-dim mt-3 text-center uppercase tracking-widest font-black relative z-[2]">
         {totalVotes} гласа {hasVoted ? '· Вие гласувахте' : '· Кликнете за да гласувате'}
       </p>
-    </motion.div>
+    </div>
   );
 }

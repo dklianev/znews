@@ -55,6 +55,7 @@ export const homeCopy = {
   emptyBody: 'Провери отново след малко за нови публикации.',
   featuredLabel: 'Горещо от редакцията',
   sponsoredLabel: 'Платени публикации',
+  sponsoredDisclosure: 'Платено съдържание от партньори и рекламодатели.',
   crimeLabel: 'Криминални / подземен свят',
   latestLabel: 'Последни новини',
   latestMoreLabel: 'Още новини',
@@ -71,6 +72,8 @@ export const homeCopy = {
   latestThirdSticker: 'Радар',
   latestFourthSticker: 'Сигнал',
   latestFifthSticker: 'Ключово',
+  quickCategoriesMoreLabel: 'Още теми',
+  quickCategoriesLessLabel: 'По-малко теми',
 };
 
 export const searchCopy = {

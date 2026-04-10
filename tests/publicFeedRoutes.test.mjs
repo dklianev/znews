@@ -195,6 +195,7 @@ function createDeps(adOptionsSeen) {
       return [{ id: 1, title: 'Ad', placements: ['home.top'] }];
     },
     async listPublicGames() { return []; },
+    async listVipClassifieds() { return [{ id: 301, title: 'VIP обява' }]; },
     parseCollectionPagination() { return { shouldPaginate: false, page: 1, limit: 120, skip: 0 }; },
     parsePositiveInt(value, fallback) { return value == null ? fallback : Number.parseInt(value, 10); },
     publicError(error) { return error.message; },
@@ -221,6 +222,7 @@ describe('publicFeedRoutes', () => {
         assert.ok(Array.isArray(res.body.articlePool));
         assert.equal(Object.prototype.hasOwnProperty.call(res.body, 'articles'), false);
         assert.deepEqual(res.body.ads, [{ id: 1, title: 'Ad', placements: ['home.top'] }]);
+        assert.deepEqual(res.body.vipClassifieds, [{ id: 301, title: 'VIP обява' }]);
       }
     
       {

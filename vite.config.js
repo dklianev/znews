@@ -135,7 +135,16 @@ export default defineConfig({
         manualChunks(id) {
           const normalizedId = id.replaceAll('\\', '/');
           if (!normalizedId.includes('/node_modules/')) return undefined;
-          if (normalizedId.includes('/node_modules/recharts/')) return 'recharts';
+          if (
+            normalizedId.includes('/node_modules/react/') ||
+            normalizedId.includes('/node_modules/react-dom/') ||
+            normalizedId.includes('/node_modules/react-router/') ||
+            normalizedId.includes('/node_modules/react-router-dom/') ||
+            normalizedId.includes('/node_modules/react-is/') ||
+            normalizedId.includes('/node_modules/scheduler/')
+          ) {
+            return 'vendor';
+          }
           if (
             normalizedId.includes('/node_modules/motion/')
             || normalizedId.includes('/node_modules/motion-dom/')
@@ -144,11 +153,10 @@ export default defineConfig({
             return 'motion';
           }
           if (
-            normalizedId.includes('/node_modules/react/') ||
-            normalizedId.includes('/node_modules/react-dom/') ||
-            normalizedId.includes('/node_modules/react-router-dom/')
+            normalizedId.includes('/node_modules/recharts/')
+            || normalizedId.includes('/node_modules/d3-')
           ) {
-            return 'vendor';
+            return undefined;
           }
           return undefined;
         }

@@ -39,6 +39,10 @@ vi.mock('../../src/components/MostWanted', () => ({
   default: () => createElement('aside', { 'data-testid': 'most-wanted' }, 'wanted'),
 }));
 
+vi.mock('../../src/components/HomeSidebarRail', () => ({
+  default: ({ ads }) => createElement('aside', { 'data-testid': 'home-sidebar-rail', 'data-ad-count': Array.isArray(ads) ? ads.length : 0 }, 'sidebar-rail'),
+}));
+
 vi.mock('../../src/components/ads/AdSlot', () => ({
   default: ({ slot }) => createElement('div', { 'data-slot': slot }, slot),
 }));
@@ -71,6 +75,7 @@ vi.mock('react-router-dom', () => ({
   Link: ({ to, children, ...props }) => createElement('a', { href: to, ...props }, children),
   useNavigate: () => navigate,
   useLocation: () => locationState,
+  useOutletContext: () => null,
 }));
 
 const { default: HomePage } = await import('../../src/pages/HomePage.jsx');
@@ -113,6 +118,65 @@ describe('PublicShell', () => {
     const retryButton = container.querySelector('button');
     await click(retryButton);
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows compact quick categories and expands them on demand on the homepage', async () => {
+    const homepageArticles = Array.from({ length: 7 }, (_, index) => ({
+      id: index + 1,
+      title: `Новина ${index + 1}`,
+      excerpt: `Описание ${index + 1}`,
+      category: `cat-${(index % 3) + 1}`,
+      authorId: 1,
+      date: '2026-04-10T12:00:00.000Z',
+      views: 10 + index,
+      readTime: 4,
+    }));
+    const quickCategories = Array.from({ length: 10 }, (_, index) => ({
+      id: `cat-${index + 1}`,
+      name: `Категория ${index + 1}`,
+    }));
+
+    publicDataState = {
+      articles: homepageArticles,
+      ads: [{ id: 1 }, { id: 2 }],
+      categories: quickCategories,
+      heroSettings: {},
+      siteSettings: {
+        navbarLinks: quickCategories.map((category) => ({ to: `/category/${category.id}`, label: category.name })),
+      },
+      loading: false,
+      loadError: '',
+      refresh,
+      homepage: {
+        articlePool: homepageArticles,
+        sections: {
+          heroArticleId: 1,
+          heroPrimaryPhotoId: 1,
+          heroSiblingIds: [2, 3],
+          featuredIds: [4, 5, 6],
+          crimeIds: [],
+          breakingIds: [],
+          emergencyIds: [],
+          reportageIds: [],
+          sponsoredIds: [7],
+          latestShowcaseIds: [1, 2, 3, 4, 5],
+          latestWireIds: [6, 7],
+        },
+      },
+    };
+
+    ({ root, container } = await renderIntoBody(HomePage));
+
+    expect(container.textContent).toContain('Още теми');
+    expect(container.textContent).toContain('Платено съдържание от партньори и рекламодатели.');
+    expect(container.textContent).not.toContain('Категория 10');
+
+    const toggleButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Още теми'));
+    await click(toggleButton);
+
+    expect(container.textContent).toContain('Категория 10');
+    expect(container.textContent).toContain('По-малко теми');
+    expect(container.querySelector('[data-testid="home-sidebar-rail"]')).not.toBeNull();
   });
 
   it('records poll votes and persists them in local storage', async () => {

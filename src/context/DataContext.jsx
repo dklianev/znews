@@ -63,6 +63,7 @@ export function DataProvider({ children }) {
   const [events, setEvents] = useState([]);
   const [polls, setPolls] = useState([]);
   const [games, setGames] = useState([]);
+  const [vipClassifieds, setVipClassifieds] = useState([]);
   const [homepage, setHomepage] = useState(null);
   const [comments, setComments] = useState([]);
   const [gallery, setGallery] = useState([]);
@@ -257,6 +258,7 @@ export function DataProvider({ children }) {
       setWanted(toArray(payload?.wanted));
       setPolls(toArray(payload?.polls));
       setGames(toArray(payload?.games));
+      setVipClassifieds(toArray(payload?.vipClassifieds));
       setJobs([]);
       setCourt([]);
       setEvents([]);
@@ -287,6 +289,7 @@ export function DataProvider({ children }) {
       setEvents(hasEvents ? toArray(payload?.events) : []);
       setPolls(toArray(payload?.polls));
       setGames(hasGames ? toArray(payload?.games) : []);
+      setVipClassifieds([]);
       setComments([]);
       setGallery(hasGallery ? toArray(payload?.gallery) : []);
       syncPublicSectionStatus({
@@ -301,6 +304,7 @@ export function DataProvider({ children }) {
 
     const loadLegacyPublicData = async () => {
       setHomepage(null);
+      setVipClassifieds([]);
       const publicResultKeys = [
         'articles',
         'authors',
@@ -351,6 +355,7 @@ export function DataProvider({ children }) {
       setComments([]);
       setGallery(pick(publicResults[12], []));
       setGames(pick(publicResults[13], []));
+      setVipClassifieds([]);
       syncPublicSectionStatus({
         jobs: getSectionStatus(publicResults[8]),
         court: getSectionStatus(publicResults[9]),
@@ -497,6 +502,7 @@ export function DataProvider({ children }) {
       setComments([]);
       setTips([]);
       setTipsReady(false);
+      setVipClassifieds([]);
     }
 
     setLoading(false);
@@ -548,6 +554,7 @@ export function DataProvider({ children }) {
     setComments([]);
     setTips([]);
     setTipsReady(false);
+    setVipClassifieds([]);
     syncPublicSectionStatus(EMPTY_PUBLIC_SECTION_STATUS);
   }, []);
 
@@ -1078,7 +1085,7 @@ export function DataProvider({ children }) {
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
     polls, addPoll, updatePoll, deletePoll, votePoll,
-    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery, loadClassifieds,
+    games, vipClassifieds, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery, loadClassifieds,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     createTip, submitClassified, loadClassifiedDetail, loadClassifiedStatus, loadVipClassifieds, requestClassifiedBump, requestClassifiedRenew,
@@ -1097,7 +1104,7 @@ export function DataProvider({ children }) {
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
     polls, addPoll, updatePoll, deletePoll, votePoll,
-    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery, loadClassifieds,
+    games, vipClassifieds, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery, loadClassifieds,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     createTip, submitClassified, loadClassifiedDetail, loadClassifiedStatus, loadVipClassifieds, requestClassifiedBump, requestClassifiedRenew,
@@ -1142,7 +1149,7 @@ export function DataProvider({ children }) {
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
     polls, addPoll, updatePoll, deletePoll, votePoll,
-    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
+    games, vipClassifieds, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
@@ -1167,7 +1174,7 @@ export function DataProvider({ children }) {
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
     polls, addPoll, updatePoll, deletePoll, votePoll,
-    games, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
+    games, vipClassifieds, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
     comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
     media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,

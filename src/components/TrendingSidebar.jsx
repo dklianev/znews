@@ -1,7 +1,6 @@
 import { memo, useMemo } from 'react';
 import { TrendingUp, Eye, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { motion } from 'motion/react';
 import { usePublicData } from '../context/DataContext';
 
 const numberClasses = [
@@ -33,10 +32,7 @@ export default memo(function TrendingSidebar() {
   if (trending.length === 0) return null;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.4, delay: 0.1 }}
+    <div
       className="newspaper-page comic-panel p-5 pt-6 relative comic-dots comic-sidebar-widget overflow-visible"
       style={{ '--widget-tilt': '-0.35deg' }}
     >
@@ -55,12 +51,7 @@ export default memo(function TrendingSidebar() {
       <div className="h-1.5 bg-gradient-to-r from-zn-hot to-zn-orange mb-4 mt-2 relative z-[2]" />
       <div className="space-y-1 relative z-[2]">
         {trending.map((article, index) => (
-          <motion.div
-            key={article.id}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.15 + index * 0.08 }}
-          >
+          <div key={article.id}>
             <Link
               to={`/article/${article.id}`}
               prefetch="intent"
@@ -89,9 +80,9 @@ export default memo(function TrendingSidebar() {
                 </div>
               </div>
             </Link>
-          </motion.div>
+          </div>
         ))}
       </div>
-    </motion.div>
+    </div>
   );
 })
