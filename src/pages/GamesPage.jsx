@@ -7,7 +7,7 @@ import GamesSection from '../components/games/GamesSection';
 import GamesSpotlightCard from '../components/games/GamesSpotlightCard';
 import { getTodayStr } from '../utils/gameDate';
 import { getGameStreak, loadGameProfile, loadGameProgress } from '../utils/gameStorage';
-import { GAME_GROUPS, getGameGroup, sortGamesCatalog } from '../utils/gamesCatalog';
+import { GAME_GROUPS, getDailyGames, getGameGroup, sortGamesCatalog } from '../utils/gamesCatalog';
 
 export default function GamesPage() {
     const { games, publicSectionStatus, loadGamesCatalog } = usePublicData();
@@ -41,6 +41,7 @@ export default function GamesPage() {
 
     const puzzleGames = useMemo(() => decoratedGames.filter((game) => getGameGroup(game) === 'puzzles'), [decoratedGames]);
     const arcadeGames = useMemo(() => decoratedGames.filter((game) => getGameGroup(game) === 'arcade'), [decoratedGames]);
+    const dailyGames = useMemo(() => getDailyGames(decoratedGames), [decoratedGames]);
 
     const countsByFilter = useMemo(() => ({
         all: decoratedGames.length,
@@ -59,7 +60,7 @@ export default function GamesPage() {
                             zNews ИГРИ
                         </h1>
                         <p className="mt-4 max-w-2xl -rotate-1 border-2 border-black bg-white p-3 text-lg font-semibold text-zn-comic-black shadow-comic dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:shadow-none">
-                            Тренирай ума си с ежедневни пъзели и аркадни рундове. Избери следващото предизвикателство и следи как върви денят ти.
+                            Тренирай ума си с ежедневни пъзели и аркадни игри. Избери следващото предизвикателство и следи как върви прогресът ти.
                         </p>
                     </div>
                 </div>
@@ -74,7 +75,7 @@ export default function GamesPage() {
                     </div>
                 ) : (
                     <div className="space-y-8">
-                        <GamesProgressBar games={decoratedGames} />
+                        <GamesProgressBar games={dailyGames} />
 
                         <section className="comic-panel comic-dots space-y-4 bg-white p-4 dark:bg-zinc-900 md:p-5">
                             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">

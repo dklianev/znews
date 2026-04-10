@@ -8,21 +8,6 @@ const GAME_HUB_DESCRIPTION_BY_SLUG = Object.freeze({
   blockbust: 'Подреждай три фигури наведнъж, чисти редове и колони и трупай комбо бонуси.',
 });
 
-const GAME_SHORT_LABEL_BY_SLUG = Object.freeze({
-  word: 'Дума',
-  connections: 'Връзки',
-  quiz: 'Ерудит',
-  sudoku: 'Судоку',
-  hangman: 'Бесеница',
-  spellingbee: 'Пчела',
-  crossword: 'Кръст.',
-  tetris: 'Тетрис',
-  snake: 'Змия',
-  '2048': '2048',
-  flappybird: 'Flappy',
-  blockbust: 'ZBlast',
-});
-
 const PUZZLE_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword']);
 const ARCADE_TYPES = new Set(['tetris', 'snake', '2048', 'flappybird', 'blockbust']);
 
@@ -69,16 +54,18 @@ export function getGameGroup(game) {
   return 'puzzles';
 }
 
+export function isDailyGame(game) {
+  return PUZZLE_TYPES.has(game?.type);
+}
+
+export function getDailyGames(items) {
+  return sortGamesCatalog((Array.isArray(items) ? items : []).filter(isDailyGame));
+}
+
 export function getGameHubDescription(game) {
   const slug = String(game?.slug || '').trim().toLowerCase();
   if (GAME_HUB_DESCRIPTION_BY_SLUG[slug]) return GAME_HUB_DESCRIPTION_BY_SLUG[slug];
   return String(game?.description || '').trim();
-}
-
-export function getGameShortLabel(game) {
-  const slug = String(game?.slug || '').trim().toLowerCase();
-  if (GAME_SHORT_LABEL_BY_SLUG[slug]) return GAME_SHORT_LABEL_BY_SLUG[slug];
-  return String(game?.title || '').trim();
 }
 
 export function getGameThemeVariant(game) {

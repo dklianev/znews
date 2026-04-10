@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GAME_GROUPS, getGameGroup, getGameShortLabel } from '../../src/utils/gamesCatalog.js';
+import { GAME_GROUPS, getDailyGames, getGameGroup, isDailyGame } from '../../src/utils/gamesCatalog.js';
 
 describe('gamesCatalog helpers', () => {
   it('groups puzzle and arcade games from the existing type field', () => {
@@ -18,9 +18,18 @@ describe('gamesCatalog helpers', () => {
     ]);
   });
 
-  it('returns compact labels for progress pills', () => {
-    expect(getGameShortLabel({ slug: 'word', title: 'Намери точната дума' })).toBe('Дума');
-    expect(getGameShortLabel({ slug: 'spellingbee', title: 'Spelling Bee' })).toBe('Пчела');
-    expect(getGameShortLabel({ slug: 'custom', title: 'Свободна игра' })).toBe('Свободна игра');
+  it('flags only puzzle titles as daily games and filters out arcade entries', () => {
+    expect(isDailyGame({ type: 'word' })).toBe(true);
+    expect(isDailyGame({ type: 'crossword' })).toBe(true);
+    expect(isDailyGame({ type: 'tetris' })).toBe(false);
+
+    expect(getDailyGames([
+      { slug: 'tetris', title: 'Тетрис', type: 'tetris', sortOrder: 8 },
+      { slug: 'word', title: 'Намери точната дума', type: 'word', sortOrder: 1 },
+      { slug: 'quiz', title: 'Ерудит', type: 'quiz', sortOrder: 3 },
+    ])).toEqual([
+      { slug: 'word', title: 'Намери точната дума', type: 'word', sortOrder: 1 },
+      { slug: 'quiz', title: 'Ерудит', type: 'quiz', sortOrder: 3 },
+    ]);
   });
 });

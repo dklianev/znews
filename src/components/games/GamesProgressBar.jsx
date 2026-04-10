@@ -1,6 +1,7 @@
 import { Check, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { getGameIconComponent } from '../../utils/gameIcons';
-import { getGameShortLabel, getGameProgressState } from '../../utils/gamesCatalog';
+import { getGameProgressState } from '../../utils/gamesCatalog';
 
 export default function GamesProgressBar({ games }) {
   const safeGames = Array.isArray(games) ? games : [];
@@ -29,18 +30,20 @@ export default function GamesProgressBar({ games }) {
                 : 'border-black bg-white text-black dark:border-zinc-700 dark:bg-zinc-950 dark:text-white';
 
             return (
-              <div
+              <Link
                 key={game.slug}
-                className={`inline-flex items-center gap-2 border-3 px-3 py-2 font-display text-xs font-black uppercase tracking-[0.14em] shadow-comic dark:shadow-none ${pillClass}`}
+                to={`/games/${game.slug}`}
+                prefetch="intent"
+                className={`inline-flex items-center gap-2 border-3 px-3 py-2 font-display text-xs font-black uppercase tracking-[0.14em] shadow-comic transition-all hover:-translate-y-0.5 dark:shadow-none ${pillClass}`}
               >
                 <Icon className="h-4 w-4 shrink-0" />
-                <span>{getGameShortLabel(game)}</span>
+                <span className="max-w-[180px] leading-none">{game.title}</span>
                 {progressState.isPlayedToday ? (
                   <Check className="h-4 w-4 shrink-0" />
                 ) : (
                   <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />
                 )}
-              </div>
+              </Link>
             );
           })}
         </div>
