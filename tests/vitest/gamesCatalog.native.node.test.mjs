@@ -19,11 +19,13 @@ describe('gamesCatalog helpers', () => {
   });
 
   it('flags only puzzle titles as daily games and filters out arcade entries', () => {
-    expect(isDailyGame({ type: 'word' })).toBe(true);
-    expect(isDailyGame({ type: 'crossword' })).toBe(true);
-    expect(isDailyGame({ type: 'tetris' })).toBe(false);
+    expect(isDailyGame({ slug: 'word', type: 'word' })).toBe(true);
+    expect(isDailyGame({ slug: 'crossword', type: 'crossword' })).toBe(true);
+    expect(isDailyGame({ slug: 'sudoku', type: 'sudoku' })).toBe(false);
+    expect(isDailyGame({ slug: 'tetris', type: 'tetris' })).toBe(false);
 
     expect(getDailyGames([
+      { slug: 'sudoku', title: 'Судоку', type: 'sudoku', sortOrder: 4 },
       { slug: 'tetris', title: 'Тетрис', type: 'tetris', sortOrder: 8 },
       { slug: 'word', title: 'Намери точната дума', type: 'word', sortOrder: 1 },
       { slug: 'quiz', title: 'Ерудит', type: 'quiz', sortOrder: 3 },

@@ -10,6 +10,7 @@ const GAME_HUB_DESCRIPTION_BY_SLUG = Object.freeze({
 
 const PUZZLE_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword']);
 const ARCADE_TYPES = new Set(['tetris', 'snake', '2048', 'flappybird', 'blockbust']);
+const DAILY_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword']);
 
 export const GAME_GROUPS = Object.freeze([
   { key: 'all', label: 'Всички' },
@@ -55,7 +56,7 @@ export function getGameGroup(game) {
 }
 
 export function isDailyGame(game) {
-  return PUZZLE_TYPES.has(game?.type);
+  return DAILY_GAME_SLUGS.has(String(game?.slug || '').trim().toLowerCase());
 }
 
 export function getDailyGames(items) {
