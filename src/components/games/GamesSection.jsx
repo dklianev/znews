@@ -10,10 +10,7 @@ export default function GamesSection({ title, variant = 'purple', games }) {
     <section className="space-y-5">
       <div className="flex items-center justify-between gap-4">
         <div className="space-y-2">
-          <span className={bannerClass}>{title}</span>
-          <p className="text-sm font-display font-black uppercase tracking-[0.14em] text-zn-comic-black dark:text-zinc-300">
-            {safeGames.length} активни заглавия
-          </p>
+          <span className={bannerClass}>{title} ({safeGames.length})</span>
         </div>
       </div>
 

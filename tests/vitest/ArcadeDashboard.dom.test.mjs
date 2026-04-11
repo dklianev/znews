@@ -105,9 +105,12 @@ describe('ArcadeDashboard', () => {
 
     expect(loadGamesCatalog).toHaveBeenCalledTimes(1);
     expect(container.textContent).toContain('1/2');
-    const progressLink = container.querySelector('a[href="/games/word"][title="Намери точната дума"]');
+    const toolbarSection = container.querySelector('section');
+    const progressLink = toolbarSection?.querySelector('a[href="/games/word"]');
     expect(progressLink).toBeTruthy();
-    expect(container.querySelector('a[href="/games/tetris"][title="Тетрис"]')).toBeNull();
+    expect(progressLink.title).toContain('Намери точната дума');
+    expect(progressLink.title).toContain('Победа');
+    expect(toolbarSection?.querySelector('a[href="/games/tetris"]')).toBeNull();
     expect(container.textContent).toContain('Следващо предизвикателство');
     expect(container.textContent).toContain('Ерудит');
     expect(container.textContent).toContain('Пъзели');
@@ -141,7 +144,9 @@ describe('ArcadeDashboard', () => {
 
     expect(container.textContent).not.toContain('Следващо предизвикателство');
     expect(container.textContent).toContain('Днешните игри са приключени');
+    expect(container.textContent).toContain('2/2 отметнати');
     expect(container.textContent).toContain('Към аркадните');
+    expect(container.textContent).toContain('Бърз аркаден рунд');
 
     const arcadeCta = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Към аркадните'));
     expect(arcadeCta).toBeTruthy();

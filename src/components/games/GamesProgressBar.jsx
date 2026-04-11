@@ -21,11 +21,18 @@ export default function GamesProgressBar({ games }) {
               ? 'border-zn-hot bg-red-50 text-red-800 dark:bg-red-950/50 dark:text-red-200'
               : 'border-black bg-white text-black dark:border-zinc-600 dark:bg-zinc-900 dark:text-white';
 
+          const statusLabel = progressState.isWonToday
+            ? 'Победа'
+            : progressState.isLostToday
+              ? 'Загуба'
+              : 'Неизиграна';
+          const tooltipText = `${game.title} — ${statusLabel}`;
+
           return (
             <Link
               key={game.slug}
               to={`/games/${game.slug}`}
-              title={game.title}
+              title={tooltipText}
               className={`relative inline-flex h-9 w-9 items-center justify-center border-2 transition-all hover:-translate-y-0.5 hover:shadow-comic ${dotClass}`}
             >
               <Icon className="h-4 w-4 shrink-0" />

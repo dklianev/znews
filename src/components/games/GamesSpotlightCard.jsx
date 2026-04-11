@@ -58,7 +58,7 @@ function NextChallengeContent({ game, progress, streak }) {
   );
 }
 
-function CompletedContent({ onFilterArcade }) {
+function CompletedContent({ dailyCount, onFilterArcade }) {
   return (
     <div className="comic-panel comic-card-variant-eco comic-dots relative overflow-hidden bg-white dark:bg-zinc-900">
       <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-b from-emerald-500 to-emerald-700" />
@@ -82,7 +82,7 @@ function CompletedContent({ onFilterArcade }) {
         <div className="flex items-center gap-3 md:shrink-0">
           <div className="inline-flex items-center gap-1.5 border-2 border-emerald-600 bg-emerald-50 px-2.5 py-1.5 font-display text-[10px] font-black uppercase tracking-[0.16em] text-emerald-800 shadow-comic dark:border-emerald-500 dark:bg-emerald-950/60 dark:text-emerald-200 dark:shadow-none">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Всичко изиграно
+            {dailyCount}/{dailyCount} отметнати
           </div>
 
           <button
@@ -99,9 +99,9 @@ function CompletedContent({ onFilterArcade }) {
   );
 }
 
-export default function GamesSpotlightCard({ game, progress, streak, mode = 'next', onFilterArcade }) {
+export default function GamesSpotlightCard({ game, progress, streak, mode = 'next', dailyCount = 0, onFilterArcade }) {
   if (mode === 'complete') {
-    return <CompletedContent onFilterArcade={onFilterArcade} />;
+    return <CompletedContent dailyCount={dailyCount} onFilterArcade={onFilterArcade} />;
   }
   return <NextChallengeContent game={game} progress={progress} streak={streak} />;
 }

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Gamepad2, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Gamepad2, Loader2, Zap } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import EasterDecorations from '../components/seasonal/EasterDecorations';
 import GamesProgressBar from '../components/games/GamesProgressBar';
@@ -42,6 +42,15 @@ export default function GamesPage() {
         const gameStatus = game.dailyProgress?.gameStatus || '';
         return !game.dailyProgress || gameStatus === 'playing';
     }) || null, [dailyGames]);
+
+    const arcadeSectionRef = useRef(null);
+
+    const handleFilterArcade = useCallback(() => {
+        setFilter('arcade');
+        requestAnimationFrame(() => {
+            arcadeSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, []);
 
     const countsByFilter = useMemo(() => ({
         all: decoratedGames.length,
@@ -110,7 +119,8 @@ export default function GamesPage() {
                         {filter === 'all' && !firstUnplayed && dailyGames.length > 0 && (
                             <GamesSpotlightCard
                                 mode="complete"
-                                onFilterArcade={() => setFilter('arcade')}
+                                dailyCount={dailyGames.length}
+                                onFilterArcade={handleFilterArcade}
                             />
                         )}
 
@@ -118,9 +128,29 @@ export default function GamesPage() {
                             <GamesSection title="Пъзели" variant="purple" games={puzzleGames} />
                         )}
 
-                        {(filter === 'all' || filter === 'arcade') && (
-                            <GamesSection title="Аркадни" variant="gold" games={arcadeGames} />
+                        {filter === 'all' && arcadeGames.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={handleFilterArcade}
+                                className="comic-panel comic-panel-hover comic-dots flex w-full items-center justify-between gap-3 bg-gradient-to-r from-zn-orange/10 to-zn-gold/10 p-3 text-left dark:from-zn-orange/5 dark:to-zn-gold/5 md:p-4"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Zap className="h-5 w-5 text-zn-orange" />
+                                    <span className="font-display text-sm font-black uppercase tracking-[0.14em] text-zn-comic-black dark:text-white">
+                                        Бърз аркаден рунд
+                                    </span>
+                                </div>
+                                <span className="font-display text-xs font-black uppercase tracking-wider text-zn-text-dim dark:text-zinc-400">
+                                    {arcadeGames.length} игри →
+                                </span>
+                            </button>
                         )}
+
+                        <div ref={arcadeSectionRef}>
+                            {(filter === 'all' || filter === 'arcade') && (
+                                <GamesSection title="Аркадни" variant="gold" games={arcadeGames} />
+                            )}
+                        </div>
                     </div>
                 )}
             </div>
