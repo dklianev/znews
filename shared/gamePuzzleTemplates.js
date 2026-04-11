@@ -1,5 +1,6 @@
 import { getCrosswordEntries } from './crossword.js';
 import { analyzeSpellingBeeWords } from './spellingBee.js';
+import { STRANDS_COLS, STRANDS_ROWS } from './strands.js';
 
 const DEFAULT_WORD_LENGTH = 5;
 const DEFAULT_WORD_ATTEMPTS = 6;
@@ -98,6 +99,43 @@ const CROSSWORD_LAYOUT_PRESETS = Object.freeze([
   },
 ]);
 
+const STRANDS_SEED_PRESETS = Object.freeze([
+  {
+    difficulty: 'medium',
+    title: 'TODO Нишки: градска тема',
+    deck: 'TODO: смени мрежата, тематичните думи и спанграмата преди publish.',
+    editorNotes: 'Шаблонът е draft и използва placeholder думи. Замени целия grid, преди да го публикуваш.',
+    rows: [
+      'ЗАМЕНИ',
+      'ПРИМЕР',
+      'КЛЕТКИ',
+      'ДУМИТЕ',
+      'РЕДОВЕ',
+      'ТЕМАТА',
+      'НИШКАА',
+      'СПАНГА',
+    ],
+    spangramRow: 7,
+  },
+  {
+    difficulty: 'hard',
+    title: 'TODO Нишки: редакционен борд',
+    deck: 'TODO: подмени буквите и отговорите с истински дневен пъзел.',
+    editorNotes: 'Втори placeholder preset с пълно 48/48 покритие и една хоризонтална спанграма.',
+    rows: [
+      'ЗАМЕНИ',
+      'БОРДАА',
+      'ЗАГЛАВ',
+      'ДУМИТЕ',
+      'СЮЖЕТА',
+      'КЛЕТКИ',
+      'ПЪЗЕЛА',
+      'НИШКИТ',
+    ],
+    spangramRow: 7,
+  },
+]);
+
 export const GAME_EDITOR_GUIDES = Object.freeze({
   word: {
     title: 'Дума на деня',
@@ -181,6 +219,20 @@ export const GAME_EDITOR_GUIDES = Object.freeze({
       '1. Добави 10 въпроса (от лесни към трудни) за пълно изживяване.',
       '2. Провери всеки correctIndex и всички 4 опции.',
       '3. Публикувай едва когато въпросите и обясненията са финални.',
+    ],
+  },
+  strands: {
+    title: 'Нишки',
+    summary: 'Подготви 8x6 мрежа от кирилски букви, тематични думи и една спанграма от край до край.',
+    checklist: [
+      'Grid-ът е точно 8 реда по 6 букви и всички клетки са покрити.',
+      'Има точно една спанграма и тя стига от край до край на борда.',
+      'Payload title/deck и solution.answers са финални, без TODO placeholder-и.',
+    ],
+    workflow: [
+      '1. Попълни title, deck и буквите в мрежата през редактора.',
+      '2. Въведи всички answers през Advanced JSON preview и следи diagnostics панела.',
+      '3. Публикувай само когато coverage е 48/48, без overlap и с една валидна спанграма.',
     ],
   },
 });
@@ -367,6 +419,36 @@ function buildQuizTemplate() {
   };
 }
 
+function buildStrandsRowCells(rowIndex) {
+  return Array.from({ length: STRANDS_COLS }, (_, colIndex) => (rowIndex * STRANDS_COLS) + colIndex);
+}
+
+function buildStrandsTemplate(puzzleDate = '') {
+  const preset = pickSeed(puzzleDate, STRANDS_SEED_PRESETS);
+  const grid = Array.isArray(preset.rows) ? preset.rows.slice(0, STRANDS_ROWS) : [];
+  const answers = grid.map((word, rowIndex) => ({
+    kind: rowIndex === preset.spangramRow ? 'spangram' : 'theme',
+    word,
+    cells: buildStrandsRowCells(rowIndex),
+  }));
+
+  return {
+    difficulty: preset.difficulty || 'medium',
+    status: 'draft',
+    editorNotes: preset.editorNotes || '',
+    payload: {
+      title: preset.title || 'TODO Нишки',
+      deck: preset.deck || 'TODO: смени темата и мрежата преди publish.',
+      rows: STRANDS_ROWS,
+      cols: STRANDS_COLS,
+      grid,
+    },
+    solution: {
+      answers,
+    },
+  };
+}
+
 export function createGamePuzzleTemplate(gameSlug, puzzleDate = '') {
   let template;
   if (gameSlug === 'word') template = buildWordTemplate();
@@ -375,6 +457,7 @@ export function createGamePuzzleTemplate(gameSlug, puzzleDate = '') {
   else if (gameSlug === 'connections') template = buildConnectionsTemplate();
   else if (gameSlug === 'crossword') template = buildCrosswordTemplate(puzzleDate);
   else if (gameSlug === 'quiz') template = buildQuizTemplate();
+  else if (gameSlug === 'strands') template = buildStrandsTemplate(puzzleDate);
   else {
     throw new Error(`Unsupported game slug: ${gameSlug}`);
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createPublicGamesRouter } from '../../server/routes/publicGamesRoutes.js';
 import { chainableLean, createResponse, getRouteHandlers, runHandlers } from './helpers/routeHarness.mjs';
+import { STRANDS_TOTAL_CELLS, buildWordFromPath as buildStrandsWordFromPath, isPathValid as isStrandsPathValid, matchPathToAnswer, normalizeGrid as normalizeStrandsGrid } from '../../shared/strands.js';
 
 function createDeps(overrides = {}) {
   return {
@@ -29,7 +30,10 @@ function createDeps(overrides = {}) {
     getSpellingBeeWordValidation: () => ({ isValid: true, normalizedWord: 'ДУМА', isPangram: false }),
     getTodayGameDate: () => '2026-04-03',
     isPlaceholderGamePuzzle: () => false,
+    isStrandsPathValid,
     listPublicGames: async () => [{ slug: 'word', title: 'Дума' }],
+    matchPathToAnswer,
+    normalizeStrandsGrid,
     normalizeCrosswordSubmissionGrid: (grid) => grid,
     normalizeSpellingBeeLetter: (value) => value,
     normalizeSpellingBeeOuterLetters: (value) => value,
@@ -45,6 +49,8 @@ function createDeps(overrides = {}) {
     sanitizeStringArray: (value) => Array.isArray(value) ? value : [],
     SINGLE_CHAR_PATTERN: /^[A-ZА-Я]$/u,
     SPELLING_BEE_MIN_WORD_LENGTH: 4,
+    STRANDS_TOTAL_CELLS,
+    buildStrandsWordFromPath,
     statusAwarePublicError: (error) => error?.message || 'error',
     stripPuzzleForPublic: (puzzle) => ({ ...puzzle, public: true }),
     TEMPORARILY_UNAVAILABLE_GAME_ERROR: 'temporarily unavailable',
@@ -112,5 +118,47 @@ describe('publicGamesRoutes', () => {
       { letter: 'Б', status: 'present' },
     ]);
   });
-});
 
+  it('validates strands paths against the server-side solution', async () => {
+    const router = createPublicGamesRouter(createDeps({
+      findActivePublishedGamePuzzle: async () => ({
+        id: 13,
+        gameSlug: 'strands',
+        status: 'published',
+        puzzleDate: '2026-04-03',
+        payload: {
+          rows: 8,
+          cols: 6,
+          grid: ['АБВГДЕ', 'ЖЗИЙКЛ', 'МНОПРС', 'ТУФХЦЧ', 'ШЩЪЬЮЯ', 'АБВГДЕ', 'ЖЗИЙКЛ', 'МНОПРС'],
+        },
+        solution: {
+          answers: [
+            { kind: 'theme', word: 'АБВ', cells: [0, 1, 2] },
+            { kind: 'spangram', word: 'МНОПРС', cells: [42, 43, 44, 45, 46, 47] },
+          ],
+        },
+      }),
+      resolveGameAccess: async (_req, slug) => ({
+        slug,
+        game: { slug, type: 'strands' },
+        canManageGames: false,
+        isPubliclyAvailable: true,
+      }),
+    }));
+    const handlers = getRouteHandlers(router, 'post', '/:slug/:date/validate');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      params: { slug: 'strands', date: '2026-04-03' },
+      body: { path: [2, 1, 0] },
+    }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({
+      accepted: true,
+      kind: 'theme',
+      word: 'АБВ',
+      cells: [0, 1, 2],
+    });
+  });
+});

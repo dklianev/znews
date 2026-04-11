@@ -40,6 +40,7 @@ import { filterPublicAds, getAdRotationPool, normalizeAdFitMode, normalizeAdImag
 import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES, AD_IMPRESSION_WINDOW_MS, DEFAULT_AD_ANALYTICS_DAYS } from '../shared/adAnalytics.js';
 import { analyzeCrosswordConstruction, getCrosswordEntries, MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH } from '../shared/crossword.js';
 import { analyzeSpellingBeeWords, getSpellingBeeWordScore, getSpellingBeeWordValidation, hasCompleteSpellingBeeHive, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, normalizeSpellingBeeWord, normalizeSpellingBeeWords, SPELLING_BEE_MIN_WORD_LENGTH } from '../shared/spellingBee.js';
+import { STRANDS_COLS, STRANDS_ROWS, STRANDS_TOTAL_CELLS, analyzeCoverage as analyzeStrandsCoverage, buildWordFromPath as buildStrandsWordFromPath, doesPathSpanBoard, isPathValid as isStrandsPathValid, matchPathToAnswer, normalizeGrid as normalizeStrandsGrid } from '../shared/strands.js';
 import { filterSearchResultsByType, normalizeSearchType } from '../shared/search.js';
 import { buildSearchRegex, getSearchSuggestions, getTrendingSearches, recordSearchQuery } from './searchService.js';
 import { registerHealthRoutes } from './routes/healthRoutes.js';
@@ -1724,8 +1725,8 @@ registerPermissionRoutes(app, {
 });
 
 // ─── Games API (Public) ───
-const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword', 'tetris', 'snake', '2048', 'flappybird', 'blockbust']);
-const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword', 'tetris', 'snake', '2048', 'flappybird', 'blockbust']);
+const SUPPORTED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword', 'strands', 'tetris', 'snake', '2048', 'flappybird', 'blockbust']);
+const SUPPORTED_GAME_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword', 'strands', 'tetris', 'snake', '2048', 'flappybird', 'blockbust']);
 const SUPPORTED_PUZZLE_STATUSES = new Set(['draft', 'published', 'archived']);
 const SUPPORTED_PUZZLE_DIFFICULTIES = new Set(['easy', 'medium', 'hard']);
 const TEMPORARILY_UNAVAILABLE_GAME_ERROR = 'Тази игра временно не е активна.';
@@ -1770,17 +1771,26 @@ const {
   SUPPORTED_PUZZLE_STATUSES,
   analyzeCrosswordConstruction,
   analyzeSpellingBeeWords,
+  analyzeStrandsCoverage,
   badRequest,
+  buildStrandsWordFromPath,
+  doesPathSpanBoard,
   getCrosswordEntries,
   getPuzzleActiveUntilDate,
   hasCompleteSpellingBeeHive,
   hasOwn,
   isPlainObject,
+  isStrandsPathValid,
+  matchPathToAnswer,
   normalizeSpellingBeeLetter,
   normalizeSpellingBeeOuterLetters,
+  normalizeStrandsGrid,
   normalizeText,
   sanitizeDateTime,
   sanitizeStringArray,
+  STRANDS_COLS,
+  STRANDS_ROWS,
+  STRANDS_TOTAL_CELLS,
   toSafeInteger,
 });
 
@@ -1791,7 +1801,10 @@ const gamesRouter = createPublicGamesRouter({
   getSpellingBeeWordValidation,
   getTodayGameDate,
   isPlaceholderGamePuzzle,
+  isStrandsPathValid,
   listPublicGames,
+  matchPathToAnswer,
+  normalizeStrandsGrid,
   normalizeCrosswordSubmissionGrid,
   normalizeSpellingBeeLetter,
   normalizeSpellingBeeOuterLetters,
@@ -1803,6 +1816,8 @@ const gamesRouter = createPublicGamesRouter({
   sanitizeStringArray,
   SINGLE_CHAR_PATTERN,
   SPELLING_BEE_MIN_WORD_LENGTH,
+  STRANDS_TOTAL_CELLS,
+  buildStrandsWordFromPath,
   statusAwarePublicError,
   stripPuzzleForPublic,
   TEMPORARILY_UNAVAILABLE_GAME_ERROR,

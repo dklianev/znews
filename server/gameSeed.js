@@ -9,6 +9,7 @@ export const DEFAULT_GAME_DEFINITIONS = Object.freeze([
   { id: 5, slug: 'hangman', title: 'Бесеница', type: 'hangman', description: 'Познай скритата дума преди да свършат шансовете.', icon: 'Type', active: true, sortOrder: 5, theme: 'orange' },
   { id: 6, slug: 'spellingbee', title: 'Spelling Bee', type: 'spellingbee', description: 'Събирай български думи около централна буква и стигни панграма.', icon: 'Hexagon', active: true, sortOrder: 6, theme: 'orange' },
   { id: 7, slug: 'crossword', title: 'Кръстословица', type: 'crossword', description: 'Попълни цялата мрежа с правилните отговори.', icon: 'Hash', active: true, sortOrder: 7, theme: 'indigo' },
+  { id: 13, slug: 'strands', title: 'Нишки', type: 'strands', description: 'Намери тематичните думи в мрежата и открий нишката, която ги свързва.', icon: 'Grid3x3', active: false, sortOrder: 13, theme: 'indigo' },
   { id: 8, slug: 'tetris', title: 'Тетрис', type: 'tetris', description: 'Класически блокове, бързи решения и истински newsroom натиск.', icon: 'Blocks', active: true, sortOrder: 8, theme: 'purple' },
   { id: 9, slug: 'snake', title: 'Змия', type: 'snake', description: 'Яж, растѝ и оцелявай колкото можеш по-дълго.', icon: 'Tangent', active: true, sortOrder: 9, theme: 'green' },
   { id: 10, slug: '2048', title: '2048', type: '2048', description: 'Плъзгай плочките, комбинирай числата и стигни до 2048.', icon: 'Grid3x3', active: true, sortOrder: 10, theme: 'orange' },
@@ -17,7 +18,7 @@ export const DEFAULT_GAME_DEFINITIONS = Object.freeze([
 ]);
 
 const DEFAULT_GAME_SLUGS = DEFAULT_GAME_DEFINITIONS.map((game) => game.slug);
-const DEFAULT_PUZZLE_SEED_SLUGS = Object.freeze(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword']);
+const DEFAULT_PUZZLE_SEED_SLUGS = Object.freeze(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword', 'strands']);
 
 function isValidDateStr(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));

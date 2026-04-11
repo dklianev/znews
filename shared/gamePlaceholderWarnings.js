@@ -1,3 +1,5 @@
+import { STRANDS_TOTAL_CELLS, analyzeCoverage, normalizeGrid } from './strands.js';
+
 export function looksLikePlaceholderText(value) {
   const normalized = String(value || '').trim().toUpperCase();
   if (!normalized) return false;
@@ -72,6 +74,40 @@ export function getGamePlaceholderWarnings(gameSlug, puzzle) {
         }
       });
     });
+    return warnings;
+  }
+
+  if (gameSlug === 'strands') {
+    if (looksLikePlaceholderText(payload.title)) {
+      warnings.push({ key: 'payload.title', label: 'Заглавието на Нишки още е placeholder.' });
+    }
+    if (looksLikePlaceholderText(payload.deck)) {
+      warnings.push({ key: 'payload.deck', label: 'Подзаглавието на Нишки още е placeholder.' });
+    }
+
+    try {
+      normalizeGrid(payload.grid);
+    } catch {
+      warnings.push({ key: 'payload.grid', label: 'Мрежата за Нишки не е валидна 8x6.' });
+      return warnings;
+    }
+
+    const coverage = analyzeCoverage(solution.answers);
+    if (coverage.spangrams !== 1) {
+      warnings.push({ key: 'solution.answers', label: 'Нишки трябва да има точно една спанграма.' });
+    }
+    if (coverage.duplicateCells.length > 0) {
+      warnings.push({ key: 'solution.answers', label: 'Има клетки, които се използват в повече от една дума.' });
+    }
+    if (coverage.uncoveredCells.length > 0) {
+      warnings.push({
+        key: 'solution.answers',
+        label: `Непокрити клетки: ${STRANDS_TOTAL_CELLS - coverage.uncoveredCells.length}/${STRANDS_TOTAL_CELLS}.`,
+      });
+    }
+    if ((Array.isArray(solution.answers) ? solution.answers : []).some((answer) => looksLikePlaceholderText(answer?.word))) {
+      warnings.push({ key: 'solution.answers', label: 'Някоя от думите в Нишки още е placeholder.' });
+    }
     return warnings;
   }
 

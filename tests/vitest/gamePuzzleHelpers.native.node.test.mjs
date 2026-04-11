@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createGamePuzzleHelpers } from '../../server/services/gamePuzzleHelpersService.js';
+import { STRANDS_COLS, STRANDS_ROWS, STRANDS_TOTAL_CELLS, analyzeCoverage as analyzeStrandsCoverage, buildWordFromPath as buildStrandsWordFromPath, doesPathSpanBoard, isPathValid as isStrandsPathValid, matchPathToAnswer, normalizeGrid as normalizeStrandsGrid } from '../../shared/strands.js';
 
 function badRequest(message) {
   const error = new Error(message);
@@ -39,7 +40,10 @@ function createHelpers() {
       maxScore: 4,
       longestWordLength: 4,
     }),
+    analyzeStrandsCoverage,
     badRequest,
+    buildStrandsWordFromPath,
+    doesPathSpanBoard,
     getCrosswordEntries: () => ({
       across: [{ number: 1, row: 0, col: 0, length: 2 }],
       down: [{ number: 1, row: 0, col: 0, length: 2 }],
@@ -48,8 +52,11 @@ function createHelpers() {
     hasCompleteSpellingBeeHive: () => true,
     hasOwn: (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key),
     isPlainObject: (value) => value !== null && typeof value === 'object' && !Array.isArray(value),
+    isStrandsPathValid,
+    matchPathToAnswer,
     normalizeSpellingBeeLetter: (value) => normalizeText(value, 1).toUpperCase(),
     normalizeSpellingBeeOuterLetters: (value) => sanitizeStringArray(value, 1, { uppercase: true }),
+    normalizeStrandsGrid,
     normalizeText,
     sanitizeDateTime: (value) => {
       if (value === null || value === undefined || value === '') return null;
@@ -57,6 +64,9 @@ function createHelpers() {
       return Number.isNaN(parsed.getTime()) ? null : parsed;
     },
     sanitizeStringArray,
+    STRANDS_COLS,
+    STRANDS_ROWS,
+    STRANDS_TOTAL_CELLS,
     toSafeInteger: (value, fallback = 0) => {
       const parsed = Number.parseInt(value, 10);
       return Number.isFinite(parsed) ? parsed : fallback;
@@ -110,5 +120,37 @@ describe('gamePuzzleHelpers', () => {
         },
       );
     }).toThrow(/Replace the placeholder game content before publishing\./);
+  });
+
+  it('sanitizes a valid strands puzzle with fixed 8x6 grid coverage', () => {
+    const helpers = createHelpers();
+
+    const result = helpers.sanitizeGamePuzzleInput(
+      { slug: 'strands', type: 'strands' },
+      {
+        puzzleDate: '2026-04-11',
+        activeUntilDate: '2026-04-11',
+        status: 'draft',
+        difficulty: 'medium',
+        payload: {
+          title: 'Градска тема',
+          deck: 'Намери нишката.',
+          rows: 8,
+          cols: 6,
+          grid: ['АБВГДЕ', 'ЖЗИЙКЛ', 'МНОПРС', 'ТУФХЦЧ', 'ШЩЪЬЮЯ', 'АБВГДЕ', 'ЖЗИЙКЛ', 'МНОПРС'],
+        },
+        solution: {
+          answers: Array.from({ length: 8 }, (_, rowIndex) => ({
+            kind: rowIndex === 7 ? 'spangram' : 'theme',
+            word: ['АБВГДЕ', 'ЖЗИЙКЛ', 'МНОПРС', 'ТУФХЦЧ', 'ШЩЪЬЮЯ', 'АБВГДЕ', 'ЖЗИЙКЛ', 'МНОПРС'][rowIndex],
+            cells: Array.from({ length: 6 }, (_, colIndex) => (rowIndex * 6) + colIndex),
+          })),
+        },
+      },
+    );
+
+    expect(result.payload.rows).toBe(8);
+    expect(result.payload.cols).toBe(6);
+    expect(result.solution.answers).toHaveLength(8);
   });
 });

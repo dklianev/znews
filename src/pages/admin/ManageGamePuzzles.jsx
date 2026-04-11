@@ -10,7 +10,7 @@ import { hasGamePlaceholderContent } from '../../../shared/gamePlaceholderWarnin
 import { analyzeCrosswordConstruction, getCrosswordEntries, MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH } from '../../../shared/crossword.js';
 import { analyzeSpellingBeeWords, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, SPELLING_BEE_MIN_WORD_LENGTH } from '../../../shared/spellingBee.js';
 
-const PUZZLE_MANAGED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword']);
+const PUZZLE_MANAGED_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword', 'strands']);
 const CROSSWORD_SIZE_MIN = 3;
 const CROSSWORD_SIZE_MAX = 15;
 const CROSSWORD_CHAR_PATTERN = /^[\p{L}\p{N}\?]$/u;

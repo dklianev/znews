@@ -6,17 +6,26 @@ export function createGamePuzzleHelpers(deps) {
     SUPPORTED_PUZZLE_STATUSES,
     analyzeCrosswordConstruction,
     analyzeSpellingBeeWords,
+    analyzeStrandsCoverage,
     badRequest,
+    buildStrandsWordFromPath,
+    doesPathSpanBoard,
     getCrosswordEntries,
     getPuzzleActiveUntilDate,
     hasCompleteSpellingBeeHive,
     hasOwn,
     isPlainObject,
+    isStrandsPathValid,
+    matchPathToAnswer,
     normalizeSpellingBeeLetter,
     normalizeSpellingBeeOuterLetters,
+    normalizeStrandsGrid,
     normalizeText,
     sanitizeDateTime,
     sanitizeStringArray,
+    STRANDS_COLS,
+    STRANDS_ROWS,
+    STRANDS_TOTAL_CELLS,
     toSafeInteger,
   } = deps;
 
@@ -243,6 +252,106 @@ export function createGamePuzzleHelpers(deps) {
       },
     };
   }
+
+  function normalizeStrandsAnswer(answer, index, grid) {
+    if (!isPlainObject(answer)) {
+      throw badRequest(`Нишки: отговор #${index + 1} трябва да е JSON обект.`);
+    }
+
+    const kind = normalizeText(answer.kind, 24).toLowerCase();
+    if (kind !== 'theme' && kind !== 'spangram') {
+      throw badRequest(`Нишки: отговор #${index + 1} трябва да е от тип theme или spangram.`);
+    }
+
+    const cells = Array.isArray(answer.cells)
+      ? answer.cells.map((cell) => toSafeInteger(cell, Number.NaN))
+      : [];
+    if (cells.length === 0) {
+      throw badRequest(`Нишки: отговор #${index + 1} трябва да има поне една клетка.`);
+    }
+    if (!isStrandsPathValid(cells)) {
+      throw badRequest(`Нишки: пътят за отговор #${index + 1} не е валиден.`);
+    }
+
+    const word = normalizeText(answer.word, 80).toUpperCase();
+    const builtWord = buildStrandsWordFromPath(cells, grid);
+    if (!word) {
+      throw badRequest(`Нишки: отговор #${index + 1} няма дума.`);
+    }
+    if (word !== builtWord) {
+      throw badRequest(`Нишки: думата за отговор #${index + 1} не съвпада с буквите от мрежата.`);
+    }
+
+    return {
+      kind,
+      word,
+      cells,
+    };
+  }
+
+  function validateStrandsPuzzle(payloadInput, solutionInput) {
+    if (!isPlainObject(payloadInput) || !isPlainObject(solutionInput)) {
+      throw badRequest('Нишки: payload и solution трябва да са JSON обекти.');
+    }
+
+    const title = normalizeText(payloadInput.title, 120);
+    const deck = normalizeText(payloadInput.deck, 240);
+    const rows = toSafeInteger(payloadInput.rows, STRANDS_ROWS);
+    const cols = toSafeInteger(payloadInput.cols, STRANDS_COLS);
+
+    if (rows !== STRANDS_ROWS || cols !== STRANDS_COLS) {
+      throw badRequest(`Нишки: размерът на мрежата е фиксиран на ${STRANDS_ROWS}x${STRANDS_COLS}.`);
+    }
+
+    let grid;
+    try {
+      grid = normalizeStrandsGrid(payloadInput.grid);
+    } catch (error) {
+      throw badRequest(error?.message || 'Нишки: невалидна мрежа.');
+    }
+
+    const rawAnswers = Array.isArray(solutionInput.answers) ? solutionInput.answers : [];
+    if (rawAnswers.length < 2) {
+      throw badRequest('Нишки: пъзелът трябва да има поне една тематична дума и една спанграма.');
+    }
+
+    const answers = rawAnswers.map((answer, index) => normalizeStrandsAnswer(answer, index, grid));
+    const coverage = analyzeStrandsCoverage(answers);
+
+    if (coverage.themeCount < 1) {
+      throw badRequest('Нишки: трябва да има поне една тематична дума.');
+    }
+    if (coverage.spangrams !== 1) {
+      throw badRequest('Нишки: трябва да има точно една спанграма.');
+    }
+    if (coverage.invalidCells.length > 0) {
+      throw badRequest('Нишки: има клетки извън борда.');
+    }
+    if (coverage.duplicateCells.length > 0) {
+      throw badRequest('Нишки: една или повече клетки се използват в повече от една дума.');
+    }
+    if (coverage.uncoveredCells.length > 0) {
+      throw badRequest(`Нишки: не всички клетки са покрити (${STRANDS_TOTAL_CELLS - coverage.uncoveredCells.length}/${STRANDS_TOTAL_CELLS}).`);
+    }
+
+    const spangram = answers.find((answer) => answer.kind === 'spangram');
+    if (!spangram || !doesPathSpanBoard(spangram.cells)) {
+      throw badRequest('Нишки: спанграмата трябва да минава от край до край на борда.');
+    }
+
+    return {
+      payload: {
+        ...(title ? { title } : {}),
+        ...(deck ? { deck } : {}),
+        rows: STRANDS_ROWS,
+        cols: STRANDS_COLS,
+        grid,
+      },
+      solution: {
+        answers,
+      },
+    };
+  }
   
   function normalizeCrosswordLayoutRows(rawLayout, width, height) {
     if (!Array.isArray(rawLayout) || rawLayout.length !== height) {
@@ -420,7 +529,8 @@ export function createGamePuzzleHelpers(deps) {
       || normalized.includes('TODO')
       || normalized.includes('PLACEHOLDER')
       || normalized.includes('REPLACE_ME')
-      || normalized.includes('ПОПЪЛНИ');
+      || normalized.includes('ПОПЪЛНИ')
+      || normalized.includes('ЗАМЕНИ');
   }
   
   function isPlaceholderWordPuzzle(_payload, solution) {
@@ -481,12 +591,25 @@ export function createGamePuzzleHelpers(deps) {
       || isGenericPlaceholderText(payload?.deck)
       || (Array.isArray(solution?.words) ? solution.words.some((word) => isGenericPlaceholderText(word)) : false);
   }
+
+  function isPlaceholderStrandsPuzzle(payload, solution) {
+    if (isGenericPlaceholderText(payload?.title) || isGenericPlaceholderText(payload?.deck)) {
+      return true;
+    }
+
+    return (Array.isArray(solution?.answers) ? solution.answers : []).some((answer) => (
+      isGenericPlaceholderText(answer?.word)
+        || !Array.isArray(answer?.cells)
+        || answer.cells.length === 0
+    ));
+  }
   
   function isPlaceholderGamePuzzle(gameType, payload, solution) {
     if (gameType === 'word') return isPlaceholderWordPuzzle(payload, solution);
     if (gameType === 'hangman') return isPlaceholderHangmanPuzzle(payload, solution);
     if (gameType === 'connections') return isPlaceholderConnectionsPuzzle(payload, solution);
     if (gameType === 'spellingbee') return isPlaceholderSpellingBeePuzzle(payload, solution);
+    if (gameType === 'strands') return isPlaceholderStrandsPuzzle(payload, solution);
     if (gameType === 'crossword') return isPlaceholderCrosswordPuzzle(payload, solution);
     if (gameType === 'quiz') return isPlaceholderQuizPuzzle(payload, solution);
     return false;
@@ -536,6 +659,8 @@ export function createGamePuzzleHelpers(deps) {
       validatedPuzzle = validateConnectionsPuzzle(rawPayload, rawSolution);
     } else if (game.type === 'spellingbee') {
       validatedPuzzle = validateSpellingBeePuzzle(rawPayload, rawSolution);
+    } else if (game.type === 'strands') {
+      validatedPuzzle = validateStrandsPuzzle(rawPayload, rawSolution);
     } else if (game.type === 'crossword') {
       validatedPuzzle = validateCrosswordPuzzle(rawPayload, rawSolution, {
         requireClueText: status === 'published',
@@ -573,5 +698,6 @@ export function createGamePuzzleHelpers(deps) {
     normalizeCrosswordSubmissionGrid,
     sanitizeGamePuzzleInput,
     validateCrosswordPuzzle,
+    validateStrandsPuzzle,
   };
 }

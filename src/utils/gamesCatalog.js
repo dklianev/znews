@@ -1,6 +1,7 @@
 const GAME_HUB_DESCRIPTION_BY_SLUG = Object.freeze({
   sudoku: 'Реши числовата мрежа и дръж концентрацията до последната клетка.',
   spellingbee: 'Събирай български думи около централна буква и стигни до панграма.',
+  strands: 'Свържи буквите, открий темата и намери нишката, която минава през целия борд.',
   tetris: 'Класически блокове, бързи решения и истински newsroom натиск.',
   snake: 'Яж, растѝ и оцелявай колкото можеш по-дълго.',
   '2048': 'Плъзгай плочките, комбинирай числата и стигни до 2048.',
@@ -8,9 +9,9 @@ const GAME_HUB_DESCRIPTION_BY_SLUG = Object.freeze({
   blockbust: 'Подреждай три фигури наведнъж, чисти редове и колони и трупай комбо бонуси.',
 });
 
-const PUZZLE_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword']);
+const PUZZLE_TYPES = new Set(['word', 'connections', 'quiz', 'sudoku', 'hangman', 'spellingbee', 'crossword', 'strands']);
 const ARCADE_TYPES = new Set(['tetris', 'snake', '2048', 'flappybird', 'blockbust']);
-const DAILY_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword']);
+const DAILY_GAME_SLUGS = new Set(['word', 'connections', 'quiz', 'hangman', 'spellingbee', 'crossword', 'strands']);
 
 export const GAME_GROUPS = Object.freeze([
   { key: 'all', label: 'Всички' },

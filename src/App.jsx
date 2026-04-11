@@ -64,6 +64,7 @@ const GameHangmanPage = lazyRetry(() => import('./pages/GameHangmanPage'));
 const GameQuizPage = lazyRetry(() => import('./pages/GameQuizPage'));
 const GameCrosswordPage = lazyRetry(() => import('./pages/GameCrosswordPage'));
 const GameSpellingBeePage = lazyRetry(() => import('./pages/GameSpellingBeePage'));
+const GameStrandsPage = lazyRetry(() => import('./pages/GameStrandsPage'));
 const GameSudokuPage = lazyRetry(() => import('./pages/GameSudokuPage'));
 const GameTetrisPage = lazyRetry(() => import('./pages/GameTetrisPage'));
 const GameSnakePage = lazyRetry(() => import('./pages/GameSnakePage'));
@@ -419,6 +420,7 @@ function AppContent() {
           <Route path="/games/quiz" element={<PublicGameRoute slug="quiz"><GameQuizPage /></PublicGameRoute>} />
           <Route path="/games/spellingbee" element={<PublicGameRoute slug="spellingbee"><GameSpellingBeePage /></PublicGameRoute>} />
           <Route path="/games/crossword" element={<PublicGameRoute slug="crossword"><GameCrosswordPage /></PublicGameRoute>} />
+          <Route path="/games/strands" element={<PublicGameRoute slug="strands"><GameStrandsPage /></PublicGameRoute>} />
           <Route path="/games/sudoku" element={<PublicGameRoute slug="sudoku"><GameSudokuPage /></PublicGameRoute>} />
           <Route path="/games/tetris" element={<PublicGameRoute slug="tetris"><GameTetrisPage /></PublicGameRoute>} />
           <Route path="/games/snake" element={<PublicGameRoute slug="snake"><GameSnakePage /></PublicGameRoute>} />

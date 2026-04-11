@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Loader2, Plus, Save, Trash2 } from 'lucide
 import { getGamePlaceholderWarnings } from '../../../shared/gamePlaceholderWarnings.js';
 import { analyzeCrosswordConstruction, MIN_CROSSWORD_PUBLISH_ENTRY_LENGTH } from '../../../shared/crossword.js';
 import { analyzeSpellingBeeWords, hasCompleteSpellingBeeHive, normalizeSpellingBeeLetter, normalizeSpellingBeeOuterLetters, SPELLING_BEE_MIN_WORD_LENGTH } from '../../../shared/spellingBee.js';
+import { STRANDS_COLS, STRANDS_ROWS, STRANDS_TOTAL_CELLS, analyzeCoverage as analyzeStrandsCoverage, normalizeGrid as normalizeStrandsGrid } from '../../../shared/strands.js';
 import SpellingBeeHive from '../games/spellingbee/SpellingBeeHive';
 import { getPuzzleDurationDays } from '../../utils/puzzleDateUtils';
 
@@ -15,6 +16,21 @@ function splitMultiValue(rawValue) {
         .split(/\r?\n|,/)
         .map((item) => item.trim())
         .filter(Boolean);
+}
+
+function splitStrandsGridInput(rawValue) {
+    return String(rawValue || '')
+        .split(/\r?\n/)
+        .map((item) => item.trim().toUpperCase().replace(/\s+/g, ''))
+        .filter((item) => item.length > 0);
+}
+
+function getStrandsPreviewRows(grid) {
+    const rows = Array.isArray(grid) ? grid : [];
+    return Array.from({ length: STRANDS_ROWS }, (_, rowIndex) => {
+        const chars = Array.from(String(rows[rowIndex] || '').trim().toUpperCase().replace(/\s+/g, ''));
+        return Array.from({ length: STRANDS_COLS }, (_, colIndex) => chars[colIndex] || '');
+    });
 }
 
 function parseJsonObject(rawValue) {
@@ -266,6 +282,121 @@ function renderSpellingBeeEditor(editForm, actions, fieldClass) {
                             Текущият списък с думи е валиден. Ако кошерът е пълен и има поне една панграма, записът е готов за publish review.
                         </div>
                     )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function renderStrandsEditor(editForm, actions, fieldClass, diagnostics) {
+    const payload = editForm?.payload || {};
+    const solutionAnswers = Array.isArray(editForm?.solution?.answers) ? editForm.solution.answers : [];
+    const previewRows = getStrandsPreviewRows(payload.grid);
+    const coverageValue = diagnostics?.coverageValue || `0/${STRANDS_TOTAL_CELLS}`;
+
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6">
+                <div className="space-y-5">
+                    <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px] gap-6">
+                        <label className="block">
+                            <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Тема</span>
+                            <input
+                                type="text"
+                                value={payload.title || ''}
+                                onChange={(e) => actions.setPayloadField('title', e.target.value)}
+                                className={fieldClass('payload.title')}
+                                placeholder="Напр. Градски транспорт"
+                            />
+                        </label>
+                        <div className="rounded-2xl border border-indigo-100 bg-indigo-50/80 px-4 py-4 text-sm text-indigo-950">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-indigo-700">Формат</p>
+                            <p className="mt-3 text-lg font-black">{STRANDS_ROWS} × {STRANDS_COLS}</p>
+                            <p className="mt-2 leading-6 text-indigo-900/80">Размерът е фиксиран за v1. Редактираш само буквите в мрежата.</p>
+                        </div>
+                    </div>
+
+                    <label className="block">
+                        <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Подзаглавие</span>
+                        <input
+                            type="text"
+                            value={payload.deck || ''}
+                            onChange={(e) => actions.setPayloadField('deck', e.target.value)}
+                            className={fieldClass('payload.deck')}
+                            placeholder="Намери тематичните думи и нишката, която ги свързва."
+                        />
+                    </label>
+
+                    <label className="block">
+                        <span className="block text-xs font-bold uppercase text-gray-500 mb-2">Мрежа (8 реда по 6 букви)</span>
+                        <textarea
+                            value={joinMultiValue(payload.grid)}
+                            onChange={(e) => actions.setPayloadField('grid', splitStrandsGridInput(e.target.value))}
+                            className={fieldClass('payload.grid', 'h-48 font-mono text-sm uppercase tracking-[0.3em]')}
+                            spellCheck={false}
+                            placeholder={'Първи ред\nВтори ред\n...'}
+                        />
+                    </label>
+                </div>
+
+                <div className="rounded-2xl border border-stone-200 bg-[linear-gradient(180deg,rgba(250,250,249,0.96),rgba(245,245,244,0.92))] p-5">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-stone-500">Diagnostics</p>
+                            <h3 className="mt-2 text-lg font-semibold text-stone-900">Статус на борда</h3>
+                        </div>
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] ${diagnostics?.gridValid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
+                            {diagnostics?.gridValid ? 'Grid OK' : 'Провери grid-а'}
+                        </span>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">Coverage</p>
+                            <p className="mt-2 text-2xl font-black text-gray-900">{coverageValue}</p>
+                        </div>
+                        <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">Спанграми</p>
+                            <p className="mt-2 text-2xl font-black text-gray-900">{diagnostics?.spangramCount ?? 0}</p>
+                        </div>
+                        <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">Overlap</p>
+                            <p className="mt-2 text-2xl font-black text-gray-900">{diagnostics?.duplicateCount ?? 0}</p>
+                        </div>
+                        <div className="rounded-2xl border border-white bg-white px-4 py-4 shadow-sm">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">Отговори</p>
+                            <p className="mt-2 text-2xl font-black text-gray-900">{solutionAnswers.length}</p>
+                        </div>
+                    </div>
+
+                    {diagnostics?.issues?.length > 0 && (
+                        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
+                            <p className="font-bold uppercase tracking-wide text-[11px]">Какво липсва</p>
+                            <div className="mt-3 space-y-2">
+                                {diagnostics.issues.map((issue) => <p key={issue}>• {issue}</p>)}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-5">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                    <div>
+                        <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-gray-500">Preview</p>
+                        <h3 className="mt-2 text-lg font-semibold text-gray-900">Преглед на мрежата</h3>
+                    </div>
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500">{STRANDS_ROWS} реда / {STRANDS_COLS} колони</span>
+                </div>
+                <div className="grid grid-cols-6 gap-2 max-w-[22rem]">
+                    {previewRows.flatMap((row, rowIndex) => row.map((char, colIndex) => (
+                        <div
+                            key={`strands-preview-${rowIndex}-${colIndex}`}
+                            className="h-11 rounded-xl border-2 border-[#1C1428] bg-stone-50 text-center text-lg font-black text-slate-900 shadow-[3px_3px_0_#1C1428] flex items-center justify-center"
+                        >
+                            {char || '·'}
+                        </div>
+                    )))}
                 </div>
             </div>
         </div>
@@ -580,6 +711,46 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
         })
         : null), [gameSlug, editForm?.payload, editForm?.solution]);
 
+    const strandsDiagnostics = useMemo(() => {
+        if (gameSlug !== 'strands') return null;
+
+        const issues = [];
+        let gridValid = false;
+        let coverageValue = `0/${STRANDS_TOTAL_CELLS}`;
+        let duplicateCount = 0;
+        let spangramCount = 0;
+
+        try {
+            normalizeStrandsGrid(editForm?.payload?.grid);
+            gridValid = true;
+        } catch (error) {
+            issues.push(error?.message || 'Мрежата не е валидна.');
+        }
+
+        const coverage = analyzeStrandsCoverage(editForm?.solution?.answers);
+        spangramCount = coverage.spangrams;
+        duplicateCount = coverage.duplicateCells.length;
+        coverageValue = `${STRANDS_TOTAL_CELLS - coverage.uncoveredCells.length}/${STRANDS_TOTAL_CELLS}`;
+
+        if (spangramCount !== 1) {
+            issues.push('Трябва да има точно една спанграма.');
+        }
+        if (duplicateCount > 0) {
+            issues.push(`Има ${duplicateCount} клетки с overlap между две думи.`);
+        }
+        if (coverage.uncoveredCells.length > 0) {
+            issues.push(`Остават ${coverage.uncoveredCells.length} непокрити клетки.`);
+        }
+
+        return {
+            gridValid,
+            coverageValue,
+            duplicateCount,
+            spangramCount,
+            issues,
+        };
+    }, [gameSlug, editForm?.payload?.grid, editForm?.solution?.answers]);
+
     const fieldClass = (key, extra = '') => [
         'w-full rounded-lg px-3 py-2 border transition-colors',
         warningKeys.has(key)
@@ -639,9 +810,11 @@ export default function GamePuzzleEditor({ gameSlug, editForm, guide, saving, on
         ? renderWordEditor(editForm, actions, fieldClass)
         : gameSlug === 'hangman'
             ? renderHangmanEditor(editForm, actions, fieldClass)
-            : gameSlug === 'spellingbee'
+        : gameSlug === 'spellingbee'
                 ? renderSpellingBeeEditor(editForm, actions, fieldClass)
-                : gameSlug === 'connections'
+        : gameSlug === 'strands'
+                    ? renderStrandsEditor(editForm, actions, fieldClass, strandsDiagnostics)
+        : gameSlug === 'connections'
                     ? renderConnectionsEditor(editForm, actions, fieldClass)
                     : gameSlug === 'crossword'
                         ? renderCrosswordEditor(editForm, actions, fieldClass, crosswordAnalysis)

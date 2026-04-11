@@ -8,7 +8,10 @@ export function createPublicGamesRouter(deps) {
     getSpellingBeeWordValidation,
     getTodayGameDate,
     isPlaceholderGamePuzzle,
+    isStrandsPathValid,
     listPublicGames,
+    matchPathToAnswer,
+    normalizeStrandsGrid,
     normalizeCrosswordSubmissionGrid,
     normalizeSpellingBeeLetter,
     normalizeSpellingBeeOuterLetters,
@@ -19,6 +22,8 @@ export function createPublicGamesRouter(deps) {
     sanitizeStringArray,
     SINGLE_CHAR_PATTERN,
     SPELLING_BEE_MIN_WORD_LENGTH,
+    STRANDS_TOTAL_CELLS,
+    buildStrandsWordFromPath,
     statusAwarePublicError,
     stripPuzzleForPublic,
     TEMPORARILY_UNAVAILABLE_GAME_ERROR,
@@ -269,6 +274,30 @@ export function createPublicGamesRouter(deps) {
           emptyCells,
           totalCells,
           filledCells,
+        });
+      }
+
+      if (game.type === 'strands') {
+        const path = Array.isArray(req.body?.path)
+          ? req.body.path.map((cell) => toSafeInteger(cell, Number.NaN))
+          : [];
+        if (path.length < 3 || path.length > STRANDS_TOTAL_CELLS || !isStrandsPathValid(path)) {
+          return res.status(400).json({ error: 'Невалиден път.' });
+        }
+
+        const grid = normalizeStrandsGrid(puzzle.payload?.grid);
+        const word = buildStrandsWordFromPath(path, grid);
+        const match = matchPathToAnswer(path, puzzle.solution?.answers);
+
+        if (!match) {
+          return res.json({ accepted: false, kind: 'none', word });
+        }
+
+        return res.json({
+          accepted: true,
+          kind: match.kind,
+          word: match.word,
+          cells: match.cells,
         });
       }
 
