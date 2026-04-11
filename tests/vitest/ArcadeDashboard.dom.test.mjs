@@ -119,4 +119,35 @@ describe('ArcadeDashboard', () => {
     expect(container.textContent).not.toContain('Следващо предизвикателство');
     expect(container.textContent).toContain('Тетрис');
   });
+
+  it('shows completed spotlight when all daily games are played', async () => {
+    loadGameProgress.mockImplementation((slug) => {
+      if (slug === 'word' || slug === 'quiz') return { gameStatus: 'won' };
+      return null;
+    });
+    getGameStreak.mockReturnValue({ currentStreak: 0 });
+    publicDataState = {
+      games: [
+        { id: 1, slug: 'word', title: 'Намери точната дума', icon: 'Type', theme: 'green', type: 'word', sortOrder: 1, description: 'Описание' },
+        { id: 2, slug: 'tetris', title: 'Тетрис', icon: 'Blocks', theme: 'purple', type: 'tetris', sortOrder: 2, description: 'Описание' },
+        { id: 3, slug: 'quiz', title: 'Ерудит', icon: 'Trophy', theme: 'indigo', type: 'quiz', sortOrder: 3, description: 'Описание' },
+      ],
+      publicSectionStatus: { games: 'idle' },
+      loadGamesCatalog,
+    };
+
+    ({ root, container } = await renderIntoBody(GamesPage));
+    await flushEffects();
+
+    expect(container.textContent).not.toContain('Следващо предизвикателство');
+    expect(container.textContent).toContain('Днешните игри са приключени');
+    expect(container.textContent).toContain('Към аркадните');
+
+    const arcadeCta = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Към аркадните'));
+    expect(arcadeCta).toBeTruthy();
+    await click(arcadeCta);
+
+    expect(container.textContent).not.toContain('Днешните игри са приключени');
+    expect(container.textContent).toContain('Тетрис');
+  });
 });

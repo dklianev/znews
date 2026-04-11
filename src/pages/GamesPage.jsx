@@ -107,6 +107,13 @@ export default function GamesPage() {
                             />
                         )}
 
+                        {filter === 'all' && !firstUnplayed && dailyGames.length > 0 && (
+                            <GamesSpotlightCard
+                                mode="complete"
+                                onFilterArcade={() => setFilter('arcade')}
+                            />
+                        )}
+
                         {(filter === 'all' || filter === 'puzzles') && (
                             <GamesSection title="Пъзели" variant="purple" games={puzzleGames} />
                         )}
