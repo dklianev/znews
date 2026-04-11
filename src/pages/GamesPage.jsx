@@ -34,14 +34,14 @@ export default function GamesPage() {
         streak: getGameStreak(profile, game.slug),
     })), [games, profile, todayStr]);
 
-    const firstUnplayed = useMemo(() => decoratedGames.find((game) => {
-        const gameStatus = game.dailyProgress?.gameStatus || '';
-        return !game.dailyProgress || gameStatus === 'playing';
-    }) || null, [decoratedGames]);
-
     const puzzleGames = useMemo(() => decoratedGames.filter((game) => getGameGroup(game) === 'puzzles'), [decoratedGames]);
     const arcadeGames = useMemo(() => decoratedGames.filter((game) => getGameGroup(game) === 'arcade'), [decoratedGames]);
     const dailyGames = useMemo(() => getDailyGames(decoratedGames), [decoratedGames]);
+
+    const firstUnplayed = useMemo(() => dailyGames.find((game) => {
+        const gameStatus = game.dailyProgress?.gameStatus || '';
+        return !game.dailyProgress || gameStatus === 'playing';
+    }) || null, [dailyGames]);
 
     const countsByFilter = useMemo(() => ({
         all: decoratedGames.length,

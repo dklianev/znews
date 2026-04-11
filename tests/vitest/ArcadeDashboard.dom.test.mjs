@@ -94,6 +94,7 @@ describe('ArcadeDashboard', () => {
       games: [
         { id: 1, slug: 'word', title: 'Намери точната дума', icon: 'Type', theme: 'green', type: 'word', sortOrder: 1, description: 'Описание' },
         { id: 2, slug: 'tetris', title: 'Тетрис', icon: 'Blocks', theme: 'purple', type: 'tetris', sortOrder: 2, description: 'Описание' },
+        { id: 3, slug: 'quiz', title: 'Ерудит', icon: 'Trophy', theme: 'indigo', type: 'quiz', sortOrder: 3, description: 'Описание' },
       ],
       publicSectionStatus: { games: 'idle' },
       loadGamesCatalog,
@@ -103,11 +104,12 @@ describe('ArcadeDashboard', () => {
     await flushEffects();
 
     expect(loadGamesCatalog).toHaveBeenCalledTimes(1);
-    expect(container.textContent).toContain('1/1');
+    expect(container.textContent).toContain('1/2');
     const progressLink = container.querySelector('a[href="/games/word"][title="Намери точната дума"]');
     expect(progressLink).toBeTruthy();
     expect(container.querySelector('a[href="/games/tetris"][title="Тетрис"]')).toBeNull();
     expect(container.textContent).toContain('Следващо предизвикателство');
+    expect(container.textContent).toContain('Ерудит');
     expect(container.textContent).toContain('Пъзели');
     expect(container.textContent).toContain('Аркадни');
 
