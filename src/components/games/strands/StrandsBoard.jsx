@@ -24,6 +24,58 @@ export default function StrandsBoard({
         return Number.isInteger(nextCell) ? nextCell : null;
     };
 
+    const resolveNearestCellFromBoard = (event) => {
+        const boardNode = boardRef.current;
+        if (!boardNode) return null;
+
+        const boardRect = boardNode.getBoundingClientRect();
+        if (
+            event.clientX < boardRect.left
+            || event.clientX > boardRect.right
+            || event.clientY < boardRect.top
+            || event.clientY > boardRect.bottom
+        ) {
+            return null;
+        }
+
+        const cellNodes = Array.from(boardNode.querySelectorAll('[data-strands-cell]'));
+        let bestCell = null;
+        let bestDistance = Number.POSITIVE_INFINITY;
+
+        cellNodes.forEach((node) => {
+            const rect = node.getBoundingClientRect();
+            const paddedRect = {
+                left: rect.left - 10,
+                right: rect.right + 10,
+                top: rect.top - 10,
+                bottom: rect.bottom + 10,
+            };
+
+            if (
+                event.clientX < paddedRect.left
+                || event.clientX > paddedRect.right
+                || event.clientY < paddedRect.top
+                || event.clientY > paddedRect.bottom
+            ) {
+                return;
+            }
+
+            const centerX = rect.left + (rect.width / 2);
+            const centerY = rect.top + (rect.height / 2);
+            const distance = Math.abs(event.clientX - centerX) + Math.abs(event.clientY - centerY);
+            const nextCell = Number.parseInt(node.getAttribute('data-strands-cell'), 10);
+
+            if (Number.isInteger(nextCell) && distance < bestDistance) {
+                bestDistance = distance;
+                bestCell = nextCell;
+            }
+        });
+
+        return bestCell;
+    };
+
+    const getCellFromPointer = (event) => resolveCellFromPointer(event) ?? resolveNearestCellFromBoard(event);
+
     const handlePointerDown = (cellIndex, event) => {
         if (disabled) return;
         event.preventDefault();
@@ -34,7 +86,7 @@ export default function StrandsBoard({
 
     const handlePointerMove = (event) => {
         if (!isDragging || disabled) return;
-        const cellIndex = resolveCellFromPointer(event);
+        const cellIndex = getCellFromPointer(event);
         if (cellIndex === null) return;
         onExtendPath?.(cellIndex);
     };
@@ -71,7 +123,6 @@ export default function StrandsBoard({
                 onPointerMove={handlePointerMove}
                 onPointerUp={finishPointer}
                 onPointerCancel={finishPointer}
-                onPointerLeave={finishPointer}
             >
                 <div className="grid grid-cols-6 gap-2 sm:gap-3">
                     {safeGrid.flatMap((row, rowIndex) => Array.from(String(row || '')).map((char, colIndex) => {

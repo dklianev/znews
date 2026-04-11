@@ -5,6 +5,7 @@ import {
   analyzeCoverage,
   buildWordFromPath,
   doesPathSpanBoard,
+  getCellsAlongStraightPath,
   matchPathToAnswer,
   normalizeGrid,
 } from '../../shared/strands.js';
@@ -59,5 +60,12 @@ describe('strands shared helpers', () => {
       cells: [0, 1, 2],
     });
     expect(doesPathSpanBoard([42, 43, 44, 45, 46, 47])).toBe(true);
+  });
+
+  it('bridges straight drags across rows, columns, and diagonals', () => {
+    expect(getCellsAlongStraightPath(0, 3)).toEqual([1, 2, 3]);
+    expect(getCellsAlongStraightPath(0, 18)).toEqual([6, 12, 18]);
+    expect(getCellsAlongStraightPath(0, 21)).toEqual([7, 14, 21]);
+    expect(getCellsAlongStraightPath(0, 8)).toEqual([]);
   });
 });

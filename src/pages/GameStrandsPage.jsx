@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../utils/api';
 import { copyToClipboard } from '../utils/copyToClipboard';
 import { loadGameProgress, recordGameWin, saveGameProgress } from '../utils/gameStorage';
-import { STRANDS_TOTAL_CELLS, areCellsAdjacent, buildWordFromPath } from '../../shared/strands.js';
+import { STRANDS_TOTAL_CELLS, areCellsAdjacent, buildWordFromPath, getCellsAlongStraightPath } from '../../shared/strands.js';
 import StrandsBoard from '../components/games/strands/StrandsBoard';
 import StrandsHelpModal from '../components/games/strands/StrandsHelpModal';
 
@@ -102,18 +102,32 @@ export default function GameStrandsPage() {
         if (gameStatus !== 'playing' || submitting || foundCellKinds.has(cellIndex)) return;
         setCurrentPath((previousPath) => {
             if (!Array.isArray(previousPath) || previousPath.length === 0) return previousPath;
-            const lastCell = previousPath[previousPath.length - 1];
+            let nextPath = [...previousPath];
+            const lastCell = nextPath[nextPath.length - 1];
             if (lastCell === cellIndex) return previousPath;
 
-            if (previousPath.length > 1 && previousPath[previousPath.length - 2] === cellIndex) {
-                return previousPath.slice(0, -1);
+            const candidateCells = getCellsAlongStraightPath(lastCell, cellIndex);
+            const cellsToApply = candidateCells.length > 0 ? candidateCells : [cellIndex];
+
+            for (const nextCell of cellsToApply) {
+                if (foundCellKinds.has(nextCell)) break;
+
+                const currentLastCell = nextPath[nextPath.length - 1];
+                if (currentLastCell === nextCell) continue;
+
+                if (nextPath.length > 1 && nextPath[nextPath.length - 2] === nextCell) {
+                    nextPath = nextPath.slice(0, -1);
+                    continue;
+                }
+
+                if (nextPath.includes(nextCell) || !areCellsAdjacent(currentLastCell, nextCell)) {
+                    break;
+                }
+
+                nextPath = [...nextPath, nextCell];
             }
 
-            if (previousPath.includes(cellIndex) || !areCellsAdjacent(lastCell, cellIndex)) {
-                return previousPath;
-            }
-
-            return [...previousPath, cellIndex];
+            return nextPath;
         });
     };
 

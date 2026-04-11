@@ -61,6 +61,29 @@ export function areCellsAdjacent(leftCell, rightCell) {
   return (rowDelta !== 0 || colDelta !== 0) && rowDelta <= 1 && colDelta <= 1;
 }
 
+export function getCellsAlongStraightPath(fromCell, toCell) {
+  const from = cellToRowCol(fromCell);
+  const to = cellToRowCol(toCell);
+  const rowDelta = to.row - from.row;
+  const colDelta = to.col - from.col;
+
+  if (rowDelta === 0 && colDelta === 0) return [];
+
+  const isStraightPath = rowDelta === 0 || colDelta === 0 || Math.abs(rowDelta) === Math.abs(colDelta);
+  if (!isStraightPath) return [];
+
+  const steps = Math.max(Math.abs(rowDelta), Math.abs(colDelta));
+  const rowStep = Math.sign(rowDelta);
+  const colStep = Math.sign(colDelta);
+  const traversedCells = [];
+
+  for (let step = 1; step <= steps; step += 1) {
+    traversedCells.push(rowColToCell(from.row + (rowStep * step), from.col + (colStep * step)));
+  }
+
+  return traversedCells;
+}
+
 export function isPathValid(path) {
   if (!Array.isArray(path) || path.length === 0) return false;
   const seen = new Set();
