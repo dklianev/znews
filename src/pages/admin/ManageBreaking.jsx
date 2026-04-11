@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { usePublicData } from '../../context/DataContext';
-import { Plus, Trash2, X, Save, AlertTriangle, Newspaper } from 'lucide-react';
+import { Plus, Trash2, X, Save, AlertTriangle, Newspaper, FileText, Check, Loader2 } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminEmptyState from '../../components/admin/AdminEmptyState';
+import { api } from '../../utils/api';
+
+const SUGGEST_LIMIT = 7;
 
 export default function ManageBreaking() {
   const { breaking, saveBreaking } = usePublicData();
@@ -13,6 +16,10 @@ export default function ManageBreaking() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const toast = useToast();
+
+  const [suggestions, setSuggestions] = useState(null);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [selected, setSelected] = useState(new Set());
 
   const addItem = () => {
     if (!newItem.trim()) return;
@@ -61,6 +68,52 @@ export default function ManageBreaking() {
     setError('');
     setItems(breaking);
     setHasChanges(false);
+  };
+
+  const loadSuggestions = useCallback(async () => {
+    setLoadingSuggestions(true);
+    try {
+      const articles = await api.articles.getAll({
+        fields: 'id,title,breaking',
+        limit: SUGGEST_LIMIT,
+        page: 1,
+      });
+      const list = (Array.isArray(articles) ? articles : [])
+        .filter((a) => a?.title)
+        .map((a) => ({ id: a.id, title: String(a.title).trim(), breaking: Boolean(a.breaking) }));
+      setSuggestions(list);
+      setSelected(new Set());
+    } catch {
+      toast.error('Грешка при зареждане на статиите');
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, [toast]);
+
+  const toggleSuggestion = (id) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const addSelected = () => {
+    if (!suggestions || selected.size === 0) return;
+    const titlesToAdd = suggestions
+      .filter((s) => selected.has(s.id))
+      .map((s) => s.title)
+      .filter((title) => !items.includes(title));
+    if (titlesToAdd.length === 0) {
+      toast.info('Избраните заглавия вече са в тикера');
+      return;
+    }
+    setItems([...items, ...titlesToAdd]);
+    setHasChanges(true);
+    setSuggestions(null);
+    setSelected(new Set());
+    toast.success(`${titlesToAdd.length} заглавия добавени`);
   };
 
   const inputCls = "w-full px-3 py-2 bg-white border border-gray-200 text-sm font-sans text-gray-900 outline-none focus:border-zn-purple";
@@ -115,7 +168,7 @@ export default function ManageBreaking() {
       </div>
 
       {/* Add new */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-4">
         <input
           className={inputCls + ' flex-1'}
           value={newItem}
@@ -129,6 +182,90 @@ export default function ManageBreaking() {
         >
           <Plus className="w-4 h-4" /> Добави
         </button>
+      </div>
+
+      {/* Suggest from articles */}
+      <div className="mb-6">
+        {suggestions === null ? (
+          <button
+            onClick={loadSuggestions}
+            disabled={loadingSuggestions}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-600 text-sm font-sans hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            {loadingSuggestions
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <FileText className="w-4 h-4" />}
+            Зареди от последните статии
+          </button>
+        ) : (
+          <div className="border border-gray-200 bg-gray-50">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 bg-white">
+              <span className="text-xs font-sans font-semibold text-gray-600 uppercase tracking-wider">
+                Последни {suggestions.length} статии — избери и добави
+              </span>
+              <button
+                onClick={() => { setSuggestions(null); setSelected(new Set()); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Затвори предложенията"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="divide-y divide-gray-200">
+              {suggestions.map((s) => {
+                const isSelected = selected.has(s.id);
+                const alreadyInTicker = items.includes(s.title);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => !alreadyInTicker && toggleSuggestion(s.id)}
+                    disabled={alreadyInTicker}
+                    className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-sans transition-colors ${
+                      alreadyInTicker
+                        ? 'text-gray-400 cursor-not-allowed bg-gray-100'
+                        : isSelected
+                          ? 'bg-zn-purple/10 text-gray-900'
+                          : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className={`flex h-5 w-5 shrink-0 items-center justify-center border ${
+                      alreadyInTicker
+                        ? 'border-gray-300 bg-gray-200'
+                        : isSelected
+                          ? 'border-zn-purple bg-zn-purple'
+                          : 'border-gray-300 bg-white'
+                    }`}>
+                      {(isSelected || alreadyInTicker) && <Check className={`w-3 h-3 ${alreadyInTicker ? 'text-gray-400' : 'text-white'}`} />}
+                    </div>
+                    <span className="flex-1 truncate">{s.title}</span>
+                    {s.breaking && (
+                      <span className="shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-700">
+                        Извънредно
+                      </span>
+                    )}
+                    {alreadyInTicker && (
+                      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                        Вече в тикера
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {selected.size > 0 && (
+              <div className="flex items-center justify-end gap-2 px-3 py-2 border-t border-gray-200 bg-white">
+                <span className="text-xs font-sans text-gray-500">{selected.size} избрани</span>
+                <button
+                  onClick={addSelected}
+                  className="flex items-center gap-2 px-4 py-1.5 bg-zn-purple text-white text-sm font-sans font-semibold hover:bg-zn-purple-dark transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> Добави избраните
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Items list */}
