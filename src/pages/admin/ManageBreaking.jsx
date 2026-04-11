@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { usePublicData } from '../../context/DataContext';
 import { Plus, Trash2, X, Save, AlertTriangle, Newspaper, FileText, Check, Loader2 } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
@@ -8,9 +8,39 @@ import { api } from '../../utils/api';
 
 const SUGGEST_LIMIT = 7;
 
+function toTickerItems(items) {
+  return Array.isArray(items)
+    ? items
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+    : [];
+}
+
+function normalizeArticleSuggestions(payload) {
+  const rawItems = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.items)
+      ? payload.items
+      : [];
+  const seenTitles = new Set();
+
+  return rawItems
+    .filter((article) => article?.title)
+    .map((article) => ({
+      id: article.id,
+      title: String(article.title).trim(),
+      breaking: Boolean(article.breaking),
+    }))
+    .filter((article) => {
+      if (!article.title || seenTitles.has(article.title)) return false;
+      seenTitles.add(article.title);
+      return true;
+    });
+}
+
 export default function ManageBreaking() {
   const { breaking, saveBreaking } = usePublicData();
-  const [items, setItems] = useState(breaking);
+  const [items, setItems] = useState(() => toTickerItems(breaking));
   const [newItem, setNewItem] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -21,31 +51,42 @@ export default function ManageBreaking() {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [selected, setSelected] = useState(new Set());
 
+  useEffect(() => {
+    if (!hasChanges) {
+      setItems(toTickerItems(breaking));
+    }
+  }, [breaking, hasChanges]);
+
   const addItem = () => {
-    if (!newItem.trim()) return;
-    setItems([...items, newItem.trim()]);
+    const nextItem = newItem.trim();
+    if (!nextItem) return;
+    setItems((prev) => [...prev, nextItem]);
     setNewItem('');
     setHasChanges(true);
   };
 
   const removeItem = (index) => {
-    setItems(items.filter((_, i) => i !== index));
+    setItems((prev) => prev.filter((_, i) => i !== index));
     setHasChanges(true);
   };
 
   const updateItem = (index, value) => {
-    const updated = [...items];
-    updated[index] = value;
-    setItems(updated);
+    setItems((prev) => {
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
+    });
     setHasChanges(true);
   };
 
   const moveItem = (index, direction) => {
-    const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= items.length) return;
-    const updated = [...items];
-    [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
-    setItems(updated);
+    setItems((prev) => {
+      const newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= prev.length) return prev;
+      const updated = [...prev];
+      [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
+      return updated;
+    });
     setHasChanges(true);
   };
 
@@ -53,7 +94,9 @@ export default function ManageBreaking() {
     setSaving(true);
     setError('');
     try {
-      await saveBreaking(items.filter(Boolean));
+      const nextItems = toTickerItems(items);
+      await saveBreaking(nextItems);
+      setItems(nextItems);
       setHasChanges(false);
       toast.success('Тикерът е запазен');
     } catch (e) {
@@ -66,7 +109,7 @@ export default function ManageBreaking() {
 
   const handleReset = () => {
     setError('');
-    setItems(breaking);
+    setItems(toTickerItems(breaking));
     setHasChanges(false);
   };
 
@@ -78,9 +121,7 @@ export default function ManageBreaking() {
         limit: SUGGEST_LIMIT,
         page: 1,
       });
-      const list = (Array.isArray(articles) ? articles : [])
-        .filter((a) => a?.title)
-        .map((a) => ({ id: a.id, title: String(a.title).trim(), breaking: Boolean(a.breaking) }));
+      const list = normalizeArticleSuggestions(articles);
       setSuggestions(list);
       setSelected(new Set());
     } catch {
@@ -109,7 +150,7 @@ export default function ManageBreaking() {
       toast.info('Избраните заглавия вече са в тикера');
       return;
     }
-    setItems([...items, ...titlesToAdd]);
+    setItems((prev) => [...prev, ...titlesToAdd]);
     setHasChanges(true);
     setSuggestions(null);
     setSelected(new Set());

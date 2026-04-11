@@ -10,6 +10,7 @@ const getAllContactMessages = vi.fn(async () => []);
 const updateContactMessage = vi.fn(async () => ({}));
 const deleteContactMessage = vi.fn(async () => ({}));
 const getArticleById = vi.fn(async () => null);
+const getAllArticles = vi.fn(async () => ({ items: [] }));
 const updateComment = vi.fn(async () => ({}));
 const deleteComment = vi.fn(async () => ({}));
 const addJob = vi.fn(async () => ({}));
@@ -99,6 +100,7 @@ vi.mock('../../src/utils/api', () => ({
       delete: (...args) => deleteContactMessage(...args),
     },
     articles: {
+      getAll: (...args) => getAllArticles(...args),
       getById: (...args) => getArticleById(...args),
     },
     auditLog: {
@@ -172,6 +174,7 @@ describe('AdminSystem', () => {
     updateContactMessage.mockReset();
     deleteContactMessage.mockReset();
     getArticleById.mockReset();
+    getAllArticles.mockReset();
     updateComment.mockReset();
     deleteComment.mockReset();
     addJob.mockReset();
@@ -1505,5 +1508,69 @@ describe('AdminSystem', () => {
     expect(container.querySelector('button[aria-label="Премести новината нагоре"]')).not.toBeNull();
     expect(container.querySelector('button[aria-label="Премахни новината"]')).not.toBeNull();
     expect(container.querySelector('input[aria-label="Редактирай новина 1"]')).not.toBeNull();
+  });
+
+  it('loads ticker suggestions from paginated article results and adds the selected title', async () => {
+    publicDataState = {
+      breaking: ['Старо заглавие'],
+      saveBreaking,
+    };
+    getAllArticles.mockResolvedValueOnce({
+      items: [
+        { id: 91, title: 'Ново извънредно заглавие', breaking: true },
+        { id: 92, title: 'Старо заглавие', breaking: false },
+      ],
+      page: 1,
+      limit: 7,
+      total: 2,
+      totalPages: 1,
+    });
+
+    ({ root, container } = await renderIntoBody(ManageBreaking));
+    await flushEffects();
+
+    const loadSuggestionsButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Зареди от последните статии'));
+    await click(loadSuggestionsButton);
+    await flushEffects();
+
+    expect(container.textContent).toContain('Последни 2 статии');
+    expect(container.textContent).toContain('Ново извънредно заглавие');
+    expect(container.textContent).toContain('Вече в тикера');
+
+    const suggestionButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Ново извънредно заглавие'));
+    await click(suggestionButton);
+    await flushEffects();
+
+    const addSelectedButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Добави избраните'));
+    await click(addSelectedButton);
+    await flushEffects();
+
+    expect(container.textContent).toContain('Ново извънредно заглавие');
+    expect(toast.success).toHaveBeenCalledWith('1 заглавия добавени');
+  });
+
+  it('saves the ticker after removing an old breaking item', async () => {
+    publicDataState = {
+      breaking: ['Старо заглавие', 'Второ заглавие'],
+      saveBreaking,
+    };
+
+    ({ root, container } = await renderIntoBody(ManageBreaking));
+    await flushEffects();
+
+    const removeButtons = container.querySelectorAll('button[aria-label="Премахни новината"]');
+    await click(removeButtons[0]);
+    await flushEffects();
+
+    const saveButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent?.includes('Запази промените'));
+    await click(saveButton);
+    await flushEffects();
+
+    expect(saveBreaking).toHaveBeenCalledWith(['Второ заглавие']);
+    expect(toast.success).toHaveBeenCalledWith('Тикерът е запазен');
   });
 });
