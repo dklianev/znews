@@ -82,6 +82,8 @@ export function DataProvider({ children }) {
   const publicLoadersRef = useRef({ jobs: null, court: null, events: null, gallery: null, games: null });
   const mediaLoaderRef = useRef(null);
   const mediaLoadedRef = useRef(false);
+  const mediaRef = useRef([]);
+  const mediaPipelineStatusRef = useRef(null);
   const usersLoaderRef = useRef(null);
   const usersLoadedRef = useRef(false);
   const tipsLoaderRef = useRef(null);
@@ -89,6 +91,9 @@ export function DataProvider({ children }) {
   const [session, setSession] = useState(getSession);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+
+  mediaRef.current = media;
+  mediaPipelineStatusRef.current = mediaPipelineStatus;
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -805,6 +810,8 @@ export function DataProvider({ children }) {
       .then(([items, pipelineStatus]) => {
         const normalizedItems = Array.isArray(items) ? items : [];
         const normalizedPipelineStatus = pipelineStatus || null;
+        mediaRef.current = normalizedItems;
+        mediaPipelineStatusRef.current = normalizedPipelineStatus;
         setMedia(normalizedItems);
         setMediaPipelineStatus(normalizedPipelineStatus);
         mediaLoadedRef.current = true;
@@ -814,8 +821,6 @@ export function DataProvider({ children }) {
         };
       })
       .catch((error) => {
-        setMedia([]);
-        setMediaPipelineStatus(null);
         mediaLoadedRef.current = false;
         throw error;
       })
@@ -831,8 +836,8 @@ export function DataProvider({ children }) {
   const ensureMediaLoaded = useCallback(async () => {
     if (mediaLoadedRef.current) {
       return {
-        items: media,
-        pipelineStatus: mediaPipelineStatus,
+        items: mediaRef.current,
+        pipelineStatus: mediaPipelineStatusRef.current,
       };
     }
     try {
@@ -843,7 +848,7 @@ export function DataProvider({ children }) {
         pipelineStatus: null,
       };
     }
-  }, [media, mediaPipelineStatus, refreshMedia]);
+  }, [refreshMedia]);
   const uploadMedia = useCallback(async (file, options = {}) => {
     const uploaded = await api.media.upload(file, {
       applyWatermark: options?.applyWatermark !== false,
