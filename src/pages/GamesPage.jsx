@@ -52,7 +52,7 @@ export default function GamesPage() {
     return (
         <div className="relative min-h-screen bg-zn-paper pb-20 pt-10 text-black comic-dots dark:bg-zinc-950 dark:text-white">
             <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-                <div className="relative mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
+                <div className="relative mb-8 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
                     <EasterDecorations pageId="games" />
                     <div>
                         <h1 className="flex items-center gap-4 font-display text-4xl font-black uppercase tracking-wider text-black dark:text-white md:text-6xl">
@@ -74,35 +74,28 @@ export default function GamesPage() {
                         <p className="font-display text-2xl font-black uppercase tracking-widest text-zn-comic-black dark:text-white">В момента няма активни игри.</p>
                     </div>
                 ) : (
-                    <div className="space-y-8">
-                        <GamesProgressBar games={dailyGames} />
-
-                        <section className="comic-panel comic-dots space-y-4 bg-white p-4 dark:bg-zinc-900 md:p-5">
-                            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                <div>
-                                    <p className="comic-kicker mb-2">Избери ритъм</p>
-                                    <h2 className="text-2xl font-display font-black uppercase tracking-[0.02em] text-black dark:text-white">Прегледай целия аркаден каталог</h2>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {GAME_GROUPS.map((group) => {
-                                        const isActive = filter === group.key;
-                                        return (
-                                            <button
-                                                key={group.key}
-                                                type="button"
-                                                onClick={() => setFilter(group.key)}
-                                                className={`border-3 px-4 py-2 font-display text-sm font-black uppercase tracking-[0.18em] transition-all ${
-                                                    isActive
-                                                        ? 'border-black bg-zn-purple text-white shadow-comic dark:border-zinc-700 dark:shadow-none'
-                                                        : 'border-black bg-white text-zn-comic-black shadow-comic hover:-translate-y-0.5 hover:bg-zn-bg dark:border-zinc-700 dark:bg-zinc-950 dark:text-white dark:shadow-none dark:hover:bg-zinc-800'
-                                                }`}
-                                                aria-pressed={isActive}
-                                            >
-                                                {group.label} ({countsByFilter[group.key] || 0})
-                                            </button>
-                                        );
-                                    })}
-                                </div>
+                    <div className="space-y-5">
+                        <section className="comic-panel comic-dots flex flex-col gap-3 bg-white p-3 dark:bg-zinc-900 md:flex-row md:items-center md:justify-between md:p-4">
+                            <GamesProgressBar games={dailyGames} />
+                            <div className="flex flex-wrap gap-2">
+                                {GAME_GROUPS.map((group) => {
+                                    const isActive = filter === group.key;
+                                    return (
+                                        <button
+                                            key={group.key}
+                                            type="button"
+                                            onClick={() => setFilter(group.key)}
+                                            className={`border-2 px-3 py-1.5 font-display text-xs font-black uppercase tracking-[0.16em] transition-all ${
+                                                isActive
+                                                    ? 'border-black bg-zn-purple text-white shadow-comic dark:border-zinc-700 dark:shadow-none'
+                                                    : 'border-black bg-white text-zn-comic-black shadow-comic hover:-translate-y-0.5 hover:bg-zn-bg dark:border-zinc-700 dark:bg-zinc-950 dark:text-white dark:shadow-none dark:hover:bg-zinc-800'
+                                            }`}
+                                            aria-pressed={isActive}
+                                        >
+                                            {group.label} ({countsByFilter[group.key] || 0})
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </section>
 

@@ -17,7 +17,6 @@ export default function GamesCompactCard({ game, progress, streak }) {
   return (
     <Link
       to={`/games/${game.slug}`}
-      prefetch="intent"
       className={`group comic-panel comic-dots comic-panel-hover comic-card-variant-${themeVariant} bg-white dark:bg-zinc-900 relative block h-full overflow-visible`}
     >
       <div className={`absolute inset-x-0 top-0 h-2 bg-gradient-to-r ${stripeClass}`} />

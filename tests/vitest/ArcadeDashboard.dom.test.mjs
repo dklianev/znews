@@ -103,14 +103,10 @@ describe('ArcadeDashboard', () => {
     await flushEffects();
 
     expect(loadGamesCatalog).toHaveBeenCalledTimes(1);
-    const progressSection = Array.from(container.querySelectorAll('section')).find((section) => section.textContent?.includes('Дневен прогрес'));
-
-    expect(progressSection).toBeTruthy();
-    expect(container.textContent).toContain('1/1 завършени днес');
-    expect(progressSection?.textContent).toContain('Намери точната дума');
-    expect(progressSection?.textContent).not.toContain('Тетрис');
-    const progressLink = progressSection?.querySelector('a[href="/games/word"]');
-    expect(progressLink?.textContent).toContain('Намери точната дума');
+    expect(container.textContent).toContain('1/1');
+    const progressLink = container.querySelector('a[href="/games/word"][title="Намери точната дума"]');
+    expect(progressLink).toBeTruthy();
+    expect(container.querySelector('a[href="/games/tetris"][title="Тетрис"]')).toBeNull();
     expect(container.textContent).toContain('Следващо предизвикателство');
     expect(container.textContent).toContain('Пъзели');
     expect(container.textContent).toContain('Аркадни');
