@@ -64,7 +64,13 @@ export function areCellsAdjacent(leftCell, rightCell) {
 export function isPathValid(path) {
   if (!Array.isArray(path) || path.length === 0) return false;
   const seen = new Set();
-  const normalizedPath = path.map(assertCellIndex);
+  let normalizedPath;
+
+  try {
+    normalizedPath = path.map(assertCellIndex);
+  } catch {
+    return false;
+  }
 
   for (let index = 0; index < normalizedPath.length; index += 1) {
     const cell = normalizedPath[index];

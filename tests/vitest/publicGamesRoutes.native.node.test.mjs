@@ -161,4 +161,42 @@ describe('publicGamesRoutes', () => {
       cells: [0, 1, 2],
     });
   });
+
+  it('returns 400 for malformed strands paths instead of bubbling a server error', async () => {
+    const router = createPublicGamesRouter(createDeps({
+      findActivePublishedGamePuzzle: async () => ({
+        id: 13,
+        gameSlug: 'strands',
+        status: 'published',
+        puzzleDate: '2026-04-03',
+        payload: {
+          rows: 8,
+          cols: 6,
+          grid: ['АБВГДЕ', 'ЖЗИЙКЛ', 'МНОПРС', 'ТУФХЦЧ', 'ШЩЪЬЮЯ', 'АБВГДЕ', 'ЖЗИЙКЛ', 'МНОПРС'],
+        },
+        solution: {
+          answers: [
+            { kind: 'theme', word: 'АБВ', cells: [0, 1, 2] },
+            { kind: 'spangram', word: 'МНОПРС', cells: [42, 43, 44, 45, 46, 47] },
+          ],
+        },
+      }),
+      resolveGameAccess: async (_req, slug) => ({
+        slug,
+        game: { slug, type: 'strands' },
+        canManageGames: false,
+        isPubliclyAvailable: true,
+      }),
+    }));
+    const handlers = getRouteHandlers(router, 'post', '/:slug/:date/validate');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      params: { slug: 'strands', date: '2026-04-03' },
+      body: { path: [0, 99, 2] },
+    }, res);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({ error: 'Невалиден път.' });
+  });
 });
