@@ -146,7 +146,6 @@ describe('ArcadeDashboard', () => {
     expect(container.textContent).toContain('Днешните игри са приключени');
     expect(container.textContent).toContain('2/2 отметнати');
     expect(container.textContent).toContain('Към аркадните');
-    expect(container.textContent).toContain('Бърз аркаден рунд');
 
     const arcadeCta = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Към аркадните'));
     expect(arcadeCta).toBeTruthy();

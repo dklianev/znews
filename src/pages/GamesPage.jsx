@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Gamepad2, Loader2, Zap } from 'lucide-react';
+import { Gamepad2, Loader2 } from 'lucide-react';
 import { usePublicData } from '../context/DataContext';
 import EasterDecorations from '../components/seasonal/EasterDecorations';
 import GamesProgressBar from '../components/games/GamesProgressBar';
@@ -126,24 +126,6 @@ export default function GamesPage() {
 
                         {(filter === 'all' || filter === 'puzzles') && (
                             <GamesSection title="Пъзели" variant="purple" games={puzzleGames} />
-                        )}
-
-                        {filter === 'all' && arcadeGames.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={handleFilterArcade}
-                                className="comic-panel comic-panel-hover comic-dots flex w-full items-center justify-between gap-3 bg-gradient-to-r from-zn-orange/10 to-zn-gold/10 p-3 text-left dark:from-zn-orange/5 dark:to-zn-gold/5 md:p-4"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <Zap className="h-5 w-5 text-zn-orange" />
-                                    <span className="font-display text-sm font-black uppercase tracking-[0.14em] text-zn-comic-black dark:text-white">
-                                        Бърз аркаден рунд
-                                    </span>
-                                </div>
-                                <span className="font-display text-xs font-black uppercase tracking-wider text-zn-text-dim dark:text-zinc-400">
-                                    {arcadeGames.length} игри →
-                                </span>
-                            </button>
                         )}
 
                         <div ref={arcadeSectionRef}>
