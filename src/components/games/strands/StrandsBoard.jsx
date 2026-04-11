@@ -78,6 +78,7 @@ export default function StrandsBoard({
 
     const handlePointerDown = (cellIndex, event) => {
         if (disabled) return;
+        if (event.isPrimary === false) return;
         event.preventDefault();
         boardRef.current?.setPointerCapture?.(event.pointerId);
         setIsDragging(true);
@@ -86,6 +87,7 @@ export default function StrandsBoard({
 
     const handlePointerMove = (event) => {
         if (!isDragging || disabled) return;
+        if (event.isPrimary === false) return;
         const cellIndex = getCellFromPointer(event);
         if (cellIndex === null) return;
         onExtendPath?.(cellIndex);
@@ -93,7 +95,7 @@ export default function StrandsBoard({
 
     const finishPointer = (event) => {
         if (!isDragging) return;
-        if (boardRef.current?.hasPointerCapture?.(event.pointerId)) {
+        if (event?.pointerId != null && boardRef.current?.hasPointerCapture?.(event.pointerId)) {
             boardRef.current.releasePointerCapture(event.pointerId);
         }
         setIsDragging(false);
@@ -123,6 +125,7 @@ export default function StrandsBoard({
                 onPointerMove={handlePointerMove}
                 onPointerUp={finishPointer}
                 onPointerCancel={finishPointer}
+                onLostPointerCapture={finishPointer}
             >
                 <div className="grid grid-cols-6 gap-2 sm:gap-3">
                     {safeGrid.flatMap((row, rowIndex) => Array.from(String(row || '')).map((char, colIndex) => {
