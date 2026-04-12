@@ -39,6 +39,7 @@ function lazyRetry(importFn) {
 // ─── Lazy-loaded pages (code-split) ───
 const HomePage = lazyRetry(() => import('./pages/HomePage'));
 const ArticlePage = lazyRetry(() => import('./pages/ArticlePage'));
+const ArticlePageConcept = lazyRetry(() => import('./pages/ArticlePageConcept'));
 const CategoryPage = lazyRetry(() => import('./pages/CategoryPage'));
 const AuthorPage = lazyRetry(() => import('./pages/AuthorPage'));
 const SearchPage = lazyRetry(() => import('./pages/SearchPage'));
@@ -399,6 +400,7 @@ function AppContent() {
         <Route element={<PublicLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/article/:id" element={<ArticlePage />} />
+          <Route path="/article/:id/concept" element={<ArticlePageConcept />} />
           <Route path="/category/:slug" element={<CategoryPage />} />
           <Route path="/author/:id" element={<AuthorPage />} />
           <Route path="/search" element={<SearchPage />} />
