@@ -1018,6 +1018,8 @@ export function DataProvider({ children }) {
   const classifiedsLoadedRef = useRef(false);
   const classifiedsLoaderRef = useRef(null);
   const refreshClassifieds = useCallback(async () => {
+    if (classifiedsLoaderRef.current) return classifiedsLoaderRef.current;
+
     const task = api.classifieds.getAll()
       .then((data) => {
         const items = Array.isArray(data) ? data : [];
@@ -1025,6 +1027,11 @@ export function DataProvider({ children }) {
         setClassifiedsReady(true);
         setClassifieds(items);
         return items;
+      })
+      .finally(() => {
+        if (classifiedsLoaderRef.current === task) {
+          classifiedsLoaderRef.current = null;
+        }
       });
     classifiedsLoaderRef.current = task;
     return task;
@@ -1033,7 +1040,11 @@ export function DataProvider({ children }) {
     const canLoad = session?.role === 'admin' || permissions.some((item) => item?.role === session?.role && item?.permissions?.classifieds);
     if (!session?.token || !canLoad) return [];
     if (classifiedsLoadedRef.current) return classifieds;
-    return await refreshClassifieds();
+    try {
+      return await refreshClassifieds();
+    } catch {
+      return [];
+    }
   }, [permissions, refreshClassifieds, session?.role, session?.token, classifieds]);
   const submitClassified = useCallback(async (formData, tier) => {
     return await api.classifieds.submit(formData, tier);

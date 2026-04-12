@@ -63,17 +63,17 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!canSeeTeam) return;
-    void ensureUsersLoaded();
+    void ensureUsersLoaded().catch(() => {});
   }, [canSeeTeam, ensureUsersLoaded]);
 
   useEffect(() => {
     if (!canSeeClassifieds) return;
-    void ensureClassifiedsLoaded();
+    void ensureClassifiedsLoaded().catch(() => {});
   }, [canSeeClassifieds, ensureClassifiedsLoaded]);
 
   useEffect(() => {
     if (!canSeeTips) return;
-    void ensureTipsLoaded();
+    void ensureTipsLoaded().catch(() => {});
   }, [canSeeTips, ensureTipsLoaded]);
 
   useEffect(() => {
