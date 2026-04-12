@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { ArrowLeft, ChevronRight, Clock, Copy, Eye, Mail, Sparkles } from 'lucide-react';
@@ -43,6 +43,12 @@ const INITIAL_RIGHT_OF_REPLY_STATE = Object.freeze({
   message: '',
   fieldErrors: {},
 });
+
+const conceptNotes = [
+  'По-силен masthead с по-ясна йерархия между заглавие, lead и meta.',
+  'Story map вляво, за да се сканират дългите материали по-бързо.',
+  'По-отчетливо разделение между редакционното четене, коментарите и правото на отговор.',
+];
 
 function serializeArticleNode(node) {
   if (!node) return '';
@@ -89,6 +95,7 @@ function buildConceptPresentation(article) {
       usedIds.set(baseId, count + 1);
       const id = count === 0 ? baseId : `${baseId}-${count + 1}`;
       heading.id = id;
+      heading.classList.add('scroll-mt-24', 'md:scroll-mt-28');
       headings.push({
         id,
         label,
@@ -139,7 +146,7 @@ function buildConceptPresentation(article) {
 function ArticleConceptSkeleton() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 animate-pulse" aria-label="Зареждане на концепта">
-      <div className="comic-panel bg-white p-5 mb-6">
+      <div className="comic-panel bg-white dark:bg-zinc-950 dark:border-zinc-100/70 p-5 mb-6">
         <div className="h-5 w-40 bg-zn-text/10 rounded mb-4" />
         <div className="h-10 w-10/12 bg-zn-text/10 rounded mb-3" />
         <div className="h-5 w-7/12 bg-zn-text/10 rounded" />
@@ -167,6 +174,10 @@ export default function ArticlePageConcept() {
   const [publishedReplyArticles, setPublishedReplyArticles] = useState([]);
   const [publishedReplyLoading, setPublishedReplyLoading] = useState(false);
   const viewCounted = useRef(false);
+  const articleBodyRef = useRef(null);
+  const progressBarRef = useRef(null);
+  const readProgressRef = useRef(0);
+  const progressFrameRef = useRef(0);
 
   useEffect(() => {
     setDirectArticle(null);
@@ -204,7 +215,7 @@ export default function ArticlePageConcept() {
   const article = directArticle || contextArticle;
   const author = article ? authors.find((candidate) => candidate.id === article.authorId) : null;
   const category = article ? categories.find((candidate) => candidate.id === article.category) : null;
-  const articlePresentation = useMemo(() => buildConceptPresentation(article), [article]);
+  const articlePresentation = useMemo(() => buildConceptPresentation(article), [article?.content, article?.excerpt]);
 
   useDocumentTitle(makeTitle(article?.title ? `${article.title} · Концепт` : 'Концепт статия'));
 
@@ -222,8 +233,36 @@ export default function ArticlePageConcept() {
       url: `${origin}/article/${article.id}/concept`,
       type: 'article',
     };
-  }, [article]);
+  }, [article?.id, article?.title, article?.excerpt, article?.image, article?.shareImage]);
   useDocumentMeta(articleMetaTags);
+
+  const jsonLd = useMemo(() => {
+    if (!article) return null;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const rawImg = article.image || article.shareImage || '';
+    const ldImage = rawImg
+      ? (rawImg.startsWith('http') ? rawImg : `${origin}${rawImg.startsWith('/') ? '' : '/'}${rawImg}`)
+      : `${origin}/og.png`;
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'NewsArticle',
+      headline: article.title,
+      description: article.excerpt || '',
+      image: ldImage,
+      datePublished: article.date || '',
+      dateModified: article.updatedAt || article.date || '',
+      author: author ? { '@type': 'Person', name: author.name } : undefined,
+      publisher: {
+        '@type': 'Organization',
+        name: 'zNews',
+        logo: { '@type': 'ImageObject', url: `${origin}/og.png` },
+      },
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': `${origin}/article/${article.id}/concept`,
+      },
+    };
+  }, [article?.id, article?.title, article?.excerpt, article?.image, article?.shareImage, article?.date, article?.updatedAt, author?.name]);
 
   useEffect(() => {
     viewCounted.current = false;
@@ -363,7 +402,51 @@ export default function ArticlePageConcept() {
     const target = document.getElementById(sectionId);
     if (!target) return;
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.history.replaceState(null, '', `#${sectionId}`);
   };
+
+  // Reading progress bar
+  const updateReadProgress = useEffectEvent(() => {
+    const el = articleBodyRef.current;
+    const progressEl = progressBarRef.current;
+    if (!el || !progressEl) return;
+    const rect = el.getBoundingClientRect();
+    const total = el.scrollHeight;
+    const visible = window.innerHeight;
+    const maxScrollable = Math.max(1, total - visible);
+    const scrolled = Math.max(0, -rect.top);
+    const pct = Math.min(100, Math.max(0, (scrolled / maxScrollable) * 100));
+
+    if (Math.abs(readProgressRef.current - pct) < 0.1) return;
+
+    readProgressRef.current = pct;
+    progressEl.style.transform = `scaleX(${pct / 100})`;
+    progressEl.setAttribute('aria-valuenow', String(Math.round(pct)));
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleViewportChange = () => {
+      if (progressFrameRef.current) return;
+      progressFrameRef.current = window.requestAnimationFrame(() => {
+        progressFrameRef.current = 0;
+        updateReadProgress();
+      });
+    };
+
+    updateReadProgress();
+    window.addEventListener('scroll', handleViewportChange, { passive: true });
+    window.addEventListener('resize', handleViewportChange);
+    return () => {
+      if (progressFrameRef.current) {
+        window.cancelAnimationFrame(progressFrameRef.current);
+        progressFrameRef.current = 0;
+      }
+      window.removeEventListener('scroll', handleViewportChange);
+      window.removeEventListener('resize', handleViewportChange);
+    };
+  }, [article?.id]);
 
   if ((loading || hydratingArticle) && !article) {
     return <ArticleConceptSkeleton />;
@@ -382,26 +465,56 @@ export default function ArticlePageConcept() {
     );
   }
 
-  const conceptNotes = [
-    'По-силен masthead с по-ясна йерархия между заглавие, lead и meta.',
-    'Story map вляво, за да се сканират дългите материали по-бързо.',
-    'По-отчетливо разделение между редакционното четене, коментарите и правото на отговор.',
-  ];
-
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-7xl mx-auto px-4 py-8">
-      <div className="comic-panel comic-dots bg-white p-4 sm:p-5 mb-6 relative overflow-hidden">
-        <div className="absolute inset-y-0 right-0 w-48 bg-gradient-to-l from-zn-purple/12 to-transparent pointer-events-none" />
+      {/* JSON-LD structured data */}
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+
+      {/* Reading progress bar */}
+      <div
+        ref={progressBarRef}
+        className="fixed top-0 left-0 h-1 w-full bg-gradient-to-r from-zn-hot to-zn-orange z-[100] transition-transform duration-150 ease-out"
+        style={{ transform: 'scaleX(0)', transformOrigin: 'left center', willChange: 'transform' }}
+        role="progressbar"
+        aria-valuenow={0}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Прогрес на четене"
+      />
+
+      {/* Breadcrumb */}
+      <nav aria-label="Навигационна пътека" className="flex items-center gap-2 text-sm font-sans text-zn-text-muted dark:text-zinc-400 mb-6">
+        <Link to="/" className="hover:text-zn-hot transition-colors">Начало</Link>
+        <ChevronRight className="w-3 h-3" />
+        {category && (
+          <>
+            <Link to={`/category/${category.id}`} className="hover:text-zn-hot transition-colors">{category.name}</Link>
+            <ChevronRight className="w-3 h-3" />
+          </>
+        )}
+        <Link to={`/article/${article.id}`} className="hover:text-zn-hot transition-colors truncate max-w-xs">
+          {article.title}
+        </Link>
+        <ChevronRight className="w-3 h-3" />
+        <span className="text-zn-text dark:text-zinc-100 truncate max-w-xs">Концепт</span>
+      </nav>
+      <div className="comic-panel comic-dots bg-white dark:bg-zinc-950 dark:border-zinc-100/70 p-4 sm:p-5 mb-6 relative overflow-hidden">
+        <div className="absolute inset-y-0 right-0 w-48 bg-gradient-to-l from-zn-purple/12 dark:from-zn-purple/25 to-transparent pointer-events-none" />
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="headline-banner-purple text-[10px] sm:text-xs">КОНЦЕПТ PREVIEW</span>
-              <span className="comic-chip text-[10px] sm:text-xs">Без промяна на live страницата</span>
+              <span className="headline-banner-purple text-[10px] sm:text-xs">КОНЦЕПТ ПРЕГЛЕД</span>
+              <span className="comic-chip text-[10px] sm:text-xs dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-100/70">Без промяна на live страницата</span>
             </div>
-            <h1 className="font-display text-2xl md:text-3xl font-black uppercase tracking-wider text-zn-text">
+            <h1 className="font-display text-2xl md:text-3xl font-black uppercase tracking-wider text-zn-text dark:text-zinc-100">
               Нов прочит на статията
             </h1>
-            <p className="mt-2 font-sans text-sm md:text-base text-zn-text/75 max-w-3xl">
+            <p className="mt-2 font-sans text-sm md:text-base text-zn-text/75 dark:text-zinc-300/80 max-w-3xl">
               Тук гледаме как може да изглежда по-редакционен и по-премиум article layout, преди да сменим основната страница.
             </p>
           </div>
@@ -418,11 +531,11 @@ export default function ArticlePageConcept() {
         </div>
       </div>
 
-      <section className="comic-panel comic-dots bg-white p-4 md:p-6 xl:p-7 mb-6 overflow-hidden">
+      <section className="comic-panel comic-dots bg-white dark:bg-zinc-950 dark:border-zinc-100/70 p-4 md:p-6 xl:p-7 mb-6 overflow-hidden">
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)] gap-6 xl:gap-8 items-start">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              <span className="headline-banner-gold text-[10px] sm:text-xs">FEATURE LAYOUT</span>
+              <span className="headline-banner-gold text-[10px] sm:text-xs">ОСНОВЕН ИЗГЛЕД</span>
               {article.breaking ? <span className="breaking-badge font-sans">Извънредно</span> : null}
               {category ? (
                 <Link
@@ -434,20 +547,20 @@ export default function ArticlePageConcept() {
               ) : null}
             </div>
 
-            <h2 className="font-display text-3xl md:text-5xl xl:text-6xl font-black uppercase leading-[0.92] tracking-[0.02em] text-zn-text text-shadow-brutal">
+            <h2 className="font-display text-3xl md:text-5xl xl:text-6xl font-black uppercase leading-[0.92] tracking-[0.02em] text-zn-text dark:text-zinc-100 text-shadow-brutal">
               {article.title}
             </h2>
-            <p className="mt-4 max-w-3xl font-sans text-lg md:text-xl leading-relaxed text-zn-text/80">
+            <p className="mt-4 max-w-3xl font-sans text-lg md:text-xl leading-relaxed text-zn-text/80 dark:text-zinc-300/85">
               {article.excerpt}
             </p>
 
-            <div className="mt-5 flex flex-wrap items-center gap-4 text-sm font-sans text-zn-text/65">
+            <div className="mt-5 flex flex-wrap items-center gap-4 text-sm font-sans text-zn-text/65 dark:text-zinc-400">
               {author ? (
                 <Link to={`/author/${author.id}`} className="inline-flex items-center gap-2 hover:text-zn-hot transition-colors">
                   <span className="flex h-10 w-10 items-center justify-center border-3 border-[#1C1428] bg-zn-hot text-white font-display font-black">
                     {author.name?.charAt(0) || 'Z'}
                   </span>
-                  <span className="font-semibold text-zn-text">{author.name}</span>
+                  <span className="font-semibold text-zn-text dark:text-zinc-100">{author.name}</span>
                 </Link>
               ) : null}
               <span className="inline-flex items-center gap-1"><Clock className="h-4 w-4" />{formatNewsDate(article.date)}</span>
@@ -457,7 +570,7 @@ export default function ArticlePageConcept() {
 
             {articlePresentation.headings.length > 0 ? (
               <div className="mt-6">
-                <p className="text-[11px] font-display font-bold uppercase tracking-[0.22em] text-zn-text/55 mb-2">
+                <p className="text-[11px] font-display font-bold uppercase tracking-[0.22em] text-zn-text/55 dark:text-zinc-400 mb-2">
                   Карта на материала
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -479,7 +592,7 @@ export default function ArticlePageConcept() {
 
           <div className="relative">
             <div className="absolute -top-3 left-3 z-[2] comic-sticker">Редакционен hero</div>
-            <div className="comic-panel overflow-hidden bg-zn-bg">
+            <div className="comic-panel overflow-hidden bg-zn-bg dark:bg-zinc-900 dark:border-zinc-100/70">
               {article.youtubeUrl ? (
                 <YouTubeEmbed
                   url={article.youtubeUrl}
@@ -508,8 +621,8 @@ export default function ArticlePageConcept() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[220px_minmax(0,1fr)_300px] gap-6 mt-6">
         <aside className="hidden xl:block space-y-5">
-          <div className="newspaper-page comic-panel comic-dots p-4 sticky top-24">
-            <p className="text-[11px] font-display font-bold uppercase tracking-[0.24em] text-zn-purple mb-3">
+          <div className="newspaper-page comic-panel comic-dots p-4 sticky top-24 dark:bg-zinc-950 dark:border-zinc-100/70">
+            <p className="text-[11px] font-display font-bold uppercase tracking-[0.24em] text-zn-purple dark:text-purple-300 mb-3">
               Story map
             </p>
             <div className="space-y-2">
@@ -518,15 +631,15 @@ export default function ArticlePageConcept() {
                   key={heading.id}
                   type="button"
                   onClick={() => scrollToSection(heading.id)}
-                  className="w-full text-left comic-panel-hover border-2 border-[#1C1428] bg-white px-3 py-2"
+                  className="w-full text-left comic-panel-hover border-2 border-[#1C1428] dark:border-zinc-100/70 bg-white dark:bg-zinc-900 px-3 py-2"
                 >
-                  <span className="block text-[10px] font-mono text-zn-text/45 mb-1">0{index + 1}</span>
-                  <span className="block text-sm font-display font-bold uppercase tracking-wide text-zn-text">
+                  <span className="block text-[10px] font-mono text-zn-text/45 dark:text-zinc-400 mb-1">0{index + 1}</span>
+                  <span className="block text-sm font-display font-bold uppercase tracking-wide text-zn-text dark:text-zinc-100">
                     {heading.label}
                   </span>
                 </button>
               )) : (
-                <p className="text-sm font-sans text-zn-text/65">
+                <p className="text-sm font-sans text-zn-text/65 dark:text-zinc-400">
                   Тази статия е по-кратка и няма отделни секции за навигация.
                 </p>
               )}
@@ -534,38 +647,38 @@ export default function ArticlePageConcept() {
           </div>
         </aside>
 
-        <article className="min-w-0 space-y-6">
-          <section className="comic-panel bg-white p-5 md:p-6">
+        <article ref={articleBodyRef} className="min-w-0 space-y-6">
+          <section className="comic-panel bg-white dark:bg-zinc-950 dark:border-zinc-100/70 p-5 md:p-6">
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              <span className="headline-banner-hot text-[10px] sm:text-xs">LEAD</span>
-              <span className="comic-chip text-[10px] sm:text-xs">По-силен вход в материала</span>
+              <span className="headline-banner-hot text-[10px] sm:text-xs">ВХОД</span>
+              <span className="comic-chip text-[10px] sm:text-xs dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-100/70">По-силен вход в материала</span>
             </div>
             <div
               className="prose prose-lg max-w-none article-body
                 [&_p]:font-sans [&_p]:leading-relaxed [&_p]:mb-4 [&_.article-lead]:text-lg [&_.article-lead]:font-semibold
-                [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-black [&_h2]:uppercase [&_h2]:tracking-wide [&_h2]:mt-8
-                [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-wide [&_h3]:mt-6
+                [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-black [&_h2]:uppercase [&_h2]:tracking-wide [&_h2]:mt-8 [&_h2]:scroll-mt-24
+                [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-wide [&_h3]:mt-6 [&_h3]:scroll-mt-24
                 [&_blockquote]:border-l-4 [&_blockquote]:border-zn-purple [&_blockquote]:pl-5 [&_blockquote]:italic"
               dangerouslySetInnerHTML={{ __html: articlePresentation.leadHtml }}
             />
           </section>
 
           {articlePresentation.pullQuote ? (
-            <section className="comic-bubble bg-white px-6 py-5">
-              <p className="font-display text-2xl md:text-3xl font-black uppercase leading-tight tracking-wide text-zn-text">
+            <section className="comic-bubble bg-white dark:bg-zinc-950 dark:border-zinc-100/70 px-6 py-5">
+              <p className="font-display text-2xl md:text-3xl font-black uppercase leading-tight tracking-wide text-zn-text dark:text-zinc-100">
                 {articlePresentation.pullQuote}
               </p>
             </section>
           ) : null}
 
           {articlePresentation.bodyHtml ? (
-            <section className="newspaper-page comic-panel comic-dots p-5 md:p-6">
+            <section className="newspaper-page comic-panel comic-dots p-5 md:p-6 dark:bg-zinc-950 dark:border-zinc-100/70">
               <div
                 className="prose prose-lg max-w-none article-body
                   [&_p]:font-sans [&_p]:leading-relaxed [&_p]:mb-4
-                  [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-black [&_h2]:uppercase [&_h2]:tracking-wide [&_h2]:mt-9
-                  [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-wide [&_h3]:mt-7
-                  [&_blockquote]:border-l-4 [&_blockquote]:border-zn-purple [&_blockquote]:pl-5 [&_blockquote]:italic [&_blockquote]:bg-white/70 [&_blockquote]:py-2
+                  [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-black [&_h2]:uppercase [&_h2]:tracking-wide [&_h2]:mt-9 [&_h2]:scroll-mt-24
+                  [&_h3]:font-display [&_h3]:text-xl [&_h3]:font-bold [&_h3]:uppercase [&_h3]:tracking-wide [&_h3]:mt-7 [&_h3]:scroll-mt-24
+                  [&_blockquote]:border-l-4 [&_blockquote]:border-zn-purple [&_blockquote]:pl-5 [&_blockquote]:italic [&_blockquote]:bg-white/70 dark:[&_blockquote]:bg-zinc-900/80 [&_blockquote]:py-2
                   [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:font-sans [&_li]:mb-1
                   [&_a]:text-zn-hot [&_a]:underline"
                 dangerouslySetInnerHTML={{ __html: articlePresentation.bodyHtml }}
@@ -576,29 +689,29 @@ export default function ArticlePageConcept() {
           <ArticleReactions articleId={article.id} reactions={article.reactions} />
           <CommentsSection articleId={article.id} />
 
-          <section className="newspaper-page comic-panel comic-dots p-5 md:p-6 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-zn-purple/10 pointer-events-none" />
+          <section className="newspaper-page comic-panel comic-dots p-5 md:p-6 relative overflow-hidden dark:bg-zinc-950 dark:border-zinc-100/70">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/15 dark:from-zinc-900/30 via-transparent to-zn-purple/10 dark:to-zn-purple/20 pointer-events-none" />
             <div className="relative">
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span className="headline-banner-purple text-[10px] sm:text-xs">ПРАВО НА ОТГОВОР</span>
-                <span className="comic-chip text-[10px] sm:text-xs">По-официален и ясен тон</span>
+                <span className="comic-chip text-[10px] sm:text-xs dark:bg-zinc-900 dark:text-zinc-100 dark:border-zinc-100/70">По-официален и ясен тон</span>
               </div>
               <div className="flex items-start gap-3 mb-4">
-                <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-3 border-[#1C1428] bg-white text-zn-purple">
+                <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-3 border-[#1C1428] dark:border-zinc-100/70 bg-white dark:bg-zinc-900 text-zn-purple dark:text-purple-300">
                   <Mail className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-display text-lg md:text-xl font-black uppercase tracking-wide text-zn-text">
+                  <h3 className="font-display text-lg md:text-xl font-black uppercase tracking-wide text-zn-text dark:text-zinc-100">
                     Засегнат си от тази публикация?
                   </h3>
-                  <p className="mt-1 text-sm font-sans leading-relaxed text-zn-text/80">
+                  <p className="mt-1 text-sm font-sans leading-relaxed text-zn-text/80 dark:text-zinc-300/85">
                     Ако материалът засяга пряко теб, твоята организация или твоята позиция, изпрати искане за право на отговор.
                   </p>
                 </div>
               </div>
 
               {publishedReplyLoading ? (
-                <div className="mb-4 border border-zn-purple/20 bg-white/80 px-4 py-3 text-sm font-sans text-zn-text/70">
+                <div className="mb-4 border border-zn-purple/20 dark:border-purple-300/25 bg-white/80 dark:bg-zinc-900/80 px-4 py-3 text-sm font-sans text-zn-text/70 dark:text-zinc-300/70">
                   Зареждаме публикуваните отговори по тази публикация...
                 </div>
               ) : null}
@@ -609,14 +722,14 @@ export default function ArticlePageConcept() {
                     <Link
                       key={replyArticle.id}
                       to={`/article/${replyArticle.id}`}
-                      className="comic-story-card bg-white p-4 flex flex-col gap-2"
+                      className="comic-story-card bg-white dark:bg-zinc-900 dark:border-zinc-100/70 p-4 flex flex-col gap-2"
                     >
                       <span className="comic-chip-hot text-[10px] w-fit">Публикуван отговор</span>
-                      <h4 className="font-display text-sm font-black uppercase tracking-wide text-zn-text">
+                      <h4 className="font-display text-sm font-black uppercase tracking-wide text-zn-text dark:text-zinc-100">
                         {replyArticle.title}
                       </h4>
                       {replyArticle.excerpt ? (
-                        <p className="text-sm font-sans text-zn-text/70 line-clamp-3">{replyArticle.excerpt}</p>
+                        <p className="text-sm font-sans text-zn-text/70 dark:text-zinc-300/75 line-clamp-3">{replyArticle.excerpt}</p>
                       ) : null}
                       <span className="mt-auto inline-flex items-center gap-1 text-[11px] font-display font-bold uppercase tracking-[0.18em] text-zn-purple">
                         Отвори
@@ -646,7 +759,7 @@ export default function ArticlePageConcept() {
                     type="text"
                     value={rightOfReplyForm.name}
                     onChange={(event) => handleRightOfReplyFieldChange('name', event.target.value)}
-                    className="w-full border-3 border-[#1C1428] bg-white px-3 py-2 font-sans text-sm text-zn-text outline-none focus:border-zn-purple"
+                    className="w-full border-3 border-[#1C1428] dark:border-zinc-100/70 bg-white dark:bg-zinc-900 px-3 py-2 font-sans text-sm text-zn-text dark:text-zinc-100 outline-none focus:border-zn-purple"
                   />
                   {rightOfReplyState.fieldErrors?.name ? <span className="mt-1 block text-xs font-sans text-zn-hot">{rightOfReplyState.fieldErrors.name}</span> : null}
                 </label>
@@ -656,7 +769,7 @@ export default function ArticlePageConcept() {
                     type="text"
                     value={rightOfReplyForm.phone}
                     onChange={(event) => handleRightOfReplyFieldChange('phone', event.target.value)}
-                    className="w-full border-3 border-[#1C1428] bg-white px-3 py-2 font-sans text-sm text-zn-text outline-none focus:border-zn-purple"
+                    className="w-full border-3 border-[#1C1428] dark:border-zinc-100/70 bg-white dark:bg-zinc-900 px-3 py-2 font-sans text-sm text-zn-text dark:text-zinc-100 outline-none focus:border-zn-purple"
                   />
                   {rightOfReplyState.fieldErrors?.phone ? <span className="mt-1 block text-xs font-sans text-zn-hot">{rightOfReplyState.fieldErrors.phone}</span> : null}
                 </label>
@@ -666,12 +779,12 @@ export default function ArticlePageConcept() {
                     value={rightOfReplyForm.message}
                     onChange={(event) => handleRightOfReplyFieldChange('message', event.target.value)}
                     rows={5}
-                    className="w-full resize-y border-3 border-[#1C1428] bg-white px-3 py-2 font-sans text-sm text-zn-text outline-none focus:border-zn-purple"
+                    className="w-full resize-y border-3 border-[#1C1428] dark:border-zinc-100/70 bg-white dark:bg-zinc-900 px-3 py-2 font-sans text-sm text-zn-text dark:text-zinc-100 outline-none focus:border-zn-purple"
                   />
                   {rightOfReplyState.fieldErrors?.message ? <span className="mt-1 block text-xs font-sans text-zn-hot">{rightOfReplyState.fieldErrors.message}</span> : null}
                 </label>
                 <div className="md:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs font-sans text-zn-text/65">
+                  <p className="text-xs font-sans text-zn-text/65 dark:text-zinc-400">
                     Искането ще бъде заведено към редакцията като право на отговор по статия №{article.id}.
                   </p>
                   <button type="submit" disabled={rightOfReplyPending} className="btn-primary min-w-[220px] disabled:opacity-60">
@@ -686,7 +799,7 @@ export default function ArticlePageConcept() {
             <section className="pt-4">
               <div className="flex items-center gap-3 mb-4">
                 <span className="headline-banner-hot text-[10px] sm:text-xs">ОЩЕ ПО ТЕМАТА</span>
-                <p className="text-sm font-sans text-zn-text/65">Тук концепцията държи related stories като по-редакционен финал.</p>
+                <p className="text-sm font-sans text-zn-text/65 dark:text-zinc-400">Свързани материали по темата от редакцията.</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {relatedArticles.map((related) => (
@@ -698,16 +811,16 @@ export default function ArticlePageConcept() {
         </article>
 
         <aside className="space-y-6">
-          <section className="newspaper-page comic-panel comic-dots p-5">
+          <section className="newspaper-page comic-panel comic-dots p-5 dark:bg-zinc-950 dark:border-zinc-100/70">
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4 text-zn-purple" />
-              <p className="font-display text-sm font-black uppercase tracking-[0.18em] text-zn-text">
+              <Sparkles className="h-4 w-4 text-zn-purple dark:text-purple-300" />
+              <p className="font-display text-sm font-black uppercase tracking-[0.18em] text-zn-text dark:text-zinc-100">
                 Какво пробваме
               </p>
             </div>
             <ul className="space-y-3">
               {conceptNotes.map((note) => (
-                <li key={note} className="font-sans text-sm leading-relaxed text-zn-text/75">
+                <li key={note} className="font-sans text-sm leading-relaxed text-zn-text/75 dark:text-zinc-300/80">
                   {note}
                 </li>
               ))}
@@ -715,8 +828,8 @@ export default function ArticlePageConcept() {
           </section>
 
           {author ? (
-            <section className="comic-panel bg-white p-5">
-              <p className="font-display text-[11px] font-bold uppercase tracking-[0.24em] text-zn-purple mb-2">
+            <section className="comic-panel bg-white dark:bg-zinc-950 dark:border-zinc-100/70 p-5">
+              <p className="font-display text-[11px] font-bold uppercase tracking-[0.24em] text-zn-purple dark:text-purple-300 mb-2">
                 Авторски rail
               </p>
               <div className="flex items-center gap-3 mb-3">
@@ -724,8 +837,8 @@ export default function ArticlePageConcept() {
                   {author.name?.charAt(0) || 'Z'}
                 </div>
                 <div>
-                  <p className="font-display text-lg font-black uppercase tracking-wide text-zn-text">{author.name}</p>
-                  <p className="font-sans text-sm text-zn-text/65">{author.role}</p>
+                  <p className="font-display text-lg font-black uppercase tracking-wide text-zn-text dark:text-zinc-100">{author.name}</p>
+                  <p className="font-sans text-sm text-zn-text/65 dark:text-zinc-400">{author.role}</p>
                 </div>
               </div>
               <Link to={`/author/${author.id}`} className="nav-pill inline-flex items-center gap-2">
