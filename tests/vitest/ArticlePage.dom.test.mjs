@@ -22,16 +22,18 @@ const getById = vi.fn(() => Promise.resolve({
   status: 'published',
 }));
 
+const publicDataState = {
+  articles: [],
+  authors: [],
+  categories: [],
+  ads: [],
+  incrementArticleView,
+  loading: false,
+  siteSettings: null,
+};
+
 vi.mock('../../src/context/DataContext', () => ({
-  usePublicData: () => ({
-    articles: [],
-    authors: [],
-    categories: [],
-    ads: [],
-    incrementArticleView,
-    loading: false,
-    siteSettings: null,
-  }),
+  usePublicData: () => publicDataState,
 }));
 
 vi.mock('../../src/utils/api', () => ({
@@ -128,6 +130,12 @@ describe('ArticlePage', () => {
     getById.mockClear();
     submitContactMessage.mockClear();
     getPublishedRightOfReply.mockClear();
+    publicDataState.articles = [];
+    publicDataState.authors = [];
+    publicDataState.categories = [];
+    publicDataState.ads = [];
+    publicDataState.loading = false;
+    publicDataState.siteSettings = null;
     Object.defineProperty(window.navigator, 'userAgent', {
       configurable: true,
       value: originalUserAgent,
@@ -215,6 +223,96 @@ describe('ArticlePage', () => {
     const replyLink = container.querySelector('a[href="/article/91"]');
     expect(replyLink).not.toBeNull();
     expect(replyLink.getAttribute('aria-label')).toContain('Отговор на засегнатата страна');
+  });
+
+  it('renders a next article block when there is a newer follow-up article in the feed', async () => {
+    publicDataState.articles = [
+      {
+        id: 27,
+        title: 'Test article title',
+        excerpt: 'Test article excerpt',
+        content: '<p>First paragraph</p><p>Second paragraph</p>',
+        category: 'crime',
+        authorId: 7,
+        date: '2026-04-02',
+        readTime: 4,
+        views: 12,
+        image: '/uploads/test.jpg',
+        status: 'published',
+      },
+      {
+        id: 18,
+        title: 'Следващата голяма новина',
+        excerpt: 'Нова публикация след тази статия.',
+        content: '<p>Body</p>',
+        category: 'business',
+        authorId: 7,
+        date: '2026-04-01',
+        readTime: 3,
+        views: 22,
+        image: '/uploads/next.jpg',
+        status: 'published',
+      },
+    ];
+    publicDataState.categories = [
+      { id: 'crime', name: 'Крими' },
+      { id: 'business', name: 'Бизнес' },
+    ];
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root.render(createElement(ArticlePage));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('СЛЕДВАЩА СТАТИЯ');
+    expect(container.textContent).toContain('Следващата голяма новина');
+    const nextLink = container.querySelector('a[href="/article/18"]');
+    expect(nextLink).not.toBeNull();
+    expect(nextLink.getAttribute('aria-label')).toContain('Следващата голяма новина');
+  });
+
+  it('opens a lightbox when an inline article image is clicked', async () => {
+    getById.mockResolvedValueOnce({
+      id: 27,
+      title: 'Статия със снимка',
+      excerpt: 'Тест за lightbox',
+      content: '<p>Преди снимката</p><figure><img src="/uploads/inline.jpg" alt="Сцена от мястото" /><figcaption>Снимка от мястото на събитието</figcaption></figure><p>След снимката</p>',
+      category: 'crime',
+      authorId: 7,
+      date: '2026-04-02',
+      readTime: 4,
+      views: 12,
+      image: '/uploads/test.jpg',
+      reactions: undefined,
+      tags: ['test'],
+      status: 'published',
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root.render(createElement(ArticlePage));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const inlineImage = container.querySelector('.article-body img[src="/uploads/inline.jpg"]');
+    expect(inlineImage).not.toBeNull();
+
+    await act(async () => {
+      inlineImage.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    const overlayImage = document.querySelector('.lightbox-overlay img[src="/uploads/inline.jpg"]');
+    expect(overlayImage).not.toBeNull();
+    expect(document.body.textContent).toContain('Снимка от мястото на събитието');
   });
 
   it('shows the CEF YouTube fallback text for inline article embeds', async () => {

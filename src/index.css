@@ -3772,6 +3772,17 @@
     border-color: rgba(245, 192, 64, 0.45);
   }
 
+  .dark .article-toc-link-active {
+    color: #f5eedb;
+    border-color: rgba(245, 192, 64, 0.55);
+    background: linear-gradient(
+      90deg,
+      rgba(91, 26, 140, 0.34) 0%,
+      rgba(232, 116, 32, 0.14) 100%
+    );
+    box-shadow: 2px 2px 0 rgba(10, 8, 18, 0.48);
+  }
+
   /* ── Responsive dark overrides ── */
   @media (max-width: 640px) {
     .dark .comic-panel {
@@ -3887,6 +3898,18 @@
   .article-toc-link:hover {
     color: #1c1428;
     border-color: rgba(204, 10, 26, 0.55);
+    transform: translateX(2px);
+  }
+
+  .article-toc-link-active {
+    color: #1c1428;
+    border-color: rgba(204, 10, 26, 0.65);
+    background: linear-gradient(
+      90deg,
+      rgba(232, 116, 32, 0.22) 0%,
+      rgba(204, 10, 26, 0.08) 100%
+    );
+    box-shadow: 2px 2px 0 rgba(28, 20, 40, 0.16);
     transform: translateX(2px);
   }
 

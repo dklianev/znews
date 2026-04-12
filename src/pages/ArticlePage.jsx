@@ -139,6 +139,12 @@ function serializeArticleBodyNode(node) {
   return '';
 }
 
+function getLightboxCaption(imageElement) {
+  const figure = imageElement?.closest?.('figure');
+  const figureCaption = figure?.querySelector?.('figcaption')?.textContent?.trim();
+  return figureCaption || imageElement?.getAttribute?.('alt') || '';
+}
+
 function buildArticleBodySegments(root) {
   if (!root) return [];
 
@@ -332,6 +338,11 @@ export default function ArticlePage() {
     return ordered[index + 1] || null;
   }, [article?.id, articles]);
 
+  const nextArticleCategory = useMemo(() => {
+    if (!nextArticle) return null;
+    return categories.find((item) => item.id === nextArticle.category) || null;
+  }, [categories, nextArticle?.category, nextArticle?.id]);
+
   const articlePresentation = useMemo(() => {
     if (!article) return { html: '', headings: [], pullQuote: '', bodySegments: [] };
     const fallbackHtml = article.content || `<p>${article.excerpt || ''}</p>`;
@@ -374,7 +385,7 @@ export default function ArticlePage() {
         usedIds.set(base, count + 1);
         const idValue = count === 0 ? base : `${base}-${count + 1}`;
         heading.setAttribute('id', idValue);
-        heading.classList.add('article-section-heading');
+        heading.classList.add('article-section-heading', 'scroll-mt-24', 'md:scroll-mt-28');
         headings.push({
           id: idValue,
           label: text,
@@ -440,8 +451,11 @@ export default function ArticlePage() {
   const [rightOfReplyPending, setRightOfReplyPending] = useState(false);
   const [publishedReplyArticles, setPublishedReplyArticles] = useState([]);
   const [publishedReplyLoading, setPublishedReplyLoading] = useState(false);
+  const [activeHeadingId, setActiveHeadingId] = useState('');
+  const [lightboxImage, setLightboxImage] = useState(null);
   const yapperRef = useRef(null);
   const yapperInputRef = useRef(null);
+  const inlineBodyContentRef = useRef(null);
 
   const handleYapperOutsideDismiss = useEffectEvent((event) => {
     if (yapperRef.current && !yapperRef.current.contains(event.target)) {
@@ -490,7 +504,23 @@ export default function ArticlePage() {
     setRightOfReplyPending(false);
     setPublishedReplyArticles([]);
     setPublishedReplyLoading(false);
+    setLightboxImage(null);
   }, [article?.id]);
+
+  useEffect(() => {
+    if (articlePresentation.headings.length === 0) {
+      setActiveHeadingId('');
+      return;
+    }
+
+    const hashId = typeof window !== 'undefined'
+      ? decodeURIComponent((window.location.hash || '').replace(/^#/, ''))
+      : '';
+    const initialId = articlePresentation.headings.some((heading) => heading.id === hashId)
+      ? hashId
+      : articlePresentation.headings[0]?.id || '';
+    setActiveHeadingId(initialId);
+  }, [article?.id, articlePresentation.headings]);
 
   useEffect(() => {
     let cancelled = false;
@@ -539,6 +569,57 @@ export default function ArticlePage() {
     };
   }, [nextArticle?.image]);
 
+  const syncActiveHeading = useEffectEvent((nextHeadingId) => {
+    if (!nextHeadingId) return;
+    setActiveHeadingId((currentId) => (currentId === nextHeadingId ? currentId : nextHeadingId));
+
+    if (typeof window !== 'undefined' && window.location.hash !== `#${nextHeadingId}`) {
+      window.history.replaceState(null, '', `#${nextHeadingId}`);
+    }
+  });
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined'
+      || typeof IntersectionObserver === 'undefined'
+      || articlePresentation.headings.length === 0
+    ) {
+      return undefined;
+    }
+
+    const headingElements = articlePresentation.headings
+      .map((heading) => document.getElementById(heading.id))
+      .filter(Boolean);
+
+    if (headingElements.length === 0) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntries = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => {
+            const aScore = Math.abs(a.boundingClientRect.top - 132);
+            const bScore = Math.abs(b.boundingClientRect.top - 132);
+            if (aScore !== bScore) return aScore - bScore;
+            return b.intersectionRatio - a.intersectionRatio;
+          });
+
+        const nextHeadingId = visibleEntries[0]?.target?.id;
+        if (nextHeadingId) {
+          syncActiveHeading(nextHeadingId);
+        }
+      },
+      {
+        root: null,
+        rootMargin: '-120px 0px -55% 0px',
+        threshold: [0.12, 0.25, 0.5, 0.75, 1],
+      },
+    );
+
+    headingElements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [article?.id, articlePresentation.headings, syncActiveHeading]);
+
   // Reading progress bar
   const articleBodyRef = useRef(null);
   const progressBarRef = useRef(null);
@@ -585,6 +666,25 @@ export default function ArticlePage() {
       window.removeEventListener('resize', handleViewportChange);
     };
   }, [article?.id]);
+
+  const handleLightboxEscape = useEffectEvent((event) => {
+    if (event.key === 'Escape') {
+      setLightboxImage(null);
+    }
+  });
+
+  useEffect(() => {
+    if (!lightboxImage || typeof document === 'undefined') return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleLightboxEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleLightboxEscape);
+    };
+  }, [lightboxImage]);
 
   // ── Early returns AFTER all hooks ──
 
@@ -745,8 +845,24 @@ export default function ArticlePage() {
   const scrollToSection = (sectionId) => {
     const target = document.getElementById(sectionId);
     if (!target) return;
+    setActiveHeadingId(sectionId);
     target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     window.history.replaceState(null, '', `#${sectionId}`);
+  };
+
+  const handleInlineImageClick = (event) => {
+    const imageElement = event.target instanceof Element ? event.target.closest('img') : null;
+    if (!imageElement || !inlineBodyContentRef.current?.contains(imageElement)) return;
+
+    const source = imageElement.getAttribute('src');
+    if (!source) return;
+
+    event.preventDefault();
+    setLightboxImage({
+      src: source,
+      alt: imageElement.getAttribute('alt') || article.title,
+      caption: getLightboxCaption(imageElement),
+    });
   };
 
   return (
@@ -939,6 +1055,8 @@ export default function ArticlePage() {
 
               {/* Article body content */}
               <div
+                ref={inlineBodyContentRef}
+                onClick={handleInlineImageClick}
                 className="prose prose-lg max-w-none mb-8 article-body
                   [&_p]:font-sans [&_p]:leading-relaxed [&_p]:mb-4
                   [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-black [&_h2]:mt-9 [&_h2]:mb-3
@@ -948,7 +1066,7 @@ export default function ArticlePage() {
                   [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:mb-4 [&_ul]:font-sans
                   [&_li]:mb-1
                   [&_a]:text-zn-hot [&_a]:underline
-                  [&_img]:w-full [&_img]:h-auto [&_img]:my-6 [&_img]:rounded-sm [&_img]:border [&_img]:border-zn-border
+                  [&_img]:w-full [&_img]:h-auto [&_img]:my-6 [&_img]:rounded-sm [&_img]:border [&_img]:border-zn-border [&_img]:cursor-zoom-in
                 "
               >
                 {articlePresentation.bodySegments.map((segment, index) => (
@@ -990,6 +1108,68 @@ export default function ArticlePage() {
 
           {/* Comments */}
           <CommentsSection articleId={article.id} />
+
+          {nextArticle && (
+            <section className="mt-8 mb-8 pt-2">
+              <Link
+                to={`/article/${nextArticle.id}`}
+                className="group block newspaper-page comic-panel comic-dots comic-panel-hover relative overflow-hidden p-4 md:p-5"
+                aria-label={`Отвори следващата статия "${nextArticle.title}"`}
+              >
+                <div className="absolute -top-3 left-6">
+                  <span className="comic-sticker">Следващо</span>
+                </div>
+                <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
+                  <div className="relative overflow-hidden border-3 border-[#1C1428] bg-white">
+                    {nextArticle.image ? (
+                      <ResponsiveImage
+                        src={nextArticle.image}
+                        pipeline={nextArticle.imageMeta}
+                        alt={nextArticle.title}
+                        loading="lazy"
+                        decoding="async"
+                        sizes="(max-width: 768px) 100vw, 220px"
+                        className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] md:h-40"
+                        pictureClassName="block"
+                      />
+                    ) : (
+                      <div className="flex h-48 items-center justify-center bg-linear-to-br from-zn-hot/12 via-white to-zn-orange/12 md:h-40">
+                        <span className="headline-banner-hot text-[10px] sm:text-xs">СЛЕДВАЩА СТАТИЯ</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <span className="headline-banner-hot text-[10px] sm:text-xs">СЛЕДВАЩА СТАТИЯ</span>
+                      {nextArticleCategory ? (
+                        <span
+                          className={`px-2.5 py-0.5 text-[10px] sm:text-xs font-display font-bold uppercase tracking-wide ${
+                            categoryColors[nextArticle.category] || 'bg-zn-text-dim text-white'
+                          }`}
+                        >
+                          {nextArticleCategory.name}
+                        </span>
+                      ) : null}
+                    </div>
+                    <h2 className="font-display text-2xl md:text-[2rem] font-black uppercase leading-tight tracking-wide text-zn-text transition-colors group-hover:text-zn-hot">
+                      {nextArticle.title}
+                    </h2>
+                    {nextArticle.excerpt ? (
+                      <p className="mt-3 font-sans text-sm md:text-[15px] leading-relaxed text-zn-text/80">
+                        {nextArticle.excerpt}
+                      </p>
+                    ) : null}
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <span className="btn-primary min-w-[220px] text-center">ЧЕТИ СЛЕДВАЩАТА</span>
+                      <span className="text-xs font-display font-black uppercase tracking-[0.16em] text-zn-text/55">
+                        {formatNewsDate(nextArticle.date)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            </section>
+          )}
 
           <section className="mt-8 mb-8 newspaper-page comic-panel comic-dots p-5 md:p-6 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-zn-purple/8 pointer-events-none" />
@@ -1198,7 +1378,8 @@ export default function ArticlePage() {
                   <button
                     key={heading.id}
                     onClick={() => scrollToSection(heading.id)}
-                    className={`article-toc-link ${heading.level === 'h3' ? 'article-toc-link-sub' : ''}`}
+                    className={`article-toc-link ${heading.level === 'h3' ? 'article-toc-link-sub' : ''} ${activeHeadingId === heading.id ? 'article-toc-link-active' : ''}`}
+                    aria-current={activeHeadingId === heading.id ? 'location' : undefined}
                   >
                     <span className="text-zn-hot">{index + 1}.</span>
                     <span>{heading.label}</span>
@@ -1239,6 +1420,35 @@ export default function ArticlePage() {
           </ErrorBoundary>
         </aside>
       </div>
+
+      {lightboxImage ? (
+        <div
+          className="lightbox-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Преглед на изображение"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            type="button"
+            className="lightbox-close"
+            aria-label="Затвори изображението"
+            onClick={() => setLightboxImage(null)}
+          >
+            ×
+          </button>
+          <img
+            src={lightboxImage.src}
+            alt={lightboxImage.alt}
+            loading="eager"
+            decoding="async"
+            onClick={(event) => event.stopPropagation()}
+          />
+          {lightboxImage.caption ? (
+            <div className="lightbox-caption">{lightboxImage.caption}</div>
+          ) : null}
+        </div>
+      ) : null}
     </motion.div>
   );
 }
