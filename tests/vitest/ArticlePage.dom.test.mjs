@@ -313,6 +313,12 @@ describe('ArticlePage', () => {
     const overlayImage = document.querySelector('.lightbox-overlay img[src="/uploads/inline.jpg"]');
     expect(overlayImage).not.toBeNull();
     expect(document.body.textContent).toContain('Снимка от мястото на събитието');
+
+    await act(async () => {
+      overlayImage.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(document.querySelector('.lightbox-overlay')).toBeNull();
   });
 
   it('shows the CEF YouTube fallback text for inline article embeds', async () => {

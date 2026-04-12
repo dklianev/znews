@@ -1143,9 +1143,8 @@ export default function ArticlePage() {
                       <span className="headline-banner-hot text-[10px] sm:text-xs">СЛЕДВАЩА СТАТИЯ</span>
                       {nextArticleCategory ? (
                         <span
-                          className={`px-2.5 py-0.5 text-[10px] sm:text-xs font-display font-bold uppercase tracking-wide ${
-                            categoryColors[nextArticle.category] || 'bg-zn-text-dim text-white'
-                          }`}
+                          className={`px-2.5 py-0.5 text-[10px] sm:text-xs font-display font-bold uppercase tracking-wide ${categoryColors[nextArticle.category] || 'bg-zn-text-dim text-white'
+                            }`}
                         >
                           {nextArticleCategory.name}
                         </span>
@@ -1442,7 +1441,7 @@ export default function ArticlePage() {
             alt={lightboxImage.alt}
             loading="eager"
             decoding="async"
-            onClick={(event) => event.stopPropagation()}
+            onClick={() => setLightboxImage(null)}
           />
           {lightboxImage.caption ? (
             <div className="lightbox-caption">{lightboxImage.caption}</div>
