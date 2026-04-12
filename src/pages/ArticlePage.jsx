@@ -7,6 +7,7 @@ import TrendingSidebar from '../components/TrendingSidebar';
 import CommentsSection from '../components/CommentsSection';
 import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import ComicNewsCard from '../components/ComicNewsCard';
+import NextArticleCard from '../components/NextArticleCard';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { api } from '../utils/api';
@@ -1109,66 +1110,14 @@ export default function ArticlePage() {
           {/* Comments */}
           <CommentsSection articleId={article.id} />
 
-          {nextArticle && (
-            <section className="mt-8 mb-8 pt-2">
-              <Link
-                to={`/article/${nextArticle.id}`}
-                className="group block newspaper-page comic-panel comic-dots comic-panel-hover relative overflow-hidden p-4 md:p-5"
-                aria-label={`Отвори следващата статия "${nextArticle.title}"`}
-              >
-                <div className="absolute -top-3 left-6">
-                  <span className="comic-sticker">Следващо</span>
-                </div>
-                <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
-                  <div className="relative overflow-hidden border-3 border-[#1C1428] bg-white">
-                    {nextArticle.image ? (
-                      <ResponsiveImage
-                        src={nextArticle.image}
-                        pipeline={nextArticle.imageMeta}
-                        alt={nextArticle.title}
-                        loading="lazy"
-                        decoding="async"
-                        sizes="(max-width: 768px) 100vw, 220px"
-                        className="h-48 w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] md:h-40"
-                        pictureClassName="block"
-                      />
-                    ) : (
-                      <div className="flex h-48 items-center justify-center bg-linear-to-br from-zn-hot/12 via-white to-zn-orange/12 md:h-40">
-                        <span className="headline-banner-hot text-[10px] sm:text-xs">СЛЕДВАЩА СТАТИЯ</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="mb-3 flex flex-wrap items-center gap-2">
-                      <span className="headline-banner-hot text-[10px] sm:text-xs">СЛЕДВАЩА СТАТИЯ</span>
-                      {nextArticleCategory ? (
-                        <span
-                          className={`px-2.5 py-0.5 text-[10px] sm:text-xs font-display font-bold uppercase tracking-wide ${categoryColors[nextArticle.category] || 'bg-zn-text-dim text-white'
-                            }`}
-                        >
-                          {nextArticleCategory.name}
-                        </span>
-                      ) : null}
-                    </div>
-                    <h2 className="font-display text-2xl md:text-[2rem] font-black uppercase leading-tight tracking-wide text-zn-text transition-colors group-hover:text-zn-hot">
-                      {nextArticle.title}
-                    </h2>
-                    {nextArticle.excerpt ? (
-                      <p className="mt-3 font-sans text-sm md:text-[15px] leading-relaxed text-zn-text/80">
-                        {nextArticle.excerpt}
-                      </p>
-                    ) : null}
-                    <div className="mt-4 flex flex-wrap items-center gap-3">
-                      <span className="btn-primary min-w-[220px] text-center">ЧЕТИ СЛЕДВАЩАТА</span>
-                      <span className="text-xs font-display font-black uppercase tracking-[0.16em] text-zn-text/55">
-                        {formatNewsDate(nextArticle.date)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            </section>
-          )}
+          {nextArticle ? (
+            <NextArticleCard
+              article={nextArticle}
+              category={nextArticleCategory}
+              categoryClassName={categoryColors[nextArticle.category] || 'bg-zn-text-dim text-white'}
+              formattedDate={formatNewsDate(nextArticle.date)}
+            />
+          ) : null}
 
           <section className="mt-8 mb-8 newspaper-page comic-panel comic-dots p-5 md:p-6 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-zn-purple/8 pointer-events-none" />
