@@ -988,6 +988,9 @@ export default function ArticlePage() {
           {/* Reactions */}
           <ArticleReactions articleId={article.id} reactions={article.reactions} />
 
+          {/* Comments */}
+          <CommentsSection articleId={article.id} />
+
           <section className="mt-8 mb-8 newspaper-page comic-panel comic-dots p-5 md:p-6 relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-zn-purple/8 pointer-events-none" />
             <div className="relative z-[2]">
@@ -1139,9 +1142,6 @@ export default function ArticlePage() {
               </form>
             </div>
           </section>
-
-          {/* Comments */}
-          <CommentsSection articleId={article.id} />
 
           {/* Bottom ad */}
           <AdSlot ads={ads} slot="article.bottom" pageType="article" articleId={article.id} categoryId={article.category} />
