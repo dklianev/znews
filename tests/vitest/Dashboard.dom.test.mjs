@@ -99,4 +99,69 @@ describe('Dashboard', () => {
       window.removeEventListener('unhandledrejection', unhandledRejection);
     }
   });
+
+  it('shows the intake queue summary on the dashboard when tips and contact messages are available', async () => {
+    const { api } = await import('../../src/utils/api');
+    api.contactMessages.getAll.mockResolvedValueOnce([
+      {
+        id: 41,
+        name: 'Мария Петрова',
+        phone: '0888123456',
+        email: 'maria@example.com',
+        message: 'Искам право на отговор.',
+        status: 'new',
+        requestKind: 'right_of_reply',
+        priority: 'urgent',
+        createdAt: '2026-04-12T10:00:00.000Z',
+      },
+    ]);
+
+    adminDataState = {
+      users: [],
+      usersReady: true,
+      ensureUsersLoaded: vi.fn(async () => []),
+      resetAll: vi.fn(async () => {}),
+      hasPermission: (permission) => permission === 'articles' || permission === 'contact',
+      classifieds: [],
+      ensureClassifiedsLoaded: vi.fn(async () => []),
+      tips: [
+        {
+          id: 7,
+          location: 'Кметството',
+          text: 'Има нов сигнал от района.',
+          status: 'new',
+          priority: 'high',
+          createdAt: '2026-04-12T09:00:00.000Z',
+        },
+      ],
+      tipsReady: true,
+      ensureTipsLoaded: vi.fn(async () => []),
+    };
+
+    publicDataState = {
+      articles: [],
+      authors: [],
+      wanted: [],
+      jobs: [],
+      court: [],
+      events: [],
+      polls: [],
+      comments: [],
+      gallery: [],
+      categories: [],
+    };
+
+    sessionDataState = {
+      session: { role: 'admin', name: 'Админ', token: 'token' },
+    };
+
+    ({ root, container } = await renderIntoBody(Dashboard));
+    await flushEffects();
+
+    expect(container.textContent).toContain('Входяща опашка');
+    expect(container.textContent).toContain('2');
+    expect(container.textContent).toContain('Права на отговор');
+    expect(container.textContent).toContain('Мария Петрова');
+    expect(container.textContent).toContain('Кметството');
+  });
 });

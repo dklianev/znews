@@ -29,6 +29,7 @@ const publishedArticle = {
   date: '2026-04-02',
   readTime: 3,
   status: 'published',
+  views: 1245,
 };
 
 const restoredDraft = {
@@ -39,6 +40,7 @@ const restoredDraft = {
   date: '2026-04-02',
   readTime: 2,
   status: 'draft',
+  views: 0,
 };
 
 const detailFallbackArticle = {
@@ -49,6 +51,7 @@ const detailFallbackArticle = {
   date: '2026-04-02',
   readTime: 5,
   status: 'draft',
+  views: 19,
 };
 
 const baseListItems = [publishedArticle, detailFallbackArticle];
@@ -370,6 +373,23 @@ describe('ManageArticles', () => {
     expect(toast.error).toHaveBeenCalledWith('Не успяхме да заредим пълната статия за редакция. Опитайте отново.');
     expect(container.textContent).not.toContain('Редактирай статия');
     expect(container.textContent).not.toContain('editor');
+  });
+
+  it('shows the article view count in the admin list row', async () => {
+    main = document.createElement('main');
+    container = document.createElement('div');
+    main.appendChild(container);
+    document.body.appendChild(main);
+    root = createRoot(container);
+    installLocalStorageStub();
+
+    act(() => {
+      root.render(createElement(ManageArticles));
+    });
+    await flush();
+
+    const row = findArticleRow(container, 'Published Alpha');
+    expect(row?.textContent).toContain('1245 прегл.');
   });
 
   it('hydrates a new article draft from the intake prefill payload', async () => {

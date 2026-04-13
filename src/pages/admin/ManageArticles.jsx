@@ -2181,6 +2181,7 @@ export default function ManageArticles() {
             ? publishAtDate.toLocaleString('bg-BG', { dateStyle: 'short', timeStyle: 'short' })
             : null;
           const isSelected = selectedIds.includes(article.id);
+          const viewCountLabel = Number(article.views || 0).toLocaleString('bg-BG');
 
           return (
             <div key={article.id} className={`bg-white border p-4 flex items-start gap-4 hover:bg-gray-50 transition-colors group ${isSelected ? 'border-zn-purple/40 bg-zn-purple/5' : 'border-gray-200'}`}>
@@ -2201,8 +2202,13 @@ export default function ManageArticles() {
                 <h3 className="text-sm font-sans font-bold text-gray-900 truncate">{article.title}</h3>
                 <p className="text-xs font-sans text-gray-500 mt-0.5">
                   {getAuthorName(article.authorId)} · {article.date} · {article.readTime} мин
+                  {` · ${viewCountLabel} прегл.`}
                   {publishAtLabel ? ` · publishAt: ${publishAtLabel}` : ''}
                 </p>
+              </div>
+              <div className="hidden shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-sans font-bold uppercase tracking-wider text-amber-700 sm:flex">
+                <Eye className="h-3.5 w-3.5" />
+                {viewCountLabel}
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button

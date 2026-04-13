@@ -17,10 +17,13 @@ import {
   Tag,
   AlertTriangle,
   Mail,
+  Inbox,
+  ArrowRight,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { dashboardCopy } from '../../content/uiCopy';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
+import { buildAdminIntakeItems, getAdminIntakeCounts } from '../../utils/adminIntakeQueue';
 
 const DashboardAnalytics = lazy(() => import('../../components/admin/DashboardAnalytics'));
 
@@ -60,6 +63,7 @@ export default function Dashboard() {
   const canSeeTips = hasPermission('articles');
   const canSeeContactMessages = hasPermission('contact');
   const canSeeClassifieds = hasPermission('classifieds');
+  const canSeeIntake = canSeeTips || canSeeContactMessages;
 
   useEffect(() => {
     if (!canSeeTeam) return;
@@ -124,6 +128,30 @@ export default function Dashboard() {
     () => (Array.isArray(contactMessages) ? contactMessages : []).filter((message) => message?.status === 'new').length,
     [contactMessages],
   );
+  const intakeItems = useMemo(
+    () => buildAdminIntakeItems({
+      tips: canSeeTips ? tips : [],
+      contactMessages: canSeeContactMessages ? contactMessages : [],
+    }),
+    [canSeeContactMessages, canSeeTips, contactMessages, tips],
+  );
+  const intakeCounts = useMemo(
+    () => getAdminIntakeCounts(intakeItems),
+    [intakeItems],
+  );
+  const urgentIntakeCount = useMemo(
+    () => intakeItems.filter((item) => item.priority === 'urgent').length,
+    [intakeItems],
+  );
+  const rightOfReplyCount = useMemo(
+    () => intakeItems.filter((item) => item.requestKind === 'right_of_reply').length,
+    [intakeItems],
+  );
+  const intakePreviewItems = useMemo(
+    () => intakeItems.slice(0, 4),
+    [intakeItems],
+  );
+  const intakeReady = (!canSeeTips || tipsReady) && (!canSeeContactMessages || contactMessagesReady);
   const pendingClassifieds = useMemo(
     () => (Array.isArray(classifieds) ? classifieds : []).filter((c) => c.status === 'awaiting_payment').length,
     [classifieds],
@@ -358,6 +386,84 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {canSeeIntake && (
+        <div className="mt-6 border border-gray-200 bg-white p-5">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zn-purple text-white">
+                <Inbox className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="font-sans font-semibold text-gray-900">{dashboardCopy.intakeTitle}</h2>
+                <p className="text-xs text-gray-500">{dashboardCopy.intakeSubtitle}</p>
+              </div>
+            </div>
+            <Link to="/admin/intake" className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-zn-hot hover:underline">
+              {dashboardCopy.openIntake}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="border border-gray-200 bg-gray-50 px-3 py-3">
+              <p className="text-xl font-display font-bold text-gray-900">{intakeReady ? intakeCounts.all : '—'}</p>
+              <p className="text-[10px] uppercase tracking-wider text-gray-500">{dashboardCopy.intakeStats.all}</p>
+            </div>
+            <div className="border border-amber-200 bg-amber-50 px-3 py-3">
+              <p className="text-xl font-display font-bold text-amber-700">{intakeReady ? intakeCounts.new : '—'}</p>
+              <p className="text-[10px] uppercase tracking-wider text-amber-700">{dashboardCopy.intakeStats.new}</p>
+            </div>
+            <div className="border border-red-200 bg-red-50 px-3 py-3">
+              <p className="text-xl font-display font-bold text-red-700">{intakeReady ? urgentIntakeCount : '—'}</p>
+              <p className="text-[10px] uppercase tracking-wider text-red-700">{dashboardCopy.intakeStats.urgent}</p>
+            </div>
+            <div className="border border-violet-200 bg-violet-50 px-3 py-3">
+              <p className="text-xl font-display font-bold text-violet-700">{intakeReady ? rightOfReplyCount : '—'}</p>
+              <p className="text-[10px] uppercase tracking-wider text-violet-700">{dashboardCopy.intakeStats.rightOfReply}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {!intakeReady && (
+              <p className="py-4 text-center text-sm text-gray-400">{dashboardCopy.intakeLoading}</p>
+            )}
+
+            {intakeReady && intakePreviewItems.map((item) => (
+              <Link
+                key={item.queueKey}
+                to="/admin/intake"
+                className="flex flex-col gap-3 border-b border-gray-100 py-3 transition-colors last:border-0 hover:bg-gray-50 sm:flex-row sm:items-start sm:justify-between"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${item.sourceClassName}`}>
+                      {item.sourceLabel}
+                    </span>
+                    {item.requestKindLabel && (
+                      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${item.requestKindClassName}`}>
+                        {item.requestKindLabel}
+                      </span>
+                    )}
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${item.priorityClassName}`}>
+                      {item.priorityLabel}
+                    </span>
+                  </div>
+                  <p className="truncate text-sm font-medium text-gray-900">{item.title}</p>
+                  <p className="mt-1 line-clamp-2 text-xs text-gray-500">{item.summary}</p>
+                </div>
+                <div className="shrink-0 text-xs text-gray-400 sm:pl-4">
+                  {item.createdAtLabel}
+                </div>
+              </Link>
+            ))}
+
+            {intakeReady && intakePreviewItems.length === 0 && (
+              <p className="py-4 text-center text-sm text-gray-400">{dashboardCopy.intakeEmpty}</p>
+            )}
+          </div>
         </div>
       )}
     </div>

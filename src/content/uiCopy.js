@@ -115,6 +115,11 @@ export const dashboardCopy = {
   recentArticles: 'Последни статии',
   manageArticles: 'Към статиите',
   noArticles: 'Няма публикации.',
+  intakeTitle: 'Входяща опашка',
+  intakeSubtitle: 'Най-новите сигнали и запитвания на едно място.',
+  openIntake: 'Отвори опашката',
+  intakeLoading: 'Зареждане на входящата опашка...',
+  intakeEmpty: 'Няма нови входящи елементи.',
   teamTitle: 'Екип',
   teamManage: 'Управление',
   noUsers: 'Няма потребители.',
@@ -134,6 +139,12 @@ export const dashboardCopy = {
     polls: 'Анкети',
     classifieds: 'Малки обяви',
     pendingClassifieds: 'нови',
+  },
+  intakeStats: {
+    all: 'Общо входящи',
+    new: 'Нови',
+    urgent: 'Спешни',
+    rightOfReply: 'Права на отговор',
   },
 };
 
