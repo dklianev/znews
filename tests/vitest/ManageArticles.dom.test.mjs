@@ -481,4 +481,53 @@ describe('ManageArticles', () => {
     });
     expect(toast.warning).not.toHaveBeenCalled();
   });
+
+  it('allows manual article view inflation from the settings tab', async () => {
+    main = document.createElement('main');
+    container = document.createElement('div');
+    main.appendChild(container);
+    document.body.appendChild(main);
+    root = createRoot(container);
+    installLocalStorageStub();
+    window.localStorage.setItem('znews_intake_article_prefill_v1', JSON.stringify({
+      title: 'Надуване на трафика',
+      excerpt: 'Тест за ръчните гледания.',
+      content: '<p>Кратко съдържание за чернова.</p>',
+      category: 'crime',
+      status: 'draft',
+      views: 5,
+    }));
+    addArticle.mockResolvedValueOnce({ id: 501, title: 'Надуване на трафика' });
+
+    act(() => {
+      root.render(createElement(ManageArticles));
+    });
+    await flush();
+
+    act(() => {
+      findButton(container, 'Настройки')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flush();
+
+    const viewsInput = container.querySelector('input[type="number"][min="0"]');
+    expect(viewsInput?.value).toBe('5');
+
+    act(() => {
+      findButton(container, '+20')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flush();
+
+    expect(container.querySelector('input[type="number"][min="0"]')?.value).toBe('25');
+
+    act(() => {
+      findButton(container, 'Запази')?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await flush();
+
+    expect(addArticle).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Надуване на трафика',
+      views: 25,
+      status: 'draft',
+    }));
+  });
 });

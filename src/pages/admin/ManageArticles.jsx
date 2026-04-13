@@ -1143,6 +1143,21 @@ export default function ManageArticles() {
     setForm(prev => ({ ...prev, readTime: computedReadTime }));
   };
 
+  const setManualViews = (value) => {
+    const parsed = Number(value);
+    setForm(prev => ({
+      ...prev,
+      views: Number.isFinite(parsed) && parsed >= 0 ? Math.floor(parsed) : 0,
+    }));
+  };
+
+  const bumpViews = (amount) => {
+    setForm(prev => ({
+      ...prev,
+      views: Math.max(0, (Number(prev.views) || 0) + amount),
+    }));
+  };
+
   const handleRestoreServerRevision = async (revisionId) => {
     if (!editing || editing === 'new') return;
     const confirmed = await confirm({
@@ -1860,6 +1875,35 @@ export default function ManageArticles() {
                       >
                         Авто
                       </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Изкуствено надуване на гледания</label>
+                    <div className="space-y-2">
+                      <input
+                        className={inputCls}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={form.views}
+                        onChange={e => setManualViews(e.target.value)}
+                        placeholder="0"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        {[10, 20, 30].map(amount => (
+                          <button
+                            key={amount}
+                            type="button"
+                            onClick={() => bumpViews(amount)}
+                            className="px-3 py-2 text-xs font-sans font-semibold text-zn-purple border border-zn-purple/30 bg-white hover:bg-zn-purple/5 transition-colors"
+                          >
+                            +{amount}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-gray-500 font-sans">
+                        Полето променя ръчния брояч за прегледи, който се показва в админ списъка и по статията.
+                      </p>
                     </div>
                   </div>
                   <div className="md:col-span-2 mt-2 pt-2 border-t border-gray-200">
