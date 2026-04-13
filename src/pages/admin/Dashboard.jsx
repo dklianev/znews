@@ -317,80 +317,8 @@ export default function Dashboard() {
         </>
       )}
 
-      {canSeeAnalytics && (
-        <Suspense fallback={<AnalyticsFallback />}>
-          <DashboardAnalytics
-            articles={articles}
-            authors={authors}
-            categories={categories}
-            jobs={jobs}
-            court={court}
-            events={events}
-            gallery={gallery}
-            polls={polls}
-            comments={comments}
-            totalViews={totalViews}
-          />
-        </Suspense>
-      )}
-
-      {(canSeeAnalytics || canSeeTeam) && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {canSeeAnalytics && (
-            <div className={`border border-gray-200 bg-white p-5 ${!canSeeTeam ? 'lg:col-span-2' : ''}`}>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-sans font-semibold text-gray-900">{dashboardCopy.recentArticles}</h2>
-                <Link to="/admin/articles" className="text-xs text-zn-hot hover:underline">{dashboardCopy.manageArticles}</Link>
-              </div>
-              <div className="space-y-3">
-                {recentArticles.map((article) => (
-                  <div key={article.id} className="flex items-center justify-between border-b border-gray-100 py-2 last:border-0">
-                    <div className="mr-3 min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900">{article.title}</p>
-                      <p className="text-xs text-gray-400">{article.date} • {article.category}</p>
-                    </div>
-                    <span className="shrink-0 text-xs text-gray-400">{(article.views || 0).toLocaleString('bg-BG')} {dashboardCopy.viewsShort}</span>
-                  </div>
-                ))}
-                {recentArticles.length === 0 && (
-                  <p className="py-4 text-center text-sm text-gray-400">{dashboardCopy.noArticles}</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {canSeeTeam && (
-            <div className={`border border-gray-200 bg-white p-5 ${!canSeeAnalytics ? 'lg:col-span-2' : ''}`}>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="font-sans font-semibold text-gray-900">{dashboardCopy.teamTitle}</h2>
-                <Link to="/admin/profiles" className="text-xs text-zn-hot hover:underline">{dashboardCopy.teamManage}</Link>
-              </div>
-              <div className="space-y-3">
-                {users.map((user) => (
-                  <div key={user.id} className="flex items-center gap-3 border-b border-gray-100 py-2 last:border-0">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-lg">
-                      {user.avatar || '??'}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                      <p className="text-xs text-gray-400">{user.profession || user.role}</p>
-                    </div>
-                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-zn-purple text-white' : 'bg-gray-100 text-gray-600'}`}>
-                      {user.role}
-                    </span>
-                  </div>
-                ))}
-                {usersReady && users.length === 0 && (
-                  <p className="py-4 text-center text-sm text-gray-400">{dashboardCopy.noUsers}</p>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {canSeeIntake && (
-        <div className="mt-6 border border-gray-200 bg-white p-5">
+        <div className="mb-8 border border-gray-200 bg-white p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zn-purple text-white">
@@ -466,6 +394,79 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {canSeeAnalytics && (
+        <Suspense fallback={<AnalyticsFallback />}>
+          <DashboardAnalytics
+            articles={articles}
+            authors={authors}
+            categories={categories}
+            jobs={jobs}
+            court={court}
+            events={events}
+            gallery={gallery}
+            polls={polls}
+            comments={comments}
+            totalViews={totalViews}
+          />
+        </Suspense>
+      )}
+
+      {(canSeeAnalytics || canSeeTeam) && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {canSeeAnalytics && (
+            <div className={`border border-gray-200 bg-white p-5 ${!canSeeTeam ? 'lg:col-span-2' : ''}`}>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-sans font-semibold text-gray-900">{dashboardCopy.recentArticles}</h2>
+                <Link to="/admin/articles" className="text-xs text-zn-hot hover:underline">{dashboardCopy.manageArticles}</Link>
+              </div>
+              <div className="space-y-3">
+                {recentArticles.map((article) => (
+                  <div key={article.id} className="flex items-center justify-between border-b border-gray-100 py-2 last:border-0">
+                    <div className="mr-3 min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-gray-900">{article.title}</p>
+                      <p className="text-xs text-gray-400">{article.date} • {article.category}</p>
+                    </div>
+                    <span className="shrink-0 text-xs text-gray-400">{(article.views || 0).toLocaleString('bg-BG')} {dashboardCopy.viewsShort}</span>
+                  </div>
+                ))}
+                {recentArticles.length === 0 && (
+                  <p className="py-4 text-center text-sm text-gray-400">{dashboardCopy.noArticles}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {canSeeTeam && (
+            <div className={`border border-gray-200 bg-white p-5 ${!canSeeAnalytics ? 'lg:col-span-2' : ''}`}>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-sans font-semibold text-gray-900">{dashboardCopy.teamTitle}</h2>
+                <Link to="/admin/profiles" className="text-xs text-zn-hot hover:underline">{dashboardCopy.teamManage}</Link>
+              </div>
+              <div className="space-y-3">
+                {users.map((user) => (
+                  <div key={user.id} className="flex items-center gap-3 border-b border-gray-100 py-2 last:border-0">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-lg">
+                      {user.avatar || '??'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                      <p className="text-xs text-gray-400">{user.profession || user.role}</p>
+                    </div>
+                    <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-zn-purple text-white' : 'bg-gray-100 text-gray-600'}`}>
+                      {user.role}
+                    </span>
+                  </div>
+                ))}
+                {usersReady && users.length === 0 && (
+                  <p className="py-4 text-center text-sm text-gray-400">{dashboardCopy.noUsers}</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }

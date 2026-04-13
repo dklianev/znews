@@ -148,6 +148,7 @@ describe('articlesAdminRoutes', () => {
       authorId: 1,
       date: 1,
       readTime: 1,
+      views: 1,
       image: 1,
       featured: 1,
       breaking: 1,
