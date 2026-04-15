@@ -803,13 +803,10 @@ export function DataProvider({ children }) {
   const refreshMedia = useCallback(async () => {
     if (mediaLoaderRef.current) return mediaLoaderRef.current;
 
-    const task = Promise.all([
-      api.media.getAll(),
-      api.media.getPipelineStatus(),
-    ])
-      .then(([items, pipelineStatus]) => {
-        const normalizedItems = Array.isArray(items) ? items : [];
-        const normalizedPipelineStatus = pipelineStatus || null;
+    const task = api.media.getLibrary()
+      .then((snapshot) => {
+        const normalizedItems = Array.isArray(snapshot?.items) ? snapshot.items : [];
+        const normalizedPipelineStatus = snapshot?.pipelineStatus || null;
         mediaRef.current = normalizedItems;
         mediaPipelineStatusRef.current = normalizedPipelineStatus;
         setMedia(normalizedItems);

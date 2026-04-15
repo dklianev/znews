@@ -25,6 +25,16 @@ export function createImagePipelineService(deps) {
   } = deps;
 
   const imagePipelineBackfillInFlight = new Map();
+  const MEDIA_LIBRARY_SNAPSHOT_TTL_MS = 15 * 1000;
+  let mediaLibrarySnapshotCache = null;
+  let mediaLibrarySnapshotExpiresAt = 0;
+  let mediaLibrarySnapshotInFlight = null;
+
+  function invalidateMediaLibrarySnapshot() {
+    mediaLibrarySnapshotCache = null;
+    mediaLibrarySnapshotExpiresAt = 0;
+    mediaLibrarySnapshotInFlight = null;
+  }
 
   function getVariantRelativePath(fileName, variantFileName) {
     return path.posix.join(getVariantsRelativeDir(fileName), variantFileName);
@@ -163,6 +173,7 @@ export function createImagePipelineService(deps) {
     };
 
     await writeImageManifest(fileName, manifest);
+    invalidateMediaLibrarySnapshot();
     return manifest;
   }
 
@@ -316,29 +327,77 @@ export function createImagePipelineService(deps) {
     return listLocalOriginalUploadEntries();
   }
 
+  async function buildMediaLibrarySnapshot() {
+    const entries = await listOriginalUploadEntries();
+    const engine = await getPipelineEngineName();
+    const items = await Promise.all(entries.map(async (entry) => {
+      const manifest = await readImageManifest(entry.name);
+      return {
+        id: entry.name,
+        name: entry.name,
+        url: getOriginalUploadUrl(entry.name),
+        size: entry.size,
+        updatedAt: entry.updatedAt,
+        imageMeta: toImageMetaFromManifest(manifest),
+        pipelineReady: Boolean(manifest),
+        pipelineEngine: engine,
+      };
+    }));
+
+    const ready = items.reduce((count, item) => count + (item.pipelineReady ? 1 : 0), 0);
+    const total = items.length;
+
+    return {
+      items: items
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)),
+      pipelineStatus: {
+        total,
+        ready,
+        pending: Math.max(total - ready, 0),
+        engine,
+        updatedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  async function getMediaLibrarySnapshot({ force = false } = {}) {
+    const now = Date.now();
+    if (!force && mediaLibrarySnapshotCache && mediaLibrarySnapshotExpiresAt > now) {
+      return mediaLibrarySnapshotCache;
+    }
+
+    if (!force && mediaLibrarySnapshotInFlight) {
+      return mediaLibrarySnapshotInFlight;
+    }
+
+    const task = buildMediaLibrarySnapshot()
+      .then((snapshot) => {
+        mediaLibrarySnapshotCache = snapshot;
+        mediaLibrarySnapshotExpiresAt = Date.now() + MEDIA_LIBRARY_SNAPSHOT_TTL_MS;
+        return snapshot;
+      })
+      .finally(() => {
+        if (mediaLibrarySnapshotInFlight === task) {
+          mediaLibrarySnapshotInFlight = null;
+        }
+      });
+
+    mediaLibrarySnapshotInFlight = task;
+    return task;
+  }
+
   async function getPipelineEngineName() {
     const sharp = await loadSharp();
     return sharp ? 'sharp' : 'disabled';
   }
 
   async function getImagePipelineStatus() {
-    const entries = await listOriginalUploadEntries();
-    const checks = await Promise.all(entries.map(async (entry) => {
-      const manifest = await readImageManifest(entry.name);
-      return Boolean(manifest);
-    }));
-    const ready = checks.filter(Boolean).length;
-    const total = entries.length;
-    return {
-      total,
-      ready,
-      pending: Math.max(total - ready, 0),
-      engine: await getPipelineEngineName(),
-      updatedAt: new Date().toISOString(),
-    };
+    return (await getMediaLibrarySnapshot()).pipelineStatus;
   }
 
   async function backfillImagePipeline({ force = false, limit = 0 } = {}) {
+    invalidateMediaLibrarySnapshot();
     const entries = await listOriginalUploadEntries();
     const scopedEntries = Number.isInteger(limit) && limit > 0
       ? entries.slice(0, limit)
@@ -394,37 +453,21 @@ export function createImagePipelineService(deps) {
     }
 
     summary.finishedAt = new Date().toISOString();
+    invalidateMediaLibrarySnapshot();
     return summary;
   }
 
   async function listMediaFiles() {
-    const entries = await listOriginalUploadEntries();
-    const engine = await getPipelineEngineName();
-    const files = await Promise.all(entries
-      .map(async (entry) => {
-        const manifest = await readImageManifest(entry.name);
-        return {
-          id: entry.name,
-          name: entry.name,
-          url: getOriginalUploadUrl(entry.name),
-          size: entry.size,
-          updatedAt: entry.updatedAt,
-          imageMeta: toImageMetaFromManifest(manifest),
-          pipelineReady: Boolean(manifest),
-          pipelineEngine: engine,
-        };
-      }));
-
-    return files
-      .filter(Boolean)
-      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    return (await getMediaLibrarySnapshot()).items;
   }
 
   return {
     backfillImagePipeline,
     ensureImagePipeline,
+    getMediaLibrarySnapshot,
     getImagePipelineStatus,
     getUploadFilenameFromUrl,
+    invalidateMediaLibrarySnapshot,
     listMediaFiles,
     readOriginalUploadBuffer,
     resolveImageMetaFromUrl,

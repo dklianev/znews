@@ -11,9 +11,11 @@ export function registerMediaRoutes(app, deps) {
     backfillImagePipeline,
     deleteStorageObject,
     deleteStoragePrefix,
+    getMediaLibrarySnapshot,
     getImagePipelineStatus,
     getOriginalUploadUrl,
     getVariantsRelativeDir,
+    invalidateMediaLibrarySnapshot = () => {},
     isOriginalUploadFileName,
     isProd,
     isStorageNotFoundError,
@@ -25,6 +27,11 @@ export function registerMediaRoutes(app, deps) {
   } = deps;
 
   const mediaAccess = [requireAuth, requireAnyPermission(MEDIA_PERMISSIONS)];
+
+  app.get('/api/media/library', ...mediaAccess, async (_req, res) => {
+    const snapshot = await getMediaLibrarySnapshot();
+    return res.json(snapshot);
+  });
 
   app.get('/api/media', ...mediaAccess, async (_req, res) => {
     const files = await listMediaFiles();
@@ -100,6 +107,7 @@ export function registerMediaRoutes(app, deps) {
 
       await deleteStorageObject(fileName);
       await deleteStoragePrefix(getVariantsRelativeDir(fileName));
+      invalidateMediaLibrarySnapshot();
       return res.json({ ok: true });
     } catch (error) {
       if (error?.code === 'ENOENT' || isStorageNotFoundError(error)) {

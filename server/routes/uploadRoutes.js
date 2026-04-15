@@ -9,6 +9,7 @@ export function registerUploadRoutes(app, deps) {
     getOriginalUploadUrl,
     getRecentUploadPayload,
     imageMimeToExt,
+    invalidateMediaLibrarySnapshot = () => {},
     loadSharp,
     makeUploadFingerprint,
     normalizeText,
@@ -77,6 +78,7 @@ export function registerUploadRoutes(app, deps) {
           await putStorageObject(fallbackName, req.file.buffer, mimeType || 'application/octet-stream');
 
           const pipelineManifest = await ensureImagePipeline(fallbackName, { sourceBuffer: req.file.buffer });
+          invalidateMediaLibrarySnapshot();
           return {
             url: getOriginalUploadUrl(fallbackName),
             imageMeta: toImageMetaFromManifest(pipelineManifest),
@@ -115,6 +117,7 @@ export function registerUploadRoutes(app, deps) {
         await putStorageObject(fileName, finalBuffer, 'image/webp');
 
         const pipelineManifest = await ensureImagePipeline(fileName, { sourceBuffer: finalBuffer });
+        invalidateMediaLibrarySnapshot();
         return {
           url: getOriginalUploadUrl(fileName),
           imageMeta: toImageMetaFromManifest(pipelineManifest),

@@ -527,6 +527,7 @@ export const api = {
   gallery: crudEndpoints('gallery'),
 
   media: {
+    getLibrary: () => request('/media/library'),
     getAll: () => request('/media'),
     getPipelineStatus: () => request('/media/pipeline/status'),
     backfillPipeline: (options = {}) => request('/media/pipeline/backfill', {

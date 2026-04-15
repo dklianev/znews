@@ -51,6 +51,64 @@ describe('imagePipelineAndAuthzServices', () => {
     expect(service.getUploadFilenameFromUrl('/uploads/hero.jpg')).toBe('hero.jpg');
   });
 
+  it('reuses a shared media snapshot between files and pipeline status lookups', async () => {
+    const listRemoteObjectsByPrefix = vi.fn(async () => ([
+      {
+        Key: 'uploads/hero.jpg',
+        Size: 1024,
+        LastModified: '2026-04-15T10:00:00.000Z',
+      },
+    ]));
+    const getStorageObjectBuffer = vi.fn(async (key) => {
+      if (key === 'variants/hero.jpg/manifest.json') {
+        return Buffer.from(JSON.stringify({
+          original: { width: 1200, height: 800, format: 'webp' },
+          placeholder: '/uploads/variants/hero.jpg/blur.webp',
+          variants: [{ width: 320, webp: '/uploads/variants/hero.jpg/w320.webp', avif: '/uploads/variants/hero.jpg/w320.avif' }],
+        }));
+      }
+      return null;
+    });
+
+    const service = createImagePipelineService({
+      Article: { updateMany: vi.fn(async () => ({ modifiedCount: 0 })) },
+      Tip: { updateMany: vi.fn(async () => ({ modifiedCount: 0 })) },
+      allowedImageExtensions: new Set(['.jpg', '.png', '.webp']),
+      getManifestAbsolutePath: (fileName) => `C:/tmp/${fileName}/manifest.json`,
+      getManifestRelativePath: (fileName) => `variants/${fileName}/manifest.json`,
+      getOriginalUploadUrl: (fileName) => `/uploads/${fileName}`,
+      getStorageObjectBuffer,
+      getVariantsAbsoluteDir: (fileName) => `C:/tmp/${fileName}`,
+      getVariantsRelativeDir: (fileName) => `variants/${fileName}`,
+      imagePipelineWidths: [320],
+      isOriginalUploadFileName: (value) => String(value).endsWith('.jpg'),
+      isRemoteStorage: true,
+      listRemoteObjectsByPrefix,
+      loadSharp: async () => null,
+      putStorageObject: vi.fn(async () => {}),
+      toUploadsStorageKey: (value) => `uploads/${value}`,
+      toUploadsUrlFromRelative: (value) => `/uploads/${value}`,
+      uploadsDir: 'C:/tmp/uploads',
+    });
+
+    const items = await service.listMediaFiles();
+    const status = await service.getImagePipelineStatus();
+
+    expect(items).toHaveLength(1);
+    expect(status).toEqual(expect.objectContaining({
+      total: 1,
+      ready: 1,
+      pending: 0,
+      engine: 'disabled',
+    }));
+    expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(1);
+    expect(getStorageObjectBuffer).toHaveBeenCalledTimes(1);
+
+    service.invalidateMediaLibrarySnapshot();
+    await service.getImagePipelineStatus();
+    expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(2);
+  });
+
   it('deduplicates uploads in memory and enforces auth permissions', async () => {
     const dedup = createUploadDedupService({ recentUploadCacheMax: 1, recentUploadTtlMs: 50 });
     const fingerprint = dedup.makeUploadFingerprint(Buffer.from('same-file'), 'image/jpeg', true);
