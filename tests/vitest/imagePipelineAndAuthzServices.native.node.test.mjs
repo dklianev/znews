@@ -109,6 +109,70 @@ describe('imagePipelineAndAuthzServices', () => {
     expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(2);
   });
 
+  it('does not cache stale media snapshots after invalidation during an in-flight build', async () => {
+    let releaseListing;
+    const firstListing = new Promise((resolve) => {
+      releaseListing = resolve;
+    });
+    const listRemoteObjectsByPrefix = vi
+      .fn()
+      .mockImplementationOnce(() => firstListing)
+      .mockImplementationOnce(async () => ([
+        {
+          Key: 'uploads/fresh.jpg',
+          Size: 2048,
+          LastModified: '2026-04-15T10:10:00.000Z',
+        },
+      ]));
+    const getStorageObjectBuffer = vi.fn(async (key) => {
+      if (key === 'variants/fresh.jpg/manifest.json') {
+        return Buffer.from(JSON.stringify({
+          original: { width: 1280, height: 720, format: 'webp' },
+          placeholder: '/uploads/variants/fresh.jpg/blur.webp',
+          variants: [{ width: 320, webp: '/uploads/variants/fresh.jpg/w320.webp', avif: '/uploads/variants/fresh.jpg/w320.avif' }],
+        }));
+      }
+      return null;
+    });
+
+    const service = createImagePipelineService({
+      Article: { updateMany: vi.fn(async () => ({ modifiedCount: 0 })) },
+      Tip: { updateMany: vi.fn(async () => ({ modifiedCount: 0 })) },
+      allowedImageExtensions: new Set(['.jpg', '.png', '.webp']),
+      getManifestAbsolutePath: (fileName) => `C:/tmp/${fileName}/manifest.json`,
+      getManifestRelativePath: (fileName) => `variants/${fileName}/manifest.json`,
+      getOriginalUploadUrl: (fileName) => `/uploads/${fileName}`,
+      getStorageObjectBuffer,
+      getVariantsAbsoluteDir: (fileName) => `C:/tmp/${fileName}`,
+      getVariantsRelativeDir: (fileName) => `variants/${fileName}`,
+      imagePipelineWidths: [320],
+      isOriginalUploadFileName: (value) => String(value).endsWith('.jpg'),
+      isRemoteStorage: true,
+      listRemoteObjectsByPrefix,
+      loadSharp: async () => null,
+      putStorageObject: vi.fn(async () => {}),
+      toUploadsStorageKey: (value) => `uploads/${value}`,
+      toUploadsUrlFromRelative: (value) => `/uploads/${value}`,
+      uploadsDir: 'C:/tmp/uploads',
+    });
+
+    const firstSnapshotPromise = service.getMediaLibrarySnapshot();
+    service.invalidateMediaLibrarySnapshot();
+    releaseListing([
+      {
+        Key: 'uploads/stale.jpg',
+        Size: 1024,
+        LastModified: '2026-04-15T10:00:00.000Z',
+      },
+    ]);
+    await firstSnapshotPromise;
+
+    const freshSnapshot = await service.getMediaLibrarySnapshot();
+    expect(freshSnapshot.items).toHaveLength(1);
+    expect(freshSnapshot.items[0]?.name).toBe('fresh.jpg');
+    expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(2);
+  });
+
   it('deduplicates uploads in memory and enforces auth permissions', async () => {
     const dedup = createUploadDedupService({ recentUploadCacheMax: 1, recentUploadTtlMs: 50 });
     const fingerprint = dedup.makeUploadFingerprint(Buffer.from('same-file'), 'image/jpeg', true);

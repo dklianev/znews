@@ -29,11 +29,13 @@ export function createImagePipelineService(deps) {
   let mediaLibrarySnapshotCache = null;
   let mediaLibrarySnapshotExpiresAt = 0;
   let mediaLibrarySnapshotInFlight = null;
+  let mediaLibrarySnapshotEpoch = 0;
 
   function invalidateMediaLibrarySnapshot() {
     mediaLibrarySnapshotCache = null;
     mediaLibrarySnapshotExpiresAt = 0;
     mediaLibrarySnapshotInFlight = null;
+    mediaLibrarySnapshotEpoch += 1;
   }
 
   function getVariantRelativePath(fileName, variantFileName) {
@@ -371,8 +373,12 @@ export function createImagePipelineService(deps) {
       return mediaLibrarySnapshotInFlight;
     }
 
+    const startEpoch = mediaLibrarySnapshotEpoch;
     const task = buildMediaLibrarySnapshot()
       .then((snapshot) => {
+        if (startEpoch !== mediaLibrarySnapshotEpoch) {
+          return snapshot;
+        }
         mediaLibrarySnapshotCache = snapshot;
         mediaLibrarySnapshotExpiresAt = Date.now() + MEDIA_LIBRARY_SNAPSHOT_TTL_MS;
         return snapshot;
