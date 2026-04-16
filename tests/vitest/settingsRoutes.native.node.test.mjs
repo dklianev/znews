@@ -7,6 +7,13 @@ describe('settingsRoutes', () => {
     const app = createMockApp();
     const createSettingsRevision = vi.fn(async () => {});
     const invalidateCacheGroup = vi.fn();
+    const invalidateSiteSettingsRouteCache = vi.fn();
+    const invalidateClassifiedsRouteCache = vi.fn();
+    app.locals.__routeCacheInvalidators = {
+      heroSettings: new Set(),
+      siteSettings: new Set([invalidateSiteSettingsRouteCache]),
+      classifiedsConfig: new Set([invalidateClassifiedsRouteCache]),
+    };
 
     registerSettingsRoutes(app, {
       AuditLog: { create: vi.fn(() => Promise.resolve()) },
@@ -53,6 +60,8 @@ describe('settingsRoutes', () => {
     expect(putRes.body).toEqual({ key: 'main', title: 'Нов title', sanitized: true, serialized: true });
     expect(createSettingsRevision).toHaveBeenCalled();
     expect(invalidateCacheGroup).toHaveBeenCalledWith('settings', 'site-settings-mutation');
+    expect(invalidateSiteSettingsRouteCache).toHaveBeenCalledTimes(1);
+    expect(invalidateClassifiedsRouteCache).toHaveBeenCalledTimes(1);
   });
 
   it('refreshes homepage cache and reports the cleared totals', async () => {
@@ -60,6 +69,14 @@ describe('settingsRoutes', () => {
     const invalidateCacheTags = vi.fn()
       .mockReturnValueOnce(2)
       .mockReturnValueOnce(1);
+    const invalidateHeroSettingsRouteCache = vi.fn();
+    const invalidateSiteSettingsRouteCache = vi.fn();
+    const invalidateClassifiedsRouteCache = vi.fn();
+    app.locals.__routeCacheInvalidators = {
+      heroSettings: new Set([invalidateHeroSettingsRouteCache]),
+      siteSettings: new Set([invalidateSiteSettingsRouteCache]),
+      classifiedsConfig: new Set([invalidateClassifiedsRouteCache]),
+    };
 
     registerSettingsRoutes(app, {
       AuditLog: { create: vi.fn(() => Promise.resolve()) },
@@ -94,6 +111,8 @@ describe('settingsRoutes', () => {
     expect(res.statusCode).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.cleared).toEqual({ homepage: 2, bootstrap: 1, total: 3 });
+    expect(invalidateHeroSettingsRouteCache).toHaveBeenCalledTimes(1);
+    expect(invalidateSiteSettingsRouteCache).toHaveBeenCalledTimes(1);
+    expect(invalidateClassifiedsRouteCache).toHaveBeenCalledTimes(1);
   });
 });
-

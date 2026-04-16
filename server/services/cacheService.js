@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 export function createCacheService(deps) {
   const {
     apiCache,
@@ -81,13 +83,32 @@ export function createCacheService(deps) {
     keys.filter(Boolean).forEach((key) => apiCacheMeta.delete(key));
   }
 
-  function rememberApiCacheEntry(key, url, tagsOverride = null) {
+  function rememberApiCacheEntry(key, url, tagsOverride = null, etag = '') {
     apiCacheMeta.set(key, {
       key,
       url,
       tags: normalizeCacheTags(tagsOverride && tagsOverride.length > 0 ? tagsOverride : getCacheTagsForUrl(url)),
       cachedAt: new Date().toISOString(),
+      etag: String(etag || '').trim(),
     });
+  }
+
+  function generateEtag(body) {
+    return `"${createHash('sha1').update(String(body || '')).digest('base64url')}"`;
+  }
+
+  function parseIfNoneMatch(rawValue) {
+    return String(rawValue || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
+  function matchesIfNoneMatch(rawValue, etag) {
+    if (!etag) return false;
+    const candidates = parseIfNoneMatch(rawValue);
+    if (candidates.length === 0) return false;
+    return candidates.some((value) => value === '*' || value === etag || value === `W/${etag}`);
   }
 
   function appendCacheInvalidationLog(entry) {
@@ -164,9 +185,21 @@ export function createCacheService(deps) {
     if (cachedBody) {
       const cachedMeta = apiCacheMeta.get(key);
       const tags = normalizeCacheTags(cachedMeta?.tags?.length ? cachedMeta.tags : derivedTags);
+      const etag = cachedMeta?.etag || generateEtag(cachedBody);
+      if (!cachedMeta?.etag) {
+        rememberApiCacheEntry(key, url, tags, etag);
+      }
       cachePerformance.hits += 1;
       countCacheEvent(tags, 'hits');
       res.setHeader('X-Cache', 'HIT');
+      res.setHeader('ETag', etag);
+      if (matchesIfNoneMatch(req.headers?.['if-none-match'], etag)) {
+        res.statusCode = 304;
+        if (typeof res.end === 'function') {
+          res.end();
+        }
+        return res;
+      }
       return res.json(JSON.parse(cachedBody));
     }
 
@@ -177,9 +210,12 @@ export function createCacheService(deps) {
     res.json = function cacheResponse(body) {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         const responseTags = normalizeCacheTags(readResponseCacheTags(res).length > 0 ? readResponseCacheTags(res) : derivedTags);
-        apiCache.set(key, JSON.stringify(body));
+        const serialized = JSON.stringify(body);
+        const etag = generateEtag(serialized);
+        apiCache.set(key, serialized);
         cachePerformance.writes += 1;
-        rememberApiCacheEntry(key, url, responseTags);
+        rememberApiCacheEntry(key, url, responseTags, etag);
+        res.setHeader('ETag', etag);
       }
       return originalSend.call(this, body);
     };

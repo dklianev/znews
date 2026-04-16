@@ -298,4 +298,66 @@ describe('articlesAdminRoutes', () => {
     assert.equal(pipelineBuilt, false);
     assert.deepEqual(res.body, { items: [] });
   });
+
+  it('updates an article with a single read-write query and returns the merged snapshot', async () => {
+    const router = createMockRouter();
+    const calls = [];
+    let updatedOthers = null;
+    let revisedSnapshot = null;
+    registerArticlesAdminRoutes(router, {
+      ...createDeps(),
+      AuditLog: { create() { return Promise.resolve(); } },
+      Article: {
+        findOneAndUpdate(filter, update, options) {
+          calls.push({ filter, update, options });
+          return {
+            lean: async () => ({
+              id: 12,
+              title: 'Старо заглавие',
+              status: 'published',
+              hero: false,
+              breaking: false,
+            }),
+          };
+        },
+        async updateMany(filter, update) {
+          updatedOthers = { filter, update };
+        },
+      },
+      sanitizeArticlePayload(payload) {
+        return payload;
+      },
+      async createArticleRevision(_id, snapshot) {
+        revisedSnapshot = snapshot;
+      },
+    });
+
+    const handlers = router.routes.get('PUT /:id');
+    const res = createResponse();
+    await runHandlers(handlers, {
+      params: { id: '12' },
+      body: { title: 'Ново заглавие', hero: true },
+      user: { userId: 5, name: 'Editor' },
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0], {
+      filter: { id: 12 },
+      update: { $set: { title: 'Ново заглавие', hero: true } },
+      options: { returnDocument: 'before' },
+    });
+    assert.deepEqual(updatedOthers, {
+      filter: { id: { $ne: 12 }, hero: true },
+      update: { $set: { hero: false } },
+    });
+    assert.deepEqual(revisedSnapshot, {
+      id: 12,
+      title: 'Ново заглавие',
+      status: 'published',
+      hero: true,
+      breaking: false,
+    });
+    assert.deepEqual(res.body, revisedSnapshot);
+  });
 });

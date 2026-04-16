@@ -1,6 +1,8 @@
 import { buildHomepageSectionIdPayload, buildHomepageSections } from '../../shared/homepageSelectors.js';
 
 const BOOTSTRAP_OPTIONAL_SECTIONS = new Set(['jobs', 'court', 'events', 'gallery']);
+const HERO_SETTINGS_PUBLIC_SELECT = 'headline shockLabel ctaLabel headlineBoardText heroTitleScale captions mainPhotoArticleId photoArticleIds';
+const SITE_SETTINGS_PUBLIC_SELECT = 'breakingBadgeLabel navbarLinks spotlightLinks footerPills footerQuickLinks footerInfoLinks contact about layoutPresets tipLinePromo classifieds seasonalCampaigns';
 
 function parseBootstrapInclude(input) {
   if (typeof input !== 'string' || !input.trim()) {
@@ -19,6 +21,46 @@ function isCompactPayloadRequested(input) {
   if (input === true) return true;
   const normalized = String(input || '').trim().toLowerCase();
   return normalized === '1' || normalized === 'true' || normalized === 'compact';
+}
+
+const SETTINGS_CACHE_TTL_MS = 60 * 1000;
+
+function createSettingsCache(fetchFn) {
+  let cached = null;
+  let expiresAt = 0;
+  let inFlight = null;
+  let epoch = 0;
+  return {
+    get() {
+      const now = Date.now();
+      if (cached && expiresAt > now) return Promise.resolve(cached);
+      if (inFlight) return inFlight;
+      const startEpoch = epoch;
+      const task = fetchFn()
+        .then((value) => {
+          if (startEpoch !== epoch) return value;
+          cached = value;
+          expiresAt = Date.now() + SETTINGS_CACHE_TTL_MS;
+          return value;
+        })
+        .finally(() => { inFlight = null; });
+      inFlight = task;
+      return task;
+    },
+    invalidate() { cached = null; expiresAt = 0; inFlight = null; epoch += 1; },
+  };
+}
+
+function ensureRouteCacheInvalidatorRegistry(app) {
+  if (!app.locals) app.locals = {};
+  if (!app.locals.__routeCacheInvalidators) {
+    app.locals.__routeCacheInvalidators = {
+      heroSettings: new Set(),
+      siteSettings: new Set(),
+      classifiedsConfig: new Set(),
+    };
+  }
+  return app.locals.__routeCacheInvalidators;
 }
 
 export function registerPublicFeedRoutes(app, deps) {
@@ -59,6 +101,18 @@ export function registerPublicFeedRoutes(app, deps) {
     stripDocumentList,
   } = deps;
 
+  const heroSettingsCache = createSettingsCache(async () => {
+    const doc = await HeroSettings.findOne({ key: 'main' }).select(HERO_SETTINGS_PUBLIC_SELECT).lean();
+    return serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS);
+  });
+  const siteSettingsCache = createSettingsCache(async () => {
+    const doc = await SiteSettings.findOne({ key: 'main' }).select(SITE_SETTINGS_PUBLIC_SELECT).lean();
+    return serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS);
+  });
+  const routeCacheInvalidators = ensureRouteCacheInvalidatorRegistry(app);
+  routeCacheInvalidators.heroSettings.add(() => heroSettingsCache.invalidate());
+  routeCacheInvalidators.siteSettings.add(() => siteSettingsCache.invalidate());
+
   app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
@@ -86,8 +140,7 @@ export function registerPublicFeedRoutes(app, deps) {
     const errors = {};
 
     try {
-      const heroDoc = await HeroSettings.findOne({ key: 'main' }).lean();
-      heroSettings = serializeHeroSettings(heroDoc || DEFAULT_HERO_SETTINGS);
+      heroSettings = await heroSettingsCache.get();
     } catch (error) {
       errors.heroSettings = publicError(error, 'Failed to load heroSettings');
     }
@@ -105,7 +158,7 @@ export function registerPublicFeedRoutes(app, deps) {
       categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
       ads: listPublicAds({ compact: compactPayload }),
       breaking: Breaking.findOne().lean().then((doc) => doc?.items || []),
-      siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),
+      siteSettings: siteSettingsCache.get(),
       wanted: Wanted.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       polls: Poll.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       games: listPublicGames(),
@@ -163,7 +216,7 @@ export function registerPublicFeedRoutes(app, deps) {
     const articlePool = Array.isArray(homepageSections.selectedArticles) ? homepageSections.selectedArticles : [];
     const sections = buildHomepageSectionIdPayload(homepageSections);
 
-    res.setHeader('Cache-Control', 'private, max-age=60');
+    res.setHeader('Cache-Control', maybeUser ? 'private, max-age=60' : 'public, max-age=300');
     const responsePayload = {
       schemaVersion: 2,
       generatedAt: new Date().toISOString(),
@@ -190,10 +243,10 @@ export function registerPublicFeedRoutes(app, deps) {
     const maybeUser = decodeTokenFromRequest(req);
     const canSeeDrafts = maybeUser ? await hasPermissionForSection(maybeUser, 'articles') : false;
     const articleFilter = canSeeDrafts ? { status: { $ne: 'archived' } } : getPublishedFilter();
-    const fieldsProjection = buildArticleProjection(req.query.fields);
+    const fieldsProjection = buildArticleProjection(req.query.fields) || HOMEPAGE_DEFAULT_ARTICLE_PROJECTION;
     const compactPayload = isCompactPayloadRequested(req.query.compact);
     const includeSections = parseBootstrapInclude(req.query.include);
-    const articlePagination = parseCollectionPagination(req.query, { defaultLimit: 120, maxLimit: 500 });
+    const articlePagination = parseCollectionPagination(req.query, { defaultLimit: 30, maxLimit: 120 });
 
     const tasks = {
       articles: findArticlesByRecency(
@@ -206,8 +259,8 @@ export function registerPublicFeedRoutes(app, deps) {
       categories: Category.find().select({ _id: 0, __v: 0 }).lean(),
       ads: listPublicAds({ compact: compactPayload }),
       breaking: Breaking.findOne().lean().then((doc) => doc?.items || []),
-      heroSettings: HeroSettings.findOne({ key: 'main' }).lean().then((doc) => serializeHeroSettings(doc || DEFAULT_HERO_SETTINGS)),
-      siteSettings: SiteSettings.findOne({ key: 'main' }).lean().then((doc) => serializeSiteSettings(doc || DEFAULT_SITE_SETTINGS)),
+      heroSettings: heroSettingsCache.get(),
+      siteSettings: siteSettingsCache.get(),
       wanted: Wanted.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       polls: Poll.find().sort({ id: -1 }).select({ _id: 0, __v: 0 }).lean(),
       games: listPublicGames(),
@@ -273,7 +326,7 @@ export function registerPublicFeedRoutes(app, deps) {
     const articleTotal = Number.isInteger(payload.articleTotal) ? payload.articleTotal : 0;
     delete payload.articleTotal;
 
-    res.setHeader('Cache-Control', 'private, max-age=60');
+    res.setHeader('Cache-Control', maybeUser ? 'private, max-age=60' : 'public, max-age=300');
     return res.json({
       ...payload,
       ...(articlePagination.shouldPaginate ? {

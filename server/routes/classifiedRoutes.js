@@ -37,6 +37,18 @@ function sanitizeUserText(text, maxLen) {
   return text.replace(BIDI_RE, '').normalize('NFC').slice(0, maxLen).trim();
 }
 
+function ensureRouteCacheInvalidatorRegistry(app) {
+  if (!app.locals) app.locals = {};
+  if (!app.locals.__routeCacheInvalidators) {
+    app.locals.__routeCacheInvalidators = {
+      heroSettings: new Set(),
+      siteSettings: new Set(),
+      classifiedsConfig: new Set(),
+    };
+  }
+  return app.locals.__routeCacheInvalidators;
+}
+
 export function registerClassifiedRoutes(app, deps) {
   const {
     Classified,
@@ -115,11 +127,28 @@ export function registerClassifiedRoutes(app, deps) {
     keyGenerator: rateLimitKeyGenerator,
   });
 
+  let configCache = null;
+  let configCacheExpiresAt = 0;
+  let configCacheEpoch = 0;
+  const CONFIG_CACHE_TTL_MS = 60 * 1000;
+  const routeCacheInvalidators = ensureRouteCacheInvalidatorRegistry(app);
+  routeCacheInvalidators.classifiedsConfig.add(() => {
+    configCache = null;
+    configCacheExpiresAt = 0;
+    configCacheEpoch += 1;
+  });
+
   async function getConfig() {
-    const doc = await SiteSettings.findOne({ key: 'main' }).lean();
+    const now = Date.now();
+    if (configCache && configCacheExpiresAt > now) return configCache;
+    const startEpoch = configCacheEpoch;
+    const doc = await SiteSettings.findOne({ key: 'main' }).select({ _id: 0, classifieds: 1 }).lean();
     const c = doc?.classifieds;
-    if (c?.tiers?.standard && c?.tiers?.highlighted && c?.tiers?.vip) return c;
-    return DEFAULT_SITE_SETTINGS.classifieds || DEFAULT_CLASSIFIEDS_CONFIG;
+    const result = (c?.tiers?.standard && c?.tiers?.highlighted && c?.tiers?.vip) ? c : (DEFAULT_SITE_SETTINGS.classifieds || DEFAULT_CLASSIFIEDS_CONFIG);
+    if (startEpoch !== configCacheEpoch) return result;
+    configCache = result;
+    configCacheExpiresAt = now + CONFIG_CACHE_TTL_MS;
+    return result;
   }
 
   function runMultiUpload(req, res, maxCount) {

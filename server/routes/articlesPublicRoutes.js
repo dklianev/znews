@@ -138,7 +138,7 @@ export function createArticlesPublicRouter(deps) {
     };
   }
 
-  async function loadReactionState(req, articleId, windowKey) {
+  async function loadReactionDocs(req, articleId, windowKey) {
     const docs = await ArticleReaction.find({
       articleId,
       windowKey,
@@ -147,7 +147,21 @@ export function createArticlesPublicRouter(deps) {
     })
       .select({ _id: 0, emoji: 1 })
       .lean();
-    return buildReactionState(Array.isArray(docs) ? docs : []);
+    return Array.isArray(docs) ? docs : [];
+  }
+
+  async function loadReactionState(req, articleId, windowKey) {
+    return buildReactionState(await loadReactionDocs(req, articleId, windowKey));
+  }
+
+  function buildReactionStateWithEmoji(docs, emoji, active = true) {
+    const normalizedDocs = Array.isArray(docs) ? docs : [];
+    const nextDocs = active
+      ? normalizedDocs.some((doc) => doc?.emoji === emoji)
+        ? normalizedDocs
+        : [...normalizedDocs, { emoji }]
+      : normalizedDocs.filter((doc) => doc?.emoji !== emoji);
+    return buildReactionState(nextDocs);
   }
 
   function invalidateReactionCache(articleId, emoji) {
@@ -183,6 +197,7 @@ export function createArticlesPublicRouter(deps) {
     const authorId = Number.parseInt(req.params.authorId, 10);
     if (!Number.isInteger(authorId)) return res.status(400).json({ error: 'Invalid authorId' });
     res.setCacheTags(['authors', 'author-stats']);
+    res.setHeader('Cache-Control', 'public, max-age=300');
 
     const filter = { ...getPublishedFilter(), authorId };
     const [result] = await Article.aggregate([
@@ -239,6 +254,7 @@ export function createArticlesPublicRouter(deps) {
     if (authorId) filter.authorId = authorId;
     if (q) filter.$text = { $search: q };
     res.setCacheTags(q ? ['articles', 'article-list', 'search'] : ['articles', 'article-list']);
+    res.setHeader('Cache-Control', maybeUser ? 'private, max-age=60' : 'public, max-age=300');
 
     let query = Article.find(filter);
     query = q
@@ -403,20 +419,12 @@ export function createArticlesPublicRouter(deps) {
 
     ensureReactionClientId(req, res);
     const windowKey = getWindowKey(articleReactionWindowMs);
-    const existingReaction = await ArticleReaction.findOne({
-      articleId: id,
-      emoji,
-      windowKey,
-      voterHash: { $in: getReactionHashCandidates(req, id, emoji) },
-      ...ACTIVE_REACTION_FILTER,
-    })
-      .select({ _id: 0, emoji: 1, active: 1 })
-      .lean();
-    if (existingReaction) {
-      const reactionState = await loadReactionState(req, id, windowKey);
+    const currentReactionDocs = await loadReactionDocs(req, id, windowKey);
+    if (currentReactionDocs.some((doc) => doc?.emoji === emoji)) {
+      const reactionState = buildReactionStateWithEmoji(currentReactionDocs, emoji, true);
       return res.status(429).json({
         error: 'Already reacted',
-        emoji: existingReaction.emoji || null,
+        emoji,
         ...reactionState,
       });
     }
@@ -428,7 +436,7 @@ export function createArticlesPublicRouter(deps) {
       await ArticleReaction.create({ articleId: id, emoji, voterHash, windowKey, expiresAt });
     } catch (error) {
       if (isMongoDuplicateKeyError(error)) {
-        const reactionState = await loadReactionState(req, id, windowKey);
+        const reactionState = buildReactionStateWithEmoji(currentReactionDocs, emoji, true);
         return res.status(429).json({ error: 'Already reacted', emoji, ...reactionState });
       }
       throw error;
@@ -446,7 +454,7 @@ export function createArticlesPublicRouter(deps) {
     }
     delete item._id;
     delete item.__v;
-    const reactionState = await loadReactionState(req, id, windowKey);
+    const reactionState = buildReactionStateWithEmoji(currentReactionDocs, emoji, true);
     invalidateReactionCache(id, emoji);
     return res.json({ reactions: item.reactions, emoji, ...reactionState });
   });
@@ -466,6 +474,11 @@ export function createArticlesPublicRouter(deps) {
 
     ensureReactionClientId(req, res);
     const windowKey = getWindowKey(articleReactionWindowMs);
+    const currentReactionDocs = await loadReactionDocs(req, id, windowKey);
+    if (!currentReactionDocs.some((doc) => doc?.emoji === emoji)) {
+      const reactionState = buildReactionState(currentReactionDocs);
+      return res.status(404).json({ error: 'Reaction not found', emoji, ...reactionState });
+    }
     const reaction = await ArticleReaction.findOneAndDelete({
       articleId: id,
       emoji,
@@ -477,7 +490,7 @@ export function createArticlesPublicRouter(deps) {
       .lean();
 
     if (!reaction) {
-      const reactionState = await loadReactionState(req, id, windowKey);
+      const reactionState = buildReactionStateWithEmoji(currentReactionDocs, emoji, false);
       return res.status(404).json({ error: 'Reaction not found', emoji, ...reactionState });
     }
 
@@ -493,7 +506,7 @@ export function createArticlesPublicRouter(deps) {
     }
     delete item._id;
     delete item.__v;
-    const reactionState = await loadReactionState(req, id, windowKey);
+    const reactionState = buildReactionStateWithEmoji(currentReactionDocs, emoji, false);
     invalidateReactionCache(id, emoji);
     return res.json({ reactions: item.reactions, emoji, removed: true, ...reactionState });
   });

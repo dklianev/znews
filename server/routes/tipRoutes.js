@@ -103,7 +103,7 @@ export function registerTipRoutes(app, deps) {
   }
 
   app.get('/api/tips', requireAuth, requireAnyPermission(TIP_ADMIN_PERMISSIONS), async (_req, res) => {
-    const tips = await Tip.find().sort({ createdAt: -1 }).lean();
+    const tips = await Tip.find().sort({ createdAt: -1 }).limit(500).lean();
     res.json(tips);
   });
 

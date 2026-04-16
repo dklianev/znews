@@ -31,12 +31,13 @@ export function createNumericCrudFactory({
         query = query.skip(pagination.skip).limit(pagination.limit);
       }
       if (!pagination.shouldPaginate) {
-        const items = await query.lean();
+        const items = await query.limit(2000).lean();
         items.forEach((item) => {
           delete item._id;
           delete item.__v;
           sensitiveFields.forEach((field) => delete item[field]);
         });
+        res.setHeader('Cache-Control', 'public, max-age=120');
         return res.json(items);
       }
       const [items, total] = await Promise.all([

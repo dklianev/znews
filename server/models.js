@@ -148,6 +148,8 @@ const adSchema = new mongoose.Schema({
   endAt: { type: Date, default: null, index: true },
 }, opts);
 
+adSchema.index({ priority: -1, id: -1 }, { name: 'ad_priority_id' });
+
 const adEventSchema = new mongoose.Schema({
   adId: { type: Number, required: true, index: true },
   eventType: { type: String, required: true, enum: AD_EVENT_TYPES, index: true },
@@ -718,7 +720,7 @@ const tipSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now, index: true },
 }, opts);
 
-tipSchema.index({ status: 1, createdAt: -1 }, { name: 'tip_status_createdAt' });
+tipSchema.index({ status: 1, createdAt: -1, id: -1 }, { name: 'tip_status_createdAt_id' });
 
 // ─── Classifieds (Малки обяви) ───
 const classifiedSchema = new mongoose.Schema({

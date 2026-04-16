@@ -523,7 +523,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(compression({ threshold: 1024, level: 6 }));
+app.use(compression({ threshold: 512, level: 6 }));
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: 'cross-origin' },
@@ -1308,7 +1308,10 @@ const DEFAULT_PERMISSION_DOCS = Object.freeze({
 });
 
 const {
+  getPermissionDoc,
   hasPermissionForSection,
+  invalidatePermissionCache,
+  invalidatePermissionRoleCache,
   isKnownRole,
   nextNumericId,
 } = createAccessHelpers({
@@ -1717,7 +1720,10 @@ app.use('/api/contact-messages', contactMessagesRouter);
 registerPermissionRoutes(app, {
   DEFAULT_PERMISSION_DOCS,
   ensureDefaultPermissionDocs,
+  getPermissionDoc,
   hasPermissionForSection,
+  invalidatePermissionCache,
+  invalidatePermissionRoleCache,
   normalizeText,
   Permission,
   publicError,

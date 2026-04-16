@@ -230,12 +230,15 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
     await enrichArticlePayloadWithImageMeta(data, { partial: true });
     if (Object.keys(data).length === 0) return res.status(400).json({ error: 'No valid fields to update' });
 
-    const previous = await Article.findOne({ id }).lean();
+    const previous = await Article.findOneAndUpdate(
+      { id },
+      { $set: data },
+      { returnDocument: 'before' },
+    ).lean();
     if (!previous) return res.status(404).json({ error: 'Not found' });
 
-    const item = await Article.findOneAndUpdate({ id }, { $set: data }, { returnDocument: 'after' });
-    if (!item) return res.status(404).json({ error: 'Not found' });
-    if (item.hero) {
+    const updated = { ...previous, ...data };
+    if (updated.hero) {
       await Article.updateMany({ id: { $ne: id }, hero: true }, { $set: { hero: false } });
     }
 
@@ -248,7 +251,6 @@ export function registerArticlesAdminRoutes(articlesRouter, deps) {
       details: data.title || '',
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
-    const updated = item.toJSON();
     await createArticleRevision(id, updated, { source: 'update', user: req.user });
 
     const now = new Date();

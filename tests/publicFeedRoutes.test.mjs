@@ -5,6 +5,7 @@ import { registerPublicFeedRoutes } from '../server/routes/publicFeedRoutes.js';
 function createMockApp() {
   const routes = new Map();
   return {
+    locals: {},
     get(path, ...handlers) {
       routes.set(`GET ${path}`, handlers);
     },
@@ -46,6 +47,9 @@ async function runHandlers(handlers, req, res) {
 
 function leanResult(value) {
   return {
+    select() {
+      return this;
+    },
     lean: async () => value,
     then(resolve, reject) {
       return Promise.resolve(value).then(resolve, reject);
@@ -217,7 +221,7 @@ describe('publicFeedRoutes', () => {
         await runHandlers(handlers, { query: { compact: '1' } }, res);
     
         assert.equal(res.statusCode, 200);
-        assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
+        assert.equal(res.headers['Cache-Control'], 'public, max-age=300');
         assert.deepEqual(adOptionsSeen, [{ compact: true }]);
         assert.ok(Array.isArray(res.body.articlePool));
         assert.equal(Object.prototype.hasOwnProperty.call(res.body, 'articles'), false);
@@ -250,7 +254,7 @@ describe('publicFeedRoutes', () => {
         await runHandlers(handlers, { query: { compact: '1' } }, res);
     
         assert.equal(res.statusCode, 200);
-        assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
+        assert.equal(res.headers['Cache-Control'], 'public, max-age=300');
         assert.deepEqual(adOptionsSeen, [{ compact: true }]);
         assert.ok(Array.isArray(res.body.articles));
         assert.deepEqual(res.body.ads, [{ id: 1, title: 'Ad', placements: ['home.top'] }]);
@@ -275,6 +279,7 @@ describe('publicFeedRoutes', () => {
         await runHandlers(handlers, { query: {} }, res);
     
         assert.equal(res.statusCode, 200);
+        assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
         assert.equal(capturedFilters.length, 1);
         assert.deepEqual(capturedFilters[0], { status: { $ne: 'archived' } },
           'authenticated homepage must exclude archived articles');
@@ -298,6 +303,7 @@ describe('publicFeedRoutes', () => {
         await runHandlers(handlers, { query: {} }, res);
     
         assert.equal(res.statusCode, 200);
+        assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
         assert.equal(capturedFilters.length, 1);
         assert.deepEqual(capturedFilters[0], { status: { $ne: 'archived' } },
           'authenticated bootstrap must exclude archived articles');

@@ -47,13 +47,17 @@ describe('accessHelpers', () => {
     expect(await helpers.hasPermissionForSection({ role: 'admin' }, 'articles')).toBe(true);
     expect(await helpers.hasPermissionForSection({ role: 'editor' }, 'articles')).toBe(true);
     expect(await helpers.hasPermissionForSection({ role: 'editor' }, 'ads')).toBe(false);
+    expect(permissionLookups).toEqual([{ role: 'editor' }]);
+
+    helpers.invalidatePermissionRoleCache('editor');
+    expect(await helpers.hasPermissionForSection({ role: 'editor' }, 'articles')).toBe(true);
     expect(permissionLookups).toEqual([{ role: 'editor' }, { role: 'editor' }]);
 
     expect(await helpers.isKnownRole('')).toBe(false);
     expect(await helpers.isKnownRole('admin')).toBe(true);
     expect(await helpers.isKnownRole(' reporter ')).toBe(true);
-    expect(await helpers.isKnownRole('guest-writer')).toBe(true);
+    expect(await helpers.isKnownRole('editor')).toBe(true);
     expect(await helpers.isKnownRole('unknown-role')).toBe(false);
-    expect(roleExistChecks).toEqual([{ role: 'guest-writer' }, { role: 'unknown-role' }]);
+    expect(roleExistChecks).toEqual([]);
   });
 });

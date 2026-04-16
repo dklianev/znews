@@ -101,6 +101,48 @@ describe('publicGamesRoutes', () => {
     expect(res.body).toEqual({ error: 'temporarily unavailable' });
   });
 
+  it('filters placeholder puzzles out of the public archive while stripping heavy fields', async () => {
+    const router = createPublicGamesRouter(createDeps({
+      GamePuzzle: {
+        find: () => chainableLean([
+          {
+            id: 1,
+            gameSlug: 'word',
+            status: 'published',
+            puzzleDate: '2026-04-03',
+            payload: { wordLength: 2 },
+            solution: { answer: 'БА' },
+            editorNotes: 'hidden',
+          },
+          {
+            id: 2,
+            gameSlug: 'word',
+            status: 'published',
+            puzzleDate: '2026-04-02',
+            payload: { wordLength: 2 },
+            solution: { answer: 'НЕ' },
+            editorNotes: 'placeholder',
+          },
+        ]),
+      },
+      isPlaceholderGamePuzzle: (_type, payload, solution) => payload?.wordLength === 2 && solution?.answer === 'НЕ',
+    }));
+    const handlers = getRouteHandlers(router, 'get', '/:slug/archive');
+    const res = createResponse();
+
+    await runHandlers(handlers, { params: { slug: 'word' }, query: {} }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual([
+      {
+        id: 1,
+        gameSlug: 'word',
+        status: 'published',
+        puzzleDate: '2026-04-03',
+      },
+    ]);
+  });
+
   it('validates word guesses and marks correct and present letters', async () => {
     const router = createPublicGamesRouter(createDeps());
     const handlers = getRouteHandlers(router, 'post', '/:slug/:date/validate');

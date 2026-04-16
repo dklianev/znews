@@ -9,11 +9,16 @@ function createResponse() {
     headers: {},
     locals: {},
     body: undefined,
+    ended: false,
     setHeader(name, value) {
       this.headers[name] = value;
     },
     getHeader(name) {
       return this.headers[name];
+    },
+    end() {
+      this.ended = true;
+      return this;
     },
     json(payload) {
       this.body = payload;
@@ -40,6 +45,7 @@ describe('cacheService', () => {
       await new Promise((resolve) => service.cacheMiddleware(req, res1, resolve));
       assert.equal(res1.getHeader('X-Cache'), 'MISS');
       res1.json({ ok: true });
+      assert.equal(typeof res1.getHeader('ETag'), 'string');
     
       const statsAfterMiss = service.getApiCacheStats();
       assert.equal(statsAfterMiss.performance.misses, 1);
@@ -51,11 +57,23 @@ describe('cacheService', () => {
       service.cacheMiddleware(req, res2, () => {});
       assert.equal(res2.getHeader('X-Cache'), 'HIT');
       assert.deepEqual(res2.body, { ok: true });
-    
+      assert.equal(res2.getHeader('ETag'), res1.getHeader('ETag'));
+
       const statsAfterHit = service.getApiCacheStats();
       assert.equal(statsAfterHit.performance.hits, 1);
       assert.equal(statsAfterHit.performance.hitRate, 0.5);
       assert.equal(statsAfterHit.performance.hitsByTag.homepage, 1);
+
+      const res3 = createResponse();
+      service.cacheMiddleware({
+        method: 'GET',
+        originalUrl: '/api/homepage',
+        headers: { 'if-none-match': res1.getHeader('ETag') },
+      }, res3, () => {});
+      assert.equal(res3.getHeader('X-Cache'), 'HIT');
+      assert.equal(res3.statusCode, 304);
+      assert.equal(res3.ended, true);
+      assert.equal(res3.body, undefined);
     
       const detailReq = { method: 'GET', originalUrl: '/api/articles/7', headers: {} };
       const detailRes1 = createResponse();

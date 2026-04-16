@@ -79,7 +79,7 @@ export function createCommentsRouter(deps) {
     }
 
     if (!pagination.shouldPaginate) {
-      const items = await query.lean();
+      const items = await query.limit(5000).lean();
       items.forEach((item) => {
         delete item._id;
         delete item.__v;

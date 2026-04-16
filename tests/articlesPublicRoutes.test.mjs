@@ -224,8 +224,56 @@ describe('articlesPublicRoutes', () => {
       status: 'published',
       category: { $in: ['crime', 'underground'] },
     });
+    assert.equal(res.headers['Cache-Control'], 'public, max-age=300');
     assert.equal(res.body?.items?.length, 2);
     assert.equal(res.body?.total, 2);
+  });
+
+  it('marks authenticated article lists as private cache responses', async () => {
+    const { deps } = createDeps({
+      decodeTokenFromRequest() { return { userId: 7, name: 'Editor' }; },
+      async hasPermissionForSection() { return true; },
+    });
+    const router = createArticlesPublicRouter(deps);
+    const handlers = getRouteHandlers(router, 'get', '/');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      query: { page: '1', limit: '6' },
+      headers: {},
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
+  });
+
+  it('caches author stats publicly with a short ttl', async () => {
+    const { deps } = createDeps({
+      Article: {
+        async aggregate() {
+          return [{
+            totalArticles: 4,
+            totalViews: 99,
+            totalReactions: 12,
+            categories: ['crime', 'reportage'],
+          }];
+        },
+      },
+    });
+    const router = createArticlesPublicRouter(deps);
+    const handlers = getRouteHandlers(router, 'get', '/author-stats/:authorId');
+    const res = createResponse();
+
+    await runHandlers(handlers, { params: { authorId: '5' }, headers: {} }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers['Cache-Control'], 'public, max-age=300');
+    assert.deepEqual(res.body, {
+      totalArticles: 4,
+      totalViews: 99,
+      totalReactions: 12,
+      categoryCount: 2,
+    });
   });
 
   it('returns anonymous reaction state and seeds a browser cookie', async () => {
@@ -339,7 +387,7 @@ describe('articlesPublicRoutes', () => {
   });
 
   it('creates a new reaction and invalidates the relevant cache tags', async () => {
-    const { deps, creates, findOneFilters, invalidations } = createDeps();
+    const { deps, creates, findFilters, invalidations } = createDeps();
     const router = createArticlesPublicRouter(deps);
     const handlers = getRouteHandlers(router, 'post', '/:id/react');
     const res = createResponse();
@@ -347,11 +395,10 @@ describe('articlesPublicRoutes', () => {
     await runHandlers(handlers, { params: { id: '7' }, body: { emoji: 'shock' }, headers: {} }, res);
 
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(findOneFilters[0], {
+    assert.deepEqual(findFilters[0], {
       articleId: 7,
-      emoji: 'shock',
       windowKey: 42,
-      voterHash: { $in: ['browser:react:7', 'browser:react:7:shock'] },
+      voterHash: { $in: ['browser:react:7', 'browser:react:7:fire', 'browser:react:7:shock', 'browser:react:7:laugh', 'browser:react:7:skull', 'browser:react:7:clap'] },
       $or: [{ active: { $exists: false } }, { active: true }],
     });
     assert.deepEqual(creates, [{
@@ -381,7 +428,7 @@ describe('articlesPublicRoutes', () => {
 
   it('supports browser-client writes and keeps emoji reactions independent', async () => {
     {
-      const { deps, creates, findOneFilters } = createDeps();
+      const { deps, creates, findFilters } = createDeps();
       const router = createArticlesPublicRouter(deps);
       const handlers = getRouteHandlers(router, 'post', '/:id/react');
       const res = createResponse();
@@ -393,11 +440,10 @@ describe('articlesPublicRoutes', () => {
       }, res);
 
       assert.equal(res.statusCode, 200);
-      assert.deepEqual(findOneFilters[0], {
+      assert.deepEqual(findFilters[0], {
         articleId: 7,
-        emoji: 'shock',
         windowKey: 42,
-        voterHash: { $in: ['browser:react:7', 'browser:react:7:shock'] },
+        voterHash: { $in: ['browser:react:7', 'browser:react:7:fire', 'browser:react:7:shock', 'browser:react:7:laugh', 'browser:react:7:skull', 'browser:react:7:clap'] },
         $or: [{ active: { $exists: false } }, { active: true }],
       });
       assert.deepEqual(creates, [{
@@ -410,17 +456,11 @@ describe('articlesPublicRoutes', () => {
     }
 
     {
-      const findOneCalls = [];
       const creates = [];
       const { deps } = createDeps({
         ArticleReaction: {
           find() {
             return chainableLean([{ emoji: 'fire' }]);
-          },
-          findOne(filter) {
-            findOneCalls.push(filter);
-            if (filter.emoji === 'fire') return chainableLean({ emoji: 'fire' });
-            return chainableLean(null);
           },
           async create(payload) {
             creates.push(payload);
@@ -435,13 +475,6 @@ describe('articlesPublicRoutes', () => {
       await runHandlers(handlers, { params: { id: '7' }, body: { emoji: 'clap' }, headers: {} }, res);
 
       assert.equal(res.statusCode, 200);
-      assert.deepEqual(findOneCalls, [{
-        articleId: 7,
-        emoji: 'clap',
-        windowKey: 42,
-        voterHash: { $in: ['browser:react:7', 'browser:react:7:clap'] },
-        $or: [{ active: { $exists: false } }, { active: true }],
-      }]);
       assert.deepEqual(creates, [{
         articleId: 7,
         emoji: 'clap',
@@ -457,7 +490,7 @@ describe('articlesPublicRoutes', () => {
           shock: false,
           laugh: false,
           skull: false,
-          clap: false,
+          clap: true,
         },
         hasReacted: true,
       });
@@ -492,7 +525,7 @@ describe('articlesPublicRoutes', () => {
         emoji: 'shock',
         reacted: {
           fire: true,
-          shock: false,
+          shock: true,
           laugh: false,
           skull: false,
           clap: false,
@@ -502,14 +535,12 @@ describe('articlesPublicRoutes', () => {
     }
 
     {
-      const { deps, creates, findOneFilters } = createDeps({
+      const freshFindFilters = [];
+      const { deps, creates } = createDeps({
         ArticleReaction: {
-          find() {
+          find(filter) {
+            freshFindFilters.push(filter);
             return chainableLean([]);
-          },
-          findOne(filter) {
-            findOneFilters.push(filter);
-            return chainableLean(null);
           },
           async create(payload) {
             creates.push(payload);
@@ -524,11 +555,10 @@ describe('articlesPublicRoutes', () => {
       await runHandlers(handlers, { params: { id: '7' }, body: { emoji: 'shock' }, headers: {} }, res);
 
       assert.equal(res.statusCode, 200);
-      assert.deepEqual(findOneFilters[0], {
+      assert.deepEqual(freshFindFilters[0], {
         articleId: 7,
-        emoji: 'shock',
         windowKey: 42,
-        voterHash: { $in: ['browser:react:7', 'browser:react:7:shock'] },
+        voterHash: { $in: ['browser:react:7', 'browser:react:7:fire', 'browser:react:7:shock', 'browser:react:7:laugh', 'browser:react:7:skull', 'browser:react:7:clap'] },
         $or: [{ active: { $exists: false } }, { active: true }],
       });
       assert.deepEqual(creates, [{
@@ -543,18 +573,31 @@ describe('articlesPublicRoutes', () => {
         emoji: 'shock',
         reacted: {
           fire: false,
-          shock: false,
+          shock: true,
           laugh: false,
           skull: false,
           clap: false,
         },
-        hasReacted: false,
+        hasReacted: true,
       });
     }
   });
 
   it('deletes reactions and invalidates cache tags for matching voters', async () => {
-    const { deps, findOneDeleteFilters, invalidations } = createDeps();
+    const { deps, findOneDeleteFilters, invalidations } = createDeps({
+      ArticleReaction: {
+        find(filter) {
+          return chainableLean([{ emoji: 'fire' }, { emoji: 'shock' }, { emoji: 'clap' }]);
+        },
+        findOneAndDelete(filter) {
+          findOneDeleteFilters.push(filter);
+          return chainableLean({ emoji: filter.emoji });
+        },
+        async create(payload) {
+          return payload;
+        },
+      },
+    });
     const router = createArticlesPublicRouter(deps);
     const handlers = getRouteHandlers(router, 'delete', '/:id/react');
     const res = createResponse();
@@ -590,7 +633,20 @@ describe('articlesPublicRoutes', () => {
 
   it('deletes browser-client reactions and returns 404 when none exist', async () => {
     {
-      const { deps, findOneDeleteFilters } = createDeps();
+      const { deps, findOneDeleteFilters } = createDeps({
+        ArticleReaction: {
+          find() {
+            return chainableLean([{ emoji: 'fire' }, { emoji: 'shock' }, { emoji: 'clap' }]);
+          },
+          findOneAndDelete(filter) {
+            findOneDeleteFilters.push(filter);
+            return chainableLean({ emoji: filter.emoji });
+          },
+          async create(payload) {
+            return payload;
+          },
+        },
+      });
       const router = createArticlesPublicRouter(deps);
       const handlers = getRouteHandlers(router, 'delete', '/:id/react');
       const res = createResponse();

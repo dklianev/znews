@@ -6,12 +6,17 @@ function createResponse() {
   return {
     statusCode: 200,
     payload: undefined,
+    headers: {},
     status(code) {
       this.statusCode = code;
       return this;
     },
     json(payload) {
       this.payload = payload;
+      return this;
+    },
+    setHeader(name, value) {
+      this.headers[name] = value;
       return this;
     },
   };

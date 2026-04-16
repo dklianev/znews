@@ -22,6 +22,22 @@ export function registerSettingsRoutes(app, deps) {
     SiteSettings,
   } = deps;
 
+  function runRouteCacheInvalidators(...keys) {
+    const registry = app.locals?.__routeCacheInvalidators;
+    if (!registry) return;
+    keys.forEach((key) => {
+      const handlers = registry[key];
+      if (!(handlers instanceof Set)) return;
+      handlers.forEach((invalidate) => {
+        try {
+          invalidate();
+        } catch (error) {
+          console.error(`Failed to invalidate route cache for ${key}:`, error?.message || error);
+        }
+      });
+    });
+  }
+
   app.get('/api/breaking', cacheMiddleware, async (_req, res) => {
     const doc = await Breaking.findOne().lean();
     return res.json(doc?.items || []);
@@ -64,6 +80,7 @@ export function registerSettingsRoutes(app, deps) {
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('hero', 'hero-settings-mutation');
+    runRouteCacheInvalidators('heroSettings');
 
     return res.json(serialized);
   });
@@ -102,6 +119,7 @@ export function registerSettingsRoutes(app, deps) {
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('hero', 'hero-settings-mutation');
+    runRouteCacheInvalidators('heroSettings');
 
     return res.json(serialized);
   });
@@ -140,6 +158,7 @@ export function registerSettingsRoutes(app, deps) {
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('settings', 'site-settings-mutation');
+    runRouteCacheInvalidators('siteSettings', 'classifiedsConfig');
 
     return res.json(serialized);
   });
@@ -169,6 +188,7 @@ export function registerSettingsRoutes(app, deps) {
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
 
     invalidateCacheGroup('settings', 'site-settings-mutation');
+    runRouteCacheInvalidators('siteSettings', 'classifiedsConfig');
 
     return res.json(serialized);
   });
@@ -186,6 +206,8 @@ export function registerSettingsRoutes(app, deps) {
       resourceId: 1,
       details: `refresh-homepage-cache:${totalCleared}`,
     }).catch((err) => console.error('CRITICAL: Audit log write failed:', err.message));
+
+    runRouteCacheInvalidators('siteSettings', 'heroSettings', 'classifiedsConfig');
 
     return res.json({
       ok: true,

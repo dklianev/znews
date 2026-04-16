@@ -1,6 +1,7 @@
 export function createMockApp() {
   const routes = new Map();
   return {
+    locals: {},
     get(path, ...handlers) {
       routes.set(`GET ${path}`, handlers);
     },

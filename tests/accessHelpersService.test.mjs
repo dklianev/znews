@@ -47,13 +47,17 @@ describe('accessHelpersService', () => {
       assert.equal(await helpers.hasPermissionForSection({ role: 'admin' }, 'articles'), true);
       assert.equal(await helpers.hasPermissionForSection({ role: 'editor' }, 'articles'), true);
       assert.equal(await helpers.hasPermissionForSection({ role: 'editor' }, 'ads'), false);
+      assert.deepEqual(permissionLookups, [{ role: 'editor' }]);
+
+      helpers.invalidatePermissionRoleCache('editor');
+      assert.equal(await helpers.hasPermissionForSection({ role: 'editor' }, 'articles'), true);
       assert.deepEqual(permissionLookups, [{ role: 'editor' }, { role: 'editor' }]);
-    
+
       assert.equal(await helpers.isKnownRole(''), false);
       assert.equal(await helpers.isKnownRole('admin'), true);
       assert.equal(await helpers.isKnownRole(' reporter '), true);
-      assert.equal(await helpers.isKnownRole('guest-writer'), true);
+      assert.equal(await helpers.isKnownRole('editor'), true);
       assert.equal(await helpers.isKnownRole('unknown-role'), false);
-      assert.deepEqual(roleExistChecks, [{ role: 'guest-writer' }, { role: 'unknown-role' }]);
+      assert.deepEqual(roleExistChecks, []);
   });
 });

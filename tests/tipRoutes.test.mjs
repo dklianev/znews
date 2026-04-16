@@ -76,6 +76,11 @@ describe('tipRoutes', () => {
           return {
             sort() {
               return {
+                limit() {
+                  return {
+                    lean: async () => tipsList,
+                  };
+                },
                 lean: async () => tipsList,
               };
             },

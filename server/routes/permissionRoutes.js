@@ -3,7 +3,10 @@ export function registerPermissionRoutes(app, deps) {
   const {
     DEFAULT_PERMISSION_DOCS,
     ensureDefaultPermissionDocs,
+    getPermissionDoc,
     hasPermissionForSection,
+    invalidatePermissionCache = () => {},
+    invalidatePermissionRoleCache = () => {},
     normalizeText,
     Permission,
     publicError,
@@ -11,6 +14,81 @@ export function registerPermissionRoutes(app, deps) {
     requirePermission,
     sanitizePermissionMap,
   } = deps;
+  const PERMISSIONS_LIST_TTL_MS = 5 * 60 * 1000;
+  let permissionsListCache = null;
+  let permissionsListExpiresAt = 0;
+  let permissionsListInFlight = null;
+  let permissionsListEpoch = 0;
+
+  function clonePermissionPayload(value) {
+    if (!value || typeof value !== 'object') return value ?? null;
+    return {
+      ...value,
+      permissions: value.permissions && typeof value.permissions === 'object'
+        ? { ...value.permissions }
+        : value.permissions,
+    };
+  }
+
+  function sanitizePermissionDoc(doc) {
+    if (!doc || typeof doc !== 'object') return null;
+    const next = clonePermissionPayload(doc);
+    delete next._id;
+    delete next.__v;
+    return next;
+  }
+
+  function invalidatePermissionsListCache() {
+    permissionsListCache = null;
+    permissionsListExpiresAt = 0;
+    permissionsListInFlight = null;
+    permissionsListEpoch += 1;
+  }
+
+  async function getPermissionsList() {
+    if (permissionsListCache && permissionsListExpiresAt > Date.now()) {
+      return permissionsListCache.map((item) => clonePermissionPayload(item));
+    }
+    if (permissionsListInFlight) {
+      return permissionsListInFlight.then((items) => items.map((item) => clonePermissionPayload(item)));
+    }
+
+    const startEpoch = permissionsListEpoch;
+    const task = Promise.resolve()
+      .then(async () => {
+        await ensureDefaultPermissionDocs();
+        const perms = await Permission.find().lean();
+        const sanitized = (Array.isArray(perms) ? perms : [])
+          .map((item) => sanitizePermissionDoc(item))
+          .filter(Boolean);
+        if (startEpoch === permissionsListEpoch) {
+          permissionsListCache = sanitized;
+          permissionsListExpiresAt = Date.now() + PERMISSIONS_LIST_TTL_MS;
+        }
+        return sanitized;
+      })
+      .finally(() => {
+        if (permissionsListInFlight === task) {
+          permissionsListInFlight = null;
+        }
+      });
+
+    permissionsListInFlight = task;
+    return task.then((items) => items.map((item) => clonePermissionPayload(item)));
+  }
+
+  async function getOwnPermissionDoc(role) {
+    const loaded = typeof getPermissionDoc === 'function'
+      ? await getPermissionDoc(role)
+      : await Permission.findOne({ role }).lean();
+    return sanitizePermissionDoc(loaded);
+  }
+
+  function invalidatePermissionCaches(role = '') {
+    invalidatePermissionsListCache();
+    invalidatePermissionCache();
+    if (role) invalidatePermissionRoleCache(role);
+  }
 
   function normalizeRoleKey(value) {
     return normalizeText(String(value || ''), 32).toLowerCase();
@@ -38,10 +116,9 @@ export function registerPermissionRoutes(app, deps) {
       { upsert: true }
     );
 
-    const doc = await Permission.findOne({ role }).lean();
+    invalidatePermissionCaches(role);
+    const doc = await getOwnPermissionDoc(role);
     if (!doc) return res.status(500).json({ error: 'Failed to ensure role' });
-    delete doc._id;
-    delete doc.__v;
     return res.json(doc);
   });
 
@@ -49,16 +126,11 @@ export function registerPermissionRoutes(app, deps) {
     const canManage = req.user.role === 'admin' || await hasPermissionForSection(req.user, 'permissions');
 
     if (canManage) {
-      await ensureDefaultPermissionDocs();
-      const perms = await Permission.find().lean();
-      perms.forEach((p) => { delete p._id; delete p.__v; });
-      return res.json(perms);
+      return res.json(await getPermissionsList());
     }
 
-    const own = await Permission.findOne({ role: req.user.role }).lean();
+    const own = await getOwnPermissionDoc(req.user.role);
     if (!own) return res.json([]);
-    delete own._id;
-    delete own.__v;
     return res.json([own]);
   });
 
@@ -72,6 +144,7 @@ export function registerPermissionRoutes(app, deps) {
       { $set: { permissions } },
       { returnDocument: 'after', upsert: true }
     );
-    return res.json(perm.toJSON());
+    invalidatePermissionCaches(role);
+    return res.json(sanitizePermissionDoc(perm?.toJSON?.() || perm));
   });
 }

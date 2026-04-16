@@ -61,22 +61,27 @@ export function createPublicGamesRouter(deps) {
     }
 
     const limit = Math.min(Number.parseInt(req.query.limit, 10) || 30, 100);
+    if (canManageGames) {
+      const puzzles = await GamePuzzle.find({ gameSlug: slug, status: 'published' })
+        .sort({ puzzleDate: -1, activeUntilDate: -1 })
+        .limit(limit)
+        .lean();
+      return res.json(puzzles);
+    }
     const puzzles = await GamePuzzle.find({ gameSlug: slug, status: 'published' })
       .sort({ puzzleDate: -1, activeUntilDate: -1 })
       .limit(limit)
       .lean();
     return res.json(
-      canManageGames
-        ? puzzles
-        : puzzles
-          .filter((puzzle) => !isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution))
-          .map((puzzle) => {
-            const safePuzzle = { ...puzzle };
-            delete safePuzzle.solution;
-            delete safePuzzle.editorNotes;
-            delete safePuzzle.payload;
-            return safePuzzle;
-          })
+      puzzles
+        .filter((puzzle) => !isPlaceholderGamePuzzle(game.type, puzzle.payload, puzzle.solution))
+        .map((puzzle) => {
+          const safePuzzle = { ...puzzle };
+          delete safePuzzle.solution;
+          delete safePuzzle.editorNotes;
+          delete safePuzzle.payload;
+          return safePuzzle;
+        })
     );
   });
 
