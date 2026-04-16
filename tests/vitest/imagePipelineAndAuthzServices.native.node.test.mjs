@@ -52,23 +52,28 @@ describe('imagePipelineAndAuthzServices', () => {
   });
 
   it('reuses a shared media snapshot between files and pipeline status lookups', async () => {
-    const listRemoteObjectsByPrefix = vi.fn(async () => ([
-      {
-        Key: 'uploads/hero.jpg',
-        Size: 1024,
-        LastModified: '2026-04-15T10:00:00.000Z',
-      },
-    ]));
-    const getStorageObjectBuffer = vi.fn(async (key) => {
-      if (key === 'variants/hero.jpg/manifest.json') {
-        return Buffer.from(JSON.stringify({
-          original: { width: 1200, height: 800, format: 'webp' },
-          placeholder: '/uploads/variants/hero.jpg/blur.webp',
-          variants: [{ width: 320, webp: '/uploads/variants/hero.jpg/w320.webp', avif: '/uploads/variants/hero.jpg/w320.avif' }],
-        }));
+    const listRemoteObjectsByPrefix = vi.fn(async (prefix) => {
+      if (prefix === 'uploads/') {
+        return [
+          {
+            Key: 'uploads/hero.jpg',
+            Size: 1024,
+            LastModified: '2026-04-15T10:00:00.000Z',
+          },
+        ];
       }
-      return null;
+      if (prefix === 'uploads/_variants/') {
+        return [
+          {
+            Key: 'uploads/_variants/hero/manifest.json',
+            Size: 320,
+            LastModified: '2026-04-15T10:00:01.000Z',
+          },
+        ];
+      }
+      return [];
     });
+    const getStorageObjectBuffer = vi.fn(async () => null);
 
     const service = createImagePipelineService({
       Article: { updateMany: vi.fn(async () => ({ modifiedCount: 0 })) },
@@ -101,12 +106,12 @@ describe('imagePipelineAndAuthzServices', () => {
       pending: 0,
       engine: 'disabled',
     }));
-    expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(1);
-    expect(getStorageObjectBuffer).toHaveBeenCalledTimes(1);
+    expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(2);
+    expect(getStorageObjectBuffer).not.toHaveBeenCalled();
 
     service.invalidateMediaLibrarySnapshot();
     await service.getImagePipelineStatus();
-    expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(2);
+    expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(4);
   });
 
   it('does not cache stale media snapshots after invalidation during an in-flight build', async () => {
@@ -116,24 +121,35 @@ describe('imagePipelineAndAuthzServices', () => {
     });
     const listRemoteObjectsByPrefix = vi
       .fn()
-      .mockImplementationOnce(() => firstListing)
-      .mockImplementationOnce(async () => ([
-        {
-          Key: 'uploads/fresh.jpg',
-          Size: 2048,
-          LastModified: '2026-04-15T10:10:00.000Z',
-        },
-      ]));
-    const getStorageObjectBuffer = vi.fn(async (key) => {
-      if (key === 'variants/fresh.jpg/manifest.json') {
-        return Buffer.from(JSON.stringify({
-          original: { width: 1280, height: 720, format: 'webp' },
-          placeholder: '/uploads/variants/fresh.jpg/blur.webp',
-          variants: [{ width: 320, webp: '/uploads/variants/fresh.jpg/w320.webp', avif: '/uploads/variants/fresh.jpg/w320.avif' }],
-        }));
-      }
-      return null;
-    });
+      .mockImplementationOnce(async (prefix) => {
+        expect(prefix).toBe('uploads/');
+        return firstListing;
+      })
+      .mockImplementationOnce(async (prefix) => {
+        expect(prefix).toBe('uploads/_variants/');
+        return [];
+      })
+      .mockImplementationOnce(async (prefix) => {
+        expect(prefix).toBe('uploads/');
+        return [
+          {
+            Key: 'uploads/fresh.jpg',
+            Size: 2048,
+            LastModified: '2026-04-15T10:10:00.000Z',
+          },
+        ];
+      })
+      .mockImplementationOnce(async (prefix) => {
+        expect(prefix).toBe('uploads/_variants/');
+        return [
+          {
+            Key: 'uploads/_variants/fresh/manifest.json',
+            Size: 320,
+            LastModified: '2026-04-15T10:10:01.000Z',
+          },
+        ];
+      });
+    const getStorageObjectBuffer = vi.fn(async () => null);
 
     const service = createImagePipelineService({
       Article: { updateMany: vi.fn(async () => ({ modifiedCount: 0 })) },
@@ -170,7 +186,9 @@ describe('imagePipelineAndAuthzServices', () => {
     const freshSnapshot = await service.getMediaLibrarySnapshot();
     expect(freshSnapshot.items).toHaveLength(1);
     expect(freshSnapshot.items[0]?.name).toBe('fresh.jpg');
-    expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(2);
+    expect(freshSnapshot.items[0]?.pipelineReady).toBe(true);
+    expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(4);
+    expect(getStorageObjectBuffer).not.toHaveBeenCalled();
   });
 
   it('deduplicates uploads in memory and enforces auth permissions', async () => {

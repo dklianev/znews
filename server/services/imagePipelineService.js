@@ -329,22 +329,73 @@ export function createImagePipelineService(deps) {
     return listLocalOriginalUploadEntries();
   }
 
+  async function listRemoteManifestDirectories() {
+    const prefixKey = toUploadsStorageKey('_variants/');
+    const objects = await listRemoteObjectsByPrefix(prefixKey);
+    const manifestDirs = new Set();
+
+    objects.forEach((item) => {
+      const key = String(item?.Key || '');
+      if (!key.startsWith(prefixKey)) return;
+      const relativePath = key.slice(prefixKey.length);
+      if (!relativePath.endsWith('/manifest.json')) return;
+      const dirName = relativePath.slice(0, -'/manifest.json'.length).replace(/\/+$/, '');
+      if (!dirName || dirName.includes('/')) return;
+      manifestDirs.add(dirName);
+    });
+
+    return manifestDirs;
+  }
+
+  async function listLocalManifestDirectories() {
+    const variantsDir = path.join(uploadsDir, '_variants');
+    try {
+      const entries = await fs.promises.readdir(variantsDir, { withFileTypes: true });
+      const manifestDirs = new Set();
+
+      await Promise.all(entries.map(async (entry) => {
+        if (!entry.isDirectory()) return;
+        try {
+          await fs.promises.access(path.join(variantsDir, entry.name, 'manifest.json'), fs.constants.R_OK);
+          manifestDirs.add(entry.name);
+        } catch {
+          // Ignore directories without a readable manifest.
+        }
+      }));
+
+      return manifestDirs;
+    } catch (error) {
+      if (error?.code === 'ENOENT') return new Set();
+      throw error;
+    }
+  }
+
+  async function listManifestDirectories() {
+    if (isRemoteStorage) {
+      return listRemoteManifestDirectories();
+    }
+    return listLocalManifestDirectories();
+  }
+
   async function buildMediaLibrarySnapshot() {
-    const entries = await listOriginalUploadEntries();
+    const [entries, manifestDirs] = await Promise.all([
+      listOriginalUploadEntries(),
+      listManifestDirectories(),
+    ]);
     const engine = await getPipelineEngineName();
-    const items = await Promise.all(entries.map(async (entry) => {
-      const manifest = await readImageManifest(entry.name);
+    const items = entries.map((entry) => {
+      const manifestDirName = path.parse(entry.name).name;
       return {
         id: entry.name,
         name: entry.name,
         url: getOriginalUploadUrl(entry.name),
         size: entry.size,
         updatedAt: entry.updatedAt,
-        imageMeta: toImageMetaFromManifest(manifest),
-        pipelineReady: Boolean(manifest),
+        imageMeta: null,
+        pipelineReady: manifestDirs.has(manifestDirName),
         pipelineEngine: engine,
       };
-    }));
+    });
 
     const ready = items.reduce((count, item) => count + (item.pipelineReady ? 1 : 0), 0);
     const total = items.length;
