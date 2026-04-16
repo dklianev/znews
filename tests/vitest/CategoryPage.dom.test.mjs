@@ -158,4 +158,56 @@ describe('CategoryPage', () => {
     expect(container.querySelector('[data-slot="category.top"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="trending-sidebar"]')).not.toBeNull();
   });
+
+  it('does not refetch page one only because the seeded context articles changed', async () => {
+    articlesData.articles = [
+      {
+        id: 11,
+        title: 'Seeded category article',
+        category: 'underground',
+        date: '2026-04-04',
+        status: 'published',
+      },
+    ];
+    getAll.mockResolvedValueOnce({
+      items: [
+        {
+          id: 51,
+          title: 'Combined category article',
+          category: 'crime',
+          date: '2026-04-02',
+        },
+      ],
+      total: 1,
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root.render(createElement(CategoryPage));
+      await flush();
+    });
+
+    expect(getAll).toHaveBeenCalledTimes(1);
+
+    articlesData.articles = [
+      ...articlesData.articles,
+      {
+        id: 77,
+        title: 'Background refreshed article',
+        category: 'crime',
+        date: '2026-04-07',
+        status: 'published',
+      },
+    ];
+
+    await act(async () => {
+      root.render(createElement(CategoryPage));
+      await flush();
+    });
+
+    expect(getAll).toHaveBeenCalledTimes(1);
+  });
 });

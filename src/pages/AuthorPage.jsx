@@ -462,12 +462,15 @@ export default function AuthorPage() {
   useDocumentTitle(makeTitle(author?.name || 'Автор'));
 
   const seedArticles = useMemo(() => buildAuthorSeedArticles(contextArticles, authorId, PER_PAGE), [contextArticles, authorId]);
+  const seedArticlesRef = useRef(seedArticles);
   const seededAuthorIdRef = useRef(null);
   const [authorArticles, setAuthorArticles] = useState(seedArticles);
   const [totalArticles, setTotalArticles] = useState(seedArticles.length);
   const [loadingArticles, setLoadingArticles] = useState(false);
   const [page, setPage] = useState(1);
   const [authorStats, setAuthorStats] = useState(EMPTY_STATS);
+
+  seedArticlesRef.current = seedArticles;
 
   useEffect(() => {
     if (!authorId || Number.isNaN(authorId) || seededAuthorIdRef.current === authorId) return;
@@ -523,8 +526,8 @@ export default function AuthorPage() {
       .catch(() => {
         if (cancelled) return;
         if (page <= 1) {
-          setAuthorArticles((prev) => (prev.length > 0 ? prev : seedArticles));
-          setTotalArticles((prev) => (prev > 0 ? prev : seedArticles.length));
+          setAuthorArticles((prev) => (prev.length > 0 ? prev : seedArticlesRef.current));
+          setTotalArticles((prev) => (prev > 0 ? prev : seedArticlesRef.current.length));
         }
       })
       .finally(() => {
@@ -532,7 +535,7 @@ export default function AuthorPage() {
       });
 
     return () => { cancelled = true; };
-  }, [authorId, page, seedArticles]);
+  }, [authorId, page]);
 
   const totalPages = Math.max(1, Math.ceil((totalArticles || 0) / PER_PAGE));
   const showEmptyState = !loadingArticles && authorArticles.length === 0;

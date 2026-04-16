@@ -174,4 +174,72 @@ describe('AuthorPage', () => {
     expect(container.querySelector('[data-slot="author.content.1"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="trending-sidebar"]')).not.toBeNull();
   });
+
+  it('does not refetch page one only because the seeded author articles changed', async () => {
+    articlesData.articles = [
+      {
+        id: 17,
+        title: 'Seeded author article',
+        excerpt: 'От локалния article pool.',
+        category: 'crime',
+        authorId: 7,
+        date: '2026-04-06',
+        status: 'published',
+        views: 11,
+      },
+    ];
+    getAuthorStats.mockResolvedValueOnce({
+      totalArticles: 1,
+      totalViews: 120,
+      totalReactions: 8,
+      categoryCount: 1,
+    });
+    getAll.mockResolvedValueOnce({
+      items: [
+        {
+          id: 91,
+          title: 'Server-authoritative article',
+          excerpt: 'Истинският paginated резултат.',
+          category: 'society',
+          authorId: 7,
+          date: '2026-04-05',
+          status: 'published',
+          views: 33,
+        },
+      ],
+      total: 1,
+    });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root.render(createElement(AuthorPage));
+      await flush();
+    });
+
+    expect(getAll).toHaveBeenCalledTimes(1);
+
+    articlesData.articles = [
+      ...articlesData.articles,
+      {
+        id: 44,
+        title: 'Background refreshed author article',
+        excerpt: 'Ново локално съдържание.',
+        category: 'crime',
+        authorId: 7,
+        date: '2026-04-07',
+        status: 'published',
+        views: 3,
+      },
+    ];
+
+    await act(async () => {
+      root.render(createElement(AuthorPage));
+      await flush();
+    });
+
+    expect(getAll).toHaveBeenCalledTimes(1);
+  });
 });

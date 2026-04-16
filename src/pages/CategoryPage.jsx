@@ -99,11 +99,14 @@ export default function CategoryPage() {
     specialCategory,
     limit: PER_PAGE,
   }), [contextArticles, slug, specialCategory]);
+  const seedArticlesRef = useRef(seedArticles);
   const seededSlugRef = useRef('');
   const [categoryArticles, setCategoryArticles] = useState(seedArticles);
   const [totalArticles, setTotalArticles] = useState(seedArticles.length);
   const [loadingArticles, setLoadingArticles] = useState(false);
   const [page, setPage] = useState(1);
+
+  seedArticlesRef.current = seedArticles;
 
   useEffect(() => {
     if (!slug || seededSlugRef.current === slug) return;
@@ -136,8 +139,8 @@ export default function CategoryPage() {
       .catch(() => {
         if (cancelled) return;
         if (page <= 1) {
-          setCategoryArticles((prev) => (prev.length > 0 ? prev : seedArticles));
-          setTotalArticles((prev) => (prev > 0 ? prev : seedArticles.length));
+          setCategoryArticles((prev) => (prev.length > 0 ? prev : seedArticlesRef.current));
+          setTotalArticles((prev) => (prev > 0 ? prev : seedArticlesRef.current.length));
         }
       })
       .finally(() => {
@@ -147,7 +150,7 @@ export default function CategoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [seedArticles, slug, page, specialCategory]);
+  }, [slug, page, specialCategory]);
 
   const totalPages = Math.max(1, Math.ceil((totalArticles || 0) / PER_PAGE));
 
