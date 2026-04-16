@@ -1,9 +1,9 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import TrendingSidebar from '../components/TrendingSidebar';
 import AdSlot from '../components/ads/AdSlot';
-import { usePublicData } from '../context/DataContext';
+import { useArticlesData, useSettingsData, useTaxonomyData } from '../context/DataContext';
 import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { api } from '../utils/api';
@@ -19,6 +19,30 @@ const SPECIAL_CATEGORY_PAGES = Object.freeze({
     queryCategories: ['crime', 'underground'],
   },
 });
+
+function getArticleTimestamp(article) {
+  return new Date(article?.publishAt || article?.date || 0).getTime() || 0;
+}
+
+function buildCategorySeedArticles(items, { slug, specialCategory, limit }) {
+  const safeItems = Array.isArray(items) ? items : [];
+  const isMatchingCategory = (article) => {
+    if (!article || article.status === 'draft') return false;
+    if (specialCategory) {
+      return specialCategory.queryCategories.includes(String(article.category || ''));
+    }
+    return String(article.category || '') === String(slug || '');
+  };
+
+  return [...safeItems]
+    .filter(isMatchingCategory)
+    .sort((a, b) => {
+      const byDate = getArticleTimestamp(b) - getArticleTimestamp(a);
+      if (byDate !== 0) return byDate;
+      return (Number(b?.id) || 0) - (Number(a?.id) || 0);
+    })
+    .slice(0, limit);
+}
 
 function CategoryCardSkeleton({ compact = true }) {
   return (
@@ -59,7 +83,9 @@ function CategoryCardSkeleton({ compact = true }) {
 
 export default function CategoryPage() {
   const { slug } = useParams();
-  const { categories, ads, siteSettings, loading } = usePublicData();
+  const { articles: contextArticles, loading } = useArticlesData();
+  const { categories } = useTaxonomyData();
+  const { ads, siteSettings } = useSettingsData();
   const layoutPresets = siteSettings?.layoutPresets || {};
   const specialCategory = SPECIAL_CATEGORY_PAGES[String(slug || '').trim().toLowerCase()] || null;
   const category = specialCategory || categories.find(c => c.id === slug);
@@ -68,16 +94,24 @@ export default function CategoryPage() {
     : [category?.id].filter(Boolean);
 
   useDocumentTitle(makeTitle(category?.name || 'Категория'));
-  const [categoryArticles, setCategoryArticles] = useState([]);
-  const [totalArticles, setTotalArticles] = useState(0);
+  const seedArticles = useMemo(() => buildCategorySeedArticles(contextArticles, {
+    slug,
+    specialCategory,
+    limit: PER_PAGE,
+  }), [contextArticles, slug, specialCategory]);
+  const seededSlugRef = useRef('');
+  const [categoryArticles, setCategoryArticles] = useState(seedArticles);
+  const [totalArticles, setTotalArticles] = useState(seedArticles.length);
   const [loadingArticles, setLoadingArticles] = useState(false);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
+    if (!slug || seededSlugRef.current === slug) return;
+    seededSlugRef.current = slug;
     setPage(1);
-    setCategoryArticles([]);
-    setTotalArticles(0);
-  }, [slug]);
+    setCategoryArticles(seedArticles);
+    setTotalArticles(seedArticles.length);
+  }, [slug, seedArticles]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,8 +136,8 @@ export default function CategoryPage() {
       .catch(() => {
         if (cancelled) return;
         if (page <= 1) {
-          setCategoryArticles([]);
-          setTotalArticles(0);
+          setCategoryArticles((prev) => (prev.length > 0 ? prev : seedArticles));
+          setTotalArticles((prev) => (prev > 0 ? prev : seedArticles.length));
         }
       })
       .finally(() => {
@@ -113,7 +147,7 @@ export default function CategoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [slug, page, specialCategory]);
+  }, [seedArticles, slug, page, specialCategory]);
 
   const totalPages = Math.max(1, Math.ceil((totalArticles || 0) / PER_PAGE));
 
@@ -254,4 +288,3 @@ export default function CategoryPage() {
     </motion.div>
   );
 }
-

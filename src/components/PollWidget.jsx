@@ -1,4 +1,4 @@
-import { usePublicData } from '../context/DataContext';
+import { useEngagementData } from '../context/DataContext';
 import { BarChart3, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
 import { motion } from 'motion/react';
@@ -14,7 +14,7 @@ function markPollVoted(pollId, optionIndex) {
 }
 
 export default function PollWidget() {
-  const { polls, votePoll } = usePublicData();
+  const { polls, votePoll } = useEngagementData();
   const safePolls = Array.isArray(polls) ? polls : [];
   const activePoll = safePolls.find(p => p.active);
   const [votedPolls, setVotedPolls] = useState(() => getVotedPolls());

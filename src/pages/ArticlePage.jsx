@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { Clock, Eye, ChevronRight, Mail } from 'lucide-react';
 import { motion } from 'motion/react';
-import { usePublicData } from '../context/DataContext';
+import { useArticlesData, useSettingsData, useTaxonomyData } from '../context/DataContext';
 import AdSlot from '../components/ads/AdSlot';
 import TrendingSidebar from '../components/TrendingSidebar';
 import CommentsSection from '../components/CommentsSection';
@@ -185,7 +185,9 @@ function buildArticleBodySegments(root) {
 
 export default function ArticlePage() {
   const { id } = useParams();
-  const { articles, authors, categories, ads, incrementArticleView, loading, siteSettings } = usePublicData();
+  const { articles, incrementArticleView, loading } = useArticlesData();
+  const { authors, categories } = useTaxonomyData();
+  const { ads, siteSettings } = useSettingsData();
   const articleId = Number.parseInt(id, 10);
   const contextArticle = articles.find(a => a.id === articleId);
   const [directArticle, setDirectArticle] = useState(null);

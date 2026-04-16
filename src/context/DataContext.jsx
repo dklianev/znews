@@ -4,6 +4,11 @@ import { api, getSession, saveSession, clearSession } from '../utils/api';
 const DataContext = createContext();
 const SessionDataContext = createContext();
 const PublicDataContext = createContext();
+const ArticlesDataContext = createContext();
+const TaxonomyDataContext = createContext();
+const SettingsDataContext = createContext();
+const PublicSectionsDataContext = createContext();
+const EngagementDataContext = createContext();
 const AdminDataContext = createContext();
 const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
 const HOMEPAGE_ARTICLE_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,status,publishAt,cardSticker';
@@ -1084,44 +1089,78 @@ export function DataProvider({ children }) {
     session, login, logout,
   }), [session, login, logout]);
 
-  const publicValue = useMemo(() => ({
+  const articlesValue = useMemo(() => ({
     loading, loadError, homepage,
     articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
-    authors, addAuthor, updateAuthor, deleteAuthor,
-    categories, addCategory, updateCategory, deleteCategory, saveCategories,
-    ads, addAd, updateAd, deleteAd,
-    breaking, saveBreaking,
-    heroSettings, saveHeroSettings,
-    siteSettings, saveSiteSettings, forceRefreshHomepageCache,
-    wanted, addWanted, updateWanted, deleteWanted,
-    jobs, addJob, updateJob, deleteJob,
-    court, addCourtCase, updateCourtCase, deleteCourtCase,
-    events, addEvent, updateEvent, deleteEvent,
-    polls, addPoll, updatePoll, deletePoll, votePoll,
-    games, vipClassifieds, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery, loadClassifieds,
-    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
-    gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
-    createTip, submitClassified, loadClassifiedDetail, loadClassifiedStatus, loadVipClassifieds, requestClassifiedBump, requestClassifiedRenew,
     refresh: fetchAll,
   }), [
     loading, loadError, homepage,
     articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
+    fetchAll,
+  ]);
+
+  const taxonomyValue = useMemo(() => ({
+    loading,
     authors, addAuthor, updateAuthor, deleteAuthor,
     categories, addCategory, updateCategory, deleteCategory, saveCategories,
+  }), [
+    loading,
+    authors, addAuthor, updateAuthor, deleteAuthor,
+    categories, addCategory, updateCategory, deleteCategory, saveCategories,
+  ]);
+
+  const settingsValue = useMemo(() => ({
     ads, addAd, updateAd, deleteAd,
     breaking, saveBreaking,
     heroSettings, saveHeroSettings,
     siteSettings, saveSiteSettings, forceRefreshHomepageCache,
+  }), [
+    ads, addAd, updateAd, deleteAd,
+    breaking, saveBreaking,
+    heroSettings, saveHeroSettings,
+    siteSettings, saveSiteSettings, forceRefreshHomepageCache,
+  ]);
+
+  const publicSectionsValue = useMemo(() => ({
     wanted, addWanted, updateWanted, deleteWanted,
     jobs, addJob, updateJob, deleteJob,
     court, addCourtCase, updateCourtCase, deleteCourtCase,
     events, addEvent, updateEvent, deleteEvent,
-    polls, addPoll, updatePoll, deletePoll, votePoll,
-    games, vipClassifieds, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery, loadClassifieds,
-    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
     gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
-    createTip, submitClassified, loadClassifiedDetail, loadClassifiedStatus, loadVipClassifieds, requestClassifiedBump, requestClassifiedRenew,
-    fetchAll,
+    games, vipClassifieds, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery, loadClassifieds,
+    submitClassified, loadClassifiedDetail, loadClassifiedStatus, loadVipClassifieds, requestClassifiedBump, requestClassifiedRenew,
+  }), [
+    wanted, addWanted, updateWanted, deleteWanted,
+    jobs, addJob, updateJob, deleteJob,
+    court, addCourtCase, updateCourtCase, deleteCourtCase,
+    events, addEvent, updateEvent, deleteEvent,
+    gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
+    games, vipClassifieds, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery, loadClassifieds,
+    submitClassified, loadClassifiedDetail, loadClassifiedStatus, loadVipClassifieds, requestClassifiedBump, requestClassifiedRenew,
+  ]);
+
+  const engagementValue = useMemo(() => ({
+    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
+    polls, addPoll, updatePoll, deletePoll, votePoll,
+    createTip,
+  }), [
+    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
+    polls, addPoll, updatePoll, deletePoll, votePoll,
+    createTip,
+  ]);
+
+  const publicValue = useMemo(() => ({
+    ...articlesValue,
+    ...taxonomyValue,
+    ...settingsValue,
+    ...publicSectionsValue,
+    ...engagementValue,
+  }), [
+    articlesValue,
+    taxonomyValue,
+    settingsValue,
+    publicSectionsValue,
+    engagementValue,
   ]);
 
   const adminValue = useMemo(() => ({
@@ -1147,66 +1186,34 @@ export function DataProvider({ children }) {
   ]);
 
   const contextValue = useMemo(() => ({
-    loading, loadError,
-    homepage,
-    articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
-    articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
-    authors, addAuthor, updateAuthor, deleteAuthor,
-    categories, addCategory, updateCategory, deleteCategory, saveCategories,
-    ads, addAd, updateAd, deleteAd,
-    breaking, saveBreaking,
-    heroSettings, heroSettingsRevisions, saveHeroSettings, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
-    siteSettings, siteSettingsRevisions, saveSiteSettings, loadSiteSettingsRevisions, restoreSiteSettingsRevision, forceRefreshHomepageCache,
-    wanted, addWanted, updateWanted, deleteWanted,
-    jobs, addJob, updateJob, deleteJob,
-    court, addCourtCase, updateCourtCase, deleteCourtCase,
-    events, addEvent, updateEvent, deleteEvent,
-    polls, addPoll, updatePoll, deletePoll, votePoll,
-    games, vipClassifieds, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
-    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
-    gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
-    media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
-    users, usersReady, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
-    permissions, hasPermission, updatePermission, createRole,
-    tips, tipsReady, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
-    session, login, logout,
-    refresh: fetchAll, resetAll,
+    ...publicValue,
+    ...adminValue,
+    ...sessionValue,
   }), [
-    loading, loadError,
-    homepage,
-    articles, addArticle, updateArticle, deleteArticle, incrementArticleView,
-    articleRevisions, loadArticleRevisions, autosaveArticleRevision, restoreArticleRevision,
-    authors, addAuthor, updateAuthor, deleteAuthor,
-    categories, addCategory, updateCategory, deleteCategory, saveCategories,
-    ads, addAd, updateAd, deleteAd,
-    breaking, saveBreaking,
-    heroSettings, heroSettingsRevisions, saveHeroSettings, loadHeroSettingsRevisions, restoreHeroSettingsRevision,
-    siteSettings, siteSettingsRevisions, saveSiteSettings, loadSiteSettingsRevisions, restoreSiteSettingsRevision, forceRefreshHomepageCache,
-    wanted, addWanted, updateWanted, deleteWanted,
-    jobs, addJob, updateJob, deleteJob,
-    court, addCourtCase, updateCourtCase, deleteCourtCase,
-    events, addEvent, updateEvent, deleteEvent,
-    polls, addPoll, updatePoll, deletePoll, votePoll,
-    games, vipClassifieds, publicSectionStatus, loadGamesCatalog, loadJobs, loadCourt, loadEvents, loadGallery,
-    comments, loadCommentsForArticle, loadAllComments, addComment, updateComment, deleteComment, reactToComment,
-    gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem,
-    media, mediaPipelineStatus, refreshMedia, ensureMediaLoaded, uploadMedia, deleteMedia, backfillMediaPipeline,
-    users, usersReady, refreshUsers, ensureUsersLoaded, addUser, updateUser, deleteUser,
-    permissions, hasPermission, updatePermission, createRole,
-    tips, tipsReady, refreshTips, ensureTipsLoaded, deleteTip, updateTip, createTip,
-    session, login, logout,
-    fetchAll, resetAll,
+    publicValue,
+    adminValue,
+    sessionValue,
   ]);
 
   return (
     <SessionDataContext.Provider value={sessionValue}>
-      <PublicDataContext.Provider value={publicValue}>
-        <AdminDataContext.Provider value={adminValue}>
-          <DataContext.Provider value={contextValue}>
-            {children}
-          </DataContext.Provider>
-        </AdminDataContext.Provider>
-      </PublicDataContext.Provider>
+      <ArticlesDataContext.Provider value={articlesValue}>
+        <TaxonomyDataContext.Provider value={taxonomyValue}>
+          <SettingsDataContext.Provider value={settingsValue}>
+            <PublicSectionsDataContext.Provider value={publicSectionsValue}>
+              <EngagementDataContext.Provider value={engagementValue}>
+                <PublicDataContext.Provider value={publicValue}>
+                  <AdminDataContext.Provider value={adminValue}>
+                    <DataContext.Provider value={contextValue}>
+                      {children}
+                    </DataContext.Provider>
+                  </AdminDataContext.Provider>
+                </PublicDataContext.Provider>
+              </EngagementDataContext.Provider>
+            </PublicSectionsDataContext.Provider>
+          </SettingsDataContext.Provider>
+        </TaxonomyDataContext.Provider>
+      </ArticlesDataContext.Provider>
     </SessionDataContext.Provider>
   );
 }
@@ -1214,5 +1221,10 @@ export function DataProvider({ children }) {
 export const useData = () => useContext(DataContext);
 
 export const useSessionData = () => useContext(SessionDataContext);
+export const useArticlesData = () => useContext(ArticlesDataContext);
+export const useTaxonomyData = () => useContext(TaxonomyDataContext);
+export const useSettingsData = () => useContext(SettingsDataContext);
+export const usePublicSectionsData = () => useContext(PublicSectionsDataContext);
+export const useEngagementData = () => useContext(EngagementDataContext);
 export const usePublicData = () => useContext(PublicDataContext);
 export const useAdminData = () => useContext(AdminDataContext);

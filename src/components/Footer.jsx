@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Flame, Mail, MapPin, Megaphone, Phone } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { useSettingsData, useTaxonomyData } from '../context/DataContext';
 
 const DEFAULT_FOOTER_PILLS = [
   { label: 'Горещо', to: '/category/breaking', hot: true, tilt: '-1.5deg' },
@@ -46,7 +46,8 @@ function FooterEditorialSkeleton() {
 }
 
 export default function Footer() {
-  const { siteSettings, categories } = usePublicData();
+  const { siteSettings } = useSettingsData();
+  const { categories } = useTaxonomyData();
   const [EditorialStandards, setEditorialStandards] = useState(null);
 
   const footerPills = Array.isArray(siteSettings?.footerPills) && siteSettings.footerPills.length > 0

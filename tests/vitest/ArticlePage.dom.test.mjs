@@ -34,6 +34,19 @@ const publicDataState = {
 
 vi.mock('../../src/context/DataContext', () => ({
   usePublicData: () => publicDataState,
+  useArticlesData: () => ({
+    articles: publicDataState.articles,
+    incrementArticleView: publicDataState.incrementArticleView,
+    loading: publicDataState.loading,
+  }),
+  useTaxonomyData: () => ({
+    authors: publicDataState.authors,
+    categories: publicDataState.categories,
+  }),
+  useSettingsData: () => ({
+    ads: publicDataState.ads,
+    siteSettings: publicDataState.siteSettings,
+  }),
 }));
 
 vi.mock('../../src/utils/api', () => ({

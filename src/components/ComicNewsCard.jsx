@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, Play, Clock } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { useTaxonomyData } from '../context/DataContext';
 import ResponsiveImage from './ResponsiveImage';
 import { COMIC_CARD_VARIANTS } from '../utils/comicCardDesign';
 import { formatNewsDate } from '../utils/newsDate';
@@ -17,7 +17,7 @@ export default memo(function ComicNewsCard({
   stripe = 'from-zn-hot to-zn-orange',
   className = '',
 }) {
-  const { categories } = usePublicData();
+  const { categories } = useTaxonomyData();
   const categoryName = categories.find(c => c.id === article.category)?.name || 'Новини';
   const resolvedVariant = variant === 'auto'
     ? COMIC_CARD_VARIANTS[Math.abs(Number(article.id) || 0) % COMIC_CARD_VARIANTS.length]

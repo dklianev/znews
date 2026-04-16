@@ -1,8 +1,8 @@
-import { usePublicData } from '../context/DataContext';
+import { useSettingsData } from '../context/DataContext';
 import { shouldRenderDecorations } from '../utils/seasonalCampaigns';
 
 export default function BreakingTicker() {
-  const { breaking, siteSettings } = usePublicData();
+  const { breaking, siteSettings } = useSettingsData();
   const items = Array.isArray(breaking) ? breaking.filter(Boolean) : [];
   if (items.length === 0) return null;
 

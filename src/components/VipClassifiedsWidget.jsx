@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Star, DollarSign, ArrowRight } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { usePublicSectionsData } from '../context/DataContext';
 
 export default function VipClassifiedsWidget() {
-  const { vipClassifieds } = usePublicData();
+  const { vipClassifieds } = usePublicSectionsData();
   const items = Array.isArray(vipClassifieds) ? vipClassifieds : [];
 
   if (items.length === 0) return null;

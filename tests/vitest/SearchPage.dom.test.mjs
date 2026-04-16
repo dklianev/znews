@@ -29,6 +29,9 @@ const publicData = {
 
 vi.mock('../../src/context/DataContext', () => ({
   usePublicData: () => publicData,
+  useSettingsData: () => ({
+    siteSettings: publicData.siteSettings,
+  }),
 }));
 
 vi.mock('../../src/utils/api', () => ({

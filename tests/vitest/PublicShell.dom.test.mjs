@@ -13,6 +13,25 @@ let locationState = { pathname: '/' };
 
 vi.mock('../../src/context/DataContext', () => ({
   usePublicData: () => publicDataState,
+  useArticlesData: () => ({
+    articles: publicDataState.articles,
+    loading: publicDataState.loading,
+    loadError: publicDataState.loadError,
+    refresh: publicDataState.refresh,
+    homepage: publicDataState.homepage,
+  }),
+  useTaxonomyData: () => ({
+    categories: publicDataState.categories,
+  }),
+  useSettingsData: () => ({
+    ads: publicDataState.ads,
+    heroSettings: publicDataState.heroSettings,
+    siteSettings: publicDataState.siteSettings,
+  }),
+  useEngagementData: () => ({
+    polls: publicDataState.polls,
+    votePoll: publicDataState.votePoll,
+  }),
 }));
 
 vi.mock('../../src/context/ThemeContext', () => ({

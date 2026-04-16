@@ -2,7 +2,7 @@ import { Suspense, lazy, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import ArticleCard from '../components/ArticleCard';
 import AdSlot from '../components/ads/AdSlot';
-import { usePublicData } from '../context/DataContext';
+import { useArticlesData, useSettingsData, useTaxonomyData } from '../context/DataContext';
 import { Link } from 'react-router-dom';
 import { Flame, Megaphone, Bell, Siren, TrendingUp, Eye, RefreshCw, AlertTriangle, Zap, Newspaper, ShieldAlert, ChevronRight } from 'lucide-react';
 import ComicNewsCard from '../components/ComicNewsCard';
@@ -178,7 +178,9 @@ function SectionActionLink({ to, label, mobile = false }) {
 }
 
 export default function HomePage() {
-  const { articles, ads, categories, heroSettings, siteSettings, loading, loadError, refresh, homepage } = usePublicData();
+  const { articles, loading, loadError, refresh, homepage } = useArticlesData();
+  const { categories } = useTaxonomyData();
+  const { ads, heroSettings, siteSettings } = useSettingsData();
   const layoutPresets = siteSettings?.layoutPresets || {};
   const [showAllQuickCategories, setShowAllQuickCategories] = useState(false);
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { usePublicData } from '../../context/DataContext';
+import { useSettingsData } from '../../context/DataContext';
 import * as ReactRouterDom from 'react-router-dom';
 import { getEggPlacements, getHuntPlacements, isHuntActive, shouldRenderDecorations } from '../../utils/seasonalCampaigns';
 import EasterDecorationSlot from './EasterDecorationSlot';
@@ -27,7 +27,7 @@ function useParentOverflow(markerRef, active) {
 
 export default function EasterDecorations({ pageId, hunt }) {
   const markerRef = useRef(null);
-  const { siteSettings } = usePublicData();
+  const { siteSettings } = useSettingsData();
   const outletContext = typeof ReactRouterDom.useOutletContext === 'function'
     ? ReactRouterDom.useOutletContext()
     : null;

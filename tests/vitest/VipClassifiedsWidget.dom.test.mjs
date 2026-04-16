@@ -7,6 +7,9 @@ let publicDataState = {};
 
 vi.mock('../../src/context/DataContext', () => ({
   usePublicData: () => publicDataState,
+  usePublicSectionsData: () => ({
+    vipClassifieds: publicDataState.vipClassifieds,
+  }),
 }));
 
 vi.mock('react-router-dom', () => ({

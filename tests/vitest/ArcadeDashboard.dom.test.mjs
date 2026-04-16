@@ -13,6 +13,9 @@ let publicDataState = {};
 
 vi.mock('../../src/context/DataContext', () => ({
   usePublicData: () => publicDataState,
+  useSettingsData: () => ({
+    siteSettings: publicDataState.siteSettings || null,
+  }),
 }));
 
 vi.mock('../../src/utils/gameStorage', () => ({

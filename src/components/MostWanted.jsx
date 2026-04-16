@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Siren } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { usePublicSectionsData } from '../context/DataContext';
 
 const dangerColors = {
   high: 'text-zn-hot',
@@ -9,7 +9,7 @@ const dangerColors = {
 };
 
 export default memo(function MostWanted() {
-  const { wanted } = usePublicData();
+  const { wanted } = usePublicSectionsData();
   const safeWanted = Array.isArray(wanted) ? wanted : [];
 
   if (safeWanted.length === 0) return null;

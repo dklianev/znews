@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
-import { DataProvider, useAdminData, usePublicData, useSessionData } from './context/DataContext';
+import { DataProvider, useAdminData, useArticlesData, usePublicSectionsData, useSessionData, useSettingsData } from './context/DataContext';
 import { AnimatePresence, motion } from 'motion/react';
 import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
@@ -214,7 +214,7 @@ function AdminFrameGuard({ children }) {
 function PublicGameRoute({ slug, children }) {
   const { session } = useSessionData();
   const { hasPermission } = useAdminData();
-  const { games, publicSectionStatus, loadGamesCatalog } = usePublicData();
+  const { games, publicSectionStatus, loadGamesCatalog } = usePublicSectionsData();
   const canManageGames = Boolean(session) && hasPermission('games');
   const [retryNonce, setRetryNonce] = useState(0);
   const [routeState, setRouteState] = useState({
@@ -266,7 +266,7 @@ function PublicGameRoute({ slug, children }) {
 }
 function PublicLayout() {
   const location = useLocation();
-  const { siteSettings } = usePublicData();
+  const { siteSettings } = useSettingsData();
   const easterHunt = useEasterEggHunt(siteSettings);
   const easterDecorationsActive = shouldRenderDecorations(siteSettings);
 
@@ -343,7 +343,7 @@ function LoadingScreen() {
 }
 
 function AppContent() {
-  const { loading } = usePublicData();
+  const { loading } = useArticlesData();
   const isHomePath = typeof window !== 'undefined' && window.location.pathname === '/';
   if (loading && !isHomePath) return <LoadingScreen />;
   return (

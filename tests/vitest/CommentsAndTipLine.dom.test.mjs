@@ -11,6 +11,13 @@ let publicDataState = {};
 
 vi.mock('../../src/context/DataContext', () => ({
   usePublicData: () => publicDataState,
+  useEngagementData: () => ({
+    comments: publicDataState.comments,
+    addComment: publicDataState.addComment,
+    reactToComment: publicDataState.reactToComment,
+    loadCommentsForArticle: publicDataState.loadCommentsForArticle,
+    createTip: publicDataState.createTip,
+  }),
 }));
 
 vi.mock('../../src/hooks/useDocumentTitle', () => ({

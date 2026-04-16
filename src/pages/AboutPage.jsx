@@ -3,7 +3,7 @@ import { useFormStatus } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Mail, Phone, MapPin, Users, Award, Newspaper, Shield, CheckCircle, AlertTriangle } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { useSettingsData, useTaxonomyData } from '../context/DataContext';
 import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import EasterDecorations from '../components/seasonal/EasterDecorations';
@@ -47,7 +47,8 @@ function ContactSubmitButton() {
 }
 
 export default function AboutPage() {
-  const { authors, siteSettings } = usePublicData();
+  const { authors } = useTaxonomyData();
+  const { siteSettings } = useSettingsData();
   useDocumentTitle(makeTitle('\u0417\u0430 \u043d\u0430\u0441'));
 
   const [contactForm, setContactForm] = useState({ name: '', phone: '', message: '' });

@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { MessageCircle, Send, User, ThumbsUp, ThumbsDown, CornerDownRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { usePublicData } from '../context/DataContext';
+import { useEngagementData } from '../context/DataContext';
 import { formatNewsDate } from '../utils/newsDate';
 import { useOptimisticList } from '../hooks/useOptimisticList';
 
@@ -446,7 +446,7 @@ const CommentItem = memo(function CommentItem({
 });
 
 export default function CommentsSection({ articleId }) {
-  const { comments, addComment, reactToComment, loadCommentsForArticle } = usePublicData();
+  const { comments, addComment, reactToComment, loadCommentsForArticle } = useEngagementData();
   const [name, setName] = useState('');
   const [text, setText] = useState('');
   const [submitted, setSubmitted] = useState(false);

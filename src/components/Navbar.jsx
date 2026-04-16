@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp, Gamepad2, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../context/ThemeContext';
-import { usePublicData } from '../context/DataContext';
+import { useSettingsData, useTaxonomyData } from '../context/DataContext';
 import { navbarCopy } from '../content/uiCopy';
 
 const DEFAULT_NAV_LINKS = navbarCopy.defaultNavLinks;
@@ -32,7 +32,8 @@ export default memo(function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleDark } = useTheme();
-  const { siteSettings, categories } = usePublicData();
+  const { siteSettings } = useSettingsData();
+  const { categories } = useTaxonomyData();
 
   const [pushStatus, setPushStatus] = useState('idle');
 

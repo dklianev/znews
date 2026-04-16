@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Phone, Mail, FileText, Eye, Clock, ChevronRight, Newspaper, BarChart3, Flame } from 'lucide-react';
 import TrendingSidebar from '../components/TrendingSidebar';
 import AdSlot from '../components/ads/AdSlot';
-import { usePublicData } from '../context/DataContext';
+import { useArticlesData, useSettingsData, useTaxonomyData } from '../context/DataContext';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { api } from '../utils/api';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -29,6 +29,22 @@ function formatCount(n) {
 }
 
 const EMPTY_STATS = { totalViews: 0, totalReactions: 0, categoryCount: 0 };
+
+function getArticleTimestamp(article) {
+  return new Date(article?.publishAt || article?.date || 0).getTime() || 0;
+}
+
+function buildAuthorSeedArticles(items, authorId, limit) {
+  const safeItems = Array.isArray(items) ? items : [];
+  return [...safeItems]
+    .filter((article) => Number(article?.authorId) === Number(authorId) && article?.status !== 'draft')
+    .sort((a, b) => {
+      const byDate = getArticleTimestamp(b) - getArticleTimestamp(a);
+      if (byDate !== 0) return byDate;
+      return (Number(b?.id) || 0) - (Number(a?.id) || 0);
+    })
+    .slice(0, limit);
+}
 
 /* ─── Skeleton ─── */
 function HeroSkeleton() {
@@ -438,23 +454,29 @@ function HeadlineItem({ article, categories }) {
 export default function AuthorPage() {
   const { id } = useParams();
   const authorId = Number(id);
-  const { authors, categories, ads, loading } = usePublicData();
+  const { articles: contextArticles, loading } = useArticlesData();
+  const { authors, categories } = useTaxonomyData();
+  const { ads } = useSettingsData();
   const author = authors.find((a) => a.id === authorId);
 
   useDocumentTitle(makeTitle(author?.name || 'Автор'));
 
-  const [authorArticles, setAuthorArticles] = useState([]);
-  const [totalArticles, setTotalArticles] = useState(0);
+  const seedArticles = useMemo(() => buildAuthorSeedArticles(contextArticles, authorId, PER_PAGE), [contextArticles, authorId]);
+  const seededAuthorIdRef = useRef(null);
+  const [authorArticles, setAuthorArticles] = useState(seedArticles);
+  const [totalArticles, setTotalArticles] = useState(seedArticles.length);
   const [loadingArticles, setLoadingArticles] = useState(false);
   const [page, setPage] = useState(1);
   const [authorStats, setAuthorStats] = useState(EMPTY_STATS);
 
   useEffect(() => {
+    if (!authorId || Number.isNaN(authorId) || seededAuthorIdRef.current === authorId) return;
+    seededAuthorIdRef.current = authorId;
     setPage(1);
-    setAuthorArticles([]);
-    setTotalArticles(0);
+    setAuthorArticles(seedArticles);
+    setTotalArticles(seedArticles.length);
     setAuthorStats(EMPTY_STATS);
-  }, [authorId]);
+  }, [authorId, seedArticles]);
 
   /* Fetch aggregate author stats from server */
   useEffect(() => {
@@ -501,8 +523,8 @@ export default function AuthorPage() {
       .catch(() => {
         if (cancelled) return;
         if (page <= 1) {
-          setAuthorArticles([]);
-          setTotalArticles(0);
+          setAuthorArticles((prev) => (prev.length > 0 ? prev : seedArticles));
+          setTotalArticles((prev) => (prev > 0 ? prev : seedArticles.length));
         }
       })
       .finally(() => {
@@ -510,7 +532,7 @@ export default function AuthorPage() {
       });
 
     return () => { cancelled = true; };
-  }, [authorId, page]);
+  }, [authorId, page, seedArticles]);
 
   const totalPages = Math.max(1, Math.ceil((totalArticles || 0) / PER_PAGE));
   const showEmptyState = !loadingArticles && authorArticles.length === 0;
