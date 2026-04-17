@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Scale, Gavel, CalendarClock, CheckCircle2, Clock } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { usePublicSectionsData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { formatNewsDate } from '../utils/newsDate';
 
@@ -18,7 +18,7 @@ const statusConfig = {
 };
 
 export default function CourtPage() {
-  const { court, publicSectionStatus, loadCourt } = usePublicData();
+  const { court, publicSectionStatus, loadCourt } = usePublicSectionsData();
   useDocumentTitle(makeTitle('Съд'));
   const [tab, setTab] = useState('all');
 

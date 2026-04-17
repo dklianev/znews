@@ -7,24 +7,44 @@ export function createArticleRecencyHelpers({
   sortArticlesByRecency,
   stripDocumentList,
 }) {
+  function buildArticleRecencySortExpression() {
+    return {
+      $ifNull: [
+        '$publishAtDate',
+        '$publishAt',
+        {
+          $dateFromString: {
+            dateString: '$date',
+            format: '%Y-%m-%d',
+            onError: new Date(0),
+            onNull: new Date(0),
+          },
+        },
+      ],
+    };
+  }
+
+  function buildArticleRecencyProjection(fieldsProjection) {
+    const projection = fieldsProjection && typeof fieldsProjection === 'object'
+      ? { ...fieldsProjection }
+      : { _id: 0, __v: 0 };
+    delete projection.__recencySortTs;
+    projection._id = 0;
+    const hasInclusionFields = Object.entries(projection).some(
+      ([key, val]) => key !== '_id' && (val === 1 || val === true)
+    );
+    if (!hasInclusionFields) {
+      projection.__v = 0;
+    }
+    return projection;
+  }
+
   function buildArticleRecencyPipeline(filter, fieldsProjection, { skip = 0, limit = 0 } = {}) {
     const pipeline = [
       { $match: filter || {} },
       {
         $addFields: {
-          __recencySortTs: {
-            $ifNull: [
-              '$publishAt',
-              {
-                $dateFromString: {
-                  dateString: '$date',
-                  format: '%Y-%m-%d',
-                  onError: new Date(0),
-                  onNull: new Date(0),
-                },
-              },
-            ],
-          },
+          __recencySortTs: buildArticleRecencySortExpression(),
         },
       },
       { $sort: { __recencySortTs: -1, id: -1 } },
@@ -37,18 +57,7 @@ export function createArticleRecencyHelpers({
       pipeline.push({ $limit: limit });
     }
 
-    const projection = fieldsProjection && typeof fieldsProjection === 'object'
-      ? { ...fieldsProjection }
-      : { _id: 0, __v: 0 };
-    delete projection.__recencySortTs;
-    projection._id = 0;
-    const hasInclusionFields = Object.entries(projection).some(
-      ([key, val]) => key !== '_id' && (val === 1 || val === true)
-    );
-    if (!hasInclusionFields) {
-      projection.__v = 0;
-    }
-    pipeline.push({ $project: projection });
+    pipeline.push({ $project: buildArticleRecencyProjection(fieldsProjection) });
 
     return pipeline;
   }
@@ -116,19 +125,48 @@ export function createArticleRecencyHelpers({
       Math.max(36, latestShowcaseLimit + latestWireLimit + HOMEPAGE_LATEST_BUFFER)
     );
 
-    const [latest, hero, selected, featured, crime, breaking, emergency, reportage, sponsored] = await Promise.all([
-      findArticlesByRecency(articleFilter, fieldsProjection, latestLimit),
-      findArticlesByRecency(combineMongoFilters(articleFilter, { $or: [{ hero: true }, { breaking: true }] }), fieldsProjection, 8),
-      selectedHeroIds.length > 0
-        ? findArticlesByRecency(combineMongoFilters(articleFilter, { id: { $in: selectedHeroIds } }), fieldsProjection, selectedHeroIds.length)
-        : Promise.resolve([]),
-      findArticlesByRecency(combineMongoFilters(articleFilter, { featured: true }), fieldsProjection, 3 + HOMEPAGE_SECTION_BUFFER),
-      findArticlesByRecency(combineMongoFilters(articleFilter, { category: { $in: ['crime', 'underground'] } }), fieldsProjection, 4 + HOMEPAGE_SECTION_BUFFER),
-      findArticlesByRecency(combineMongoFilters(articleFilter, { category: 'breaking' }), fieldsProjection, 2 + HOMEPAGE_SECTION_BUFFER),
-      findArticlesByRecency(combineMongoFilters(articleFilter, { category: 'emergency' }), fieldsProjection, 2 + HOMEPAGE_SECTION_BUFFER),
-      findArticlesByRecency(combineMongoFilters(articleFilter, { category: 'reportage' }), fieldsProjection, 3 + HOMEPAGE_SECTION_BUFFER),
-      findArticlesByRecency(combineMongoFilters(articleFilter, { sponsored: true }), fieldsProjection, 3 + HOMEPAGE_SECTION_BUFFER),
+    const buildFacetBranch = (filter, limit) => {
+      const branch = [];
+      if (filter && typeof filter === 'object' && Object.keys(filter).length > 0) {
+        branch.push({ $match: filter });
+      }
+      branch.push({ $sort: { __recencySortTs: -1, id: -1 } });
+      if (Number.isInteger(limit) && limit > 0) {
+        branch.push({ $limit: limit });
+      }
+      branch.push({ $project: buildArticleRecencyProjection(fieldsProjection) });
+      return branch;
+    };
+
+    const [facetResult = {}] = await Article.aggregate([
+      { $match: articleFilter || {} },
+      { $addFields: { __recencySortTs: buildArticleRecencySortExpression() } },
+      {
+        $facet: {
+          latest: buildFacetBranch(null, latestLimit),
+          hero: buildFacetBranch({ $or: [{ hero: true }, { breaking: true }] }, 8),
+          selected: selectedHeroIds.length > 0
+            ? buildFacetBranch({ id: { $in: selectedHeroIds } }, selectedHeroIds.length)
+            : [{ $limit: 0 }],
+          featured: buildFacetBranch({ featured: true }, 3 + HOMEPAGE_SECTION_BUFFER),
+          crime: buildFacetBranch({ category: { $in: ['crime', 'underground'] } }, 4 + HOMEPAGE_SECTION_BUFFER),
+          breaking: buildFacetBranch({ category: 'breaking' }, 2 + HOMEPAGE_SECTION_BUFFER),
+          emergency: buildFacetBranch({ category: 'emergency' }, 2 + HOMEPAGE_SECTION_BUFFER),
+          reportage: buildFacetBranch({ category: 'reportage' }, 3 + HOMEPAGE_SECTION_BUFFER),
+          sponsored: buildFacetBranch({ sponsored: true }, 3 + HOMEPAGE_SECTION_BUFFER),
+        },
+      },
     ]);
+
+    const latest = stripDocumentList(Array.isArray(facetResult.latest) ? facetResult.latest : []);
+    const hero = stripDocumentList(Array.isArray(facetResult.hero) ? facetResult.hero : []);
+    const selected = stripDocumentList(Array.isArray(facetResult.selected) ? facetResult.selected : []);
+    const featured = stripDocumentList(Array.isArray(facetResult.featured) ? facetResult.featured : []);
+    const crime = stripDocumentList(Array.isArray(facetResult.crime) ? facetResult.crime : []);
+    const breaking = stripDocumentList(Array.isArray(facetResult.breaking) ? facetResult.breaking : []);
+    const emergency = stripDocumentList(Array.isArray(facetResult.emergency) ? facetResult.emergency : []);
+    const reportage = stripDocumentList(Array.isArray(facetResult.reportage) ? facetResult.reportage : []);
+    const sponsored = stripDocumentList(Array.isArray(facetResult.sponsored) ? facetResult.sponsored : []);
 
     const seen = new Set();
     const merged = [];

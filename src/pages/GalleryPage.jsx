@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Camera, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { usePublicSectionsData } from '../context/DataContext';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { formatNewsDate } from '../utils/newsDate';
 
 export default function GalleryPage() {
-  const { gallery, publicSectionStatus, loadGallery } = usePublicData();
+  const { gallery, publicSectionStatus, loadGallery } = usePublicSectionsData();
   useDocumentTitle(makeTitle('Галерия'));
   const [selected, setSelected] = useState(null);
   const [filterCat, setFilterCat] = useState('all');

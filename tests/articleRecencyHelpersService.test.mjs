@@ -17,6 +17,19 @@ describe('articleRecencyHelpersService', () => {
       const Article = {
         aggregate(pipeline) {
           aggregateCalls.push(pipeline);
+          if (pipeline.some((stage) => stage.$facet)) {
+            return Promise.resolve([{
+              latest: [{ _id: 'mongo', __v: 0, id: 9 }],
+              hero: [{ _id: 'mongo', __v: 0, id: 8, hero: true }],
+              selected: [],
+              featured: [],
+              crime: [],
+              breaking: [],
+              emergency: [],
+              reportage: [],
+              sponsored: [],
+            }]);
+          }
           return Promise.resolve([{ _id: 'mongo', __v: 0, id: 7 }]);
         },
         find() {
@@ -68,7 +81,18 @@ describe('articleRecencyHelpersService', () => {
       assert.deepEqual(aggregateCalls[0][0], { $match: { featured: true } });
       assert.deepEqual(aggregateCalls[0][3], { $skip: 2 });
       assert.deepEqual(aggregateCalls[0][4], { $limit: 5 });
-    
+
+      const homepageCandidates = await helpers.fetchHomepageArticleCandidates({
+        articleFilter: { status: 'published' },
+        fieldsProjection: { id: 1, title: 1 },
+        heroSettings: {},
+        latestShowcaseLimit: 4,
+        latestWireLimit: 8,
+      });
+      assert.deepEqual(homepageCandidates.map((item) => item.id), [9, 8]);
+      assert.equal(aggregateCalls.length, 2);
+      assert.equal(Boolean(aggregateCalls[1].find((stage) => stage.$facet)), true);
+
       const visible = await helpers.findLegacyPublicArticles(null, { limit: 10 });
       assert.deepEqual(visible.map((item) => item.id), [4, 1]);
       assert.equal(await helpers.countLegacyPublicArticles(), 2);

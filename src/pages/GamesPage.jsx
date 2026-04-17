@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Gamepad2, Loader2 } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { usePublicSectionsData } from '../context/DataContext';
 import EasterDecorations from '../components/seasonal/EasterDecorations';
 import GamesProgressBar from '../components/games/GamesProgressBar';
 import GamesSection from '../components/games/GamesSection';
@@ -10,7 +10,7 @@ import { getGameStreak, loadGameProfile, loadGameProgress } from '../utils/gameS
 import { GAME_GROUPS, getDailyGames, getGameGroup, sortGamesCatalog } from '../utils/gamesCatalog';
 
 export default function GamesPage() {
-    const { games, publicSectionStatus, loadGamesCatalog } = usePublicData();
+    const { games, publicSectionStatus, loadGamesCatalog } = usePublicSectionsData();
     const [profile, setProfile] = useState(null);
     const [filter, setFilter] = useState('all');
     const todayStr = getTodayStr();

@@ -2,9 +2,10 @@ import { useActionState, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Tag, Send, AlertTriangle, CheckCircle, Image as ImageIcon, X, Upload, Copy, Check, Car, Building, Wrench, Search, Package, ShoppingCart, Star, DollarSign, Camera } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { usePublicSectionsData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { api } from '../utils/api';
+import { copyToClipboard } from '../utils/copyToClipboard';
 
 const CATEGORIES = [
   { value: 'cars', label: 'Коли', icon: Car },
@@ -50,22 +51,10 @@ function SubmitButton({ disabled }) {
 function CopyButton({ text, label }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    const didCopy = await copyToClipboard(text);
+    if (!didCopy) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
   return (
     <button type="button" onClick={handleCopy} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border-2 border-[#1C1428] font-display font-bold text-xs uppercase tracking-wider hover:bg-gray-100 transition-colors" style={{ boxShadow: '2px 2px 0 #1C1428' }}>
@@ -137,7 +126,7 @@ function PaymentInfoPanel({ info }) {
 
 export default function ClassifiedSubmitPage() {
   useDocumentTitle(makeTitle('Пусни обява'));
-  const { submitClassified } = usePublicData();
+  const { submitClassified } = usePublicSectionsData();
 
   const [tiers, setTiers] = useState(FALLBACK_TIERS);
   const [currency, setCurrency] = useState('$');

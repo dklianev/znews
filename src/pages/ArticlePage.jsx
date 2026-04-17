@@ -4,8 +4,7 @@ import { motion } from 'motion/react';
 import { useArticlesData, useSettingsData, useTaxonomyData } from '../context/DataContext';
 import AdSlot from '../components/ads/AdSlot';
 import TrendingSidebar from '../components/TrendingSidebar';
-import CommentsSection from '../components/CommentsSection';
-import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { Fragment, Suspense, lazy, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import ComicNewsCard from '../components/ComicNewsCard';
 import NextArticleCard from '../components/NextArticleCard';
 import ResponsiveImage from '../components/ResponsiveImage';
@@ -23,6 +22,8 @@ import {
   isCefYouTubeFallbackEnvironment,
   replaceInlineYouTubeIframesWithFallback,
 } from '../utils/youtubeEmbeds';
+
+const CommentsSection = lazy(() => import('../components/CommentsSection'));
 
 const categoryColors = {
   crime: 'bg-zn-purple text-white',
@@ -51,6 +52,19 @@ function ArticleBodySkeleton() {
         <div className="h-3 w-8/12 bg-zn-text/10 rounded" />
       </div>
     </div>
+  );
+}
+
+function CommentsSectionSkeleton() {
+  return (
+    <section className="mb-8 newspaper-page comic-panel comic-dots p-5 md:p-6 animate-pulse" aria-label="Зареждане на коментари">
+      <div className="h-5 w-40 bg-zn-text/10 rounded mb-4" />
+      <div className="space-y-3">
+        <div className="h-16 bg-zn-text/10 rounded" />
+        <div className="h-16 bg-zn-text/10 rounded" />
+        <div className="h-16 bg-zn-text/10 rounded" />
+      </div>
+    </section>
   );
 }
 
@@ -192,7 +206,7 @@ export default function ArticlePage() {
   const contextArticle = articles.find(a => a.id === articleId);
   const [directArticle, setDirectArticle] = useState(null);
   const [hydratingArticle, setHydratingArticle] = useState(false);
-  const viewCounted = useRef(false);
+  const viewedArticleIdsRef = useRef(new Set());
 
   useEffect(() => {
     setDirectArticle(null);
@@ -250,15 +264,12 @@ export default function ArticlePage() {
   useDocumentMeta(articleMetaTags);
 
   useEffect(() => {
-    viewCounted.current = false;
-  }, [articleId]);
-
-  useEffect(() => {
-    if (article && !viewCounted.current) {
-      viewCounted.current = true;
-      incrementArticleView(article.id);
-    }
-  }, [article?.id, incrementArticleView, articleId]);
+    const targetArticleId = Number.parseInt(article?.id, 10);
+    if (!Number.isInteger(targetArticleId)) return;
+    if (viewedArticleIdsRef.current.has(targetArticleId)) return;
+    viewedArticleIdsRef.current.add(targetArticleId);
+    incrementArticleView(targetArticleId);
+  }, [article?.id, incrementArticleView]);
 
   // ── All remaining hooks MUST be declared before early returns ──
 
@@ -1110,7 +1121,9 @@ export default function ArticlePage() {
           <ArticleReactions articleId={article.id} reactions={article.reactions} />
 
           {/* Comments */}
-          <CommentsSection articleId={article.id} />
+          <Suspense fallback={<CommentsSectionSkeleton />}>
+            <CommentsSection articleId={article.id} />
+          </Suspense>
 
           {nextArticle ? (
             <NextArticleCard

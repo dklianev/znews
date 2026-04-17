@@ -11,21 +11,24 @@ const numberClasses = [
   'trending-number trending-number-default',
 ];
 
+function getSafeViews(article) {
+  const nextValue = Number(article?.views);
+  return Number.isFinite(nextValue) ? nextValue : 0;
+}
+
 export default memo(function TrendingSidebar() {
   const { articles } = useArticlesData();
   const trending = useMemo(() => {
     const safeArticles = Array.isArray(articles) ? articles : [];
-    return safeArticles
-      .map((article) => ({
-        ...article,
-        safeViews: Number.isFinite(Number(article?.views)) ? Number(article.views) : 0,
-      }))
-      .sort((a, b) => b.safeViews - a.safeViews)
+    return Array.from(safeArticles)
+      .sort((left, right) => {
+        return getSafeViews(right) - getSafeViews(left);
+      })
       .slice(0, 5);
   }, [articles]);
 
   const maxViews = useMemo(
-    () => Math.max(1, ...trending.map((article) => article.safeViews)),
+    () => Math.max(1, ...trending.map(getSafeViews)),
     [trending],
   );
 
@@ -67,12 +70,12 @@ export default memo(function TrendingSidebar() {
                   {article.title}
                 </h4>
                 <div className="comic-heat-track mt-2">
-                  <div className="comic-heat-fill" style={{ width: `${Math.max(8, Math.round((article.safeViews / maxViews) * 100))}%` }} />
+                  <div className="comic-heat-fill" style={{ width: `${Math.max(8, Math.round((getSafeViews(article) / maxViews) * 100))}%` }} />
                 </div>
                 <div className="flex items-center gap-3 mt-1.5">
                   <div className="inline-flex items-center gap-1.5 text-xs font-display text-zn-text-dim uppercase tracking-wider bg-zn-bg px-2 py-0.5 border border-zn-border">
                     <Eye className="w-3 h-3" />
-                    {article.safeViews.toLocaleString('bg-BG')} прегледа
+                    {getSafeViews(article).toLocaleString('bg-BG')} прегледа
                   </div>
                   {index === 0 && (
                     <span className="text-[10px] font-display font-black text-zn-hot uppercase tracking-widest">HOT</span>

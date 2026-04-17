@@ -20,7 +20,10 @@ let publicDataState = {};
 
 vi.mock('../../src/context/DataContext', () => ({
   useAdminData: () => adminDataState,
+  useArticlesData: () => publicDataState,
   usePublicData: () => publicDataState,
+  useSettingsData: () => publicDataState,
+  useTaxonomyData: () => publicDataState,
 }));
 
 vi.mock('../../src/components/admin/Toast', () => ({

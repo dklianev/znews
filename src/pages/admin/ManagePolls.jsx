@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { usePublicData } from '../../context/DataContext';
+import { useEngagementData } from '../../context/DataContext';
 import { Plus, Trash2, X, Save, ToggleLeft, ToggleRight, Pencil, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
@@ -79,7 +79,7 @@ function serializePollDraft(question, options) {
 }
 
 export default function ManagePolls() {
-  const { polls, addPoll, updatePoll, deletePoll } = usePublicData();
+  const { polls, addPoll, updatePoll, deletePoll } = useEngagementData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [creating, setCreating] = useState(false);
   const [question, setQuestion] = useState('');

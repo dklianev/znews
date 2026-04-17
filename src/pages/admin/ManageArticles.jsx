@@ -1,6 +1,6 @@
 import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useAdminData, usePublicData } from '../../context/DataContext';
+import { useAdminData, useArticlesData, useTaxonomyData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, Eye, Star, RefreshCw, History, RotateCcw, Clock3, Loader2, Search, Copy, ToggleLeft, ToggleRight, ChevronLeft, ChevronRight, CheckSquare, Square, ArrowUp, Archive, ArchiveRestore } from 'lucide-react';
 import { estimateReadTimeFromHtml, normalizeRichTextHtml } from '../../utils/richText';
 import { normalizeArticleAdminForm, trimArticleAdminText } from '../../utils/articleAdminForm';
@@ -192,13 +192,12 @@ const emptyForm = {
 export default function ManageArticles() {
   const [searchParams, setSearchParams] = useSearchParams();
   const {
-    authors,
-    categories,
     addArticle,
     updateArticle,
     deleteArticle,
     refresh,
-  } = usePublicData();
+  } = useArticlesData();
+  const { authors, categories } = useTaxonomyData();
   const {
     articleRevisions,
     loadArticleRevisions,

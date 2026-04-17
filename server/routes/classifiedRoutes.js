@@ -23,6 +23,7 @@ const CATEGORY_LABELS = {
   cars: 'КОЛИ', properties: 'ИМОТИ', services: 'УСЛУГИ',
   'looking-for': 'ТЪРСЯ', selling: 'ПРОДАВАМ', other: 'РАЗНИ',
 };
+const CLASSIFIED_STATUSES = ['awaiting_payment', 'active', 'rejected', 'expired'];
 
 function generatePaymentRef() {
   return 'ZN-' + randomBytes(8).toString('hex').toUpperCase();
@@ -560,23 +561,13 @@ export function registerClassifiedRoutes(app, deps) {
       filter.$text = { $search: search };
     }
 
-    // Price range filter — safe conversion that skips non-numeric prices ("По договаряне", etc.)
+    // Price range filter — backed by a normalized numeric shadow field for indexed scans.
     const priceMin = Number.parseFloat(req.query.priceMin);
     const priceMax = Number.parseFloat(req.query.priceMax);
     if (Number.isFinite(priceMin) || Number.isFinite(priceMax)) {
-      const priceExpr = {
-        $convert: {
-          input: { $replaceAll: { input: { $ifNull: ['$price', ''] }, find: ' ', replacement: '' } },
-          to: 'double',
-          onError: null,
-          onNull: null,
-        },
-      };
-      // Only match documents where price converts to a valid number
-      const conditions = [{ $ne: [priceExpr, null] }];
-      if (Number.isFinite(priceMin)) conditions.push({ $gte: [priceExpr, priceMin] });
-      if (Number.isFinite(priceMax)) conditions.push({ $lte: [priceExpr, priceMax] });
-      filter.$expr = { $and: conditions };
+      filter.priceValue = {};
+      if (Number.isFinite(priceMin)) filter.priceValue.$gte = priceMin;
+      if (Number.isFinite(priceMax)) filter.priceValue.$lte = priceMax;
     }
 
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
@@ -809,9 +800,48 @@ export function registerClassifiedRoutes(app, deps) {
   });
 
   // ─── Admin: list all classifieds ───
-  app.get('/api/admin/classifieds', requireAuth, requireAnyPermission(CLASSIFIED_ADMIN_PERMISSIONS), async (_req, res) => {
-    const items = await Classified.find().sort({ id: -1 }).lean();
-    res.json(items);
+  app.get('/api/admin/classifieds', requireAuth, requireAnyPermission(CLASSIFIED_ADMIN_PERMISSIONS), async (req, res) => {
+    const query = normalizeText(req.query.q || '', 120);
+    const status = normalizeText(req.query.status || '', 32).toLowerCase();
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 25));
+    const skip = (page - 1) * limit;
+    const filter = {};
+    if (CLASSIFIED_STATUSES.includes(status)) {
+      filter.status = status;
+    }
+    if (query) {
+      filter.$text = { $search: query };
+    }
+
+    const statusCountFilter = query ? { $text: { $search: query } } : {};
+    const [items, total, statusCountsRows] = await Promise.all([
+      Classified.find(filter).sort({ id: -1 }).skip(skip).limit(limit).lean(),
+      Classified.countDocuments(filter),
+      Classified.aggregate([
+        { $match: statusCountFilter },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const statusCounts = { all: 0, awaiting_payment: 0, active: 0, rejected: 0, expired: 0 };
+    statusCountsRows.forEach((row) => {
+      const rowStatus = typeof row?._id === 'string' ? row._id : '';
+      const rowCount = Number.parseInt(row?.count, 10) || 0;
+      if (Object.prototype.hasOwnProperty.call(statusCounts, rowStatus)) {
+        statusCounts[rowStatus] = rowCount;
+        statusCounts.all += rowCount;
+      }
+    });
+
+    res.json({
+      items,
+      page,
+      limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      statusCounts,
+    });
   });
 
   // ─── Admin: approve (payment confirmed) ───

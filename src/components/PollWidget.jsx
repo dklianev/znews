@@ -59,7 +59,7 @@ export default function PollWidget() {
           const isMyVote = votedOption === index;
           return (
             <motion.button
-              key={index}
+              key={`${activePoll.id}:${option.text}`}
               onClick={() => handleVote(index)}
               disabled={hasVoted}
               aria-label={isMyVote ? `Вашият избор: ${option.text}` : option.text}

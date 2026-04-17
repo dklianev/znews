@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
-import { DataProvider, useAdminData, useArticlesData, usePublicSectionsData, useSessionData, useSettingsData } from './context/DataContext';
+import { DataProvider, useAdminData, usePublicSectionsData, useSessionData, useSettingsData } from './context/DataContext';
 import { AnimatePresence, motion } from 'motion/react';
 import Navbar from './components/Navbar';
 import ScrollToTop from './components/ScrollToTop';
@@ -343,9 +343,6 @@ function LoadingScreen() {
 }
 
 function AppContent() {
-  const { loading } = useArticlesData();
-  const isHomePath = typeof window !== 'undefined' && window.location.pathname === '/';
-  if (loading && !isHomePath) return <LoadingScreen />;
   return (
     <Router>
       <ScrollToTop />

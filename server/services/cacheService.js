@@ -18,6 +18,8 @@ export function createCacheService(deps) {
     hitsByTag: {},
     missesByTag: {},
   };
+  const MAX_TAG_METRIC_BUCKETS = 64;
+  const OTHER_TAG_BUCKET = '__other';
 
   function normalizeCacheTags(tags) {
     return [...new Set((Array.isArray(tags) ? tags : []).filter(Boolean))];
@@ -70,11 +72,23 @@ export function createCacheService(deps) {
     return [...tags];
   }
 
+  function bumpTagMetricBucket(metricMap, tag) {
+    if (Object.prototype.hasOwnProperty.call(metricMap, tag)) {
+      metricMap[tag] += 1;
+      return;
+    }
+    if (Object.keys(metricMap).length < MAX_TAG_METRIC_BUCKETS) {
+      metricMap[tag] = 1;
+      return;
+    }
+    metricMap[OTHER_TAG_BUCKET] = (metricMap[OTHER_TAG_BUCKET] || 0) + 1;
+  }
+
   function countCacheEvent(tags, bucket) {
     const safeBucket = bucket === 'hits' ? 'hitsByTag' : 'missesByTag';
     const uniqueTags = [...new Set((Array.isArray(tags) ? tags : []).filter(Boolean))];
     uniqueTags.forEach((tag) => {
-      cachePerformance[safeBucket][tag] = (cachePerformance[safeBucket][tag] || 0) + 1;
+      bumpTagMetricBucket(cachePerformance[safeBucket], tag);
     });
   }
 

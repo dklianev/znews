@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAdminData } from '../../context/DataContext';
-import { RefreshCw, Trash2, CheckCircle, XCircle, Image as ImageIcon, Phone, User, DollarSign, Clock, Copy, Check, Star, ArrowUp, RotateCcw, Eye, Camera } from 'lucide-react';
+import { RefreshCw, Trash2, CheckCircle, XCircle, Phone, User, DollarSign, Clock, Copy, Check, Star, ArrowUp, RotateCcw, Eye, Camera, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { copyToClipboard } from '../../utils/copyToClipboard';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
@@ -9,7 +9,7 @@ import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminFilterBar from '../../components/admin/AdminFilterBar';
 import AdminSearchField from '../../components/admin/AdminSearchField';
 import AdminEmptyState from '../../components/admin/AdminEmptyState';
-import { buildAdminSearchParams, readEnumSearchParam, readSearchParam } from '../../utils/adminSearchParams';
+import { buildAdminSearchParams, readEnumSearchParam, readPositiveIntSearchParam, readSearchParam } from '../../utils/adminSearchParams';
 import { useOptimisticList } from '../../hooks/useOptimisticList';
 
 const classifiedsReducer = (current, mutation) => {
@@ -66,7 +66,18 @@ function formatAdminAmount(amount, currency) {
 }
 
 export default function ManageClassifieds() {
-  const { classifieds, classifiedsReady, refreshClassifieds, ensureClassifiedsLoaded, approveClassified, rejectClassified, deleteClassified, bumpClassified, renewClassified } = useAdminData();
+  const {
+    classifieds,
+    classifiedsMeta,
+    classifiedsReady,
+    refreshClassifieds,
+    ensureClassifiedsLoaded,
+    approveClassified,
+    rejectClassified,
+    deleteClassified,
+    bumpClassified,
+    renewClassified,
+  } = useAdminData();
   const toast = useToast();
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -85,6 +96,14 @@ export default function ManageClassifieds() {
     ['all', 'awaiting_payment', 'active', 'rejected', 'expired'],
     'all',
   );
+  const page = readPositiveIntSearchParam(searchParams, 'page', 1);
+  const limit = 25;
+  const queryParams = useMemo(() => ({
+    page,
+    limit,
+    ...(statusFilter !== 'all' ? { status: statusFilter } : {}),
+    ...(query.trim() ? { q: query.trim() } : {}),
+  }), [page, query, statusFilter]);
 
   const isAuthError = (error) => {
     const status = Number(error?.status);
@@ -97,9 +116,29 @@ export default function ManageClassifieds() {
     toast.error(`Грешка: ${error?.message || fallbackMessage}`);
   };
 
+  const setListSearchParams = (updates) => {
+    setSearchParams(
+      (current) => buildAdminSearchParams(current, updates),
+      { replace: true },
+    );
+  };
+
+  const syncCurrentPage = async () => {
+    const result = await refreshClassifieds(queryParams);
+    const resolvedTotalPages = Math.max(1, Number.parseInt(result?.meta?.totalPages, 10) || 1);
+    if (page > resolvedTotalPages) {
+      setListSearchParams({
+        status: statusFilter,
+        q: query,
+        page: String(resolvedTotalPages),
+      });
+    }
+    return result;
+  };
+
   const refreshAfterFailure = async () => {
     try {
-      await refreshClassifieds();
+      await syncCurrentPage();
     } catch (refreshError) {
       if (!isAuthError(refreshError)) {
         console.error('Failed to refresh classifieds after action failure:', refreshError);
@@ -108,43 +147,29 @@ export default function ManageClassifieds() {
   };
 
   useEffect(() => {
-    ensureClassifiedsLoaded().catch((error) => {
+    ensureClassifiedsLoaded(queryParams).catch((error) => {
       showClassifiedsError(error, 'Не успяхме да заредим малките обяви.');
     });
-  }, [ensureClassifiedsLoaded]);
+  }, [ensureClassifiedsLoaded, queryParams]);
 
   const handleRefresh = async () => {
     try {
-      await refreshClassifieds();
+      await syncCurrentPage();
     } catch (error) {
       showClassifiedsError(error, 'Не успяхме да обновим малките обяви.');
     }
   };
-
-  const setListSearchParams = (updates) => {
-    setSearchParams(
-      (current) => buildAdminSearchParams(current, updates),
-      { replace: true },
-    );
-  };
-
-  const filtered = useMemo(() => {
-    const q = query.toLowerCase();
-    return optimistic.filter(c => {
-      if (statusFilter !== 'all' && c.status !== statusFilter) return false;
-      return (c.title || '').toLowerCase().includes(q) ||
-        (c.description || '').toLowerCase().includes(q) ||
-        (c.contactName || '').toLowerCase().includes(q) ||
-        (c.paymentRef || '').toLowerCase().includes(q);
-    });
-  }, [optimistic, query, statusFilter]);
+  const visibleItems = useMemo(
+    () => (Array.isArray(optimistic) ? optimistic : []),
+    [optimistic],
+  );
   const selectedIdSet = useMemo(
     () => new Set(selectedIds),
     [selectedIds],
   );
   const selectedItems = useMemo(
-    () => filtered.filter((item) => selectedIdSet.has(Number(item.id))),
-    [filtered, selectedIdSet],
+    () => visibleItems.filter((item) => selectedIdSet.has(Number(item.id))),
+    [visibleItems, selectedIdSet],
   );
   const selectedAwaitingCount = useMemo(
     () => selectedItems.filter((item) => item.status === 'awaiting_payment').length,
@@ -155,28 +180,35 @@ export default function ManageClassifieds() {
     [selectedItems],
   );
   const allVisibleSelected = useMemo(
-    () => filtered.length > 0 && filtered.every((item) => selectedIdSet.has(Number(item.id))),
-    [filtered, selectedIdSet],
+    () => visibleItems.length > 0 && visibleItems.every((item) => selectedIdSet.has(Number(item.id))),
+    [visibleItems, selectedIdSet],
   );
   const bulkBusy = Boolean(bulkActionLabel);
 
   const counts = useMemo(() => {
-    const c = { all: 0, awaiting_payment: 0, active: 0, rejected: 0, expired: 0 };
-    (Array.isArray(optimistic) ? optimistic : []).forEach(item => {
-      c.all++;
-      if (c[item.status] !== undefined) c[item.status]++;
-    });
-    return c;
-  }, [optimistic]);
+    const source = classifiedsMeta?.statusCounts && typeof classifiedsMeta.statusCounts === 'object'
+      ? classifiedsMeta.statusCounts
+      : {};
+    return {
+      all: Number.parseInt(source.all, 10) || 0,
+      awaiting_payment: Number.parseInt(source.awaiting_payment, 10) || 0,
+      active: Number.parseInt(source.active, 10) || 0,
+      rejected: Number.parseInt(source.rejected, 10) || 0,
+      expired: Number.parseInt(source.expired, 10) || 0,
+    };
+  }, [classifiedsMeta]);
+
+  const totalItems = Number.parseInt(classifiedsMeta?.total, 10) || 0;
+  const totalPages = Math.max(1, Number.parseInt(classifiedsMeta?.totalPages, 10) || 1);
 
   useEffect(() => {
     const visibleIds = new Set(
-      filtered
+      visibleItems
         .map((item) => Number.parseInt(String(item?.id), 10))
         .filter((id) => Number.isInteger(id)),
     );
     setSelectedIds((prev) => prev.filter((id) => visibleIds.has(id)));
-  }, [filtered]);
+  }, [visibleItems]);
 
   const toggleSelection = (id) => {
     const numericId = Number.parseInt(String(id), 10);
@@ -189,8 +221,8 @@ export default function ManageClassifieds() {
   };
 
   const toggleSelectAllVisible = () => {
-    if (bulkBusy || filtered.length === 0) return;
-    const visibleIds = filtered
+    if (bulkBusy || visibleItems.length === 0) return;
+    const visibleIds = visibleItems
       .map((item) => Number.parseInt(String(item?.id), 10))
       .filter((id) => Number.isInteger(id));
     setSelectedIds((prev) => {
@@ -204,27 +236,37 @@ export default function ManageClassifieds() {
   const handleApprove = async (id) => {
     if (bulkBusy) return;
     setBusyId(id);
+    beginPending(id);
     applyUpdate({ type: 'status', id, status: 'active' });
     try {
       await approveClassified(id, paidByInputs[id] || '');
+      await syncCurrentPage();
       toast.success('Обявата е одобрена и публикувана');
     } catch (e) {
       await refreshAfterFailure();
       showClassifiedsError(e);
-    } finally { setBusyId(null); }
+    } finally {
+      endPending(id);
+      setBusyId(null);
+    }
   };
 
   const handleReject = async (id) => {
     if (bulkBusy) return;
     setBusyId(id);
+    beginPending(id);
     applyUpdate({ type: 'status', id, status: 'rejected' });
     try {
       await rejectClassified(id);
+      await syncCurrentPage();
       toast.success('Обявата е отхвърлена');
     } catch (e) {
       await refreshAfterFailure();
       showClassifiedsError(e);
-    } finally { setBusyId(null); }
+    } finally {
+      endPending(id);
+      setBusyId(null);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -237,39 +279,54 @@ export default function ManageClassifieds() {
     });
     if (!confirmed) return;
     setBusyId(id);
+    beginPending(id);
     applyUpdate({ type: 'delete', id });
     try {
       await deleteClassified(id);
+      await syncCurrentPage();
       toast.success('Обявата е изтрита');
     } catch (e) {
       await refreshAfterFailure();
       showClassifiedsError(e);
-    } finally { setBusyId(null); }
+    } finally {
+      endPending(id);
+      setBusyId(null);
+    }
   };
 
   const handleBump = async (id) => {
     if (bulkBusy) return;
     setBusyId(id);
+    beginPending(id);
     applyUpdate({ type: 'bump', id });
     try {
       await bumpClassified(id);
+      await syncCurrentPage();
       toast.success('Обявата е bump-ната (преместена отгоре)');
     } catch (e) {
       await refreshAfterFailure();
       showClassifiedsError(e);
-    } finally { setBusyId(null); }
+    } finally {
+      endPending(id);
+      setBusyId(null);
+    }
   };
 
   const handleRenew = async (id) => {
     if (bulkBusy) return;
     setBusyId(id);
+    beginPending(id);
     try {
       await renewClassified(id, '');
+      await syncCurrentPage();
       toast.success('Обявата е подновена');
     } catch (e) {
       await refreshAfterFailure();
       showClassifiedsError(e);
-    } finally { setBusyId(null); }
+    } finally {
+      endPending(id);
+      setBusyId(null);
+    }
   };
 
   const STATUS_TABS = [
@@ -306,6 +363,7 @@ export default function ManageClassifieds() {
 
     try {
       for (const item of items) {
+        beginPending(item.id);
         if (typeof optimisticMutation === 'function') {
           const mutation = optimisticMutation(item);
           if (mutation) applyUpdate(mutation);
@@ -317,11 +375,15 @@ export default function ManageClassifieds() {
         } catch (error) {
           failedCount += 1;
           showClassifiedsError(error);
+        } finally {
+          endPending(item.id);
         }
       }
 
+      if (successfulIds.length > 0 || failedCount > 0) {
+        await syncCurrentPage();
+      }
       if (failedCount > 0) {
-        await refreshAfterFailure();
         toast.warning(`Неуспешни действия: ${failedCount}`);
       }
       if (successfulIds.length > 0) {
@@ -391,14 +453,19 @@ export default function ManageClassifieds() {
         description="Управление и потвърждаване на плащания"
         actions={(
           <button type="button" onClick={handleRefresh} aria-label="Обнови обявите" className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-sm font-sans text-gray-600 hover:bg-gray-50 transition-colors">
-          <RefreshCw className="w-4 h-4" /> Обнови
+            <RefreshCw className="w-4 h-4" /> Обнови
           </button>
+        )}
+        meta={(
+          <div className="text-xs font-sans text-gray-500">
+            Страница {page} от {totalPages} · Общо {totalItems} обяви
+          </div>
         )}
       />
 
       <AdminFilterBar className="mb-4">
         {STATUS_TABS.map(tab => (
-          <button key={tab.value} type="button" onClick={() => setListSearchParams({ status: tab.value, q: query })} className={`px-3 py-1.5 text-xs font-sans font-bold rounded-full border transition-colors ${statusFilter === tab.value ? 'bg-zn-purple text-white border-zn-purple' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+          <button key={tab.value} type="button" onClick={() => setListSearchParams({ status: tab.value, q: query, page: '1' })} className={`px-3 py-1.5 text-xs font-sans font-bold rounded-full border transition-colors ${statusFilter === tab.value ? 'bg-zn-purple text-white border-zn-purple' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
             {tab.label} ({counts[tab.value] || 0})
           </button>
         ))}
@@ -407,7 +474,7 @@ export default function ManageClassifieds() {
       <AdminFilterBar className="mb-6">
         <AdminSearchField
           value={query}
-          onChange={(event) => setListSearchParams({ status: statusFilter, q: event.target.value })}
+          onChange={(event) => setListSearchParams({ status: statusFilter, q: event.target.value, page: '1' })}
           placeholder="Търси по заглавие, описание, име или код за плащане..."
           ariaLabel="Търси малки обяви"
         />
@@ -419,7 +486,7 @@ export default function ManageClassifieds() {
             type="checkbox"
             checked={allVisibleSelected}
             onChange={() => toggleSelectAllVisible()}
-            disabled={bulkBusy || filtered.length === 0}
+            disabled={bulkBusy || visibleItems.length === 0}
             aria-label="Избери всички видими обяви"
             className="h-4 w-4 rounded border-gray-300 text-zn-purple focus:ring-zn-purple"
           />
@@ -465,14 +532,14 @@ export default function ManageClassifieds() {
       </AdminFilterBar>
 
       <div className="space-y-4">
-        {classifiedsReady && filtered.length === 0 ? (
+        {classifiedsReady && visibleItems.length === 0 ? (
           <AdminEmptyState
             title="Няма обяви"
             description={query.trim() || statusFilter !== 'all'
               ? 'Няма обяви, които да съвпадат с текущите филтри.'
               : 'Все още няма подадени малки обяви за модерация.'}
           />
-        ) : filtered.map(item => {
+        ) : visibleItems.map(item => {
           const stCfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.awaiting_payment;
           const isBusy = bulkBusy || busyId === item.id;
           const isExpired = item.expiresAt && new Date(item.expiresAt) < new Date();
@@ -586,6 +653,37 @@ export default function ManageClassifieds() {
           );
         })}
       </div>
+
+      {classifiedsReady && totalPages > 1 && (
+        <AdminFilterBar className="mt-6 justify-between">
+          <div className="text-xs font-sans text-gray-500">
+            Показани {visibleItems.length} от {totalItems} обяви
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setListSearchParams({ status: statusFilter, q: query, page: String(page - 1) })}
+              disabled={page <= 1 || bulkBusy}
+              className="inline-flex items-center gap-1 rounded border border-gray-200 px-3 py-2 text-xs font-sans font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+              Назад
+            </button>
+            <span className="text-xs font-sans font-semibold text-gray-600">
+              {page} / {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setListSearchParams({ status: statusFilter, q: query, page: String(page + 1) })}
+              disabled={page >= totalPages || bulkBusy}
+              className="inline-flex items-center gap-1 rounded border border-gray-200 px-3 py-2 text-xs font-sans font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+            >
+              Напред
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </AdminFilterBar>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { usePublicData } from '../../context/DataContext';
+import { useTaxonomyData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import DataTable from '../../components/admin/DataTable';
@@ -52,7 +52,7 @@ function getFirstErrorField(fieldErrors) {
 }
 
 export default function ManageCategories() {
-  const { categories, addCategory, updateCategory, deleteCategory } = usePublicData();
+  const { categories, addCategory, updateCategory, deleteCategory } = useTaxonomyData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ id: '', name: '', icon: '📰' });

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { usePublicData } from '../../context/DataContext';
+import { usePublicSectionsData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
@@ -19,7 +19,7 @@ const DANGERS = [
 const emptyForm = { name: '', bounty: '', charge: '', danger: 'high' };
 
 export default function ManageMostWanted() {
-  const { wanted, addWanted, updateWanted, deleteWanted } = usePublicData();
+  const { wanted, addWanted, updateWanted, deleteWanted } = usePublicSectionsData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);

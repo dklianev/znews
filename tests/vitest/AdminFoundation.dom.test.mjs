@@ -39,6 +39,7 @@ const setSearchParamsSpy = vi.fn();
 
 vi.mock('../../src/context/DataContext', () => ({
   useAdminData: () => adminDataState,
+  useEngagementData: () => publicDataState,
   usePublicData: () => publicDataState,
   useSessionData: () => ({}),
 }));

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { usePublicData } from '../../context/DataContext';
+import { usePublicSectionsData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, CalendarClock, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
@@ -25,7 +25,7 @@ const STATUSES = [
 const emptyForm = { title: '', defendant: '', charge: '', verdict: '', judge: '', date: new Date().toISOString().slice(0, 10), details: '', severity: 'medium', status: 'scheduled', nextHearing: '' };
 
 export default function ManageCourt() {
-  const { court, addCourtCase, updateCourtCase, deleteCourtCase } = usePublicData();
+  const { court, addCourtCase, updateCourtCase, deleteCourtCase } = usePublicSectionsData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);

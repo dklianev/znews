@@ -1,5 +1,12 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
-import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
+import {
+  useAdminData,
+  useArticlesData,
+  useEngagementData,
+  usePublicSectionsData,
+  useSessionData,
+  useTaxonomyData,
+} from '../../context/DataContext';
 import { api } from '../../utils/api';
 import {
   FileText,
@@ -36,14 +43,17 @@ function AnalyticsFallback() {
 }
 
 export default function Dashboard() {
-  const { articles, authors, wanted, jobs, court, events, polls, comments, gallery, categories } = usePublicData();
+  const { articles } = useArticlesData();
+  const { authors, categories } = useTaxonomyData();
+  const { wanted, jobs, court, events, gallery } = usePublicSectionsData();
+  const { polls, comments } = useEngagementData();
   const {
     users,
     usersReady,
     ensureUsersLoaded,
     resetAll,
     hasPermission,
-    classifieds,
+    classifiedsMeta,
     ensureClassifiedsLoaded,
     tips,
     tipsReady,
@@ -153,8 +163,12 @@ export default function Dashboard() {
   );
   const intakeReady = (!canSeeTips || tipsReady) && (!canSeeContactMessages || contactMessagesReady);
   const pendingClassifieds = useMemo(
-    () => (Array.isArray(classifieds) ? classifieds : []).filter((c) => c.status === 'awaiting_payment').length,
-    [classifieds],
+    () => Number.parseInt(classifiedsMeta?.statusCounts?.awaiting_payment, 10) || 0,
+    [classifiedsMeta],
+  );
+  const totalClassifieds = useMemo(
+    () => Number.parseInt(classifiedsMeta?.statusCounts?.all, 10) || 0,
+    [classifiedsMeta],
   );
   const recentArticles = useMemo(
     () => [...articles].sort((left, right) => new Date(right.date) - new Date(left.date)).slice(0, 5),
@@ -192,7 +206,7 @@ export default function Dashboard() {
     { label: dashboardCopy.rpStats.court, value: court.length, icon: Scale, color: 'bg-violet-600', to: '/admin/court', permission: 'court' },
     { label: dashboardCopy.rpStats.events, value: events.length, icon: CalendarDays, color: 'bg-blue-600', to: '/admin/events', permission: 'events' },
     { label: dashboardCopy.rpStats.polls, value: polls.length, icon: BarChart3, color: 'bg-pink-600', to: '/admin/polls', permission: 'polls' },
-    { label: dashboardCopy.rpStats.classifieds, value: (Array.isArray(classifieds) ? classifieds : []).length, icon: Tag, color: 'bg-amber-600', badge: pendingClassifieds > 0 ? `${pendingClassifieds} ${dashboardCopy.rpStats.pendingClassifieds}` : null, to: '/admin/classifieds', permission: 'classifieds' },
+    { label: dashboardCopy.rpStats.classifieds, value: totalClassifieds, icon: Tag, color: 'bg-amber-600', badge: pendingClassifieds > 0 ? `${pendingClassifieds} ${dashboardCopy.rpStats.pendingClassifieds}` : null, to: '/admin/classifieds', permission: 'classifieds' },
   ];
 
   const visibleStats = stats.filter((stat) => !stat.permission || hasPermission(stat.permission));

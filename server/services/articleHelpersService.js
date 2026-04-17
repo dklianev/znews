@@ -12,6 +12,7 @@ export function createArticleHelpers(deps) {
     sanitizeShareAccent,
     sanitizeTags,
   } = deps;
+  const ARTICLE_REVISION_RETRY_LIMIT = 5;
 
   function sanitizeArticlePayload(payload, { partial = false } = {}) {
     const out = {};
@@ -135,31 +136,66 @@ export function createArticleHelpers(deps) {
     }
   }
 
+  function isDuplicateRevisionError(error) {
+    return Boolean(error && (error.code === 11000 || error?.name === 'MongoServerError' && error?.code === 11000));
+  }
+
+  async function pruneArticleRevisions(articleId) {
+    const recentRevisions = await ArticleRevision.find({ articleId })
+      .sort({ createdAt: -1, version: -1 })
+      .select({ _id: 0, createdAt: 1, version: 1 })
+      .limit(80)
+      .lean();
+
+    if (!Array.isArray(recentRevisions) || recentRevisions.length < 80) return;
+
+    const cutoff = recentRevisions[recentRevisions.length - 1];
+    if (!cutoff?.createdAt) return;
+
+    await ArticleRevision.deleteMany({
+      articleId,
+      $or: [
+        { createdAt: { $lt: cutoff.createdAt } },
+        {
+          createdAt: cutoff.createdAt,
+          version: { $lt: cutoff.version },
+        },
+      ],
+    });
+  }
+
   async function createArticleRevision(articleId, snapshot, { source = 'update', user = null } = {}) {
     const normalizedSnapshot = buildArticleSnapshot(snapshot);
-    const latest = await ArticleRevision.findOne({ articleId }).sort({ version: -1 }).lean();
-    if (latest?.snapshot && snapshotsEqual(latest.snapshot, normalizedSnapshot)) {
-      return latest;
+    for (let attempt = 0; attempt < ARTICLE_REVISION_RETRY_LIMIT; attempt += 1) {
+      const latest = await ArticleRevision.findOne({ articleId }).sort({ version: -1 }).lean();
+      if (latest?.snapshot && snapshotsEqual(latest.snapshot, normalizedSnapshot)) {
+        return latest;
+      }
+
+      const nextVersion = (latest?.version || 0) + 1;
+
+      try {
+        const revision = await ArticleRevision.create({
+          revisionId: randomUUID(),
+          articleId,
+          version: nextVersion,
+          source,
+          editorName: user?.name || '',
+          editorId: Number.isInteger(user?.userId) ? user.userId : null,
+          snapshot: normalizedSnapshot,
+          createdAt: new Date(),
+        });
+
+        await pruneArticleRevisions(articleId);
+        return revision.toJSON();
+      } catch (error) {
+        if (isDuplicateRevisionError(error) && attempt < ARTICLE_REVISION_RETRY_LIMIT - 1) {
+          continue;
+        }
+        throw error;
+      }
     }
-
-    const nextVersion = (latest?.version || 0) + 1;
-    const revision = await ArticleRevision.create({
-      revisionId: randomUUID(),
-      articleId,
-      version: nextVersion,
-      source,
-      editorName: user?.name || '',
-      editorId: Number.isInteger(user?.userId) ? user.userId : null,
-      snapshot: normalizedSnapshot,
-      createdAt: new Date(),
-    });
-
-    const stale = await ArticleRevision.find({ articleId }).sort({ createdAt: -1 }).skip(80).select({ revisionId: 1, _id: 0 }).lean();
-    if (stale.length > 0) {
-      await ArticleRevision.deleteMany({ revisionId: { $in: stale.map((item) => item.revisionId) } });
-    }
-
-    return revision.toJSON();
+    throw new Error('Неуспешно създаване на ревизия на статия.');
   }
 
   return {

@@ -1,17 +1,14 @@
 
 async function findUserByNormalizedUsername(User, normalizeText, username) {
-  const exactUser = await User.findOne({ username }).lean();
+  const normalizedUsername = normalizeText(username, 40).toLowerCase();
+  const exactUser = await User.findOne({
+    $or: [
+      { usernameLower: normalizedUsername },
+      { username: normalizedUsername },
+    ],
+  }).lean();
   if (exactUser) return exactUser;
-  if (typeof User.find !== 'function') return null;
-
-  const legacyCandidates = await User.find(
-    { username: { $exists: true, $ne: null } },
-    { id: 1, username: 1, role: 1, name: 1, password: 1 }
-  ).lean();
-
-  return (Array.isArray(legacyCandidates) ? legacyCandidates : []).find((candidate) => {
-    return normalizeText(candidate?.username, 40).toLowerCase() === username;
-  }) || null;
+  return null;
 }
 
 export function registerAuthRoutes(app, deps) {

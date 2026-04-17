@@ -5,6 +5,7 @@ export function createAccessHelpers({
   hasBuiltInRole,
   normalizeText,
   permissionCacheTtlMs = 5 * 60 * 1000,
+  permissionCacheMaxEntries = 64,
 }) {
   const permissionDocCache = new Map();
 
@@ -19,10 +20,23 @@ export function createAccessHelpers({
       permissionDocCache.delete(role);
       return undefined;
     }
+    permissionDocCache.delete(role);
+    permissionDocCache.set(role, cached);
     return cached.doc;
   }
 
+  function evictOldestPermissionDocCacheEntry() {
+    const oldestKey = permissionDocCache.keys().next().value;
+    if (typeof oldestKey !== 'undefined') {
+      permissionDocCache.delete(oldestKey);
+    }
+  }
+
   function writePermissionDocCache(role, doc) {
+    if (!permissionDocCache.has(role) && permissionDocCache.size >= permissionCacheMaxEntries) {
+      evictOldestPermissionDocCacheEntry();
+    }
+    permissionDocCache.delete(role);
     permissionDocCache.set(role, {
       doc,
       expiresAt: Date.now() + permissionCacheTtlMs,

@@ -1,11 +1,12 @@
 import { X, Smartphone, Monitor } from 'lucide-react';
 import { useState, useMemo } from 'react';
-import { usePublicData } from '../../context/DataContext';
+import { useSettingsData, useTaxonomyData } from '../../context/DataContext';
 import ComicNewsCard from '../ComicNewsCard';
 import { getComicCardStyle } from '../../utils/comicCardDesign';
 
 export default function LivePreviewModal({ form, onClose }) {
-    const { authors, categories, siteSettings } = usePublicData();
+    const { authors, categories } = useTaxonomyData();
+    const { siteSettings } = useSettingsData();
     const [viewMode, setViewMode] = useState('article');
     const [deviceMap, setDeviceMap] = useState('desktop');
 

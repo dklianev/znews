@@ -103,11 +103,17 @@ describe('authRoutes', () => {
         ...createLeanUser({
           id: 7,
           username: 'admin',
+          usernameLower: 'admin',
           role: 'admin',
           name: 'Admin',
           password: '$2hash',
         }, (query) => {
-          assert.deepEqual(query, { username: 'admin' });
+          assert.deepEqual(query, {
+            $or: [
+              { usernameLower: 'admin' },
+              { username: 'admin' },
+            ],
+          });
         }),
         async updateOne() {
           throw new Error('updateOne should not be called for bcrypt users');
@@ -132,7 +138,7 @@ describe('authRoutes', () => {
     });
   });
 
-  it('falls back to the legacy username lookup for bcrypt users', async () => {
+  it('uses normalized username lookup for bcrypt users', async () => {
     const app = createMockApp();
     const compared = [];
 
@@ -169,24 +175,23 @@ describe('authRoutes', () => {
       setRefreshCookie() {},
       User: {
         findOne(query) {
-          assert.deepEqual(query, { username: 'admin' });
+          assert.deepEqual(query, {
+            $or: [
+              { usernameLower: 'admin' },
+              { username: 'admin' },
+            ],
+          });
           return {
-            lean: async () => null,
-          };
-        },
-        find(query, projection) {
-          assert.deepEqual(query, { username: { $exists: true, $ne: null } });
-          assert.deepEqual(projection, { id: 1, username: 1, role: 1, name: 1, password: 1 });
-          return {
-            lean: async () => [{
+            lean: async () => ({
               id: 8,
-              username: ' Admin ',
+              username: 'Admin',
+              usernameLower: 'admin',
               role: 'admin',
               name: 'Legacy Admin',
               password: '$2legacy',
-            }],
+            }),
           };
-        },
+        }
       },
     });
 
@@ -236,6 +241,7 @@ describe('authRoutes', () => {
         ...createLeanUser({
           id: 3,
           username: 'editor',
+          usernameLower: 'editor',
           role: 'editor',
           name: 'Editor',
           password: 'legacy-pass',

@@ -40,7 +40,7 @@ export function createUsersRouter(deps) {
       });
     }
 
-    const existing = await User.findOne({ username }).lean();
+    const existing = await User.findOne({ usernameLower: username }).lean();
     if (existing) {
       return res.status(409).json({
         error: 'Потребителското име вече съществува.',
@@ -59,6 +59,7 @@ export function createUsersRouter(deps) {
     const item = await User.create({
       id,
       username,
+      usernameLower: username,
       password: await bcrypt.hash(password, 10),
       name,
       role,
@@ -100,11 +101,12 @@ export function createUsersRouter(deps) {
       if (!username) {
         fieldErrors.username = 'Потребителското име е задължително.';
       } else {
-        const existing = await User.findOne({ username, id: { $ne: id } }).lean();
+        const existing = await User.findOne({ usernameLower: username, id: { $ne: id } }).lean();
         if (existing) {
           fieldErrors.username = 'Потребителското име вече съществува.';
         } else {
           data.username = username;
+          data.usernameLower = username;
         }
       }
     }

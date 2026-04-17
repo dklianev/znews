@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { usePublicData } from '../../context/DataContext';
+import { useArticlesData, useTaxonomyData } from '../../context/DataContext';
 import { Clock3, FilePenLine, Send, CalendarClock, CirclePause, Loader2, ClipboardList } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
@@ -25,7 +25,8 @@ function toLocalDateLabel(value) {
 }
 
 export default function EditorialQueue() {
-  const { articles, categories, authors, updateArticle } = usePublicData();
+  const { articles, updateArticle } = useArticlesData();
+  const { categories, authors } = useTaxonomyData();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = readEnumSearchParam(searchParams, 'tab', ['drafts', 'scheduled', 'today'], 'drafts');
   const query = readSearchParam(searchParams, 'q', '');

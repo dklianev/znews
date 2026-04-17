@@ -80,8 +80,13 @@ function installLocalStorageStub() {
 
 vi.mock('../../src/context/DataContext', () => ({
   useAdminData: () => adminDataState,
+  useArticlesData: () => publicDataState,
+  useEngagementData: () => publicDataState,
+  usePublicSectionsData: () => publicDataState,
+  useSettingsData: () => publicDataState,
   usePublicData: () => publicDataState,
   useSessionData: () => sessionState,
+  useTaxonomyData: () => publicDataState,
 }));
 
 vi.mock('../../src/components/admin/Toast', () => ({

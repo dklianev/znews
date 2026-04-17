@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { usePublicData } from '../../context/DataContext';
+import { useSettingsData } from '../../context/DataContext';
 import { Plus, Trash2, X, Save, AlertTriangle, Newspaper, FileText, Check, Loader2 } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
@@ -39,7 +39,7 @@ function normalizeArticleSuggestions(payload) {
 }
 
 export default function ManageBreaking() {
-  const { breaking, saveBreaking } = usePublicData();
+  const { breaking, saveBreaking } = useSettingsData();
   const [items, setItems] = useState(() => toTickerItems(breaking));
   const [newItem, setNewItem] = useState('');
   const [hasChanges, setHasChanges] = useState(false);

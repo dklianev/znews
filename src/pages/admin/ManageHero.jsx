@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAdminData, usePublicData } from '../../context/DataContext';
+import { useAdminData, useArticlesData, useSettingsData, useTaxonomyData } from '../../context/DataContext';
 import { Crown, Search, Save, X, ExternalLink, Flame, History, RotateCcw, AlertTriangle, Loader2, Megaphone, Clock, Eye } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
@@ -53,15 +53,9 @@ const HERO_REVISION_COMPARE_FIELDS = [
 ];
 
 export default function ManageHero() {
-  const {
-    articles,
-    categories,
-    authors,
-    breaking,
-    updateArticle,
-    heroSettings,
-    saveHeroSettings,
-  } = usePublicData();
+  const { articles, updateArticle } = useArticlesData();
+  const { categories, authors } = useTaxonomyData();
+  const { breaking, heroSettings, saveHeroSettings } = useSettingsData();
   const {
     heroSettingsRevisions,
     loadHeroSettingsRevisions,

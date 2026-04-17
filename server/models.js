@@ -1,5 +1,12 @@
 import mongoose from 'mongoose';
 import { AD_ANALYTICS_RETENTION_DAYS, AD_EVENT_TYPES } from '../shared/adAnalytics.js';
+import {
+  deriveArticlePublishAtDate,
+  normalizeClassifiedPriceValue,
+  normalizeSearchField,
+  normalizeSearchList,
+  normalizeUsernameLower,
+} from './services/derivedFieldsService.js';
 
 const opts = {
   toJSON: {
@@ -11,11 +18,31 @@ const opts = {
   },
 };
 
+function getUpdatedField(update, key) {
+  if (!update || typeof update !== 'object') return undefined;
+  if (Object.prototype.hasOwnProperty.call(update, key)) return update[key];
+  if (update.$set && Object.prototype.hasOwnProperty.call(update.$set, key)) return update.$set[key];
+  return undefined;
+}
+
+function hasUpdatedField(update, key) {
+  if (!update || typeof update !== 'object') return false;
+  return Object.prototype.hasOwnProperty.call(update, key)
+    || Boolean(update.$set && Object.prototype.hasOwnProperty.call(update.$set, key));
+}
+
+function setDerivedUpdateField(update, key, value) {
+  if (!update || typeof update !== 'object') return;
+  update.$set = update.$set || {};
+  update.$set[key] = value;
+}
+
 // ÄÄÄ Article ÄÄÄ
 const articleSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
   slug: String,
   title: String,
+  titleSearch: { type: String, default: '' },
   excerpt: String,
   content: { type: String, maxlength: 100000 },
   category: { type: String, index: true },
@@ -43,6 +70,8 @@ const articleSchema = new mongoose.Schema({
   deletedAt: { type: Date, default: null },
   deletedBy: { type: String, default: null },
   publishAt: { type: Date, default: null, index: true },
+  publishAtDate: { type: Date, default: null, index: true },
+  tagsSearch: { type: [String], default: [] },
   shareTitle: { type: String, default: '' },
   shareSubtitle: { type: String, default: '' },
   shareBadge: { type: String, default: '' },
@@ -62,11 +91,52 @@ articleSchema.index(
   }
 );
 articleSchema.index({ status: 1, publishAt: -1, id: -1 }, { name: 'article_publish_sort' });
+articleSchema.index({ status: 1, publishAtDate: -1, id: -1 }, { name: 'article_publish_sort_v2' });
 articleSchema.index({ hero: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_hero_publish_sort' });
 articleSchema.index({ featured: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_featured_publish_sort' });
 articleSchema.index({ breaking: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_breaking_publish_sort' });
 articleSchema.index({ sponsored: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_sponsored_publish_sort' });
 articleSchema.index({ category: 1, status: 1, publishAt: -1, id: -1 }, { name: 'article_category_publish_sort' });
+articleSchema.index({ status: 1, titleSearch: 1, publishAtDate: -1, id: -1 }, { name: 'article_title_search_prefix' });
+articleSchema.index({ status: 1, tagsSearch: 1, publishAtDate: -1, id: -1 }, { name: 'article_tags_search_prefix' });
+
+articleSchema.pre('validate', function syncArticleDerivedFields(next) {
+  this.titleSearch = normalizeSearchField(this.title, 240);
+  this.tagsSearch = normalizeSearchList(this.tags, 64, 24);
+  this.publishAtDate = deriveArticlePublishAtDate(this);
+  next();
+});
+
+articleSchema.pre('findOneAndUpdate', async function syncArticleDerivedFieldsOnUpdate(next) {
+  const update = this.getUpdate();
+  if (!update || typeof update !== 'object') {
+    next();
+    return;
+  }
+
+  if (hasUpdatedField(update, 'title')) {
+    setDerivedUpdateField(update, 'titleSearch', normalizeSearchField(getUpdatedField(update, 'title'), 240));
+  }
+  if (hasUpdatedField(update, 'tags')) {
+    setDerivedUpdateField(update, 'tagsSearch', normalizeSearchList(getUpdatedField(update, 'tags'), 64, 24));
+  }
+
+  if (hasUpdatedField(update, 'publishAt') || hasUpdatedField(update, 'date')) {
+    let publishAt = getUpdatedField(update, 'publishAt');
+    let date = getUpdatedField(update, 'date');
+
+    if (publishAt === undefined || date === undefined) {
+      const existing = await this.model.findOne(this.getQuery()).select({ _id: 0, publishAt: 1, date: 1 }).lean();
+      if (publishAt === undefined) publishAt = existing?.publishAt;
+      if (date === undefined) date = existing?.date;
+    }
+
+    setDerivedUpdateField(update, 'publishAtDate', deriveArticlePublishAtDate({ publishAt, date }));
+  }
+
+  this.setUpdate(update);
+  next();
+});
 
 // ÄÄÄ Author ÄÄÄ
 const authorSchema = new mongoose.Schema({
@@ -100,12 +170,49 @@ const categorySchema = new mongoose.Schema({
     trim: true,
     maxlength: [80, 'Името трябва да е до 80 символа.'],
   },
+  nameSearch: {
+    type: String,
+    default: '',
+  },
+  idSearch: {
+    type: String,
+    default: '',
+  },
   icon: {
     type: String,
     trim: true,
     maxlength: [16, 'Иконата трябва да е до 16 символа.'],
   },
 }, opts);
+categorySchema.index(
+  { name: 'text', id: 'text' },
+  { name: 'category_text', weights: { name: 6, id: 4 }, default_language: 'none' }
+);
+categorySchema.index({ nameSearch: 1 }, { name: 'category_name_search' });
+categorySchema.index({ idSearch: 1 }, { name: 'category_id_search' });
+
+categorySchema.pre('validate', function syncCategorySearchFields(next) {
+  this.nameSearch = normalizeSearchField(this.name, 120);
+  this.idSearch = normalizeSearchField(this.id, 80);
+  next();
+});
+
+categorySchema.pre('findOneAndUpdate', function syncCategorySearchFieldsOnUpdate(next) {
+  const update = this.getUpdate();
+  if (!update || typeof update !== 'object') {
+    next();
+    return;
+  }
+
+  if (hasUpdatedField(update, 'name')) {
+    setDerivedUpdateField(update, 'nameSearch', normalizeSearchField(getUpdatedField(update, 'name'), 120));
+  }
+  if (hasUpdatedField(update, 'id')) {
+    setDerivedUpdateField(update, 'idSearch', normalizeSearchField(getUpdatedField(update, 'id'), 80));
+  }
+  this.setUpdate(update);
+  next();
+});
 
 // ÄÄÄ Ad ÄÄÄ
 const adTargetingSchema = new mongoose.Schema({
@@ -191,6 +298,13 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     maxlength: [40, 'Потребителското име трябва да е до 40 символа.'],
   },
+  usernameLower: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    maxlength: [40, 'Нормализираното потребителско име трябва да е до 40 символа.'],
+    sparse: true,
+  },
   password: {
     type: String,
     required: [true, 'Паролата е задължителна.'],
@@ -228,19 +342,81 @@ const userSchema = new mongoose.Schema({
     },
   },
 });
+userSchema.index({ usernameLower: 1 }, { unique: true, sparse: true, name: 'user_username_lower' });
+
+userSchema.pre('validate', function syncUsernameLower(next) {
+  this.usernameLower = normalizeUsernameLower(this.username);
+  next();
+});
+
+userSchema.pre('findOneAndUpdate', function syncUsernameLowerOnUpdate(next) {
+  const update = this.getUpdate();
+  if (!update || typeof update !== 'object') {
+    next();
+    return;
+  }
+
+  const nextUsername = Object.prototype.hasOwnProperty.call(update, 'username')
+    ? update.username
+    : update.$set?.username;
+  if (typeof nextUsername !== 'string') {
+    next();
+    return;
+  }
+
+  const usernameLower = normalizeUsernameLower(nextUsername);
+  if (Object.prototype.hasOwnProperty.call(update, 'username')) {
+    update.username = usernameLower;
+    update.usernameLower = usernameLower;
+  } else {
+    update.$set = update.$set || {};
+    update.$set.username = usernameLower;
+    update.$set.usernameLower = usernameLower;
+  }
+
+  this.setUpdate(update);
+  next();
+});
 
 // ─── Wanted ───
 const wantedSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
   name: String,
+  nameSearch: { type: String, default: '' },
   bounty: String,
   charge: String,
+  chargeSearch: { type: String, default: '' },
   danger: String,
 }, opts);
 wantedSchema.index(
   { name: 'text', charge: 'text', danger: 'text' },
   { name: 'wanted_text', weights: { name: 8, charge: 5, danger: 2 }, default_language: 'none' }
 );
+wantedSchema.index({ nameSearch: 1, id: -1 }, { name: 'wanted_name_search' });
+wantedSchema.index({ chargeSearch: 1, id: -1 }, { name: 'wanted_charge_search' });
+
+wantedSchema.pre('validate', function syncWantedSearchFields(next) {
+  this.nameSearch = normalizeSearchField(this.name, 160);
+  this.chargeSearch = normalizeSearchField(this.charge, 160);
+  next();
+});
+
+wantedSchema.pre('findOneAndUpdate', function syncWantedSearchFieldsOnUpdate(next) {
+  const update = this.getUpdate();
+  if (!update || typeof update !== 'object') {
+    next();
+    return;
+  }
+
+  if (hasUpdatedField(update, 'name')) {
+    setDerivedUpdateField(update, 'nameSearch', normalizeSearchField(getUpdatedField(update, 'name'), 160));
+  }
+  if (hasUpdatedField(update, 'charge')) {
+    setDerivedUpdateField(update, 'chargeSearch', normalizeSearchField(getUpdatedField(update, 'charge'), 160));
+  }
+  this.setUpdate(update);
+  next();
+});
 
 // ─── Job ───
 const jobSchema = new mongoose.Schema({
@@ -251,12 +427,14 @@ const jobSchema = new mongoose.Schema({
     trim: true,
     maxlength: [120, 'Заглавието трябва да е до 120 символа.'],
   },
+  titleSearch: { type: String, default: '' },
   org: {
     type: String,
     required: [true, 'Организацията е задължителна.'],
     trim: true,
     maxlength: [120, 'Организацията трябва да е до 120 символа.'],
   },
+  orgSearch: { type: String, default: '' },
   type: {
     type: String,
     required: [true, 'Типът е задължителен.'],
@@ -295,12 +473,39 @@ jobSchema.index(
   { name: 'job_text', weights: { title: 8, org: 6, description: 4, requirements: 2 }, default_language: 'none' }
 );
 jobSchema.index({ active: 1, id: -1 }, { name: 'job_active_id' });
+jobSchema.index({ titleSearch: 1, id: -1 }, { name: 'job_title_search' });
+jobSchema.index({ orgSearch: 1, id: -1 }, { name: 'job_org_search' });
+
+jobSchema.pre('validate', function syncJobSearchFields(next) {
+  this.titleSearch = normalizeSearchField(this.title, 180);
+  this.orgSearch = normalizeSearchField(this.org, 180);
+  next();
+});
+
+jobSchema.pre('findOneAndUpdate', function syncJobSearchFieldsOnUpdate(next) {
+  const update = this.getUpdate();
+  if (!update || typeof update !== 'object') {
+    next();
+    return;
+  }
+
+  if (hasUpdatedField(update, 'title')) {
+    setDerivedUpdateField(update, 'titleSearch', normalizeSearchField(getUpdatedField(update, 'title'), 180));
+  }
+  if (hasUpdatedField(update, 'org')) {
+    setDerivedUpdateField(update, 'orgSearch', normalizeSearchField(getUpdatedField(update, 'org'), 180));
+  }
+  this.setUpdate(update);
+  next();
+});
 
 // ─── Court ───
 const courtSchema = new mongoose.Schema({
   id: { type: Number, required: true, unique: true },
   title: String,
+  titleSearch: { type: String, default: '' },
   defendant: String,
+  defendantSearch: { type: String, default: '' },
   charge: String,
   verdict: String,
   judge: String,
@@ -315,6 +520,31 @@ courtSchema.index(
   { name: 'court_text', weights: { title: 7, defendant: 6, charge: 6, details: 3, verdict: 2 }, default_language: 'none' }
 );
 courtSchema.index({ status: 1, id: -1 }, { name: 'court_status_id' });
+courtSchema.index({ titleSearch: 1, id: -1 }, { name: 'court_title_search' });
+courtSchema.index({ defendantSearch: 1, id: -1 }, { name: 'court_defendant_search' });
+
+courtSchema.pre('validate', function syncCourtSearchFields(next) {
+  this.titleSearch = normalizeSearchField(this.title, 180);
+  this.defendantSearch = normalizeSearchField(this.defendant, 180);
+  next();
+});
+
+courtSchema.pre('findOneAndUpdate', function syncCourtSearchFieldsOnUpdate(next) {
+  const update = this.getUpdate();
+  if (!update || typeof update !== 'object') {
+    next();
+    return;
+  }
+
+  if (hasUpdatedField(update, 'title')) {
+    setDerivedUpdateField(update, 'titleSearch', normalizeSearchField(getUpdatedField(update, 'title'), 180));
+  }
+  if (hasUpdatedField(update, 'defendant')) {
+    setDerivedUpdateField(update, 'defendantSearch', normalizeSearchField(getUpdatedField(update, 'defendant'), 180));
+  }
+  this.setUpdate(update);
+  next();
+});
 
 // ─── Event ───
 const eventSchema = new mongoose.Schema({
@@ -325,6 +555,7 @@ const eventSchema = new mongoose.Schema({
     trim: true,
     maxlength: [120, 'Заглавието трябва да е до 120 символа.'],
   },
+  titleSearch: { type: String, default: '' },
   description: {
     type: String,
     trim: true,
@@ -347,6 +578,7 @@ const eventSchema = new mongoose.Schema({
     trim: true,
     maxlength: [160, 'Локацията трябва да е до 160 символа.'],
   },
+  locationSearch: { type: String, default: '' },
   organizer: {
     type: String,
     trim: true,
@@ -368,6 +600,31 @@ eventSchema.index(
   { name: 'event_text', weights: { title: 8, location: 6, organizer: 4, type: 3, description: 2 }, default_language: 'none' }
 );
 eventSchema.index({ type: 1, id: -1 }, { name: 'event_type_id' });
+eventSchema.index({ titleSearch: 1, id: -1 }, { name: 'event_title_search' });
+eventSchema.index({ locationSearch: 1, id: -1 }, { name: 'event_location_search' });
+
+eventSchema.pre('validate', function syncEventSearchFields(next) {
+  this.titleSearch = normalizeSearchField(this.title, 180);
+  this.locationSearch = normalizeSearchField(this.location, 180);
+  next();
+});
+
+eventSchema.pre('findOneAndUpdate', function syncEventSearchFieldsOnUpdate(next) {
+  const update = this.getUpdate();
+  if (!update || typeof update !== 'object') {
+    next();
+    return;
+  }
+
+  if (hasUpdatedField(update, 'title')) {
+    setDerivedUpdateField(update, 'titleSearch', normalizeSearchField(getUpdatedField(update, 'title'), 180));
+  }
+  if (hasUpdatedField(update, 'location')) {
+    setDerivedUpdateField(update, 'locationSearch', normalizeSearchField(getUpdatedField(update, 'location'), 180));
+  }
+  this.setUpdate(update);
+  next();
+});
 
 // ─── Poll ───
 const pollOptionSchema = new mongoose.Schema({
@@ -477,6 +734,10 @@ const contactMessageSchema = new mongoose.Schema({
 
 contactMessageSchema.index({ status: 1, createdAt: -1, id: -1 }, { name: 'contact_status_createdAt_id' });
 contactMessageSchema.index({ requestKind: 1, createdAt: -1, id: -1 }, { name: 'contact_requestKind_createdAt_id' });
+contactMessageSchema.index(
+  { requestKind: 1, relatedArticleId: 1, responseArticleStatus: 1, lastActionAt: -1, createdAt: -1, id: -1 },
+  { name: 'contact_right_of_reply_lookup' }
+);
 
 // ─── Gallery ───
 const gallerySchema = new mongoose.Schema({
@@ -743,6 +1004,7 @@ const classifiedSchema = new mongoose.Schema({
     enum: ['cars', 'properties', 'services', 'looking-for', 'selling', 'other'],
   },
   price: { type: String, trim: true, maxlength: [60, 'Цената трябва да е до 60 символа.'] },
+  priceValue: { type: Number, default: null, index: true },
   phone: {
     type: String,
     required: [true, 'Телефонът е задължителен.'],
@@ -778,6 +1040,40 @@ classifiedSchema.index(
 );
 classifiedSchema.index({ status: 1, expiresAt: -1, id: -1 }, { name: 'classified_status_expiry' });
 classifiedSchema.index({ status: 1, category: 1, id: -1 }, { name: 'classified_status_category' });
+classifiedSchema.index({ status: 1, priceValue: 1, id: -1 }, { name: 'classified_status_price' });
+classifiedSchema.index({ status: 1, category: 1, priceValue: 1, id: -1 }, { name: 'classified_status_category_price' });
+
+classifiedSchema.pre('validate', function syncClassifiedPriceValue(next) {
+  this.priceValue = normalizeClassifiedPriceValue(this.price);
+  next();
+});
+
+classifiedSchema.pre('findOneAndUpdate', function syncClassifiedPriceValueOnUpdate(next) {
+  const update = this.getUpdate();
+  if (!update || typeof update !== 'object') {
+    next();
+    return;
+  }
+
+  const nextPrice = Object.prototype.hasOwnProperty.call(update, 'price')
+    ? update.price
+    : update.$set?.price;
+  if (typeof nextPrice === 'undefined') {
+    next();
+    return;
+  }
+
+  const priceValue = normalizeClassifiedPriceValue(nextPrice);
+  if (Object.prototype.hasOwnProperty.call(update, 'price')) {
+    update.priceValue = priceValue;
+  } else {
+    update.$set = update.$set || {};
+    update.$set.priceValue = priceValue;
+  }
+
+  this.setUpdate(update);
+  next();
+});
 
 // ─── Web Push Subscription ───
 const pushSubscriptionSchema = new mongoose.Schema({

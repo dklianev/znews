@@ -5,7 +5,7 @@ import { Newspaper, RefreshCw, Clock3 } from 'lucide-react';
 import TrendingSidebar from '../components/TrendingSidebar';
 import AdSlot from '../components/ads/AdSlot';
 import ComicNewsCard from '../components/ComicNewsCard';
-import { usePublicData } from '../context/DataContext';
+import { useArticlesData, useSettingsData } from '../context/DataContext';
 import { api } from '../utils/api';
 import { getComicCardStyle } from '../utils/comicCardDesign';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -49,7 +49,8 @@ function LatestCardSkeleton() {
 }
 
 export default function LatestPage() {
-  const { ads, siteSettings, loading } = usePublicData();
+  const { loading } = useArticlesData();
+  const { ads, siteSettings } = useSettingsData();
   const layoutPresets = siteSettings?.layoutPresets || {};
   const [searchParams, setSearchParams] = useSearchParams();
   const [latestArticles, setLatestArticles] = useState([]);

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Tag, Phone, User, Clock, DollarSign, Star, ChevronLeft, ChevronRight, Copy, Check, Camera, ArrowLeft, X } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { usePublicSectionsData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useEntryHeadingScroll } from '../hooks/useEntryHeadingScroll';
 import { addRecentlyViewed, useRecentlyViewed } from '../hooks/useRecentlyViewed';
@@ -124,7 +124,7 @@ function ImageGallery({ images }) {
 
 export default function ClassifiedDetailPage() {
   const { id } = useParams();
-  const { loadClassifiedDetail, loadClassifieds } = usePublicData();
+  const { loadClassifiedDetail, loadClassifieds } = usePublicSectionsData();
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

@@ -770,9 +770,10 @@ function EndScreen({ gameStatus, finalPoints, score, totalQ, currentQ, questions
         <div className="mb-8 flex flex-wrap justify-center gap-2">
           {answers.map((ans, idx) => {
             const correct = idx < questions.length && ans === questions[idx].correctIndex;
+            const questionKey = questions[idx]?.id || questions[idx]?.question || `q-${idx + 1}`;
             return (
               <div
-                key={idx}
+                key={`${questionKey}:${ans}:${idx}`}
                 className={`flex h-9 w-9 items-center justify-center rounded-xl border text-xs font-black ${
                   correct
                     ? 'border-emerald-400/35 bg-emerald-400/14 text-emerald-200'

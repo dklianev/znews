@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { usePublicData } from '../../context/DataContext';
+import { usePublicSectionsData } from '../../context/DataContext';
 import { Image, Plus, Trash2, Edit3, Star, StarOff, X, AlertTriangle } from 'lucide-react';
 import AdminImageField from '../../components/admin/AdminImageField';
 import { useToast } from '../../components/admin/Toast';
@@ -33,7 +33,7 @@ function parseGalleryDate(value) {
 }
 
 export default function ManageGallery() {
-  const { gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem } = usePublicData();
+  const { gallery, addGalleryItem, updateGalleryItem, deleteGalleryItem } = usePublicSectionsData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyItem);

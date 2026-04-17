@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Pencil, Trash2, X, Save, ExternalLink, ImageIcon, AlertTriangle, Loader2, Eye, Info } from 'lucide-react';
-import { usePublicData } from '../../context/DataContext';
+import { useArticlesData, useSettingsData, useTaxonomyData } from '../../context/DataContext';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
 import { AD_PAGE_TYPES, AD_SLOT_DEFINITIONS, AD_STATUS_OPTIONS, getAdSlot } from '../../../shared/adSlots.js';
@@ -365,7 +365,9 @@ function serializeAdDraft(form) {
 }
 
 export default function ManageAds() {
-  const { ads, categories, articles, addAd, updateAd, deleteAd } = usePublicData();
+  const { ads, addAd, updateAd, deleteAd } = useSettingsData();
+  const { categories } = useTaxonomyData();
+  const { articles } = useArticlesData();
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(() => normalizeAdForm(emptyForm));
   const [saving, setSaving] = useState(false);

@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Tag, Car, Building, Wrench, Search, Package, ShoppingCart, Plus, Phone, User, Clock, DollarSign, Star, ChevronLeft, ChevronRight, Camera } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { usePublicSectionsData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useRecentlyViewed } from '../hooks/useRecentlyViewed';
 import EasterDecorations from '../components/seasonal/EasterDecorations';
+import { copyToClipboard } from '../utils/copyToClipboard';
 
 const CATEGORIES = [
   { value: '', label: 'Всички', icon: Tag },
@@ -47,18 +48,8 @@ function CopyPhoneButton({ phone }) {
   const handleCopy = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(phone);
-    } catch {
-      const ta = document.createElement('textarea');
-      ta.value = phone;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    }
+    const didCopy = await copyToClipboard(phone);
+    if (!didCopy) return;
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -237,7 +228,7 @@ function ClassifiedCard({ item }) {
 
 export default function ClassifiedsPage() {
   useDocumentTitle(makeTitle('Малки обяви'));
-  const { loadClassifieds, publicSectionStatus } = usePublicData();
+  const { loadClassifieds, publicSectionStatus } = usePublicSectionsData();
   const { items: recentItems } = useRecentlyViewed();
 
   const [items, setItems] = useState([]);

@@ -9,29 +9,29 @@ import { formatNewsDate } from '../utils/newsDate';
 const defaultFallbackImg = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" fill="%23EDE6DA"><rect width="800" height="450"/><text x="400" y="225" text-anchor="middle" font-family="Oswald,sans-serif" font-size="28" font-weight="900" fill="%23C4B49A">zNews</text></svg>');
 
 function ColorTitle({ text }) {
-    const words = text.split(' ');
-    return (
-        <span>
-            {words.map((word, i) => (
-                <span key={i} className={i % 3 !== 0 ? 'hero-title-dark-word' : undefined} style={{ color: i % 3 === 0 ? '#CC0A1A' : '#1C1428', WebkitTextStroke: i % 3 === 0 ? '1px rgba(153,8,19,0.3)' : 'none' }}>
-                    {word}{' '}
-                </span>
-            ))}
+  const words = text.split(' ');
+  return (
+    <span>
+      {words.map((word, i) => (
+        <span key={i} className={i % 3 !== 0 ? 'hero-title-dark-word' : undefined} style={{ color: i % 3 === 0 ? '#CC0A1A' : '#1C1428', WebkitTextStroke: i % 3 === 0 ? '1px rgba(153,8,19,0.3)' : 'none' }}>
+          {word}{' '}
         </span>
-    );
+      ))}
+    </span>
+  );
 }
 
 export default function HeroSection({ article, author, category, heroPhotoArticle, siblingArticles = [], heroSettings, fallbackImg = defaultFallbackImg }) {
-    if (!article) return null;
-    const mainPhoto = heroPhotoArticle || article;
-    const captions = Array.isArray(heroSettings?.captions) && heroSettings.captions.length === 3
-        ? heroSettings.captions
-        : ['В КОЛАТА НА ПОЛИЦАЯ!', 'ГОРЕЩА ПРЕГРЪДКА!', 'ТАЙНА СРЕЩА В ПАРКА!'];
-    const headline = (heroSettings?.headline || 'ТАЙНИ СРЕЩИ НА ПЛАЖА\nИ ПАРКА!').split('\n').filter(Boolean);
-    const shockLabel = heroSettings?.shockLabel || 'ШОК!';
-    const ctaLabel = heroSettings?.ctaLabel || 'РАЗКРИЙ ВСИЧКО ТУК!';
-    const heroTitleScale = useMemo(() => normalizeHeroTitleScale(heroSettings?.heroTitleScale), [heroSettings?.heroTitleScale]);
-    const heroTitleFontSize = useMemo(() => buildScaledClamp('2.8rem', '8vw', '6.5rem', heroTitleScale), [heroTitleScale]);
+  if (!article) return null;
+  const mainPhoto = heroPhotoArticle || article;
+  const captions = Array.isArray(heroSettings?.captions) && heroSettings.captions.length === 3
+    ? heroSettings.captions
+    : ['В КОЛАТА НА ПОЛИЦАЯ!', 'ГОРЕЩА ПРЕГРЪДКА!', 'ТАЙНА СРЕЩА В ПАРКА!'];
+  const headline = (heroSettings?.headline || 'ТАЙНИ СРЕЩИ НА ПЛАЖА\nИ ПАРКА!').split('\n').filter(Boolean);
+  const shockLabel = heroSettings?.shockLabel || 'ШОК!';
+  const ctaLabel = heroSettings?.ctaLabel || 'РАЗКРИЙ ВСИЧКО ТУК!';
+  const heroTitleScale = useMemo(() => normalizeHeroTitleScale(heroSettings?.heroTitleScale), [heroSettings?.heroTitleScale]);
+  const heroTitleFontSize = useMemo(() => buildScaledClamp('2.8rem', '8vw', '6.5rem', heroTitleScale), [heroTitleScale]);
 
     return (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="newspaper-page relative comic-panel comic-dots hero-sunset-bg">
@@ -91,16 +91,17 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                                 <div className="tape tape-tl" />
                                 <div className="relative overflow-hidden" style={{ height: '320px' }}>
                                     <ResponsiveImage
-                                        src={siblingArticles[0].image}
-                                        pipeline={siblingArticles[0].imageMeta}
-                                        fallbackSrc={fallbackImg}
-                                        alt={siblingArticles[0].title}
-                                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                                        pictureClassName="block w-full h-full"
-                                        sizes="(max-width: 640px) 100vw, 50vw"
-                                        loading="lazy"
-                                    />
-                                    <div className="photo-caption">{captions[1]}</div>
+                                    src={siblingArticles[0].image}
+                                    pipeline={siblingArticles[0].imageMeta}
+                                    fallbackSrc={fallbackImg}
+                                    alt={siblingArticles[0].title}
+                                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                                    pictureClassName="block w-full h-full"
+                                    sizes="(max-width: 640px) 100vw, 50vw"
+                                    loading="eager"
+                                    fetchPriority="high"
+                                  />
+                                  <div className="photo-caption">{captions[1]}</div>
                                 </div>
                             </div>
                         </Link>
@@ -138,7 +139,8 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                                             pictureClassName="block w-full h-full"
                                             sizes="(max-width: 768px) 100vw, 42vw"
-                                            loading="lazy"
+                                            loading="eager"
+                                            fetchPriority="high"
                                         />
                                         <div className="photo-caption">{captions[2]}</div>
                                     </div>
@@ -153,7 +155,8 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                                         className="w-full h-full object-cover"
                                         pictureClassName="block w-full h-full"
                                         sizes="(max-width: 768px) 100vw, 42vw"
-                                        loading="lazy"
+                                        loading="eager"
+                                        fetchPriority="high"
                                     />
                                     <div className="photo-caption">{captions[2]}</div>
                                 </div>

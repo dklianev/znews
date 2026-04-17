@@ -413,10 +413,6 @@ export function createArticlesPublicRouter(deps) {
 
     const filter = { id, ...getPublishedFilter() };
 
-    // Verify article exists and is published before consuming a dedup slot
-    const exists = await Article.exists(filter);
-    if (!exists) return res.status(404).json({ error: 'Not found' });
-
     ensureReactionClientId(req, res);
     const windowKey = getWindowKey(articleReactionWindowMs);
     const currentReactionDocs = await loadReactionDocs(req, id, windowKey);
@@ -469,9 +465,6 @@ export function createArticlesPublicRouter(deps) {
     }
 
     const filter = { id, ...getPublishedFilter() };
-    const exists = await Article.exists(filter);
-    if (!exists) return res.status(404).json({ error: 'Not found' });
-
     ensureReactionClientId(req, res);
     const windowKey = getWindowKey(articleReactionWindowMs);
     const currentReactionDocs = await loadReactionDocs(req, id, windowKey);

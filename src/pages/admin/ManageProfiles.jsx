@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
+import { useAdminData, useArticlesData, useSessionData, useTaxonomyData } from '../../context/DataContext';
 import { Plus, Pencil, Trash2, X, Save, AlertTriangle, Search, Phone, Mail } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import AdminImageField from '../../components/admin/AdminImageField';
@@ -103,7 +103,8 @@ function serializeAuthorEditorState(form) {
 }
 
 export default function ManageProfiles() {
-  const { authors, articles, addAuthor, updateAuthor, deleteAuthor } = usePublicData();
+  const { authors, addAuthor, updateAuthor, deleteAuthor } = useTaxonomyData();
+  const { articles } = useArticlesData();
   const { users, ensureUsersLoaded, addUser, updateUser, deleteUser, permissions, createRole } = useAdminData();
   const { session } = useSessionData();
   const canManageUsers = session?.role === 'admin';

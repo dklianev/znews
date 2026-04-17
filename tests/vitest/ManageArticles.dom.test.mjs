@@ -73,6 +73,12 @@ const restore = vi.fn(async (id) => {
 });
 
 vi.mock('../../src/context/DataContext', () => ({
+  useArticlesData: () => ({
+    addArticle,
+    updateArticle,
+    deleteArticle,
+    refresh,
+  }),
   usePublicData: () => ({
     authors: [{ id: 1, name: 'Автор', role: 'Редактор' }],
     categories: [{ id: 'crime', name: 'Криминални' }],
@@ -86,6 +92,10 @@ vi.mock('../../src/context/DataContext', () => ({
     loadArticleRevisions,
     autosaveArticleRevision: vi.fn(),
     restoreArticleRevision: vi.fn(),
+  }),
+  useTaxonomyData: () => ({
+    authors: [{ id: 1, name: 'Автор', role: 'Редактор' }],
+    categories: [{ id: 'crime', name: 'Криминални' }],
   }),
 }));
 

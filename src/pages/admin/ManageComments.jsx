@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { usePublicData } from '../../context/DataContext';
+import { useArticlesData, useEngagementData } from '../../context/DataContext';
 import { Check, Trash2, XCircle, Eye, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../components/admin/Toast';
 import { useConfirm } from '../../components/admin/ConfirmDialog';
@@ -61,7 +61,8 @@ const commentsReducer = (current, mutation) => {
 };
 
 export default function ManageComments() {
-  const { comments, articles, updateComment, deleteComment } = usePublicData();
+  const { comments, updateComment, deleteComment } = useEngagementData();
+  const { articles } = useArticlesData();
   const [searchParams, setSearchParams] = useSearchParams();
   const [busyId, setBusyId] = useState(null);
   const [bulkActionLabel, setBulkActionLabel] = useState('');

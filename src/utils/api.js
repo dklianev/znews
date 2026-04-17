@@ -651,7 +651,7 @@ export const api = {
     }),
     requestBump: (id) => request(`/classifieds/${id}/bump`, { method: 'POST' }),
     requestRenew: (id) => request(`/classifieds/${id}/renew`, { method: 'POST' }),
-    getAll: () => request('/admin/classifieds'),
+    getAll: (params) => request(`/admin/classifieds${toQuery(params)}`),
     approve: (id, paidBy) => request(`/admin/classifieds/${id}/approve`, {
       method: 'PATCH',
       body: JSON.stringify({ paidBy }),

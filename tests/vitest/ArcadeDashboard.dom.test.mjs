@@ -13,6 +13,11 @@ let publicDataState = {};
 
 vi.mock('../../src/context/DataContext', () => ({
   usePublicData: () => publicDataState,
+  usePublicSectionsData: () => ({
+    games: publicDataState.games || [],
+    publicSectionStatus: publicDataState.publicSectionStatus || { games: 'idle' },
+    loadGamesCatalog: publicDataState.loadGamesCatalog || loadGamesCatalog,
+  }),
   useSettingsData: () => ({
     siteSettings: publicDataState.siteSettings || null,
   }),
@@ -72,6 +77,12 @@ describe('ArcadeDashboard', () => {
     loadScopedGameProgress.mockReturnValue(null);
 
     ({ root, container } = await renderIntoBody(GameTetrisPage));
+    await flushEffects();
+    await act(async () => {
+      await vi.dynamicImportSettled();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
 
     const startButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Старт'));
     await click(startButton);

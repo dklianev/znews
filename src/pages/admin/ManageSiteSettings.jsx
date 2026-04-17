@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
-import { useAdminData, usePublicData, useSessionData } from '../../context/DataContext';
+import { useAdminData, useSessionData, useSettingsData } from '../../context/DataContext';
 import { Save, Plus, Trash2, RotateCcw, RefreshCw, ShieldAlert, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { COMIC_LAYOUT_PRESET_OPTIONS } from '../../utils/comicCardDesign';
 import { useToast } from '../../components/admin/Toast';
@@ -187,7 +187,7 @@ function resolveSettings(raw) {
 
 
 export default function ManageSiteSettings() {
-  const { siteSettings, saveSiteSettings, forceRefreshHomepageCache } = usePublicData();
+  const { siteSettings, saveSiteSettings, forceRefreshHomepageCache } = useSettingsData();
   const {
     siteSettingsRevisions,
     loadSiteSettingsRevisions,

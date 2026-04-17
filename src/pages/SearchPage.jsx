@@ -2,7 +2,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search as SearchIcon, FileText, Briefcase, Scale, CalendarDays, Crosshair, X, TrendingUp, History, Sparkles } from 'lucide-react';
 import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { usePublicData } from '../context/DataContext';
+import { useArticlesData, usePublicSectionsData, useSettingsData } from '../context/DataContext';
 import { api } from '../utils/api';
 import ComicNewsCard from '../components/ComicNewsCard';
 import { getComicCardStyle } from '../utils/comicCardDesign';
@@ -85,7 +85,9 @@ function SearchResultsSkeleton() {
 }
 
 export default function SearchPage() {
-  const { articles, jobs, court, events, wanted, siteSettings, publicSectionStatus, loadJobs, loadCourt, loadEvents } = usePublicData();
+  const { articles } = useArticlesData();
+  const { jobs, court, events, wanted, publicSectionStatus, loadJobs, loadCourt, loadEvents } = usePublicSectionsData();
+  const { siteSettings } = useSettingsData();
   const layoutPresets = siteSettings?.layoutPresets || {};
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();

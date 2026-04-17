@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Search, CheckCircle, Clock, XCircle, AlertTriangle, Tag, ArrowLeft } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { usePublicSectionsData } from '../context/DataContext';
 import { makeTitle, useDocumentTitle } from '../hooks/useDocumentTitle';
 
 const STATUS_CONFIG = {
@@ -16,7 +16,7 @@ const TIER_LABELS = { standard: 'Стандартна', highlighted: 'Удебе
 export default function ClassifiedStatusPage() {
   useDocumentTitle(makeTitle('Статус на обява'));
   const { ref: urlRef } = useParams();
-  const { loadClassifiedStatus } = usePublicData();
+  const { loadClassifiedStatus } = usePublicSectionsData();
 
   const [inputRef, setInputRef] = useState(urlRef || '');
   const [result, setResult] = useState(null);

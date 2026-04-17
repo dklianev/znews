@@ -8,6 +8,24 @@ let sessionDataState = {};
 
 vi.mock('../../src/context/DataContext', () => ({
   useAdminData: () => adminDataState,
+  useArticlesData: () => ({
+    articles: publicDataState.articles || [],
+  }),
+  useTaxonomyData: () => ({
+    authors: publicDataState.authors || [],
+    categories: publicDataState.categories || [],
+  }),
+  usePublicSectionsData: () => ({
+    wanted: publicDataState.wanted || [],
+    jobs: publicDataState.jobs || [],
+    court: publicDataState.court || [],
+    events: publicDataState.events || [],
+    gallery: publicDataState.gallery || [],
+  }),
+  useEngagementData: () => ({
+    polls: publicDataState.polls || [],
+    comments: publicDataState.comments || [],
+  }),
   usePublicData: () => publicDataState,
   useSessionData: () => sessionDataState,
 }));
@@ -64,7 +82,7 @@ describe('Dashboard', () => {
       ensureUsersLoaded: vi.fn(async () => []),
       resetAll: vi.fn(async () => {}),
       hasPermission: (permission) => permission === 'classifieds',
-      classifieds: [],
+      classifiedsMeta: { statusCounts: { all: 0, awaiting_payment: 0, active: 0, rejected: 0, expired: 0 } },
       ensureClassifiedsLoaded: vi.fn().mockRejectedValueOnce(authError),
       tips: [],
       tipsReady: true,
@@ -122,7 +140,7 @@ describe('Dashboard', () => {
       ensureUsersLoaded: vi.fn(async () => []),
       resetAll: vi.fn(async () => {}),
       hasPermission: (permission) => permission === 'articles' || permission === 'contact',
-      classifieds: [],
+      classifiedsMeta: { statusCounts: { all: 0, awaiting_payment: 0, active: 0, rejected: 0, expired: 0 } },
       ensureClassifiedsLoaded: vi.fn(async () => []),
       tips: [
         {

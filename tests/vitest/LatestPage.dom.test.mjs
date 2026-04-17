@@ -13,6 +13,13 @@ const publicData = {
 
 vi.mock('../../src/context/DataContext', () => ({
   usePublicData: () => publicData,
+  useArticlesData: () => ({
+    loading: publicData.loading,
+  }),
+  useSettingsData: () => ({
+    ads: publicData.ads,
+    siteSettings: publicData.siteSettings,
+  }),
 }));
 
 vi.mock('../../src/utils/api', () => ({

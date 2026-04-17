@@ -1,7 +1,7 @@
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Upload, MapPin, Send, AlertTriangle, CheckCircle, Image as ImageIcon, X } from 'lucide-react';
-import { usePublicData } from '../context/DataContext';
+import { useEngagementData } from '../context/DataContext';
 import { useDocumentTitle, makeTitle } from '../hooks/useDocumentTitle';
 
 const INITIAL_TIP_STATE = Object.freeze({
@@ -34,7 +34,7 @@ function TipLineSubmitButton({ disabled }) {
 
 export default function TipLine() {
   useDocumentTitle(makeTitle('\u0413\u043e\u0440\u0435\u0449\u0430 \u043b\u0438\u043d\u0438\u044f'));
-  const { createTip } = usePublicData();
+  const { createTip } = useEngagementData();
 
   const [text, setText] = useState('');
   const [location, setLocation] = useState('');

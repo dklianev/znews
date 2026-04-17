@@ -7,11 +7,29 @@ describe('articlePushHelpersService', () => {
       const deletedIds = [];
       const sentPayloads = [];
       let subscriptions = [];
+      const findCalls = [];
+
+      function createQuery(batch) {
+        return {
+          sort() {
+            return this;
+          },
+          limit() {
+            return this;
+          },
+          lean: async () => batch,
+        };
+      }
     
       const helpers = createArticlePushHelpers({
         PushSubscription: {
-          async find() {
-            return subscriptions;
+          find(filter, projection) {
+            findCalls.push({ filter, projection });
+            if (filter?._id?.$gt) {
+              const index = subscriptions.findIndex((item) => item._id === filter._id.$gt);
+              return createQuery(index >= 0 ? subscriptions.slice(index + 1) : []);
+            }
+            return createQuery(subscriptions);
           },
           async deleteOne(query) {
             deletedIds.push(query._id);
@@ -43,16 +61,16 @@ describe('articlePushHelpersService', () => {
       try {
         delete process.env.VAPID_PUBLIC_KEY;
         delete process.env.VAPID_PRIVATE_KEY;
-        subscriptions = [{ _id: 'skip', endpoint: 'skip' }];
+        subscriptions = [{ _id: 'skip', endpoint: 'skip', keys: { p256dh: 'skip', auth: 'skip' } }];
         await helpers.sendPushNotificationForArticle({ id: 5, title: 'No env should skip' });
         assert.equal(sentPayloads.length, 0);
     
         process.env.VAPID_PUBLIC_KEY = 'public';
         process.env.VAPID_PRIVATE_KEY = 'private';
         subscriptions = [
-          { _id: 'ok', endpoint: 'ok' },
-          { _id: 'gone', endpoint: 'gone' },
-          { _id: 'missing', endpoint: 'missing' },
+          { _id: 'ok', endpoint: 'ok', keys: { p256dh: 'ok', auth: 'ok' } },
+          { _id: 'gone', endpoint: 'gone', keys: { p256dh: 'gone', auth: 'gone' } },
+          { _id: 'missing', endpoint: 'missing', keys: { p256dh: 'missing', auth: 'missing' } },
         ];
         await helpers.sendPushNotificationForArticle({ id: 42, title: 'Breaking title' });
     
@@ -60,9 +78,13 @@ describe('articlePushHelpersService', () => {
         assert.equal(sentPayloads[0].payload.url, '/article/42');
         assert.equal(sentPayloads[0].payload.body, 'Breaking title');
         assert.deepEqual(deletedIds, ['gone', 'missing']);
+        assert.deepEqual(findCalls[0], {
+          filter: {},
+          projection: { _id: 1, endpoint: 1, keys: 1 },
+        });
     
         sentPayloads.length = 0;
-        subscriptions = [{ _id: 'fallback', endpoint: 'ok' }];
+        subscriptions = [{ _id: 'fallback', endpoint: 'ok', keys: { p256dh: 'f', auth: 'g' } }];
         await helpers.sendPushNotificationForArticle({ id: 43 });
         assert.equal(sentPayloads[0].payload.title, 'Breaking News');
         assert.equal(sentPayloads[0].payload.body, 'New article on zNews');
