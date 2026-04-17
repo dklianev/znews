@@ -100,17 +100,15 @@ articleSchema.index({ category: 1, status: 1, publishAt: -1, id: -1 }, { name: '
 articleSchema.index({ status: 1, titleSearch: 1, publishAtDate: -1, id: -1 }, { name: 'article_title_search_prefix' });
 articleSchema.index({ status: 1, tagsSearch: 1, publishAtDate: -1, id: -1 }, { name: 'article_tags_search_prefix' });
 
-articleSchema.pre('validate', function syncArticleDerivedFields(next) {
+articleSchema.pre('validate', function syncArticleDerivedFields() {
   this.titleSearch = normalizeSearchField(this.title, 240);
   this.tagsSearch = normalizeSearchList(this.tags, 64, 24);
   this.publishAtDate = deriveArticlePublishAtDate(this);
-  next();
 });
 
-articleSchema.pre('findOneAndUpdate', async function syncArticleDerivedFieldsOnUpdate(next) {
+articleSchema.pre('findOneAndUpdate', async function syncArticleDerivedFieldsOnUpdate() {
   const update = this.getUpdate();
   if (!update || typeof update !== 'object') {
-    next();
     return;
   }
 
@@ -135,7 +133,6 @@ articleSchema.pre('findOneAndUpdate', async function syncArticleDerivedFieldsOnU
   }
 
   this.setUpdate(update);
-  next();
 });
 
 // ÄÄÄ Author ÄÄÄ
@@ -191,16 +188,14 @@ categorySchema.index(
 categorySchema.index({ nameSearch: 1 }, { name: 'category_name_search' });
 categorySchema.index({ idSearch: 1 }, { name: 'category_id_search' });
 
-categorySchema.pre('validate', function syncCategorySearchFields(next) {
+categorySchema.pre('validate', function syncCategorySearchFields() {
   this.nameSearch = normalizeSearchField(this.name, 120);
   this.idSearch = normalizeSearchField(this.id, 80);
-  next();
 });
 
-categorySchema.pre('findOneAndUpdate', function syncCategorySearchFieldsOnUpdate(next) {
+categorySchema.pre('findOneAndUpdate', function syncCategorySearchFieldsOnUpdate() {
   const update = this.getUpdate();
   if (!update || typeof update !== 'object') {
-    next();
     return;
   }
 
@@ -211,7 +206,6 @@ categorySchema.pre('findOneAndUpdate', function syncCategorySearchFieldsOnUpdate
     setDerivedUpdateField(update, 'idSearch', normalizeSearchField(getUpdatedField(update, 'id'), 80));
   }
   this.setUpdate(update);
-  next();
 });
 
 // ÄÄÄ Ad ÄÄÄ
@@ -344,15 +338,13 @@ const userSchema = new mongoose.Schema({
 });
 userSchema.index({ usernameLower: 1 }, { unique: true, sparse: true, name: 'user_username_lower' });
 
-userSchema.pre('validate', function syncUsernameLower(next) {
+userSchema.pre('validate', function syncUsernameLower() {
   this.usernameLower = normalizeUsernameLower(this.username);
-  next();
 });
 
-userSchema.pre('findOneAndUpdate', function syncUsernameLowerOnUpdate(next) {
+userSchema.pre('findOneAndUpdate', function syncUsernameLowerOnUpdate() {
   const update = this.getUpdate();
   if (!update || typeof update !== 'object') {
-    next();
     return;
   }
 
@@ -360,7 +352,6 @@ userSchema.pre('findOneAndUpdate', function syncUsernameLowerOnUpdate(next) {
     ? update.username
     : update.$set?.username;
   if (typeof nextUsername !== 'string') {
-    next();
     return;
   }
 
@@ -375,7 +366,6 @@ userSchema.pre('findOneAndUpdate', function syncUsernameLowerOnUpdate(next) {
   }
 
   this.setUpdate(update);
-  next();
 });
 
 // ─── Wanted ───
@@ -395,16 +385,14 @@ wantedSchema.index(
 wantedSchema.index({ nameSearch: 1, id: -1 }, { name: 'wanted_name_search' });
 wantedSchema.index({ chargeSearch: 1, id: -1 }, { name: 'wanted_charge_search' });
 
-wantedSchema.pre('validate', function syncWantedSearchFields(next) {
+wantedSchema.pre('validate', function syncWantedSearchFields() {
   this.nameSearch = normalizeSearchField(this.name, 160);
   this.chargeSearch = normalizeSearchField(this.charge, 160);
-  next();
 });
 
-wantedSchema.pre('findOneAndUpdate', function syncWantedSearchFieldsOnUpdate(next) {
+wantedSchema.pre('findOneAndUpdate', function syncWantedSearchFieldsOnUpdate() {
   const update = this.getUpdate();
   if (!update || typeof update !== 'object') {
-    next();
     return;
   }
 
@@ -415,7 +403,6 @@ wantedSchema.pre('findOneAndUpdate', function syncWantedSearchFieldsOnUpdate(nex
     setDerivedUpdateField(update, 'chargeSearch', normalizeSearchField(getUpdatedField(update, 'charge'), 160));
   }
   this.setUpdate(update);
-  next();
 });
 
 // ─── Job ───
@@ -476,16 +463,14 @@ jobSchema.index({ active: 1, id: -1 }, { name: 'job_active_id' });
 jobSchema.index({ titleSearch: 1, id: -1 }, { name: 'job_title_search' });
 jobSchema.index({ orgSearch: 1, id: -1 }, { name: 'job_org_search' });
 
-jobSchema.pre('validate', function syncJobSearchFields(next) {
+jobSchema.pre('validate', function syncJobSearchFields() {
   this.titleSearch = normalizeSearchField(this.title, 180);
   this.orgSearch = normalizeSearchField(this.org, 180);
-  next();
 });
 
-jobSchema.pre('findOneAndUpdate', function syncJobSearchFieldsOnUpdate(next) {
+jobSchema.pre('findOneAndUpdate', function syncJobSearchFieldsOnUpdate() {
   const update = this.getUpdate();
   if (!update || typeof update !== 'object') {
-    next();
     return;
   }
 
@@ -496,7 +481,6 @@ jobSchema.pre('findOneAndUpdate', function syncJobSearchFieldsOnUpdate(next) {
     setDerivedUpdateField(update, 'orgSearch', normalizeSearchField(getUpdatedField(update, 'org'), 180));
   }
   this.setUpdate(update);
-  next();
 });
 
 // ─── Court ───
@@ -523,16 +507,14 @@ courtSchema.index({ status: 1, id: -1 }, { name: 'court_status_id' });
 courtSchema.index({ titleSearch: 1, id: -1 }, { name: 'court_title_search' });
 courtSchema.index({ defendantSearch: 1, id: -1 }, { name: 'court_defendant_search' });
 
-courtSchema.pre('validate', function syncCourtSearchFields(next) {
+courtSchema.pre('validate', function syncCourtSearchFields() {
   this.titleSearch = normalizeSearchField(this.title, 180);
   this.defendantSearch = normalizeSearchField(this.defendant, 180);
-  next();
 });
 
-courtSchema.pre('findOneAndUpdate', function syncCourtSearchFieldsOnUpdate(next) {
+courtSchema.pre('findOneAndUpdate', function syncCourtSearchFieldsOnUpdate() {
   const update = this.getUpdate();
   if (!update || typeof update !== 'object') {
-    next();
     return;
   }
 
@@ -543,7 +525,6 @@ courtSchema.pre('findOneAndUpdate', function syncCourtSearchFieldsOnUpdate(next)
     setDerivedUpdateField(update, 'defendantSearch', normalizeSearchField(getUpdatedField(update, 'defendant'), 180));
   }
   this.setUpdate(update);
-  next();
 });
 
 // ─── Event ───
@@ -603,16 +584,14 @@ eventSchema.index({ type: 1, id: -1 }, { name: 'event_type_id' });
 eventSchema.index({ titleSearch: 1, id: -1 }, { name: 'event_title_search' });
 eventSchema.index({ locationSearch: 1, id: -1 }, { name: 'event_location_search' });
 
-eventSchema.pre('validate', function syncEventSearchFields(next) {
+eventSchema.pre('validate', function syncEventSearchFields() {
   this.titleSearch = normalizeSearchField(this.title, 180);
   this.locationSearch = normalizeSearchField(this.location, 180);
-  next();
 });
 
-eventSchema.pre('findOneAndUpdate', function syncEventSearchFieldsOnUpdate(next) {
+eventSchema.pre('findOneAndUpdate', function syncEventSearchFieldsOnUpdate() {
   const update = this.getUpdate();
   if (!update || typeof update !== 'object') {
-    next();
     return;
   }
 
@@ -623,7 +602,6 @@ eventSchema.pre('findOneAndUpdate', function syncEventSearchFieldsOnUpdate(next)
     setDerivedUpdateField(update, 'locationSearch', normalizeSearchField(getUpdatedField(update, 'location'), 180));
   }
   this.setUpdate(update);
-  next();
 });
 
 // ─── Poll ───
@@ -1043,15 +1021,13 @@ classifiedSchema.index({ status: 1, category: 1, id: -1 }, { name: 'classified_s
 classifiedSchema.index({ status: 1, priceValue: 1, id: -1 }, { name: 'classified_status_price' });
 classifiedSchema.index({ status: 1, category: 1, priceValue: 1, id: -1 }, { name: 'classified_status_category_price' });
 
-classifiedSchema.pre('validate', function syncClassifiedPriceValue(next) {
+classifiedSchema.pre('validate', function syncClassifiedPriceValue() {
   this.priceValue = normalizeClassifiedPriceValue(this.price);
-  next();
 });
 
-classifiedSchema.pre('findOneAndUpdate', function syncClassifiedPriceValueOnUpdate(next) {
+classifiedSchema.pre('findOneAndUpdate', function syncClassifiedPriceValueOnUpdate() {
   const update = this.getUpdate();
   if (!update || typeof update !== 'object') {
-    next();
     return;
   }
 
@@ -1059,7 +1035,6 @@ classifiedSchema.pre('findOneAndUpdate', function syncClassifiedPriceValueOnUpda
     ? update.price
     : update.$set?.price;
   if (typeof nextPrice === 'undefined') {
-    next();
     return;
   }
 
@@ -1072,7 +1047,6 @@ classifiedSchema.pre('findOneAndUpdate', function syncClassifiedPriceValueOnUpda
   }
 
   this.setUpdate(update);
-  next();
 });
 
 // ─── Web Push Subscription ───
