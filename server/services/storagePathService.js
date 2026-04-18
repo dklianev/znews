@@ -7,6 +7,13 @@ export function createStoragePathService(deps) {
     storageUploadsPrefix,
     uploadsDir,
   } = deps;
+  const normalizedStoragePublicBaseUrl = String(storagePublicBaseUrl || '').trim().replace(/\/+$/, '');
+  const normalizedUploadsPrefix = String(storageUploadsPrefix || 'uploads')
+    .replace(/\\/g, '/')
+    .replace(/^\/+/g, '')
+    .replace(/\/+/g, '/')
+    .trim()
+    .toLowerCase();
 
   function toPosixRelativePath(value) {
     return String(value || '')
@@ -24,23 +31,36 @@ export function createStoragePathService(deps) {
       .join('/');
   }
 
+  function toUploadsRelativePath(relativePath) {
+    let normalized = toPosixRelativePath(relativePath);
+    const prefix = normalizedUploadsPrefix ? `${normalizedUploadsPrefix}/` : '';
+    while (prefix && normalized.toLowerCase().startsWith(prefix)) {
+      normalized = normalized.slice(prefix.length);
+    }
+    return normalized;
+  }
+
   function toUploadsStorageKey(relativePath) {
-    const normalized = toPosixRelativePath(relativePath);
-    if (!normalized) return `${storageUploadsPrefix}/`;
-    return path.posix.join(storageUploadsPrefix, normalized);
+    const normalized = toUploadsRelativePath(relativePath);
+    const prefix = normalizedUploadsPrefix || 'uploads';
+    if (!normalized) return `${prefix}/`;
+    return path.posix.join(prefix, normalized);
   }
 
   function getDiskAbsolutePath(relativePath) {
-    const normalized = toPosixRelativePath(relativePath);
+    const normalized = toUploadsRelativePath(relativePath);
     if (!normalized) return uploadsDir;
     return path.join(uploadsDir, ...normalized.split('/'));
   }
 
   function toUploadsUrlFromRelative(relativePath) {
-    const normalized = toPosixRelativePath(relativePath);
-    if (!normalized) return isRemoteStorage ? storagePublicBaseUrl : '/uploads';
+    const normalized = toUploadsRelativePath(relativePath);
+    if (!normalized) return isRemoteStorage ? normalizedStoragePublicBaseUrl : '/uploads';
     if (isRemoteStorage) {
-      return `${storagePublicBaseUrl}/${encodePathForUrl(toUploadsStorageKey(normalized))}`;
+      const remotePath = normalizedStoragePublicBaseUrl.toLowerCase().endsWith(`/${normalizedUploadsPrefix}`)
+        ? normalized
+        : toUploadsStorageKey(normalized);
+      return `${normalizedStoragePublicBaseUrl}/${encodePathForUrl(remotePath)}`;
     }
     return `/uploads/${encodePathForUrl(normalized)}`;
   }

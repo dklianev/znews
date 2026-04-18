@@ -223,7 +223,11 @@ export function createImagePipelineService(deps) {
     }
 
     try {
-      return decodeURIComponent(raw).replace(/^\/+/, '');
+      let normalized = decodeURIComponent(raw).replace(/^\/+/, '');
+      while (normalized.toLowerCase().startsWith('uploads/')) {
+        normalized = normalized.slice('uploads/'.length);
+      }
+      return normalized;
     } catch {
       return '';
     }

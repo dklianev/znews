@@ -30,7 +30,10 @@ export function getUploadFilenameFromMediaUrl(mediaUrl) {
     }
   }
 
-  const normalized = rawPath.replace(/^\/+/, '');
+  let normalized = rawPath.replace(/^\/+/, '');
+  while (normalized.toLowerCase().startsWith('uploads/')) {
+    normalized = normalized.slice('uploads/'.length);
+  }
   if (!normalized || normalized.includes('/') || normalized.includes('\\')) return null;
 
   try {

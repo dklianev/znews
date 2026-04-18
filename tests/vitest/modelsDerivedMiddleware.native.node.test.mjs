@@ -13,13 +13,27 @@ import {
   Wanted,
 } from '../../server/models.js';
 
+const DERIVED_FIELD_MODELS = [
+  User,
+  Article,
+  Category,
+  Wanted,
+  Job,
+  Court,
+  Event,
+  Classified,
+];
+
 describe('models derived-field middleware', () => {
   let mongod;
 
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
     await mongoose.connect(mongod.getUri(), { dbName: 'models-derived-middleware-tests' });
-  });
+    for (const Model of DERIVED_FIELD_MODELS) {
+      await Model.init();
+    }
+  }, 15000);
 
   afterAll(async () => {
     await mongoose.disconnect();
