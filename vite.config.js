@@ -145,6 +145,9 @@ export default defineConfig({
           ) {
             return 'vendor';
           }
+          if (normalizedId.includes('/node_modules/lucide-react/')) {
+            return 'lucide';
+          }
           if (
             normalizedId.includes('/node_modules/motion/')
             || normalizedId.includes('/node_modules/motion-dom/')

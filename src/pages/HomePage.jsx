@@ -127,19 +127,63 @@ function getLatestCardLayout({ count, index, mdCols }) {
 function HomePageSkeleton() {
   return (
     <div className="max-w-6xl mx-auto px-3 md:px-4 py-5 space-y-6 animate-pulse">
-      <div className="h-10 w-72 mx-auto bg-zn-text/10 rounded" />
-      <div className="comic-panel comic-dots bg-white p-4">
-        <div className="h-72 md:h-[420px] w-full bg-zn-text/10 rounded" />
-      </div>
-      <div className="h-20 bg-zn-text/10 rounded" />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <div key={index} className="comic-panel comic-dots bg-white p-4">
-            <div className="h-44 w-full bg-zn-text/10 rounded mb-3" />
-            <div className="h-5 w-11/12 bg-zn-text/10 rounded mb-2" />
-            <div className="h-3 w-8/12 bg-zn-text/10 rounded" />
+      <div className="h-14 w-[22rem] max-w-full mx-auto bg-zn-text/10 rounded" />
+      <div className="comic-panel comic-dots bg-white p-5 md:p-8">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="h-6 w-28 rounded bg-zn-text/10" />
+          <div className="h-5 w-24 rounded bg-zn-text/10" />
+        </div>
+        <div className="mb-4 flex min-h-[7rem] sm:min-h-[8.5rem] md:min-h-[10rem] lg:min-h-[11rem] items-start gap-3">
+          <div className="hidden md:block h-10 w-10 rounded-full bg-zn-text/10 shrink-0 mt-2" />
+          <div className="flex-1 space-y-3">
+            <div className="h-12 w-11/12 rounded bg-zn-text/10" />
+            <div className="h-12 w-10/12 rounded bg-zn-text/10" />
+            <div className="h-12 w-8/12 rounded bg-zn-text/10" />
           </div>
-        ))}
+          <div className="hidden md:block h-10 w-10 rounded-full bg-zn-text/10 shrink-0 mt-2" />
+        </div>
+        <div className="mb-3 space-y-2">
+          <div className="h-5 w-full rounded bg-zn-text/10" />
+          <div className="h-5 w-10/12 rounded bg-zn-text/10" />
+        </div>
+        <div className="mb-6 flex items-center gap-4">
+          <div className="h-4 w-24 rounded bg-zn-text/10" />
+          <div className="h-4 w-20 rounded bg-zn-text/10" />
+          <div className="h-4 w-20 rounded bg-zn-text/10" />
+          <div className="h-4 w-28 rounded bg-zn-text/10" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5 px-2 sm:px-0">
+          <div className="h-[320px] rounded bg-zn-text/10" />
+          <div className="h-[320px] rounded bg-zn-text/10" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 px-2 md:px-0">
+          <div className="space-y-3">
+            <div className="h-10 w-9/12 rounded bg-zn-text/10" />
+            <div className="h-10 w-8/12 rounded bg-zn-text/10" />
+            <div className="h-4 w-full rounded bg-zn-text/10" />
+            <div className="h-4 w-11/12 rounded bg-zn-text/10" />
+            <div className="h-4 w-10/12 rounded bg-zn-text/10" />
+            <div className="h-4 w-full rounded bg-zn-text/10" />
+            <div className="h-4 w-9/12 rounded bg-zn-text/10" />
+          </div>
+          <div className="h-[280px] rounded bg-zn-text/10" />
+        </div>
+        <div className="h-12 w-72 mx-auto max-w-full rounded bg-zn-text/10" />
+      </div>
+      <div className="h-48 bg-zn-text/10 rounded" />
+      <div className="h-20 bg-zn-text/10 rounded" />
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_20rem] gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="comic-panel comic-dots bg-white p-4">
+              <div className="h-44 w-full bg-zn-text/10 rounded mb-3" />
+              <div className="h-5 w-11/12 bg-zn-text/10 rounded mb-2" />
+              <div className="h-3 w-full bg-zn-text/10 rounded mb-1" />
+              <div className="h-3 w-9/12 bg-zn-text/10 rounded" />
+            </div>
+          ))}
+        </div>
+        <SidebarPlaceholder />
       </div>
     </div>
   );
@@ -435,8 +479,8 @@ export default function HomePage() {
       {/* ═══ STARBURST CALLOUT ═══ */}
       <section className="text-center">
         <motion.div
-          initial={{ opacity: 0, y: 10, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{ duration: 0.34, ease: 'easeOut' }}
           className="inline-block relative z-[2]"
         >

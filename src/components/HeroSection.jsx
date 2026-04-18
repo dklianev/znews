@@ -34,7 +34,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
   const heroTitleFontSize = useMemo(() => buildScaledClamp('2.8rem', '8vw', '6.5rem', heroTitleScale), [heroTitleScale]);
 
     return (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="newspaper-page relative comic-panel comic-dots hero-sunset-bg">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="newspaper-page relative comic-panel comic-dots hero-sunset-bg">
             <div className="h-3 bg-gradient-to-r from-red-700 via-red-600 to-orange-500 border-y-2 border-black/30" />
             <div className="px-5 md:px-10 pt-6 pb-8 relative z-[1]">
                 <div className="flex items-center gap-3 mb-3">
@@ -48,9 +48,9 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                     )}
                 </div>
                 <Link to={`/article/${article.id}`} prefetch="intent" className="group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
-                    <div className="flex items-start gap-3 mb-4">
+                    <div className="flex min-h-[7rem] sm:min-h-[8.5rem] md:min-h-[10rem] lg:min-h-[11rem] items-start gap-3 mb-4">
                         <Megaphone className="hidden md:inline-block mt-2 w-10 h-10 text-zn-hot" style={{ filter: 'drop-shadow(3px 3px 0 rgba(0,0,0,0.3))', transform: 'rotate(-10deg)' }} aria-hidden="true" />
-                        <h1 className="flex-1 min-w-0 font-display font-black uppercase leading-[0.88] cursor-pointer text-balance" style={{ fontSize: heroTitleFontSize, textShadow: '3px 3px 0 rgba(204,10,26,0.25), 5px 5px 0 rgba(0,0,0,0.15)', letterSpacing: '-0.03em' }}>
+                        <h1 className="flex-1 min-w-0 font-display font-black uppercase leading-[0.88] cursor-pointer" style={{ fontSize: heroTitleFontSize, textShadow: '3px 3px 0 rgba(204,10,26,0.25), 5px 5px 0 rgba(0,0,0,0.15)', letterSpacing: '-0.03em' }}>
                             <ColorTitle text={article.title} />
                         </h1>
                         <div className="h-1.5 w-32 bg-gradient-to-r from-red-600 to-orange-500 mt-2 mb-1" />
@@ -166,11 +166,11 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                 </div>
                 <Link to={`/article/${article.id}`} prefetch="intent" className="block text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
                     <motion.span
-                        initial={{ opacity: 0, scale: 0.96, y: 6 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
                         transition={{
-                            duration: 0.35,
-                            ease: 'easeOut',
+                          duration: 0.35,
+                          ease: 'easeOut',
                         }}
                         whileHover={{ scale: 1.06, y: -3 }}
                         className="inline-block section-header-red text-2xl md:text-4xl cursor-pointer tracking-[0.12em]"

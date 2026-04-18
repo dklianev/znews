@@ -2,8 +2,10 @@ import { BrowserRouter as Router, Routes, Route, Outlet, useLocation, Navigate }
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { DataProvider, useAdminData, usePublicSectionsData, useSessionData, useSettingsData } from './context/DataContext';
-import { AnimatePresence, motion } from 'motion/react';
+import { motion } from 'motion/react';
 import Navbar from './components/Navbar';
+import HomePage from './pages/HomePage';
+import BreakingTicker from './components/BreakingTicker';
 import ScrollToTop from './components/ScrollToTop';
 import ErrorBoundary from './components/ErrorBoundary';
 import { appCopy } from './content/uiCopy';
@@ -37,7 +39,6 @@ function lazyRetry(importFn) {
 }
 
 // ─── Lazy-loaded pages (code-split) ───
-const HomePage = lazyRetry(() => import('./pages/HomePage'));
 const ArticlePage = lazyRetry(() => import('./pages/ArticlePage'));
 const CategoryPage = lazyRetry(() => import('./pages/CategoryPage'));
 const AuthorPage = lazyRetry(() => import('./pages/AuthorPage'));
@@ -50,7 +51,6 @@ const CourtPage = lazyRetry(() => import('./pages/CourtPage'));
 const EventsPage = lazyRetry(() => import('./pages/EventsPage'));
 const NotFoundPage = lazyRetry(() => import('./pages/NotFoundPage'));
 const TipLine = lazyRetry(() => import('./pages/TipLine'));
-const BreakingTicker = lazyRetry(() => import('./components/BreakingTicker'));
 const Footer = lazyRetry(() => import('./components/Footer'));
 const EasterHuntBadge = lazyRetry(() => import('./components/seasonal/EasterHuntBadge'));
 const ClassifiedsPage = lazyRetry(() => import('./pages/ClassifiedsPage'));
@@ -289,19 +289,11 @@ function PublicLayout() {
         <BreakingTicker />
       </Suspense>
       <main id="main-content" className="flex-1 comic-stage">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-          >
-            <Suspense fallback={<PublicPageFallback />}>
-              <Outlet context={{ easterHunt }} />
-            </Suspense>
-          </motion.div>
-        </AnimatePresence>
+        <div>
+          <Suspense fallback={<PublicPageFallback />}>
+            <Outlet context={{ easterHunt }} />
+          </Suspense>
+        </div>
       </main>
       {easterHunt.huntActive && (
         <Suspense fallback={null}>
