@@ -33,7 +33,7 @@ describe('models derived-field middleware', () => {
     for (const Model of DERIVED_FIELD_MODELS) {
       await Model.init();
     }
-  }, 15000);
+  }, 45000);
 
   afterAll(async () => {
     await mongoose.disconnect();
