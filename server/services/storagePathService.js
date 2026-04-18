@@ -57,10 +57,7 @@ export function createStoragePathService(deps) {
     const normalized = toUploadsRelativePath(relativePath);
     if (!normalized) return isRemoteStorage ? normalizedStoragePublicBaseUrl : '/uploads';
     if (isRemoteStorage) {
-      const remotePath = normalizedStoragePublicBaseUrl.toLowerCase().endsWith(`/${normalizedUploadsPrefix}`)
-        ? normalized
-        : toUploadsStorageKey(normalized);
-      return `${normalizedStoragePublicBaseUrl}/${encodePathForUrl(remotePath)}`;
+      return `${normalizedStoragePublicBaseUrl}/${encodePathForUrl(toUploadsStorageKey(normalized))}`;
     }
     return `/uploads/${encodePathForUrl(normalized)}`;
   }
