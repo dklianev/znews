@@ -4592,6 +4592,7 @@
     bottom: 7px;
     width: 0;
     height: 4px;
+    z-index: 3;
     border-radius: 999px;
     background: linear-gradient(90deg, #cc0a1a 0%, #ef6c13 100%);
     box-shadow:
