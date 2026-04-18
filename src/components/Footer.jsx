@@ -118,7 +118,7 @@ export default function Footer() {
   return (
     <footer className="mt-0">
       {tipLinePromo.enabled && (
-        <div className="bg-zn-hot comic-dots border-t-8 border-b-8 border-zn-black relative overflow-hidden group">
+        <div className="below-fold-section-compact bg-zn-hot comic-dots border-t-8 border-b-8 border-zn-black relative overflow-hidden group">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-shimmer" />
           <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex-1 text-center md:text-left">
@@ -158,7 +158,7 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="comic-grid-backdrop comic-dots relative border-0 shadow-none rounded-none">
+      <div className="below-fold-section-footer comic-grid-backdrop comic-dots relative border-0 shadow-none rounded-none">
         <div className="max-w-6xl mx-auto px-4 py-10">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="md:col-span-1">

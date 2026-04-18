@@ -96,7 +96,7 @@ function ClassifiedCard({ item }) {
               {/* VIP large image */}
               {mainImage && (
                 <div className="sm:w-48 md:w-56 flex-shrink-0 bg-black relative">
-                  <img src={mainImage} alt="" className="w-full aspect-[4/3] sm:aspect-auto sm:h-full object-cover" loading="lazy" decoding="async" />
+                  <img src={mainImage} alt="" width="1200" height="900" className="w-full aspect-[4/3] sm:aspect-auto sm:h-full object-cover" loading="lazy" decoding="async" />
                   {imageCount > 1 && (
                     <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-mono px-1.5 py-0.5 flex items-center gap-0.5 rounded-sm">
                       <Camera className="w-2.5 h-2.5" />{imageCount}
@@ -180,7 +180,7 @@ function ClassifiedCard({ item }) {
               {/* Image thumbnail */}
               {mainImage && (
                 <div className={`${isHighlighted ? 'w-28 h-28' : 'w-24 h-24'} flex-shrink-0 border-2 border-[#1C1428] bg-black overflow-hidden relative`}>
-                  <img src={thumbImage} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                  <img src={thumbImage} alt="" width="112" height="112" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   {imageCount > 1 && (
                     <div className="absolute bottom-0 right-0 bg-black/70 text-white text-[9px] font-mono px-1 py-0.5 flex items-center gap-0.5">
                       <Camera className="w-2.5 h-2.5" />{imageCount}
@@ -489,7 +489,7 @@ export default function ClassifiedsPage() {
               >
                 {r.image ? (
                   <div className="aspect-square bg-black">
-                    <img src={r.image} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                    <img src={r.image} alt="" width="320" height="320" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   </div>
                 ) : (
                   <div className="aspect-square bg-gray-100 dark:bg-[#1C1828] flex items-center justify-center">

@@ -54,6 +54,8 @@ function ImageGallery({ images }) {
         <img
           src={images[current]}
           alt={`Снимка ${current + 1}`}
+          width="1200"
+          height="900"
           className="w-full aspect-[4/3] object-cover cursor-pointer"
           loading="lazy"
           decoding="async"
@@ -84,7 +86,7 @@ function ImageGallery({ images }) {
               onClick={() => setCurrent(idx)}
               className={`w-16 h-16 border-2 overflow-hidden flex-shrink-0 transition-all ${idx === current ? 'border-zn-purple ring-2 ring-zn-purple/30' : 'border-[#1C1428] opacity-60 hover:opacity-100'}`}
             >
-              <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+              <img src={img} alt="" width="64" height="64" className="w-full h-full object-cover" loading="lazy" decoding="async" />
             </button>
           ))}
         </div>
@@ -446,7 +448,7 @@ export default function ClassifiedDetailPage() {
                 >
                   {img && (
                     <div className="aspect-[4/3] bg-black">
-                      <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                      <img src={img} alt="" width="320" height="320" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                     </div>
                   )}
                   <div className="p-3">
@@ -481,7 +483,7 @@ export default function ClassifiedDetailPage() {
               >
                 {r.image ? (
                   <div className="aspect-square bg-black">
-                    <img src={r.image} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                    <img src={r.image} alt="" width="320" height="320" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   </div>
                 ) : (
                   <div className="aspect-square bg-gray-100 dark:bg-[#1C1828] flex items-center justify-center">

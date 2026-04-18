@@ -7,21 +7,31 @@ import ErrorBoundary from './ErrorBoundary';
 
 export default function HomeSidebarRail({ ads }) {
   return (
-    <>
+    <div className="space-y-5">
       <ErrorBoundary fallback={null}>
         <TrendingSidebar />
       </ErrorBoundary>
-      <ErrorBoundary fallback={null}>
-        <VipClassifiedsWidget />
-      </ErrorBoundary>
-      <ErrorBoundary fallback={null}>
-        <MostWanted />
-      </ErrorBoundary>
-      <ErrorBoundary fallback={null}>
-        <PollWidget />
-      </ErrorBoundary>
-      <AdSlot ads={ads} slot="home.sidebar.1" pageType="home" />
-      <AdSlot ads={ads} slot="home.sidebar.2" pageType="home" />
-    </>
+      <div className="below-fold-section-compact">
+        <ErrorBoundary fallback={null}>
+          <VipClassifiedsWidget />
+        </ErrorBoundary>
+      </div>
+      <div className="below-fold-section-compact">
+        <ErrorBoundary fallback={null}>
+          <MostWanted />
+        </ErrorBoundary>
+      </div>
+      <div className="below-fold-section-compact">
+        <ErrorBoundary fallback={null}>
+          <PollWidget />
+        </ErrorBoundary>
+      </div>
+      <div className="below-fold-section-compact">
+        <AdSlot ads={ads} slot="home.sidebar.1" pageType="home" />
+      </div>
+      <div className="below-fold-section-compact">
+        <AdSlot ads={ads} slot="home.sidebar.2" pageType="home" />
+      </div>
+    </div>
   );
 }

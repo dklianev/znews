@@ -130,6 +130,7 @@ export default defineConfig({
     })
   ],
   build: {
+    target: 'chrome103',
     rolldownOptions: {
       output: {
         manualChunks(id) {

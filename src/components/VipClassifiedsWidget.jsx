@@ -27,7 +27,7 @@ export default function VipClassifiedsWidget() {
             <div className="flex gap-3">
               {item.images?.[0] && (
                 <div className="w-14 h-14 border-2 border-[#1C1428] bg-black overflow-hidden flex-shrink-0">
-                  <img src={item.images[0]} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                  <img src={item.images[0]} alt="" width="56" height="56" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 </div>
               )}
               <div className="flex-1 min-w-0">

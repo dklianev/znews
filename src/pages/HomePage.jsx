@@ -214,7 +214,7 @@ function SectionActionLink({ to, label, mobile = false }) {
     : 'hidden md:inline-flex items-center gap-1 rounded-none border-2 border-[#1C1428] bg-white px-3 py-1.5 font-display text-[11px] font-black uppercase tracking-[0.16em] text-zn-text shadow-[3px_3px_0_#1C1428] transition-all duration-200 hover:bg-zn-purple hover:text-white';
 
   return (
-    <Link to={to} className={className}>
+    <Link to={to} prefetch="intent" className={className}>
       <span>{label}</span>
       <ChevronRight className="h-4 w-4 shrink-0" />
     </Link>
@@ -610,6 +610,7 @@ export default function HomePage() {
             <Link
               key={cat.id}
               to={cat.to}
+              prefetch="intent"
               className={`comic-chip ${cat.hot ? 'comic-chip-hot' : ''}`}
               style={{ '--chip-tilt': `${index % 2 === 0 ? -1.4 : 1.2}deg` }}
             >
@@ -766,7 +767,7 @@ export default function HomePage() {
 
           {/* ═══ Reportage ═══ */}
           {reportageArticles.length > 0 && (
-            <section className="pt-1">
+            <section className="below-fold-section pt-1">
               <div className="flex items-center gap-3 mb-4">
                 <div className="comic-ribbon-gold" style={{ transform: 'rotate(0.5deg)' }}>
                   {homeCopy.reportageLabel}
@@ -795,7 +796,7 @@ export default function HomePage() {
 
           {/* ═══ Breaking Category ═══ */}
           {breakingArticles.length > 0 && (
-            <section className="pt-1">
+            <section className="below-fold-section pt-1">
               <div className="flex items-center gap-3 mb-4">
                 <div className="comic-ribbon-hot" style={{ transform: 'rotate(-0.4deg)' }}>
                   {homeCopy.breakingLabel}
@@ -824,7 +825,7 @@ export default function HomePage() {
 
           {/* ═══ EMS / Police ═══ */}
           {emergencyArticles.length > 0 && (
-            <section className="pt-1">
+            <section className="below-fold-section pt-1">
               <div className="flex items-center gap-3 mb-4">
                 <div className="comic-ribbon-hot" style={{ transform: 'rotate(-0.4deg)' }}>
                   {homeCopy.emergencyLabel}
@@ -852,20 +853,19 @@ export default function HomePage() {
           )}
         </div>
 
-        <div className="space-y-5">
-          <Suspense fallback={<SidebarPlaceholder />}>
-            <HomeSidebarRail ads={ads} />
-          </Suspense>
-        </div>
+        <Suspense fallback={<SidebarPlaceholder />}>
+          <HomeSidebarRail ads={ads} />
+        </Suspense>
       </div>
 
       {/* ═══ BOTTOM TABLOID PILLS — rounded, exactly like the images ═══ */}
-      <section className="py-4">
+      <section className="below-fold-section-compact py-4">
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           {bottomPills.map((pill, index) => (
             <Link
               key={`${pill.to}-${pill.label}-${index}`}
               to={pill.to}
+              prefetch="intent"
               className={`${pill.className} text-base justify-center flex-1 sm:flex-initial`}
               style={{ '--pill-tilt': pill.tilt }}
             >
@@ -877,7 +877,7 @@ export default function HomePage() {
       </section>
 
       {/* ═══ Bottom Ad ═══ */}
-      <section><AdSlot ads={ads} slot="home.bottom" pageType="home" /></section>
+      <section className="below-fold-section-compact"><AdSlot ads={ads} slot="home.bottom" pageType="home" /></section>
     </div>
   );
 }

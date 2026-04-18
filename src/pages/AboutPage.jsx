@@ -267,7 +267,7 @@ export default function AboutPage() {
                 <div className="relative inline-block mb-3">
                   {author.avatarImage ? (
                     <div className="w-18 h-18 rounded-full overflow-hidden border-3 border-[#1C1428] mx-auto group-hover:scale-105 transition-transform relative z-[2]" style={{ boxShadow: '3px 3px 0 #1C1428' }}>
-                      <img src={author.avatarImage} alt={author.name} loading="lazy" decoding="async" className="w-full h-full object-cover" style={{ objectPosition: author.avatarImageMeta?.objectPosition || '50% 50%' }} />
+                      <img src={author.avatarImage} alt={author.name} width="72" height="72" loading="lazy" decoding="async" className="w-full h-full object-cover" style={{ objectPosition: author.avatarImageMeta?.objectPosition || '50% 50%' }} />
                     </div>
                   ) : (
                     <div className={`w-18 h-18 ${AVATAR_COLORS[index % AVATAR_COLORS.length]} text-white flex items-center justify-center font-comic text-3xl border-3 border-[#1C1428] rounded-full mx-auto group-hover:scale-105 transition-transform relative z-[2]`} style={{ boxShadow: '3px 3px 0 #1C1428' }}>

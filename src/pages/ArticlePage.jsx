@@ -960,7 +960,7 @@ export default function ArticlePage() {
               <Link to={`/author/${author.id}`} className="flex items-center gap-2 hover:text-zn-hot transition-colors">
                 <div className="w-8 h-8 bg-zn-hot text-white flex items-center justify-center font-display font-black text-xs border-2 border-[#1C1428] overflow-hidden">
                   {author.avatarImage ? (
-                    <img src={author.avatarImage} alt="" className="w-full h-full object-cover" />
+                    <img src={author.avatarImage} alt="" width="32" height="32" className="w-full h-full object-cover" />
                   ) : (
                     author.name?.charAt(0)
                   )}
@@ -1358,7 +1358,7 @@ export default function ArticlePage() {
               <div className="tape-deco absolute -top-2 right-6 w-12 h-4 bg-yellow-200/70 dark:bg-yellow-700/30 border border-black/5 dark:border-yellow-600/20 transform rotate-3 z-10" />
               <div className="w-16 h-16 bg-zn-hot text-white flex items-center justify-center font-display font-black text-2xl border-3 border-[#1C1428] mx-auto mb-3 relative z-[2] comic-ink-shadow overflow-hidden">
                 {author.avatarImage ? (
-                  <img src={author.avatarImage} alt="" className="w-full h-full object-cover" />
+                  <img src={author.avatarImage} alt="" width="64" height="64" className="w-full h-full object-cover" />
                 ) : (
                   author.name?.charAt(0)
                 )}
