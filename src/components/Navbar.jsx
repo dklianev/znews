@@ -227,7 +227,7 @@ export default memo(function Navbar() {
       return;
     }
 
-    const horizontalInset = 18;
+    const horizontalInset = 8;
     const nextWidth = Math.max(0, Math.round(activeLink.offsetWidth - (horizontalInset * 2)));
     const nextX = Math.max(0, Math.round(activeLink.offsetLeft - row.scrollLeft + horizontalInset));
     const visible = nextWidth > 0;

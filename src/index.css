@@ -4585,21 +4585,18 @@
 .tetris-hold-swap {
   animation: tetrisHoldSwap 250ms ease-out;
 }
-  .comic-main-nav-underline {
-    position: absolute;
-    left: 0;
-    right: auto;
-    bottom: 7px;
-    width: 0;
-    height: 4px;
-    z-index: 3;
-    border-radius: 999px;
-    background: linear-gradient(90deg, #cc0a1a 0%, #ef6c13 100%);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.28),
-      0 1px 0 rgba(0, 0, 0, 0.22);
-    transition:
-      transform 0.2s ease,
-      width 0.2s ease,
-      opacity 0.18s ease;
-  }
+.comic-main-nav-underline {
+  position: absolute;
+  left: 0;
+  right: auto;
+  bottom: -1px;
+  width: 0;
+  height: 6px;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(90deg, #cc0a1a 0%, #ef6c13 100%);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+  transition:
+    transform 0.2s ease,
+    width 0.2s ease,
+    opacity 0.18s ease;
+}
