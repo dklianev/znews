@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp, Gamepad2, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -28,7 +28,9 @@ export default memo(function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
   const navRef = useRef(null);
+  const navRowRef = useRef(null);
   const [mobileMenuViewport, setMobileMenuViewport] = useState({ top: 0, maxHeight: 320 });
+  const [desktopNavIndicator, setDesktopNavIndicator] = useState({ x: 0, width: 0, visible: false });
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleDark } = useTheme();
@@ -208,6 +210,39 @@ export default memo(function Navbar() {
     ));
   });
 
+  const syncDesktopNavIndicator = useEffectEvent(() => {
+    const row = navRowRef.current;
+    if (!row) {
+      setDesktopNavIndicator((current) => (
+        current.visible ? { x: 0, width: 0, visible: false } : current
+      ));
+      return;
+    }
+
+    const activeLink = row.querySelector('[data-nav-active="true"]');
+    if (!activeLink) {
+      setDesktopNavIndicator((current) => (
+        current.visible ? { x: 0, width: 0, visible: false } : current
+      ));
+      return;
+    }
+
+    const horizontalInset = 18;
+    const nextWidth = Math.max(0, Math.round(activeLink.offsetWidth - (horizontalInset * 2)));
+    const nextX = Math.max(0, Math.round(activeLink.offsetLeft - row.scrollLeft + horizontalInset));
+    const visible = nextWidth > 0;
+
+    setDesktopNavIndicator((current) => (
+      current.x === nextX && current.width === nextWidth && current.visible === visible
+        ? current
+        : { x: nextX, width: nextWidth, visible }
+    ));
+  });
+
+  useLayoutEffect(() => {
+    syncDesktopNavIndicator();
+  }, [location.pathname, navLinks, syncDesktopNavIndicator]);
+
   // Lock body scroll when mobile nav is open
   useEffect(() => {
     if (isOpen) {
@@ -241,6 +276,40 @@ export default memo(function Navbar() {
       visualViewport?.removeEventListener('scroll', syncMobileMenuViewport);
     };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    let frameId = 0;
+    const row = navRowRef.current;
+    const scheduleSync = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        syncDesktopNavIndicator();
+      });
+    };
+
+    scheduleSync();
+    window.addEventListener('resize', scheduleSync, { passive: true });
+    row?.addEventListener('scroll', scheduleSync, { passive: true });
+    window.visualViewport?.addEventListener('resize', scheduleSync);
+
+    const fonts = document.fonts;
+    let cancelled = false;
+    fonts?.ready
+      ?.then(() => {
+        if (!cancelled) scheduleSync();
+      })
+      .catch(() => { });
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener('resize', scheduleSync);
+      row?.removeEventListener('scroll', scheduleSync);
+      window.visualViewport?.removeEventListener('resize', scheduleSync);
+    };
+  }, [navLinks, syncDesktopNavIndicator]);
 
   const today = new Date().toLocaleDateString('bg-BG', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -445,7 +514,7 @@ export default memo(function Navbar() {
       <nav ref={navRef} className="comic-strip-nav border-b-4 border-zn-black sticky top-0 z-50" style={{ boxShadow: '0 4px 0 rgba(204,10,26,0.3)' }}>
         <div className="relative max-w-[1400px] mx-auto px-2 sm:px-3 lg:px-4">
           <div className="flex items-center justify-between">
-            <div className="hidden md:flex w-full min-w-0 items-center justify-start lg:justify-center gap-0 overflow-x-auto lg:overflow-visible scrollbar-hide comic-main-nav-row">
+            <div ref={navRowRef} className="hidden md:flex w-full min-w-0 items-center justify-start lg:justify-center gap-0 overflow-x-auto lg:overflow-visible scrollbar-hide comic-main-nav-row">
               {navLinks.map(link => {
                 const isActive = location.pathname === link.to;
                 return (
@@ -453,6 +522,7 @@ export default memo(function Navbar() {
                     key={link.to}
                     to={link.to}
                     prefetch="intent"
+                    data-nav-active={isActive ? 'true' : undefined}
                     className={`comic-main-nav-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-inset ${isActive ? 'comic-main-nav-link-active' : ''}`}
                   >
                     {link.hot && <span className="comic-main-nav-hot-dot" aria-hidden="true" />}
@@ -460,6 +530,15 @@ export default memo(function Navbar() {
                   </Link>
                 );
               })}
+              <span
+                aria-hidden="true"
+                className="comic-main-nav-underline pointer-events-none"
+                style={{
+                  width: `${desktopNavIndicator.width}px`,
+                  opacity: desktopNavIndicator.visible ? 1 : 0,
+                  transform: `translateX(${desktopNavIndicator.x}px)`,
+                }}
+              />
             </div>
 
             {/* Mobile toggle */}
