@@ -25,7 +25,7 @@ export default function BreakingTicker() {
         Извънредни новини: {items.join('. ')}
       </div>
 
-      <div className="max-w-6xl mx-auto relative z-[2] px-2 sm:px-3 md:px-0">
+      <div className="max-w-[1400px] mx-auto relative z-[2] px-2 sm:px-3 md:px-0">
         <div className={`flex items-center gap-2 py-2 md:hidden ${hasItems ? '' : 'opacity-0'}`} aria-hidden="true">
           <span className={`shrink-0 rounded-full border-2 border-white/70 bg-black/20 px-2 py-0.5 text-[10px] font-display font-black uppercase tracking-[0.18em] text-white${easterActive ? ' inline-flex items-center gap-1' : ''}`}>
             {easterActive && (

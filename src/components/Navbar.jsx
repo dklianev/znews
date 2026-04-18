@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp, Gamepad2, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -28,9 +28,7 @@ export default memo(function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
   const navRef = useRef(null);
-  const navRowRef = useRef(null);
   const [mobileMenuViewport, setMobileMenuViewport] = useState({ top: 0, maxHeight: 320 });
-  const [desktopNavIndicator, setDesktopNavIndicator] = useState({ x: 0, width: 0, visible: false });
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleDark } = useTheme();
@@ -210,39 +208,6 @@ export default memo(function Navbar() {
     ));
   });
 
-  const syncDesktopNavIndicator = useEffectEvent(() => {
-    const row = navRowRef.current;
-    if (!row) {
-      setDesktopNavIndicator((current) => (
-        current.visible ? { x: 0, width: 0, visible: false } : current
-      ));
-      return;
-    }
-
-    const activeLink = row.querySelector('[data-nav-active="true"]');
-    if (!activeLink) {
-      setDesktopNavIndicator((current) => (
-        current.visible ? { x: 0, width: 0, visible: false } : current
-      ));
-      return;
-    }
-
-    const horizontalInset = 8;
-    const nextWidth = Math.max(0, Math.round(activeLink.offsetWidth - (horizontalInset * 2)));
-    const nextX = Math.max(0, Math.round(activeLink.offsetLeft - row.scrollLeft + horizontalInset));
-    const visible = nextWidth > 0;
-
-    setDesktopNavIndicator((current) => (
-      current.x === nextX && current.width === nextWidth && current.visible === visible
-        ? current
-        : { x: nextX, width: nextWidth, visible }
-    ));
-  });
-
-  useLayoutEffect(() => {
-    syncDesktopNavIndicator();
-  }, [location.pathname, navLinks, syncDesktopNavIndicator]);
-
   // Lock body scroll when mobile nav is open
   useEffect(() => {
     if (isOpen) {
@@ -276,40 +241,6 @@ export default memo(function Navbar() {
       visualViewport?.removeEventListener('scroll', syncMobileMenuViewport);
     };
   }, [isOpen]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-
-    let frameId = 0;
-    const row = navRowRef.current;
-    const scheduleSync = () => {
-      window.cancelAnimationFrame(frameId);
-      frameId = window.requestAnimationFrame(() => {
-        syncDesktopNavIndicator();
-      });
-    };
-
-    scheduleSync();
-    window.addEventListener('resize', scheduleSync, { passive: true });
-    row?.addEventListener('scroll', scheduleSync, { passive: true });
-    window.visualViewport?.addEventListener('resize', scheduleSync);
-
-    const fonts = document.fonts;
-    let cancelled = false;
-    fonts?.ready
-      ?.then(() => {
-        if (!cancelled) scheduleSync();
-      })
-      .catch(() => { });
-
-    return () => {
-      cancelled = true;
-      window.cancelAnimationFrame(frameId);
-      window.removeEventListener('resize', scheduleSync);
-      row?.removeEventListener('scroll', scheduleSync);
-      window.visualViewport?.removeEventListener('resize', scheduleSync);
-    };
-  }, [navLinks, syncDesktopNavIndicator]);
 
   const today = new Date().toLocaleDateString('bg-BG', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -449,7 +380,7 @@ export default memo(function Navbar() {
           </div>
 
           {/* COMIC LOGO — big tabloid name */}
-          <Link to="/" prefetch="intent" className="inline-flex min-h-[160px] sm:h-[210px] md:h-[252px] items-end group overflow-visible">
+          <Link to="/" prefetch="intent" className="inline-flex self-center min-h-[160px] sm:h-[210px] md:h-[252px] items-end group overflow-visible">
             <div className="relative inline-block overflow-visible px-2 sm:px-3 pr-8 sm:pr-10 transition-transform duration-300 group-hover:scale-[1.03]">
               {/* Background glow */}
               <div className="absolute -inset-6 bg-gradient-to-br from-yellow-400/15 via-transparent to-orange-400/15 blur-2xl transition-opacity duration-300 group-hover:from-yellow-400/25 group-hover:to-orange-400/25" />
@@ -492,13 +423,13 @@ export default memo(function Navbar() {
       <div className="relative border-t-4 border-b-4 border-black/20">
         <div className="bg-gradient-to-r from-zn-hot via-zn-purple to-zn-navy">
           <div className="max-w-6xl mx-auto px-3 md:px-4 py-2 relative">
-            <div className="comic-spotlight-strip grid min-h-[5.15rem] grid-cols-2 items-stretch justify-start gap-2 md:flex md:h-[3.55rem] md:items-center md:justify-center md:gap-5 overflow-visible md:overflow-x-auto scrollbar-hide py-1">
+            <div className="comic-spotlight-strip grid min-h-[5.15rem] grid-cols-2 items-stretch justify-start gap-2 md:flex md:min-h-[3.55rem] md:items-center md:justify-center md:gap-5 overflow-visible md:overflow-x-auto scrollbar-hide py-1">
               {spotlightLinks.map(({ to, label, Icon, hot, tilt, isArcade, isClassifieds }) => (
                 <Link
                   key={to}
                   to={to}
                   prefetch="intent"
-                  className={`comic-chip comic-spotlight-chip w-full md:w-auto md:min-w-[9.25rem] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-hot ${isClassifieds ? 'comic-chip-classifieds' : isArcade ? 'comic-chip-arcade' : ''} ${hot && !isArcade && !isClassifieds ? 'comic-chip-hot' : ''}`}
+                  className={`comic-chip comic-spotlight-chip w-full md:w-auto whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-zn-hot ${isClassifieds ? 'comic-chip-classifieds' : isArcade ? 'comic-chip-arcade' : ''} ${hot && !isArcade && !isClassifieds ? 'comic-chip-hot' : ''}`}
                   style={{ '--chip-tilt': tilt }}
                 >
                   <Icon className="w-4 h-4" />
@@ -514,7 +445,7 @@ export default memo(function Navbar() {
       <nav ref={navRef} className="comic-strip-nav border-b-4 border-zn-black sticky top-0 z-50" style={{ boxShadow: '0 4px 0 rgba(204,10,26,0.3)' }}>
         <div className="relative max-w-[1400px] mx-auto px-2 sm:px-3 lg:px-4">
           <div className="flex items-center justify-between">
-            <div ref={navRowRef} className="hidden md:flex w-full min-w-0 items-center justify-start lg:justify-center gap-0 overflow-x-auto lg:overflow-visible scrollbar-hide comic-main-nav-row">
+            <div className="hidden md:flex w-full min-w-0 items-center justify-start lg:justify-center gap-0 overflow-x-auto lg:overflow-visible scrollbar-hide comic-main-nav-row">
               {navLinks.map(link => {
                 const isActive = location.pathname === link.to;
                 return (
@@ -522,7 +453,6 @@ export default memo(function Navbar() {
                     key={link.to}
                     to={link.to}
                     prefetch="intent"
-                    data-nav-active={isActive ? 'true' : undefined}
                     className={`comic-main-nav-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-inset ${isActive ? 'comic-main-nav-link-active' : ''}`}
                   >
                     {link.hot && <span className="comic-main-nav-hot-dot" aria-hidden="true" />}
@@ -530,15 +460,6 @@ export default memo(function Navbar() {
                   </Link>
                 );
               })}
-              <span
-                aria-hidden="true"
-                className="comic-main-nav-underline pointer-events-none"
-                style={{
-                  width: `${desktopNavIndicator.width}px`,
-                  opacity: desktopNavIndicator.visible ? 1 : 0,
-                  transform: `translateX(${desktopNavIndicator.x}px)`,
-                }}
-              />
             </div>
 
             {/* Mobile toggle */}

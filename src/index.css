@@ -2438,6 +2438,25 @@
       box-shadow 0.18s ease;
   }
 
+  .comic-main-nav-link::after {
+    content: '';
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: -1px;
+    height: 4px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(90deg, #cc0a1a 0%, #ef6c13 100%);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    transform: scaleX(0.9);
+    transform-origin: center;
+    transition:
+      transform 0.18s ease,
+      opacity 0.18s ease;
+    pointer-events: none;
+  }
+
   .comic-main-nav-link:last-child {
     border-right: 0;
   }
@@ -2462,6 +2481,11 @@
     z-index: 2;
   }
 
+  .comic-main-nav-link-active::after {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
   .comic-main-nav-hot-dot {
     width: 8px;
     height: 8px;
@@ -2470,22 +2494,6 @@
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.6),
       0 0 0 2px rgba(204, 10, 26, 0.18);
-  }
-
-  .comic-main-nav-underline {
-    position: absolute;
-    left: 0;
-    right: auto;
-    bottom: -1px;
-    width: 0;
-    height: 6px;
-    border-radius: 4px 4px 0 0;
-    background: linear-gradient(90deg, #cc0a1a 0%, #ef6c13 100%);
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
-    transition:
-      transform 0.2s ease,
-      width 0.2s ease,
-      opacity 0.18s ease;
   }
 
   /* ── Hover lift for comic panels ── */
