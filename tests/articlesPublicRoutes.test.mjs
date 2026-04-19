@@ -167,6 +167,9 @@ function createDeps(overrides = {}) {
       getArticleSectionFilter() { return null; },
       getPublishedFilter() { return { status: 'published' }; },
       getWindowKey() { return 42; },
+      hasCompleteImageMeta(imageMeta) {
+        return Boolean(imageMeta?.width && imageMeta?.height && imageMeta?.webp?.length && imageMeta?.avif?.length);
+      },
       hasOwn(target, key) { return Object.prototype.hasOwnProperty.call(target || {}, key); },
       async hasPermissionForSection() { return false; },
       hashBrowserClientFingerprint(req, scope) {
@@ -179,6 +182,13 @@ function createDeps(overrides = {}) {
       },
       isProd: false,
       isMongoDuplicateKeyError(error) { return Number(error?.code) === 11000; },
+      mergeResolvedImageMeta(existing, resolved) {
+        return {
+          ...(resolved || {}),
+          ...(existing?.objectPosition ? { objectPosition: existing.objectPosition } : {}),
+          ...(Number.isFinite(Number(existing?.objectScale)) ? { objectScale: Number(existing.objectScale) } : {}),
+        };
+      },
       normalizeText(value, maxLength = 200) { return String(value || '').trim().slice(0, maxLength); },
       parseCookies(req) {
         const raw = typeof req?.headers?.cookie === 'string' ? req.headers.cookie : '';
@@ -197,6 +207,7 @@ function createDeps(overrides = {}) {
       randomUUID() {
         return 'server-uuid-123456';
       },
+      async resolveImageMetaFromUrl() { return null; },
       async resolveShareFallbackSource() { return null; },
       serializeCookie(name, value) {
         return `${name}=${value}`;
@@ -245,6 +256,83 @@ describe('articlesPublicRoutes', () => {
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.headers['Cache-Control'], 'private, max-age=60');
+  });
+
+  it('enriches incomplete image meta in public article lists before responding', async () => {
+    const updateCalls = [];
+    const { deps } = createDeps({
+      Article: {
+        async countDocuments() {
+          return 1;
+        },
+        find(filter) {
+          return {
+            select() { return this; },
+            sort() { return this; },
+            skip() { return this; },
+            limit() { return this; },
+            lean: async () => [{
+              id: 7,
+              category: 'crime',
+              title: 'Crime story',
+              image: '/uploads/hero.webp',
+              imageMeta: {
+                objectPosition: '40% 20%',
+                objectScale: 1.25,
+              },
+            }],
+          };
+        },
+        async updateOne(filter, update) {
+          updateCalls.push({ filter, update });
+          return { modifiedCount: 1 };
+        },
+      },
+      async resolveImageMetaFromUrl() {
+        return {
+          width: 1400,
+          height: 900,
+          placeholder: '/uploads/_variants/hero/blur.webp',
+          webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
+          avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
+        };
+      },
+    });
+    const router = createArticlesPublicRouter(deps);
+    const handlers = getRouteHandlers(router, 'get', '/');
+    const res = createResponse();
+
+    await runHandlers(handlers, {
+      query: { page: '1', limit: '6' },
+      headers: {},
+    }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(res.body.items[0].imageMeta, {
+      width: 1400,
+      height: 900,
+      placeholder: '/uploads/_variants/hero/blur.webp',
+      webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
+      avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
+      objectPosition: '40% 20%',
+      objectScale: 1.25,
+    });
+    assert.deepEqual(updateCalls, [{
+      filter: { id: 7 },
+      update: {
+        $set: {
+          imageMeta: {
+            width: 1400,
+            height: 900,
+            placeholder: '/uploads/_variants/hero/blur.webp',
+            webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
+            avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
+            objectPosition: '40% 20%',
+            objectScale: 1.25,
+          },
+        },
+      },
+    }]);
   });
 
   it('caches author stats publicly with a short ttl', async () => {

@@ -114,6 +114,108 @@ describe('imagePipelineAndAuthzServices', () => {
     expect(listRemoteObjectsByPrefix).toHaveBeenCalledTimes(4);
   });
 
+  it('repairs crop-only image meta during backfill without dropping focal settings', async () => {
+    const articleFind = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([
+          {
+            _id: 'article-1',
+            imageMeta: {
+              objectPosition: '33% 66%',
+              objectScale: 1.2,
+            },
+          },
+        ]),
+      }),
+    });
+    const articleBulkWrite = vi.fn(async () => ({ modifiedCount: 1 }));
+    const tipFind = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        lean: vi.fn().mockResolvedValue([]),
+      }),
+    });
+    const tipBulkWrite = vi.fn(async () => ({ modifiedCount: 0 }));
+
+    const service = createImagePipelineService({
+      Article: {
+        find: articleFind,
+        bulkWrite: articleBulkWrite,
+      },
+      Tip: {
+        find: tipFind,
+        bulkWrite: tipBulkWrite,
+      },
+      allowedImageExtensions: new Set(['.jpg', '.png', '.webp']),
+      getManifestAbsolutePath: (fileName) => `C:/tmp/${fileName}/manifest.json`,
+      getManifestRelativePath: (fileName) => `variants/${fileName}/manifest.json`,
+      getOriginalUploadUrl: (fileName) => `/uploads/${fileName}`,
+      getStorageObjectBuffer: async (key) => {
+        if (!key.endsWith('manifest.json')) return null;
+        return Buffer.from(JSON.stringify({
+          original: { width: 1600, height: 900, format: 'webp' },
+          placeholder: '/uploads/_variants/hero/blur.webp',
+          variants: [
+            { width: 640, webp: '/uploads/_variants/hero/w640.webp', avif: '/uploads/_variants/hero/w640.avif' },
+          ],
+        }), 'utf8');
+      },
+      getVariantsAbsoluteDir: (fileName) => `C:/tmp/${fileName}`,
+      getVariantsRelativeDir: (fileName) => `variants/${fileName}`,
+      imagePipelineWidths: [320, 640],
+      isOriginalUploadFileName: (value) => String(value).endsWith('.jpg'),
+      isRemoteStorage: true,
+      listRemoteObjectsByPrefix: async (prefix) => (
+        prefix === 'uploads/'
+          ? [{ Key: 'uploads/hero.jpg', Size: 1024, LastModified: '2026-04-19T10:00:00.000Z' }]
+          : []
+      ),
+      loadSharp: async () => (() => ({})),
+      putStorageObject: vi.fn(async () => {}),
+      toUploadsStorageKey: (value) => `uploads/${value}`,
+      toUploadsUrlFromRelative: (value) => `/uploads/${value}`,
+      uploadsDir: 'C:/tmp/uploads',
+    });
+
+    const summary = await service.backfillImagePipeline({ force: false });
+
+    expect(summary.skipped).toBe(1);
+    expect(summary.syncedArticleMeta).toBe(1);
+    expect(articleFind).toHaveBeenCalledWith({
+      image: { $in: ['/uploads/hero.jpg'] },
+      $or: [
+        { imageMeta: { $exists: false } },
+        { imageMeta: null },
+        { 'imageMeta.width': { $exists: false } },
+        { 'imageMeta.height': { $exists: false } },
+        { 'imageMeta.placeholder': { $exists: false } },
+        { 'imageMeta.placeholder': '' },
+        { 'imageMeta.webp.0': { $exists: false } },
+        { 'imageMeta.avif.0': { $exists: false } },
+      ],
+    });
+    expect(articleBulkWrite).toHaveBeenCalledTimes(1);
+    expect(articleBulkWrite.mock.calls[0][0]).toEqual([
+      {
+        updateOne: {
+          filter: { _id: 'article-1' },
+          update: {
+            $set: {
+              imageMeta: {
+                width: 1600,
+                height: 900,
+                placeholder: '/uploads/_variants/hero/blur.webp',
+                webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
+                avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
+                objectPosition: '33% 66%',
+                objectScale: 1.2,
+              },
+            },
+          },
+        },
+      },
+    ]);
+  });
+
   it('does not cache stale media snapshots after invalidation during an in-flight build', async () => {
     let releaseListing;
     const firstListing = new Promise((resolve) => {

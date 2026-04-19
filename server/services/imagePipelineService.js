@@ -26,6 +26,7 @@ export function createImagePipelineService(deps) {
 
   const imagePipelineBackfillInFlight = new Map();
   const MEDIA_LIBRARY_SNAPSHOT_TTL_MS = 15 * 1000;
+  const PIPELINE_IMAGE_META_KEYS = new Set(['width', 'height', 'placeholder', 'webp', 'avif']);
   let mediaLibrarySnapshotCache = null;
   let mediaLibrarySnapshotExpiresAt = 0;
   let mediaLibrarySnapshotInFlight = null;
@@ -204,6 +205,50 @@ export function createImagePipelineService(deps) {
     };
   }
 
+  function isResponsiveVariantList(items) {
+    return Array.isArray(items) && items.some((item) => (
+      item
+      && Number.isFinite(Number(item.width))
+      && typeof item.url === 'string'
+      && item.url.trim().length > 0
+    ));
+  }
+
+  function hasCompleteImageMeta(imageMeta) {
+    if (!imageMeta || typeof imageMeta !== 'object' || Array.isArray(imageMeta)) return false;
+    const width = Number(imageMeta.width);
+    const height = Number(imageMeta.height);
+    return (
+      Number.isFinite(width)
+      && width > 0
+      && Number.isFinite(height)
+      && height > 0
+      && typeof imageMeta.placeholder === 'string'
+      && imageMeta.placeholder.trim().length > 0
+      && isResponsiveVariantList(imageMeta.webp)
+      && isResponsiveVariantList(imageMeta.avif)
+    );
+  }
+
+  function getNonPipelineImageMetaOverrides(imageMeta) {
+    if (!imageMeta || typeof imageMeta !== 'object' || Array.isArray(imageMeta)) return {};
+    return Object.fromEntries(
+      Object.entries(imageMeta).filter(([key]) => !PIPELINE_IMAGE_META_KEYS.has(key))
+    );
+  }
+
+  function mergeResolvedImageMeta(existingImageMeta, resolvedImageMeta) {
+    if (!resolvedImageMeta || typeof resolvedImageMeta !== 'object' || Array.isArray(resolvedImageMeta)) {
+      return existingImageMeta && typeof existingImageMeta === 'object' && !Array.isArray(existingImageMeta)
+        ? existingImageMeta
+        : null;
+    }
+    return {
+      ...resolvedImageMeta,
+      ...getNonPipelineImageMetaOverrides(existingImageMeta),
+    };
+  }
+
   function extractUploadsRelativePathFromUrl(mediaUrl) {
     if (typeof mediaUrl !== 'string') return '';
     const marker = '/uploads/';
@@ -250,6 +295,53 @@ export function createImagePipelineService(deps) {
     ].filter(Boolean))];
   }
 
+  function buildIncompleteImageMetaFilter(candidateMediaUrls) {
+    return {
+      image: { $in: candidateMediaUrls },
+      $or: [
+        { imageMeta: { $exists: false } },
+        { imageMeta: null },
+        { 'imageMeta.width': { $exists: false } },
+        { 'imageMeta.height': { $exists: false } },
+        { 'imageMeta.placeholder': { $exists: false } },
+        { 'imageMeta.placeholder': '' },
+        { 'imageMeta.webp.0': { $exists: false } },
+        { 'imageMeta.avif.0': { $exists: false } },
+      ],
+    };
+  }
+
+  async function syncStoredImageMetaForModel(Model, filter, imageMeta) {
+    if (!Model || typeof Model !== 'object') return 0;
+
+    if (typeof Model.find === 'function' && typeof Model.bulkWrite === 'function') {
+      const docs = await Model.find(filter).select({ _id: 1, imageMeta: 1 }).lean();
+      const normalizedDocs = Array.isArray(docs) ? docs : [];
+      if (normalizedDocs.length === 0) return 0;
+
+      const operations = normalizedDocs.map((doc) => ({
+        updateOne: {
+          filter: { _id: doc._id },
+          update: {
+            $set: {
+              imageMeta: mergeResolvedImageMeta(doc?.imageMeta, imageMeta),
+            },
+          },
+        },
+      }));
+
+      const result = await Model.bulkWrite(operations, { ordered: false });
+      return Number(result?.modifiedCount) || Number(result?.nModified) || 0;
+    }
+
+    if (typeof Model.updateMany === 'function') {
+      const result = await Model.updateMany(filter, { $set: { imageMeta } });
+      return Number(result?.modifiedCount) || 0;
+    }
+
+    return 0;
+  }
+
   async function syncStoredImageMetaForFile(fileName, { force = false } = {}) {
     if (!fileName || !isOriginalUploadFileName(fileName)) {
       return { articles: 0, tips: 0 };
@@ -264,22 +356,16 @@ export function createImagePipelineService(deps) {
     const candidateMediaUrls = getCandidateMediaUrlsForFile(fileName);
     const filter = force
       ? { image: { $in: candidateMediaUrls } }
-      : {
-        image: { $in: candidateMediaUrls },
-        $or: [
-          { imageMeta: { $exists: false } },
-          { imageMeta: null },
-        ],
-      };
+      : buildIncompleteImageMetaFilter(candidateMediaUrls);
 
     const [articleResult, tipResult] = await Promise.all([
-      Article.updateMany(filter, { $set: { imageMeta } }),
-      Tip.updateMany(filter, { $set: { imageMeta } }),
+      syncStoredImageMetaForModel(Article, filter, imageMeta),
+      syncStoredImageMetaForModel(Tip, filter, imageMeta),
     ]);
 
     return {
-      articles: Number(articleResult?.modifiedCount) || 0,
-      tips: Number(tipResult?.modifiedCount) || 0,
+      articles: Number(articleResult) || 0,
+      tips: Number(tipResult) || 0,
     };
   }
 
@@ -530,6 +616,8 @@ export function createImagePipelineService(deps) {
     getUploadFilenameFromUrl,
     invalidateMediaLibrarySnapshot,
     listMediaFiles,
+    hasCompleteImageMeta,
+    mergeResolvedImageMeta,
     readOriginalUploadBuffer,
     resolveImageMetaFromUrl,
     toImageMetaFromManifest,

@@ -200,9 +200,20 @@ function createDeps(adOptionsSeen) {
     },
     async listPublicGames() { return []; },
     async listVipClassifieds() { return [{ id: 301, title: 'VIP обява' }]; },
+    hasCompleteImageMeta(imageMeta) {
+      return Boolean(imageMeta?.width && imageMeta?.height && imageMeta?.webp?.length && imageMeta?.avif?.length);
+    },
+    mergeResolvedImageMeta(existing, resolved) {
+      return {
+        ...(resolved || {}),
+        ...(existing?.objectPosition ? { objectPosition: existing.objectPosition } : {}),
+        ...(Number.isFinite(Number(existing?.objectScale)) ? { objectScale: Number(existing.objectScale) } : {}),
+      };
+    },
     parseCollectionPagination() { return { shouldPaginate: false, page: 1, limit: 120, skip: 0 }; },
     parsePositiveInt(value, fallback) { return value == null ? fallback : Number.parseInt(value, 10); },
     publicError(error) { return error.message; },
+    async resolveImageMetaFromUrl() { return null; },
     serializeHeroSettings(value) { return value || { key: 'main', mainPhotoArticleId: null, photoArticleIds: [] }; },
     serializeSiteSettings(value) { return value; },
     stripDocumentList(items) { return items; },
@@ -307,6 +318,70 @@ describe('publicFeedRoutes', () => {
         assert.equal(capturedFilters.length, 1);
         assert.deepEqual(capturedFilters[0], { status: { $ne: 'archived' } },
           'authenticated bootstrap must exclude archived articles');
+      }
+
+      {
+        const app = createMockApp();
+        const adOptionsSeen = [];
+        const updateCalls = [];
+        const deps = createDeps(adOptionsSeen);
+        deps.Article = {
+          ...deps.Article,
+          async updateOne(filter, update) {
+            updateCalls.push({ filter, update });
+            return { modifiedCount: 1 };
+          },
+        };
+        deps.fetchHomepageArticleCandidates = async () => ([
+          {
+            id: 77,
+            title: 'Lead',
+            excerpt: 'Deck',
+            category: 'crime',
+            publishAt: '2026-03-12T00:00:00.000Z',
+            image: '/uploads/hero.webp',
+            imageMeta: { objectPosition: '64% 44%', objectScale: 1.18 },
+          },
+        ]);
+        deps.resolveImageMetaFromUrl = async () => ({
+          width: 1600,
+          height: 900,
+          placeholder: '/uploads/_variants/hero/blur.webp',
+          webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
+          avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
+        });
+        registerPublicFeedRoutes(app, deps);
+
+        const handlers = app.routes.get('GET /api/homepage');
+        const res = createResponse();
+        await runHandlers(handlers, { query: { compact: '1' } }, res);
+
+        assert.equal(res.statusCode, 200);
+        assert.deepEqual(res.body.articlePool[0].imageMeta, {
+          width: 1600,
+          height: 900,
+          placeholder: '/uploads/_variants/hero/blur.webp',
+          webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
+          avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
+          objectPosition: '64% 44%',
+          objectScale: 1.18,
+        });
+        assert.deepEqual(updateCalls, [{
+          filter: { id: 77 },
+          update: {
+            $set: {
+              imageMeta: {
+                width: 1600,
+                height: 900,
+                placeholder: '/uploads/_variants/hero/blur.webp',
+                webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
+                avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
+                objectPosition: '64% 44%',
+                objectScale: 1.18,
+              },
+            },
+          },
+        }]);
       }
   });
 });

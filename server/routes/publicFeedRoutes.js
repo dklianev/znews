@@ -96,6 +96,9 @@ export function registerPublicFeedRoutes(app, deps) {
     parseCollectionPagination,
     parsePositiveInt,
     publicError,
+    hasCompleteImageMeta = () => false,
+    mergeResolvedImageMeta = (_existing, resolved) => resolved,
+    resolveImageMetaFromUrl = async () => null,
     serializeHeroSettings,
     serializeSiteSettings,
     stripDocumentList,
@@ -112,6 +115,37 @@ export function registerPublicFeedRoutes(app, deps) {
   const routeCacheInvalidators = ensureRouteCacheInvalidatorRegistry(app);
   routeCacheInvalidators.heroSettings.add(() => heroSettingsCache.invalidate());
   routeCacheInvalidators.siteSettings.add(() => siteSettingsCache.invalidate());
+
+  async function enrichArticleListImageMeta(items) {
+    if (!Array.isArray(items) || items.length === 0) return items;
+
+    const persistTasks = [];
+    await Promise.all(items.map(async (item) => {
+      if (!item || typeof item !== 'object' || !item.image) return;
+      if (hasCompleteImageMeta(item.imageMeta)) return;
+
+      const resolvedMeta = await resolveImageMetaFromUrl(item.image, { queueIfMissing: true });
+      if (!resolvedMeta) return;
+
+      const mergedMeta = mergeResolvedImageMeta(item.imageMeta, resolvedMeta);
+      if (!mergedMeta) return;
+
+      item.imageMeta = mergedMeta;
+
+      const itemId = Number.parseInt(item.id, 10);
+      if (Number.isInteger(itemId) && typeof Article?.updateOne === 'function') {
+        persistTasks.push(
+          Article.updateOne({ id: itemId }, { $set: { imageMeta: mergedMeta } }).catch(() => {})
+        );
+      }
+    }));
+
+    if (persistTasks.length > 0) {
+      void Promise.allSettled(persistTasks);
+    }
+
+    return items;
+  }
 
   app.get('/api/homepage', cacheMiddleware, async (req, res) => {
     const maybeUser = decodeTokenFromRequest(req);
@@ -206,6 +240,7 @@ export function registerPublicFeedRoutes(app, deps) {
     payload.ads = stripDocumentList(payload.ads);
     payload.wanted = stripDocumentList(payload.wanted);
     payload.polls = stripDocumentList(payload.polls);
+    await enrichArticleListImageMeta(payload.articleCandidates);
 
     const homepageSections = buildHomepageSections({
       articles: payload.articleCandidates,
@@ -323,6 +358,7 @@ export function registerPublicFeedRoutes(app, deps) {
     payload.polls = stripDocumentList(payload.polls);
     if (includeSections.has('gallery')) payload.gallery = stripDocumentList(payload.gallery);
     else delete payload.gallery;
+    await enrichArticleListImageMeta(payload.articles);
     const articleTotal = Number.isInteger(payload.articleTotal) ? payload.articleTotal : 0;
     delete payload.articleTotal;
 
