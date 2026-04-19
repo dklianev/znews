@@ -11,27 +11,17 @@ export default function HomeSidebarRail({ ads }) {
       <ErrorBoundary fallback={null}>
         <TrendingSidebar />
       </ErrorBoundary>
-      <div className="below-fold-section-compact">
-        <ErrorBoundary fallback={null}>
-          <VipClassifiedsWidget />
-        </ErrorBoundary>
-      </div>
-      <div className="below-fold-section-compact">
-        <ErrorBoundary fallback={null}>
-          <MostWanted />
-        </ErrorBoundary>
-      </div>
-      <div className="below-fold-section-compact">
-        <ErrorBoundary fallback={null}>
-          <PollWidget />
-        </ErrorBoundary>
-      </div>
-      <div className="below-fold-section-compact">
-        <AdSlot ads={ads} slot="home.sidebar.1" pageType="home" />
-      </div>
-      <div className="below-fold-section-compact">
-        <AdSlot ads={ads} slot="home.sidebar.2" pageType="home" />
-      </div>
+      <ErrorBoundary fallback={null}>
+        <VipClassifiedsWidget />
+      </ErrorBoundary>
+      <ErrorBoundary fallback={null}>
+        <MostWanted />
+      </ErrorBoundary>
+      <ErrorBoundary fallback={null}>
+        <PollWidget />
+      </ErrorBoundary>
+      <AdSlot ads={ads} slot="home.sidebar.1" pageType="home" />
+      <AdSlot ads={ads} slot="home.sidebar.2" pageType="home" />
     </div>
   );
 }
