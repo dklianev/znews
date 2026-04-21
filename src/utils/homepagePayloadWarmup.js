@@ -17,6 +17,8 @@ export function warmHomepagePayload() {
   return warmedHomepagePayloadPromise;
 }
 
-export function getWarmedHomepagePayload() {
-  return warmedHomepagePayloadPromise;
+export function consumeWarmedHomepagePayload() {
+  const promise = warmedHomepagePayloadPromise;
+  warmedHomepagePayloadPromise = null;
+  return promise;
 }

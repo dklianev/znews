@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { api, getSession, saveSession, clearSession } from '../utils/api';
 import { HOMEPAGE_PAYLOAD_PARAMS } from '../utils/homepagePayloadConfig';
-import { getWarmedHomepagePayload } from '../utils/homepagePayloadWarmup';
+import { consumeWarmedHomepagePayload } from '../utils/homepagePayloadWarmup';
 import {
   AdminDataContext,
   ArticlesDataContext,
@@ -400,7 +400,7 @@ export function DataProvider({ children }) {
     let hitRateLimit = false;
     if (shouldUseHomepagePayload) {
       try {
-        const homepagePayload = await (getWarmedHomepagePayload() || api.homepage.get(HOMEPAGE_PAYLOAD_PARAMS));
+        const homepagePayload = await (consumeWarmedHomepagePayload() || api.homepage.get(HOMEPAGE_PAYLOAD_PARAMS));
         applyHomepagePayload(homepagePayload);
         loadedFromHomepagePayload = true;
       } catch (error) {
