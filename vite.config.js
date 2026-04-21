@@ -118,6 +118,22 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/znewsmedia01\.blob\.core\.windows\.net\/.*\.(?:avif|webp|jpe?g|png)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'znews-azure-images',
+              expiration: {
+                maxEntries: 250,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
         navigateFallbackDenylist: [
           /^\/assets\//,
           /^\/api\//,
