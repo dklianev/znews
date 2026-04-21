@@ -34,18 +34,18 @@ describe('AdBanner', () => {
         showButton: false,
         showTitle: false,
         imagePlacement: 'cover',
-        image: 'https://znewsmedia01.blob.core.windows.net/uploads/ad-original.webp',
+        image: 'https://znewsmedia01.blob.core.windows.net/uploads/uploads/ad-original.webp',
         imageMeta: {
           width: 1200,
           height: 300,
-          placeholder: 'https://znewsmedia01.blob.core.windows.net/uploads/_variants/ad/blur.webp',
+          placeholder: 'https://znewsmedia01.blob.core.windows.net/uploads/uploads/_variants/ad/blur.webp',
           webp: [
-            { width: 640, url: 'https://znewsmedia01.blob.core.windows.net/uploads/_variants/ad/w640.webp' },
-            { width: 960, url: 'https://znewsmedia01.blob.core.windows.net/uploads/_variants/ad/w960.webp' },
+            { width: 640, url: 'https://znewsmedia01.blob.core.windows.net/uploads/uploads/_variants/ad/w640.webp' },
+            { width: 960, url: 'https://znewsmedia01.blob.core.windows.net/uploads/uploads/_variants/ad/w960.webp' },
           ],
           avif: [
-            { width: 640, url: 'https://znewsmedia01.blob.core.windows.net/uploads/_variants/ad/w640.avif' },
-            { width: 960, url: 'https://znewsmedia01.blob.core.windows.net/uploads/_variants/ad/w960.avif' },
+            { width: 640, url: 'https://znewsmedia01.blob.core.windows.net/uploads/uploads/_variants/ad/w640.avif' },
+            { width: 960, url: 'https://znewsmedia01.blob.core.windows.net/uploads/uploads/_variants/ad/w960.avif' },
           ],
           objectPosition: '42% 55%',
           objectScale: 1.12,
@@ -59,9 +59,11 @@ describe('AdBanner', () => {
 
     const avifSource = container.querySelector('source[type="image/avif"]');
     expect(avifSource?.getAttribute('srcset')).toContain('/w640.avif 640w');
+    expect(avifSource?.getAttribute('srcset')).not.toContain('/uploads/uploads/');
     expect(avifSource?.getAttribute('sizes')).toBe('(max-width: 767px) 100vw, 1100px');
 
     const image = container.querySelector('picture img');
+    expect(image?.getAttribute('src')).toBe('https://znewsmedia01.blob.core.windows.net/uploads/ad-original.webp');
     expect(image?.style.objectPosition).toBe('42% 55%');
     expect(image?.style.transform).toBe('scale(1.12)');
   });

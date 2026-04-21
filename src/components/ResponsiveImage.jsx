@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from 'react';
-import { getIntrinsicImageDimensions, getOptimizedImageSources } from '../utils/imageOptimization';
+import { getIntrinsicImageDimensions, getOptimizedImageSources, normalizeMediaResourceUrl } from '../utils/imageOptimization';
 
 function normalizeClassName(...values) {
   return values
@@ -40,19 +40,21 @@ export default memo(function ResponsiveImage({
     setLoaded(false);
   }, [src, fallbackSrc, pipeline?.placeholder]);
 
-  const safeSrc = (!failed && src) ? src : (fallbackSrc || src || '');
+  const safeSrc = normalizeMediaResourceUrl((!failed && src) ? src : (fallbackSrc || src || ''));
   const normalizedPipeline = useMemo(() => {
     if (!pipeline || typeof pipeline !== 'object') return null;
     const avif = Array.isArray(pipeline.avif)
       ? pipeline.avif.filter(item => item && Number.isFinite(Number(item.width)) && typeof item.url === 'string')
+        .map(item => ({ ...item, url: normalizeMediaResourceUrl(item.url) }))
       : [];
     const webp = Array.isArray(pipeline.webp)
       ? pipeline.webp.filter(item => item && Number.isFinite(Number(item.width)) && typeof item.url === 'string')
+        .map(item => ({ ...item, url: normalizeMediaResourceUrl(item.url) }))
       : [];
     return {
       avif,
       webp,
-      placeholder: typeof pipeline.placeholder === 'string' ? pipeline.placeholder : '',
+      placeholder: typeof pipeline.placeholder === 'string' ? normalizeMediaResourceUrl(pipeline.placeholder) : '',
     };
   }, [pipeline]);
 
