@@ -20,6 +20,7 @@ export default memo(function ResponsiveImage({
   decoding = 'async',
   fetchPriority = 'auto',
   quality = 72,
+  style,
   onError,
   ...rest
 }) {
@@ -93,8 +94,11 @@ export default memo(function ResponsiveImage({
     if (intrinsicDimensions.width && intrinsicDimensions.height) {
       base.aspectRatio = `${intrinsicDimensions.width} / ${intrinsicDimensions.height}`;
     }
+    if (style && typeof style === 'object') {
+      base = { ...base, ...style };
+    }
     return Object.keys(base).length > 0 ? base : undefined;
-  }, [effectivePlaceholder, loaded, pipeline, intrinsicDimensions]);
+  }, [effectivePlaceholder, loaded, pipeline, intrinsicDimensions, style]);
 
   if (!safeSrc) return null;
 

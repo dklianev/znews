@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { ExternalLink } from 'lucide-react';
 import { resolveAdCreative } from '../../shared/adResolver.js';
+import ResponsiveImage from './ResponsiveImage';
 
 const BANNER_LAYOUTS = Object.freeze({
   horizontal: Object.freeze({
@@ -173,6 +174,16 @@ function getAdCoverImageStyle(creative) {
   };
 }
 
+function getAdImageSizes(variant) {
+  if (variant === 'side') {
+    return '(max-width: 767px) 100vw, 320px';
+  }
+  if (variant === 'inline') {
+    return '(max-width: 767px) 100vw, 720px';
+  }
+  return '(max-width: 767px) 100vw, 1100px';
+}
+
 function getBannerLayout(variant, slotMeta, viewport) {
   const layouts = BANNER_LAYOUTS[variant] || BANNER_LAYOUTS.horizontal;
   const requestedKey = viewport === 'mobile'
@@ -217,7 +228,17 @@ function AdCircleMedia({ ad, creative, className, iconClass = 'text-2xl' }) {
   return (
     <div className={className}>
       {creative.image ? (
-        <img src={creative.image} alt={ad.title} className="h-full w-full object-cover" loading="lazy" decoding="async" fetchpriority="low" />
+        <ResponsiveImage
+          src={creative.image}
+          alt={ad.title}
+          pipeline={creative.imageMeta}
+          pictureClassName="h-full w-full"
+          className="h-full w-full object-cover"
+          sizes="96px"
+          loading="lazy"
+          decoding="async"
+          fetchPriority="low"
+        />
       ) : (
         <span className={iconClass}>{ad.icon}</span>
       )}
@@ -225,7 +246,7 @@ function AdCircleMedia({ ad, creative, className, iconClass = 'text-2xl' }) {
   );
 }
 
-function AdCreativeBackground({ ad, creative, overlayClassName = '', glowClassName = '', containPaddingClass = 'p-3' }) {
+function AdCreativeBackground({ ad, creative, variant = 'horizontal', overlayClassName = '', glowClassName = '', containPaddingClass = 'p-3' }) {
   if (!creative?.image) return null;
   const containMode = creative.fitMode === 'contain';
 
@@ -239,16 +260,19 @@ function AdCreativeBackground({ ad, creative, overlayClassName = '', glowClassNa
           }}
         />
       )}
-      <img
+      <ResponsiveImage
         src={creative.image}
         alt=""
+        pipeline={creative.imageMeta}
+        pictureClassName="absolute inset-0 block h-full w-full"
         className={containMode
-          ? `absolute inset-0 h-full w-full object-contain ${containPaddingClass}`
-          : 'absolute inset-0 h-full w-full object-cover'}
+          ? `h-full w-full object-contain ${containPaddingClass}`
+          : 'h-full w-full object-cover'}
+        sizes={getAdImageSizes(variant)}
         style={getAdCoverImageStyle(creative)}
         loading="lazy"
         decoding="async"
-        fetchpriority="low"
+        fetchPriority="low"
       />
       {overlayClassName ? <div className={`absolute inset-0 ${overlayClassName}`} /> : null}
       {containMode ? <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1),transparent_60%)]" /> : null}
@@ -342,6 +366,7 @@ export function AdBannerHorizontal({ ad, slotMeta = null, showSafeArea = false, 
             <AdCreativeBackground
               ad={ad}
               creative={creative}
+              variant="horizontal"
               containPaddingClass={layout.containPaddingClass}
               overlayClassName={creative.fitMode === 'contain'
                 ? 'bg-gradient-to-r from-[#1C1428]/18 via-[#1C1428]/6 to-[#1C1428]/14'
@@ -411,6 +436,7 @@ export function AdBannerSide({ ad, slotMeta = null, showSafeArea = false, onClic
             <AdCreativeBackground
               ad={ad}
               creative={creative}
+              variant="side"
               containPaddingClass={layout.containPaddingClass}
               overlayClassName={creative.fitMode === 'contain'
                 ? 'bg-gradient-to-b from-[#1C1428]/18 via-[#1C1428]/6 to-[#1C1428]/16'
@@ -475,6 +501,7 @@ export function AdBannerInline({ ad, slotMeta = null, showSafeArea = false, onCl
             <AdCreativeBackground
               ad={ad}
               creative={creative}
+              variant="inline"
               containPaddingClass={layout.containPaddingClass}
               overlayClassName={creative.fitMode === 'contain'
                 ? 'bg-gradient-to-r from-[#1C1428]/14 to-[#1C1428]/8'

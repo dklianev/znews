@@ -253,8 +253,24 @@ describe('adResolver', () => {
         placements: ['home.top'],
         imageDesktop: 'https://example.com/desktop.jpg',
         imageMobile: 'https://example.com/mobile.jpg',
-        imageMetaDesktop: { objectPosition: '20% 40%', objectScale: 1.2 },
-        imageMetaMobile: { objectPosition: '60% 45%', objectScale: 1 },
+        imageMetaDesktop: {
+          width: 1200,
+          height: 320,
+          placeholder: 'https://example.com/desktop-blur.webp',
+          webp: [{ width: 640, url: 'https://example.com/desktop-w640.webp' }],
+          avif: [{ width: 640, url: 'https://example.com/desktop-w640.avif' }],
+          objectPosition: '20% 40%',
+          objectScale: 1.2,
+        },
+        imageMetaMobile: {
+          width: 640,
+          height: 320,
+          placeholder: 'https://example.com/mobile-blur.webp',
+          webp: [{ width: 320, url: 'https://example.com/mobile-w320.webp' }],
+          avif: [{ width: 320, url: 'https://example.com/mobile-w320.avif' }],
+          objectPosition: '60% 45%',
+          objectScale: 1,
+        },
         fitMode: 'contain',
       });
       assert.equal(responsiveAd.image, 'https://example.com/desktop.jpg', 'desktop creative should remain the legacy image alias');
@@ -263,6 +279,18 @@ describe('adResolver', () => {
       const mobileCreative = resolveAdCreative(responsiveAd, { viewport: 'mobile' });
       assert.equal(mobileCreative.image, 'https://example.com/mobile.jpg', 'mobile viewport should prefer the dedicated mobile creative');
       assert.equal(mobileCreative.imageMeta.objectPosition, '60% 45%', 'mobile creative should use mobile focal metadata');
+      assert.deepEqual(
+        mobileCreative.imageMeta.avif,
+        [{ width: 320, url: 'https://example.com/mobile-w320.avif' }],
+        'mobile creative should preserve responsive variant metadata'
+      );
+
+      const desktopCreative = resolveAdCreative(responsiveAd, { viewport: 'desktop' });
+      assert.deepEqual(
+        desktopCreative.imageMeta.webp,
+        [{ width: 640, url: 'https://example.com/desktop-w640.webp' }],
+        'desktop creative should preserve responsive variant metadata'
+      );
     
       const desktopFallbackCreative = resolveAdCreative(normalizeAdRecord({
         id: 62,

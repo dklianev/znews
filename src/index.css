@@ -1454,15 +1454,15 @@
 }
 
 @utility ad-banner-side {
-  @apply ad-banner w-full pt-3;
+  @apply ad-banner w-full pt-5 pr-2;
 }
 
 @utility ad-banner-horizontal {
-  @apply ad-banner w-full pt-3;
+  @apply ad-banner w-full pt-5 pr-2;
 }
 
 @utility ad-banner-inline {
-  @apply ad-banner pt-2;
+  @apply ad-banner pt-4 pr-2;
 }
 
 @utility ticker-wrap {

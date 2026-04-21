@@ -51,4 +51,24 @@ describe('performance resource hints', () => {
     assert.match(config, /cacheName:\s*'znews-azure-images'/, 'Azure image cache should have a stable name');
     assert.match(config, /maxAgeSeconds:\s*60\s*\*\s*60\s*\*\s*24\s*\*\s*30/, 'Azure image cache should expire after 30 days');
   });
+
+  it('keeps ad banner wrappers roomy enough for labels and hover lift', async () => {
+    const css = await readProjectFile('src/index.css');
+
+    assert.match(
+      css,
+      /@utility\s+ad-banner-horizontal\s*\{[\s\S]*?@apply\s+ad-banner\s+w-full\s+pt-5\s+pr-2;/,
+      'horizontal ad banners need top/right gutter so the rotated label is not clipped'
+    );
+    assert.match(
+      css,
+      /@utility\s+ad-banner-side\s*\{[\s\S]*?@apply\s+ad-banner\s+w-full\s+pt-5\s+pr-2;/,
+      'side ad banners need the same safe gutter as horizontal ads'
+    );
+    assert.match(
+      css,
+      /@utility\s+ad-banner-inline\s*\{[\s\S]*?@apply\s+ad-banner\s+pt-4\s+pr-2;/,
+      'inline ad banners need compact safe gutter for their label'
+    );
+  });
 });

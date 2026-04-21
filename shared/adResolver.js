@@ -266,8 +266,27 @@ export function normalizeAdImageMeta(value) {
   const match = String(source.objectPosition || '').match(/(-?\d+(?:\.\d+)?)%\s+(-?\d+(?:\.\d+)?)%/);
   const positionX = normalizeNumber(match?.[1], 50, { min: 0, max: 100 });
   const positionY = normalizeNumber(match?.[2], 50, { min: 0, max: 100 });
+  const width = Number(source.width);
+  const height = Number(source.height);
+  const normalizeVariantList = (items) => (
+    Array.isArray(items)
+      ? items
+        .map((item) => ({
+          width: Number(item?.width),
+          url: normalizeText(item?.url, 900),
+        }))
+        .filter((item) => Number.isFinite(item.width) && item.width > 0 && item.url)
+      : []
+  );
+  const webp = normalizeVariantList(source.webp);
+  const avif = normalizeVariantList(source.avif);
 
   return {
+    ...(Number.isFinite(width) && width > 0 ? { width: Math.round(width) } : {}),
+    ...(Number.isFinite(height) && height > 0 ? { height: Math.round(height) } : {}),
+    ...(typeof source.placeholder === 'string' && source.placeholder.trim() ? { placeholder: source.placeholder.trim() } : {}),
+    ...(webp.length > 0 ? { webp } : {}),
+    ...(avif.length > 0 ? { avif } : {}),
     objectPosition: `${Math.round(positionX)}% ${Math.round(positionY)}%`,
     objectScale: normalizeNumber(source.objectScale, 1, { min: 1, max: 2.4 }),
   };
