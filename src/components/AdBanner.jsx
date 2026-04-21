@@ -387,7 +387,7 @@ export function AdBannerHorizontal({ ad, slotMeta = null, showSafeArea = false, 
               />
             )}
             <div className="min-w-0">
-              {showTitle && <h4 className={headingClass}>{ad.title}</h4>}
+              {showTitle && <span className={`block ${headingClass}`}>{ad.title}</span>}
               {showSubtitle && <p className={subtitleClass}>{ad.subtitle}</p>}
             </div>
           </div>
@@ -455,7 +455,7 @@ export function AdBannerSide({ ad, slotMeta = null, showSafeArea = false, onClic
               className={`relative z-[2] flex items-center justify-center overflow-hidden rounded-full border-white bg-white outline-[#1C1428] ${layout.circleClass}`}
             />
           )}
-          {showTitle && <h4 className={`relative z-[2] ${headingClass}`}>{ad.title}</h4>}
+          {showTitle && <span className={`relative z-[2] block ${headingClass}`}>{ad.title}</span>}
           {showSubtitle && <p className={`relative z-[2] ${subtitleClass}`}>{ad.subtitle}</p>}
           {showButton && (
             <span
@@ -520,7 +520,7 @@ export function AdBannerInline({ ad, slotMeta = null, showSafeArea = false, onCl
               />
             )}
             <div className="min-w-0">
-              {showTitle && <h4 className={headingClass}>{ad.title}</h4>}
+              {showTitle && <span className={`block ${headingClass}`}>{ad.title}</span>}
               {showSubtitle && <p className={subtitleClass}>{ad.subtitle}</p>}
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Flame, Megaphone, Bell, Sun, Moon, Siren, Zap, Newspaper, ShieldAlert, AlertTriangle, CircleHelp, Gamepad2, Tag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -9,6 +9,7 @@ import { navbarCopy } from '../content/uiCopy';
 const DEFAULT_NAV_LINKS = navbarCopy.defaultNavLinks;
 
 const DEFAULT_SPOTLIGHT_LINKS = navbarCopy.defaultSpotlightLinks;
+const NAV_INDICATOR_BASE_WIDTH = 100;
 
 const SPOTLIGHT_ICON_MAP = {
   Flame,
@@ -239,10 +240,6 @@ export default memo(function Navbar() {
     ));
   });
 
-  useLayoutEffect(() => {
-    syncDesktopNavIndicator();
-  }, [location.pathname, navLinks, syncDesktopNavIndicator]);
-
   // Lock body scroll when mobile nav is open
   useEffect(() => {
     if (isOpen) {
@@ -282,8 +279,22 @@ export default memo(function Navbar() {
 
     let frameId = 0;
     const row = navRowRef.current;
+    const desktopQuery = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(min-width: 768px)')
+      : null;
+    const hideIndicator = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = 0;
+      setDesktopNavIndicator((current) => (
+        current.visible ? { x: 0, width: 0, visible: false } : current
+      ));
+    };
     const scheduleSync = () => {
       window.cancelAnimationFrame(frameId);
+      if (desktopQuery && !desktopQuery.matches) {
+        hideIndicator();
+        return;
+      }
       frameId = window.requestAnimationFrame(() => {
         syncDesktopNavIndicator();
       });
@@ -293,6 +304,11 @@ export default memo(function Navbar() {
     window.addEventListener('resize', scheduleSync, { passive: true });
     row?.addEventListener('scroll', scheduleSync, { passive: true });
     window.visualViewport?.addEventListener('resize', scheduleSync);
+    if (desktopQuery?.addEventListener) {
+      desktopQuery.addEventListener('change', scheduleSync);
+    } else {
+      desktopQuery?.addListener?.(scheduleSync);
+    }
 
     const fonts = document.fonts;
     let cancelled = false;
@@ -308,8 +324,13 @@ export default memo(function Navbar() {
       window.removeEventListener('resize', scheduleSync);
       row?.removeEventListener('scroll', scheduleSync);
       window.visualViewport?.removeEventListener('resize', scheduleSync);
+      if (desktopQuery?.removeEventListener) {
+        desktopQuery.removeEventListener('change', scheduleSync);
+      } else {
+        desktopQuery?.removeListener?.(scheduleSync);
+      }
     };
-  }, [navLinks, syncDesktopNavIndicator]);
+  }, [location.pathname, navLinks, syncDesktopNavIndicator]);
 
   const today = new Date().toLocaleDateString('bg-BG', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
@@ -421,7 +442,7 @@ export default memo(function Navbar() {
                 aria-expanded={searchOpen}
                 aria-pressed={searchOpen}
                 className={`comic-top-action shrink-0 sm:min-w-[5.9rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-2 focus-visible:ring-offset-[#26123b] ${searchOpen ? 'comic-top-action-active' : ''}`}
-                aria-label={searchOpen ? 'Затвори търсенето' : 'Отвори търсенето'}
+                aria-label={searchOpen ? 'Търси - затвори търсенето' : 'Търси - отвори търсенето'}
               >
                 <Search className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Търси</span>
@@ -534,9 +555,8 @@ export default memo(function Navbar() {
                 aria-hidden="true"
                 className="comic-main-nav-underline pointer-events-none"
                 style={{
-                  width: `${desktopNavIndicator.width}px`,
                   opacity: desktopNavIndicator.visible ? 1 : 0,
-                  transform: `translateX(${desktopNavIndicator.x}px)`,
+                  transform: `translateX(${desktopNavIndicator.x}px) scaleX(${desktopNavIndicator.width / NAV_INDICATOR_BASE_WIDTH})`,
                 }}
               />
             </div>

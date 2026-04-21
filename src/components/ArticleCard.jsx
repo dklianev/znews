@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { useSettingsData, useTaxonomyData } from '../context/DataContext';
 import HeroSection from './HeroSection';
 import ResponsiveImage from './ResponsiveImage';
+import { IMAGE_SIZES } from '../utils/imageSizes';
 import { formatNewsDate } from '../utils/newsDate';
 import { shouldRenderDecorations } from '../utils/seasonalCampaigns';
 
@@ -88,7 +89,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
               alt={article.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               pictureClassName="block w-full h-full"
-              sizes="(max-width: 768px) 100vw, 33vw"
+              sizes={IMAGE_SIZES.FEATURED_CARD}
               loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -147,7 +148,7 @@ function ArticleCard({ article, size = 'normal', siblingArticles = [], heroPhoto
               alt={article.title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               pictureClassName="block w-full h-full"
-              sizes="(max-width: 640px) 100vw, 320px"
+              sizes={IMAGE_SIZES.HORIZONTAL_CARD}
               loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />

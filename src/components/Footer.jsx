@@ -122,10 +122,10 @@ export default function Footer() {
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-shimmer" />
           <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex-1 text-center md:text-left">
-              <h3 className="text-3xl md:text-5xl font-comic text-white text-shadow-comic mb-4 flex flex-col md:flex-row items-center justify-center md:justify-start gap-4">
+              <h2 className="text-3xl md:text-5xl font-comic text-white text-shadow-comic mb-4 flex flex-col md:flex-row items-center justify-center md:justify-start gap-4">
                 <AlertTriangle className="w-12 h-12 md:w-16 md:h-16 text-black drop-shadow-md animate-pulse" />
                 <span className="-skew-y-2 inline-block transform">{tipLinePromo.title}</span>
-              </h3>
+              </h2>
               <p className="text-white text-lg md:text-xl font-sans font-black max-w-3xl leading-snug drop-shadow-md border-l-4 border-black pl-4 py-1 mx-auto md:mx-0">
                 {tipLinePromo.description}
               </p>

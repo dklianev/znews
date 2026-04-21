@@ -691,12 +691,26 @@
 }
 
 @utility comic-chip-classifieds {
+  position: relative;
+  isolation: isolate;
   color: #1c1428;
   background: linear-gradient(150deg, #fbbf24 0%, #f59e0b 50%, #fcd34d 100%);
   border-color: #1c1428;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
   box-shadow: 3px 3px 0 #78350f;
-  animation: classifieds-pulse 2.5s ease-in-out infinite;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(circle, rgba(251, 191, 36, 0.42), rgba(251, 191, 36, 0));
+    pointer-events: none;
+    opacity: 0.45;
+    transform: scale(0.92);
+    animation: classifieds-pulse 2.5s ease-in-out infinite;
+  }
 
   &:hover {
     background: linear-gradient(150deg, #fcd34d 0%, #fbbf24 50%, #fde68a 100%);
@@ -705,8 +719,8 @@
 }
 
 @keyframes classifieds-pulse {
-  0%, 100% { box-shadow: 3px 3px 0 #78350f; }
-  50% { box-shadow: 3px 3px 8px rgba(251, 191, 36, 0.5), 3px 3px 0 #78350f; }
+  0%, 100% { opacity: 0.35; transform: scale(0.92); }
+  50% { opacity: 0.75; transform: scale(1.06); }
 }
 
 @utility comic-spotlight-strip {
@@ -4846,14 +4860,14 @@
   left: 0;
   right: auto;
   bottom: 4px;
-  width: 0;
+  width: 100px;
   height: 6px;
   z-index: 3;
   border-radius: 4px 4px 0 0;
   background: linear-gradient(90deg, #cc0a1a 0%, #ef6c13 100%);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+  transform-origin: left center;
   transition:
     transform 0.2s ease,
-    width 0.2s ease,
     opacity 0.18s ease;
 }

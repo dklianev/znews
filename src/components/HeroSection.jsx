@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Eye, Flame, Megaphone } from 'lucide-react';
-import { motion } from 'motion/react';
 import ResponsiveImage from './ResponsiveImage';
 import { buildScaledClamp, normalizeHeroTitleScale } from '../utils/heroTitleScale';
+import { IMAGE_SIZES } from '../utils/imageSizes';
 import { formatNewsDate } from '../utils/newsDate';
 
 const defaultFallbackImg = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" fill="%23EDE6DA"><rect width="800" height="450"/><text x="400" y="225" text-anchor="middle" font-family="Oswald,sans-serif" font-size="28" font-weight="900" fill="%23C4B49A">zNews</text></svg>');
@@ -34,7 +34,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
   const heroTitleFontSize = useMemo(() => buildScaledClamp('2.8rem', '8vw', '6.5rem', heroTitleScale), [heroTitleScale]);
 
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="newspaper-page relative comic-panel comic-dots hero-sunset-bg">
+        <div className="newspaper-page relative comic-panel comic-dots hero-sunset-bg">
             <div className="h-3 bg-gradient-to-r from-red-700 via-red-600 to-orange-500 border-y-2 border-black/30" />
             <div className="px-5 md:px-10 pt-6 pb-8 relative z-[1]">
                 <div className="flex items-center gap-3 mb-3">
@@ -77,7 +77,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                                     alt={mainPhoto.title}
                                     className="hero-main-photo-image w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                                     pictureClassName="block w-full h-full"
-                                    sizes="(max-width: 640px) 100vw, 50vw"
+                                    sizes={IMAGE_SIZES.HERO_PRIMARY}
                                     loading="eager"
                                     fetchPriority="high"
                                 />
@@ -97,7 +97,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                                     alt={siblingArticles[0].title}
                                     className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                                     pictureClassName="block w-full h-full"
-                                    sizes="(max-width: 640px) 100vw, 50vw"
+                                    sizes={IMAGE_SIZES.HERO_SECONDARY}
                                     loading="eager"
                                     fetchPriority="high"
                                   />
@@ -138,7 +138,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                                             alt={siblingArticles[1].title}
                                             className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                                             pictureClassName="block w-full h-full"
-                                            sizes="(max-width: 768px) 100vw, 42vw"
+                                            sizes={IMAGE_SIZES.HERO_TERTIARY}
                                             loading="eager"
                                             fetchPriority="high"
                                         />
@@ -154,7 +154,7 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                                         alt=""
                                         className="w-full h-full object-cover"
                                         pictureClassName="block w-full h-full"
-                                        sizes="(max-width: 768px) 100vw, 42vw"
+                                        sizes={IMAGE_SIZES.HERO_TERTIARY}
                                         loading="eager"
                                         fetchPriority="high"
                                     />
@@ -165,22 +165,15 @@ export default function HeroSection({ article, author, category, heroPhotoArticl
                     </div>
                 </div>
                 <Link to={`/article/${article.id}`} prefetch="intent" className="block text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-[#F7F3EA]">
-                    <motion.span
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{
-                          duration: 0.35,
-                          ease: 'easeOut',
-                        }}
-                        whileHover={{ scale: 1.06, y: -3 }}
-                        className="inline-block section-header-red text-2xl md:text-4xl cursor-pointer tracking-[0.12em]"
+                    <span
+                        className="inline-block section-header-red text-2xl md:text-4xl cursor-pointer tracking-[0.12em] transition-transform duration-200 hover:-translate-y-0.5 hover:scale-[1.03]"
                         style={{ textShadow: '2px 2px 0 rgba(153,8,19,0.22), 4px 4px 0 rgba(0,0,0,0.08)' }}
                     >
                         {ctaLabel}
-                    </motion.span>
+                    </span>
                 </Link>
             </div>
             <div className="h-3 bg-gradient-to-r from-orange-500 via-red-600 to-red-700 border-y-2 border-black/30" />
-        </motion.div>
+        </div>
     );
 }

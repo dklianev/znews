@@ -8,6 +8,7 @@ import { Flame, Megaphone, Bell, Siren, TrendingUp, Eye, RefreshCw, AlertTriangl
 import ComicNewsCard from '../components/ComicNewsCard';
 import ResponsiveImage from '../components/ResponsiveImage';
 import { getComicCardStyle } from '../utils/comicCardDesign';
+import { getLatestWallImageSizes } from '../utils/imageSizes';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { homeCopy } from '../content/uiCopy';
 import { buildHomepageSections } from '../../shared/homepageSelectors.js';
@@ -47,21 +48,6 @@ function formatArticleDateLabel(article) {
   return formatNewsDate(article?.date);
 }
 
-function getLatestImageSizes(mdCols) {
-  switch (mdCols) {
-    case 12:
-      return '(max-width: 767px) 100vw, (max-width: 1023px) 96vw, 56vw';
-    case 8:
-      return '(max-width: 767px) 100vw, (max-width: 1023px) 64vw, 38vw';
-    case 6:
-      return '(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 29vw';
-    case 4:
-      return '(max-width: 767px) 100vw, (max-width: 1023px) 34vw, 20vw';
-    default:
-      return '(max-width: 767px) 100vw, (max-width: 1023px) 50vw, 29vw';
-  }
-}
-
 function getLatestCardLayout({ count, index, mdCols }) {
   const normalizedCols = Number.isFinite(Number(mdCols)) ? Number(mdCols) : 6;
 
@@ -71,7 +57,7 @@ function getLatestCardLayout({ count, index, mdCols }) {
       imageHeightClass: 'h-72 md:h-[420px]',
       titleSizeClass: 'text-2xl md:text-3xl',
       excerptSizeClass: 'line-clamp-4 text-base',
-      imageSizes: getLatestImageSizes(12),
+      imageSizes: getLatestWallImageSizes(12),
     };
   }
 
@@ -81,7 +67,7 @@ function getLatestCardLayout({ count, index, mdCols }) {
       imageHeightClass: 'h-60 md:h-[320px]',
       titleSizeClass: 'text-xl md:text-2xl',
       excerptSizeClass: 'line-clamp-3 text-base',
-      imageSizes: getLatestImageSizes(6),
+      imageSizes: getLatestWallImageSizes(6),
     };
   }
 
@@ -91,7 +77,7 @@ function getLatestCardLayout({ count, index, mdCols }) {
       imageHeightClass: 'h-64 md:h-[360px]',
       titleSizeClass: 'text-2xl md:text-3xl',
       excerptSizeClass: 'line-clamp-3 text-base',
-      imageSizes: getLatestImageSizes(normalizedCols),
+      imageSizes: getLatestWallImageSizes(normalizedCols),
     };
   }
 
@@ -101,7 +87,7 @@ function getLatestCardLayout({ count, index, mdCols }) {
       imageHeightClass: 'h-52 md:h-[280px]',
       titleSizeClass: 'text-xl md:text-2xl',
       excerptSizeClass: 'line-clamp-3 text-base',
-      imageSizes: getLatestImageSizes(normalizedCols),
+      imageSizes: getLatestWallImageSizes(normalizedCols),
     };
   }
 
@@ -111,7 +97,7 @@ function getLatestCardLayout({ count, index, mdCols }) {
       imageHeightClass: 'h-48 md:h-56',
       titleSizeClass: 'text-xl',
       excerptSizeClass: 'line-clamp-3 text-base',
-      imageSizes: getLatestImageSizes(6),
+      imageSizes: getLatestWallImageSizes(6),
     };
   }
 
@@ -120,7 +106,7 @@ function getLatestCardLayout({ count, index, mdCols }) {
     imageHeightClass: 'h-44 md:h-48',
     titleSizeClass: 'text-lg',
     excerptSizeClass: 'line-clamp-3 text-sm',
-    imageSizes: getLatestImageSizes(normalizedCols),
+    imageSizes: getLatestWallImageSizes(normalizedCols),
   };
 }
 
@@ -209,9 +195,22 @@ function SidebarPlaceholder() {
 }
 
 function SectionActionLink({ to, label, mobile = false }) {
-  const className = mobile
-    ? 'md:hidden mt-4 inline-flex w-full items-center justify-center gap-1.5 border-3 border-[#1C1428] bg-white px-4 py-3 font-display text-xs font-black uppercase tracking-[0.16em] text-zn-text shadow-[4px_4px_0_#1C1428] transition-all duration-200 hover:bg-zn-purple hover:text-white'
-    : 'hidden md:inline-flex items-center gap-1 rounded-none border-2 border-[#1C1428] bg-white px-3 py-1.5 font-display text-[11px] font-black uppercase tracking-[0.16em] text-zn-text shadow-[3px_3px_0_#1C1428] transition-all duration-200 hover:bg-zn-purple hover:text-white';
+  if (mobile) {
+    return (
+      <div className="md:hidden clear-both pt-5 pb-1">
+        <Link
+          to={to}
+          prefetch="intent"
+          className="inline-flex min-h-12 w-full touch-manipulation items-center justify-center gap-1.5 border-3 border-[#1C1428] bg-white px-4 py-3 font-display text-xs font-black uppercase tracking-[0.16em] text-zn-text shadow-[4px_4px_0_#1C1428] transition-[transform,background-color,color] duration-200 hover:-translate-y-0.5 hover:bg-zn-purple hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zn-gold focus-visible:ring-offset-4 focus-visible:ring-offset-zn-paper dark:bg-slate-950 dark:text-white dark:focus-visible:ring-offset-slate-950"
+        >
+          <span>{label}</span>
+          <ChevronRight className="h-4 w-4 shrink-0" />
+        </Link>
+      </div>
+    );
+  }
+
+  const className = 'hidden md:inline-flex items-center gap-1 rounded-none border-2 border-[#1C1428] bg-white px-3 py-1.5 font-display text-[11px] font-black uppercase tracking-[0.16em] text-zn-text shadow-[3px_3px_0_#1C1428] transition-[transform,background-color,color] duration-200 hover:-translate-y-0.5 hover:bg-zn-purple hover:text-white';
 
   return (
     <Link to={to} prefetch="intent" className={className}>

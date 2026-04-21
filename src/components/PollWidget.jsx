@@ -57,12 +57,15 @@ export default function PollWidget() {
         {activePoll.options.map((option, index) => {
           const pct = totalVotes > 0 ? Math.round((option.votes / totalVotes) * 100) : 0;
           const isMyVote = votedOption === index;
+          const accessibleLabel = isMyVote
+            ? `Вашият избор: ${option.text}, ${pct}%`
+            : `${option.text}, ${pct}%`;
           return (
             <motion.button
               key={`${activePoll.id}:${option.text}`}
               onClick={() => handleVote(index)}
               disabled={hasVoted}
-              aria-label={isMyVote ? `Вашият избор: ${option.text}` : option.text}
+              aria-label={accessibleLabel}
               className={`w-full text-left group ${hasVoted ? 'cursor-default' : 'cursor-pointer'}`}
               whileHover={!hasVoted ? { scale: 1.02 } : {}}
               whileTap={!hasVoted ? { scale: 0.98 } : {}}
@@ -73,8 +76,9 @@ export default function PollWidget() {
               }`}>
                 <motion.div
                   className={`comic-poll-fill absolute inset-0 ${isMyVote ? 'bg-zn-hot/15' : 'bg-zn-hot/5'}`}
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pct}%` }}
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: pct / 100 }}
+                  style={{ transformOrigin: 'left center' }}
                   transition={{ duration: 0.6, delay: hasVoted ? 0.1 * index : 0 }}
                 />
                 <div className="relative flex items-center justify-between px-3 py-2.5">

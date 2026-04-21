@@ -30,6 +30,11 @@ describe('performance resource hints', () => {
         `${fontPath} should be preloaded with crossorigin so the CSS font fetch reuses it`
       );
     });
+    assert.match(
+      html,
+      /<link\s+rel="preload"\s+href="\/api\/homepage\?[^"]*latestShowcaseLimit=5[^"]*latestWireLimit=16[^"]*compact=1"\s+as="fetch"\s+crossorigin="use-credentials"\s*\/>/,
+      'index.html should start the public homepage payload fetch before React bootstraps the shell'
+    );
   });
 
   it('keeps Bangers non-blocking for first paint', async () => {
