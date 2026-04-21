@@ -516,6 +516,20 @@ const {
   isProtectedFramePath,
 } = createFramePolicyHelpers();
 
+function getCspOrigin(value) {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) return '';
+  try {
+    return new URL(rawValue).origin;
+  } catch {
+    return '';
+  }
+}
+
+const storageConnectSrc = [...new Set([
+  getCspOrigin(storagePublicBaseUrl),
+].filter(Boolean))];
+
 app.use((req, res, next) => {
   if (isProtectedFramePath(req.path || req.originalUrl || '/')) {
     res.setHeader('X-Frame-Options', 'DENY');
@@ -538,7 +552,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
       fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com', 'https:'],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", ...storageConnectSrc],
       frameSrc: ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://youtube.com', 'https://player.vimeo.com', 'https://www.facebook.com'],
       objectSrc: ["'none'"],
       frameAncestors: [(req) => getFrameAncestorsDirectiveValue(req)],

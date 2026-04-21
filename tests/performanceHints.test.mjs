@@ -52,6 +52,26 @@ describe('performance resource hints', () => {
     assert.match(config, /maxAgeSeconds:\s*60\s*\*\s*60\s*\*\s*24\s*\*\s*30/, 'Azure image cache should expire after 30 days');
   });
 
+  it('allows Workbox image fetches through CSP connect-src', async () => {
+    const app = await readProjectFile('server/app.js');
+
+    assert.match(
+      app,
+      /const\s+storageConnectSrc\s*=\s*\[\.\.\.new Set\(\[/,
+      'storage image origins should be collected for CSP connect-src'
+    );
+    assert.match(
+      app,
+      /getCspOrigin\(storagePublicBaseUrl\)/,
+      'the configured storage public origin should be allowed for Workbox fetches'
+    );
+    assert.match(
+      app,
+      /connectSrc:\s*\["'self'",\s*\.\.\.storageConnectSrc\]/,
+      'connect-src must include the storage origin because Workbox uses fetch(), not <img>'
+    );
+  });
+
   it('keeps ad banner wrappers roomy enough for labels and hover lift', async () => {
     const css = await readProjectFile('src/index.css');
 
