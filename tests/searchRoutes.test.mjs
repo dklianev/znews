@@ -67,21 +67,13 @@ describe('searchRoutes', () => {
       async getSearchSuggestions() { return []; },
       async getTrendingSearches() { return []; },
       async hasPermissionForSection() { return false; },
-      hasCompleteImageMeta(imageMeta) { return Boolean(imageMeta?.width && imageMeta?.height && imageMeta?.webp?.length && imageMeta?.avif?.length); },
-      mergeResolvedImageMeta(existing, resolved) {
-        return {
-          ...(resolved || {}),
-          ...(existing?.objectPosition ? { objectPosition: existing.objectPosition } : {}),
-          ...(Number.isFinite(Number(existing?.objectScale)) ? { objectScale: Number(existing.objectScale) } : {}),
-        };
-      },
       normalizeSearchType,
       normalizeText(value) { return typeof value === 'string' ? value : ''; },
       parsePositiveInt(value, fallback) { return value == null ? fallback : Number.parseInt(value, 10); },
       publicError(error) { return error.message; },
       async recordSearchQuery() { recorded += 1; },
-      async resolveImageMetaFromUrl() { return null; },
       async searchCollectionByTextAndRegex() { return []; },
+      async selfHealArticleImageMeta(itemOrItems) { return itemOrItems; },
       sortArticlesByRecency(items) { return items; },
       stripDocumentList(items) { return items; },
     });
@@ -136,20 +128,11 @@ describe('searchRoutes', () => {
       async getSearchSuggestions() { return []; },
       async getTrendingSearches() { return []; },
       async hasPermissionForSection() { return false; },
-      hasCompleteImageMeta(imageMeta) { return Boolean(imageMeta?.width && imageMeta?.height && imageMeta?.webp?.length && imageMeta?.avif?.length); },
-      mergeResolvedImageMeta(existing, resolved) {
-        return {
-          ...(resolved || {}),
-          ...(existing?.objectPosition ? { objectPosition: existing.objectPosition } : {}),
-          ...(Number.isFinite(Number(existing?.objectScale)) ? { objectScale: Number(existing.objectScale) } : {}),
-        };
-      },
       normalizeSearchType,
       normalizeText(value) { return typeof value === 'string' ? value : ''; },
       parsePositiveInt(value, fallback) { return value == null ? fallback : Number.parseInt(value, 10); },
       publicError(error) { return error.message; },
       async recordSearchQuery(query) { recordedQuery = query; },
-      async resolveImageMetaFromUrl() { return null; },
       async searchCollectionByTextAndRegex(Model, options) {
         searchCalls.push({ modelName: Model.modelName, options });
         if (Model.modelName === 'Article') return articleItems;
@@ -157,6 +140,7 @@ describe('searchRoutes', () => {
         if (Model.modelName === 'Court') return courtItems;
         return [];
       },
+      async selfHealArticleImageMeta(itemOrItems) { return itemOrItems; },
       sortArticlesByRecency(items) { return items; },
       stripDocumentList(items) { return items; },
     });
@@ -218,21 +202,13 @@ describe('searchRoutes', () => {
         return [{ term: 'trend', score: limit }];
       },
       async hasPermissionForSection() { return false; },
-      hasCompleteImageMeta(imageMeta) { return Boolean(imageMeta?.width && imageMeta?.height && imageMeta?.webp?.length && imageMeta?.avif?.length); },
-      mergeResolvedImageMeta(existing, resolved) {
-        return {
-          ...(resolved || {}),
-          ...(existing?.objectPosition ? { objectPosition: existing.objectPosition } : {}),
-          ...(Number.isFinite(Number(existing?.objectScale)) ? { objectScale: Number(existing.objectScale) } : {}),
-        };
-      },
       normalizeSearchType,
       normalizeText(value) { return typeof value === 'string' ? value : ''; },
       parsePositiveInt(value, fallback) { return value == null ? fallback : Number.parseInt(value, 10); },
       publicError(error) { return error.message; },
       async recordSearchQuery() {},
-      async resolveImageMetaFromUrl() { return null; },
       async searchCollectionByTextAndRegex() { return []; },
+      async selfHealArticleImageMeta(itemOrItems) { return itemOrItems; },
       sortArticlesByRecency(items) { return items; },
       stripDocumentList(items) { return items; },
     });
@@ -276,24 +252,16 @@ describe('searchRoutes', () => {
       async getSearchSuggestions() { return []; },
       async getTrendingSearches() { return []; },
       async hasPermissionForSection() { return true; },
-      hasCompleteImageMeta(imageMeta) { return Boolean(imageMeta?.width && imageMeta?.height && imageMeta?.webp?.length && imageMeta?.avif?.length); },
-      mergeResolvedImageMeta(existing, resolved) {
-        return {
-          ...(resolved || {}),
-          ...(existing?.objectPosition ? { objectPosition: existing.objectPosition } : {}),
-          ...(Number.isFinite(Number(existing?.objectScale)) ? { objectScale: Number(existing.objectScale) } : {}),
-        };
-      },
       normalizeSearchType,
       normalizeText(value) { return typeof value === 'string' ? value : ''; },
       parsePositiveInt(value, fallback) { return value == null ? fallback : Number.parseInt(value, 10); },
       publicError(error) { return error.message; },
       async recordSearchQuery() {},
-      async resolveImageMetaFromUrl() { return null; },
       async searchCollectionByTextAndRegex(Model, options) {
         if (Model.modelName === 'Article') capturedFilters.push(options.regexFilter);
         return [];
       },
+      async selfHealArticleImageMeta(itemOrItems) { return itemOrItems; },
       sortArticlesByRecency(items) { return items; },
       stripDocumentList(items) { return items; },
     });
@@ -336,28 +304,11 @@ describe('searchRoutes', () => {
       async getSearchSuggestions() { return []; },
       async getTrendingSearches() { return []; },
       async hasPermissionForSection() { return false; },
-      hasCompleteImageMeta(imageMeta) { return Boolean(imageMeta?.width && imageMeta?.height && imageMeta?.webp?.length && imageMeta?.avif?.length); },
-      mergeResolvedImageMeta(existing, resolved) {
-        return {
-          ...(resolved || {}),
-          ...(existing?.objectPosition ? { objectPosition: existing.objectPosition } : {}),
-          ...(Number.isFinite(Number(existing?.objectScale)) ? { objectScale: Number(existing.objectScale) } : {}),
-        };
-      },
       normalizeSearchType,
       normalizeText(value) { return typeof value === 'string' ? value : ''; },
       parsePositiveInt(value, fallback) { return value == null ? fallback : Number.parseInt(value, 10); },
       publicError(error) { return error.message; },
       async recordSearchQuery() {},
-      async resolveImageMetaFromUrl() {
-        return {
-          width: 1200,
-          height: 800,
-          placeholder: '/uploads/_variants/search/blur.webp',
-          webp: [{ width: 640, url: '/uploads/_variants/search/w640.webp' }],
-          avif: [{ width: 640, url: '/uploads/_variants/search/w640.avif' }],
-        };
-      },
       async searchCollectionByTextAndRegex(Model) {
         if (Model.modelName !== 'Article') return [];
         return [{
@@ -366,6 +317,31 @@ describe('searchRoutes', () => {
           image: '/uploads/search.webp',
           imageMeta: { objectPosition: '55% 40%', objectScale: 1.1 },
         }];
+      },
+      async selfHealArticleImageMeta(itemOrItems) {
+        const resolved = {
+          width: 1200,
+          height: 800,
+          placeholder: '/uploads/_variants/search/blur.webp',
+          webp: [{ width: 640, url: '/uploads/_variants/search/w640.webp' }],
+          avif: [{ width: 640, url: '/uploads/_variants/search/w640.avif' }],
+        };
+        const items = Array.isArray(itemOrItems) ? itemOrItems : [itemOrItems].filter(Boolean);
+        items.forEach((item) => {
+          const imageMeta = {
+            ...resolved,
+            ...(item.imageMeta?.objectPosition ? { objectPosition: item.imageMeta.objectPosition } : {}),
+            ...(Number.isFinite(Number(item.imageMeta?.objectScale))
+              ? { objectScale: Number(item.imageMeta.objectScale) }
+              : {}),
+          };
+          item.imageMeta = imageMeta;
+          updateCalls.push({
+            filter: { id: Number.parseInt(item.id, 10) },
+            update: { $set: { imageMeta } },
+          });
+        });
+        return itemOrItems;
       },
       sortArticlesByRecency(items) { return items; },
       stripDocumentList(items) { return items; },

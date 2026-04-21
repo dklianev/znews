@@ -200,22 +200,12 @@ function createDeps(adOptionsSeen) {
     },
     async listPublicGames() { return []; },
     async listVipClassifieds() { return [{ id: 301, title: 'VIP обява' }]; },
-    hasCompleteImageMeta(imageMeta) {
-      return Boolean(imageMeta?.width && imageMeta?.height && imageMeta?.webp?.length && imageMeta?.avif?.length);
-    },
-    mergeResolvedImageMeta(existing, resolved) {
-      return {
-        ...(resolved || {}),
-        ...(existing?.objectPosition ? { objectPosition: existing.objectPosition } : {}),
-        ...(Number.isFinite(Number(existing?.objectScale)) ? { objectScale: Number(existing.objectScale) } : {}),
-      };
-    },
     parseCollectionPagination() { return { shouldPaginate: false, page: 1, limit: 120, skip: 0 }; },
     parsePositiveInt(value, fallback) { return value == null ? fallback : Number.parseInt(value, 10); },
     publicError(error) { return error.message; },
-    async resolveImageMetaFromUrl() { return null; },
     serializeHeroSettings(value) { return value || { key: 'main', mainPhotoArticleId: null, photoArticleIds: [] }; },
     serializeSiteSettings(value) { return value; },
+    async selfHealArticleImageMeta(itemOrItems) { return itemOrItems; },
     stripDocumentList(items) { return items; },
   };
 }
@@ -325,13 +315,6 @@ describe('publicFeedRoutes', () => {
         const adOptionsSeen = [];
         const updateCalls = [];
         const deps = createDeps(adOptionsSeen);
-        deps.Article = {
-          ...deps.Article,
-          async updateOne(filter, update) {
-            updateCalls.push({ filter, update });
-            return { modifiedCount: 1 };
-          },
-        };
         deps.fetchHomepageArticleCandidates = async () => ([
           {
             id: 77,
@@ -343,13 +326,31 @@ describe('publicFeedRoutes', () => {
             imageMeta: { objectPosition: '64% 44%', objectScale: 1.18 },
           },
         ]);
-        deps.resolveImageMetaFromUrl = async () => ({
-          width: 1600,
-          height: 900,
-          placeholder: '/uploads/_variants/hero/blur.webp',
-          webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
-          avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
-        });
+        deps.selfHealArticleImageMeta = async (itemOrItems) => {
+          const resolved = {
+            width: 1600,
+            height: 900,
+            placeholder: '/uploads/_variants/hero/blur.webp',
+            webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
+            avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
+          };
+          const items = Array.isArray(itemOrItems) ? itemOrItems : [itemOrItems].filter(Boolean);
+          items.forEach((item) => {
+            const imageMeta = {
+              ...resolved,
+              ...(item.imageMeta?.objectPosition ? { objectPosition: item.imageMeta.objectPosition } : {}),
+              ...(Number.isFinite(Number(item.imageMeta?.objectScale))
+                ? { objectScale: Number(item.imageMeta.objectScale) }
+                : {}),
+            };
+            item.imageMeta = imageMeta;
+            updateCalls.push({
+              filter: { id: Number.parseInt(item.id, 10) },
+              update: { $set: { imageMeta } },
+            });
+          });
+          return itemOrItems;
+        };
         registerPublicFeedRoutes(app, deps);
 
         const handlers = app.routes.get('GET /api/homepage');

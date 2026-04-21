@@ -167,9 +167,6 @@ function createDeps(overrides = {}) {
       getArticleSectionFilter() { return null; },
       getPublishedFilter() { return { status: 'published' }; },
       getWindowKey() { return 42; },
-      hasCompleteImageMeta(imageMeta) {
-        return Boolean(imageMeta?.width && imageMeta?.height && imageMeta?.webp?.length && imageMeta?.avif?.length);
-      },
       hasOwn(target, key) { return Object.prototype.hasOwnProperty.call(target || {}, key); },
       async hasPermissionForSection() { return false; },
       hashBrowserClientFingerprint(req, scope) {
@@ -182,13 +179,6 @@ function createDeps(overrides = {}) {
       },
       isProd: false,
       isMongoDuplicateKeyError(error) { return Number(error?.code) === 11000; },
-      mergeResolvedImageMeta(existing, resolved) {
-        return {
-          ...(resolved || {}),
-          ...(existing?.objectPosition ? { objectPosition: existing.objectPosition } : {}),
-          ...(Number.isFinite(Number(existing?.objectScale)) ? { objectScale: Number(existing.objectScale) } : {}),
-        };
-      },
       normalizeText(value, maxLength = 200) { return String(value || '').trim().slice(0, maxLength); },
       parseCookies(req) {
         const raw = typeof req?.headers?.cookie === 'string' ? req.headers.cookie : '';
@@ -207,11 +197,11 @@ function createDeps(overrides = {}) {
       randomUUID() {
         return 'server-uuid-123456';
       },
-      async resolveImageMetaFromUrl() { return null; },
       async resolveShareFallbackSource() { return null; },
       serializeCookie(name, value) {
         return `${name}=${value}`;
       },
+      async selfHealArticleImageMeta(itemOrItems) { return itemOrItems; },
       transparentPng1x1: Buffer.from(''),
       ...overrides,
     },
@@ -283,19 +273,31 @@ describe('articlesPublicRoutes', () => {
             }],
           };
         },
-        async updateOne(filter, update) {
-          updateCalls.push({ filter, update });
-          return { modifiedCount: 1 };
-        },
       },
-      async resolveImageMetaFromUrl() {
-        return {
+      async selfHealArticleImageMeta(itemOrItems) {
+        const resolved = {
           width: 1400,
           height: 900,
           placeholder: '/uploads/_variants/hero/blur.webp',
           webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
           avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
         };
+        const items = Array.isArray(itemOrItems) ? itemOrItems : [itemOrItems].filter(Boolean);
+        items.forEach((item) => {
+          const imageMeta = {
+            ...resolved,
+            ...(item.imageMeta?.objectPosition ? { objectPosition: item.imageMeta.objectPosition } : {}),
+            ...(Number.isFinite(Number(item.imageMeta?.objectScale))
+              ? { objectScale: Number(item.imageMeta.objectScale) }
+              : {}),
+          };
+          item.imageMeta = imageMeta;
+          updateCalls.push({
+            filter: { id: Number.parseInt(item.id, 10) },
+            update: { $set: { imageMeta } },
+          });
+        });
+        return itemOrItems;
       },
     });
     const router = createArticlesPublicRouter(deps);

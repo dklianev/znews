@@ -27,11 +27,9 @@ export function createArticlesPublicRouter(deps) {
     parseCookies = () => ({}),
     parsePositiveInt,
     randomUUID = () => String(Date.now()),
-    hasCompleteImageMeta = () => false,
-    mergeResolvedImageMeta = (_existing, resolved) => resolved,
-    resolveImageMetaFromUrl = async () => null,
     resolveShareFallbackSource,
     serializeCookie = (_name, value) => String(value),
+    selfHealArticleImageMeta,
     transparentPng1x1,
   } = deps;
 
@@ -196,37 +194,6 @@ export function createArticlesPublicRouter(deps) {
       .filter((value, index, list) => list.indexOf(value) === index);
   }
 
-  async function enrichArticleImageMeta(itemOrItems) {
-    const items = Array.isArray(itemOrItems) ? itemOrItems : [itemOrItems];
-    const persistTasks = [];
-
-    await Promise.all(items.map(async (item) => {
-      if (!item || typeof item !== 'object' || !item.image) return;
-      if (hasCompleteImageMeta(item.imageMeta)) return;
-
-      const resolvedMeta = await resolveImageMetaFromUrl(item.image, { queueIfMissing: true });
-      if (!resolvedMeta) return;
-
-      const mergedMeta = mergeResolvedImageMeta(item.imageMeta, resolvedMeta);
-      if (!mergedMeta) return;
-
-      item.imageMeta = mergedMeta;
-
-      const itemId = Number.parseInt(item.id, 10);
-      if (Number.isInteger(itemId) && typeof Article?.updateOne === 'function') {
-        persistTasks.push(
-          Article.updateOne({ id: itemId }, { $set: { imageMeta: mergedMeta } }).catch(() => {})
-        );
-      }
-    }));
-
-    if (persistTasks.length > 0) {
-      void Promise.allSettled(persistTasks);
-    }
-
-    return itemOrItems;
-  }
-
   articlesRouter.get('/author-stats/:authorId', cacheMiddleware, async (req, res) => {
     const authorId = Number.parseInt(req.params.authorId, 10);
     if (!Number.isInteger(authorId)) return res.status(400).json({ error: 'Invalid authorId' });
@@ -305,7 +272,7 @@ export function createArticlesPublicRouter(deps) {
 
     if (!shouldPaginate) {
       const items = await query.lean();
-      await enrichArticleImageMeta(items);
+      await selfHealArticleImageMeta(items);
       items.forEach((item) => {
         delete item._id;
         delete item.__v;
@@ -317,7 +284,7 @@ export function createArticlesPublicRouter(deps) {
       query.lean(),
       Article.countDocuments(filter),
     ]);
-    await enrichArticleImageMeta(items);
+    await selfHealArticleImageMeta(items);
     items.forEach((item) => {
       delete item._id;
       delete item.__v;
@@ -352,7 +319,7 @@ export function createArticlesPublicRouter(deps) {
 
     const item = await query.lean();
     if (!item) return res.status(404).json({ error: 'Not found' });
-    await enrichArticleImageMeta(item);
+    await selfHealArticleImageMeta(item);
     delete item._id;
     delete item.__v;
     return res.json(item);

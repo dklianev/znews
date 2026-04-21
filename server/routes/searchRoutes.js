@@ -17,48 +17,15 @@ export function registerSearchRoutes(app, deps) {
     getSearchSuggestions,
     getTrendingSearches,
     hasPermissionForSection,
-    hasCompleteImageMeta = () => false,
-    mergeResolvedImageMeta = (_existing, resolved) => resolved,
     normalizeSearchType,
     normalizeText,
     parsePositiveInt,
     recordSearchQuery,
-    resolveImageMetaFromUrl = async () => null,
     searchCollectionByTextAndRegex,
+    selfHealArticleImageMeta,
     sortArticlesByRecency,
     stripDocumentList,
   } = deps;
-
-  async function enrichArticleSearchResults(items) {
-    if (!Array.isArray(items) || items.length === 0) return items;
-
-    const persistTasks = [];
-    await Promise.all(items.map(async (item) => {
-      if (!item || typeof item !== 'object' || !item.image) return;
-      if (hasCompleteImageMeta(item.imageMeta)) return;
-
-      const resolvedMeta = await resolveImageMetaFromUrl(item.image, { queueIfMissing: true });
-      if (!resolvedMeta) return;
-
-      const mergedMeta = mergeResolvedImageMeta(item.imageMeta, resolvedMeta);
-      if (!mergedMeta) return;
-
-      item.imageMeta = mergedMeta;
-
-      const itemId = Number.parseInt(item.id, 10);
-      if (Number.isInteger(itemId) && typeof Article?.updateOne === 'function') {
-        persistTasks.push(
-          Article.updateOne({ id: itemId }, { $set: { imageMeta: mergedMeta } }).catch(() => {})
-        );
-      }
-    }));
-
-    if (persistTasks.length > 0) {
-      void Promise.allSettled(persistTasks);
-    }
-
-    return items;
-  }
 
   app.get('/api/search', cacheMiddleware, async (req, res) => {
     const startedAt = Date.now();
@@ -109,7 +76,7 @@ export function registerSearchRoutes(app, deps) {
           textSortField: 'publishAt',
         });
         const normalizedItems = sortArticlesByRecency(stripDocumentList(items));
-        await enrichArticleSearchResults(normalizedItems);
+        await selfHealArticleImageMeta(normalizedItems);
         return normalizedItems;
       })(),
       searchCollectionByTextAndRegex(Job, {

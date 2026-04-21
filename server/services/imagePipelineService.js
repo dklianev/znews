@@ -18,6 +18,7 @@ export function createImagePipelineService(deps) {
     listRemoteObjectsByPrefix,
     loadSharp,
     logError = console.error,
+    logWarn = console.warn,
     putStorageObject,
     toUploadsStorageKey,
     toUploadsUrlFromRelative,
@@ -26,7 +27,11 @@ export function createImagePipelineService(deps) {
 
   const imagePipelineBackfillInFlight = new Map();
   const MEDIA_LIBRARY_SNAPSHOT_TTL_MS = 15 * 1000;
+  const MANIFEST_CACHE_TTL_MS = 60 * 1000;
+  const IMAGE_META_RESOLVE_TIMEOUT_MS = 250;
+  const IMAGE_META_RESOLVE_CONCURRENCY = 8;
   const PIPELINE_IMAGE_META_KEYS = new Set(['width', 'height', 'placeholder', 'webp', 'avif']);
+  const imageManifestCache = new Map();
   let mediaLibrarySnapshotCache = null;
   let mediaLibrarySnapshotExpiresAt = 0;
   let mediaLibrarySnapshotInFlight = null;
@@ -45,6 +50,20 @@ export function createImagePipelineService(deps) {
 
   function getVariantUrl(fileName, variantFileName) {
     return toUploadsUrlFromRelative(getVariantRelativePath(fileName, variantFileName));
+  }
+
+  function warnImagePipeline(message, error) {
+    if (typeof logWarn !== 'function') return;
+    const detail = error?.message || error;
+    logWarn(detail ? `${message} ${detail}` : message);
+  }
+
+  function invalidateImageManifestCache(fileName = null) {
+    if (fileName) {
+      imageManifestCache.delete(fileName);
+      return;
+    }
+    imageManifestCache.clear();
   }
 
   function normalizePipelineWidths(sourceWidth) {
@@ -112,16 +131,43 @@ export function createImagePipelineService(deps) {
     }
   }
 
+  async function readImageManifestCached(fileName) {
+    if (!fileName || !isOriginalUploadFileName(fileName)) return null;
+    const now = Date.now();
+    const cached = imageManifestCache.get(fileName);
+    if (cached && cached.expiresAt > now) {
+      return cached.promise;
+    }
+
+    const promise = readImageManifest(fileName)
+      .then((manifest) => {
+        if (!manifest) imageManifestCache.delete(fileName);
+        return manifest;
+      })
+      .catch((error) => {
+        imageManifestCache.delete(fileName);
+        throw error;
+      });
+
+    imageManifestCache.set(fileName, {
+      promise,
+      expiresAt: now + MANIFEST_CACHE_TTL_MS,
+    });
+    return promise;
+  }
+
   async function writeImageManifest(fileName, manifest) {
     if (!fileName || !isOriginalUploadFileName(fileName)) return;
     const payload = JSON.stringify(manifest, null, 2);
     if (isRemoteStorage) {
       await putStorageObject(getManifestRelativePath(fileName), payload, 'application/json; charset=utf-8');
+      invalidateImageManifestCache(fileName);
       return;
     }
     const dir = getVariantsAbsoluteDir(fileName);
     await fs.promises.mkdir(dir, { recursive: true });
     await fs.promises.writeFile(path.join(dir, 'manifest.json'), payload, 'utf8');
+    invalidateImageManifestCache(fileName);
   }
 
   async function readOriginalUploadBuffer(fileName) {
@@ -405,11 +451,114 @@ export function createImagePipelineService(deps) {
   async function resolveImageMetaFromUrl(mediaUrl, { queueIfMissing = false } = {}) {
     const fileName = getUploadFilenameFromUrl(mediaUrl);
     if (!fileName) return null;
-    const manifest = await readImageManifest(fileName);
+    const manifest = await readImageManifestCached(fileName);
     if (!manifest && queueIfMissing) {
       void queueImagePipelineBackfillForFile(fileName);
     }
     return toImageMetaFromManifest(manifest);
+  }
+
+  function withTimeout(promise, timeoutMs) {
+    const normalizedTimeoutMs = Number(timeoutMs);
+    if (!Number.isFinite(normalizedTimeoutMs) || normalizedTimeoutMs <= 0) {
+      return promise;
+    }
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => resolve(null), normalizedTimeoutMs);
+      Promise.resolve(promise)
+        .then((value) => {
+          clearTimeout(timeout);
+          resolve(value);
+        })
+        .catch((error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+    });
+  }
+
+  async function mapWithConcurrency(items, concurrency, mapper) {
+    const limit = Math.max(1, Math.min(Number(concurrency) || 1, items.length));
+    const results = new Array(items.length);
+    let nextIndex = 0;
+
+    const workers = Array.from({ length: limit }, async () => {
+      while (nextIndex < items.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        try {
+          results[currentIndex] = {
+            status: 'fulfilled',
+            value: await mapper(items[currentIndex], currentIndex),
+          };
+        } catch (error) {
+          results[currentIndex] = {
+            status: 'rejected',
+            reason: error,
+          };
+        }
+      }
+    });
+
+    await Promise.all(workers);
+    return results;
+  }
+
+  async function selfHealArticleImageMeta(itemOrItems, {
+    Model = Article,
+    logger = null,
+    resolveBudgetMs = IMAGE_META_RESOLVE_TIMEOUT_MS,
+  } = {}) {
+    const items = Array.isArray(itemOrItems) ? itemOrItems : [itemOrItems].filter(Boolean);
+    if (items.length === 0) return itemOrItems;
+
+    const pendingWrites = new Map();
+    const settled = await mapWithConcurrency(items, IMAGE_META_RESOLVE_CONCURRENCY, async (item) => {
+      if (!item || typeof item !== 'object' || !item.image) return null;
+      if (hasCompleteImageMeta(item.imageMeta)) return null;
+
+      const resolvedMeta = await withTimeout(
+        resolveImageMetaFromUrl(item.image, { queueIfMissing: true }),
+        resolveBudgetMs
+      );
+      if (!resolvedMeta) return null;
+
+      const mergedMeta = mergeResolvedImageMeta(item.imageMeta, resolvedMeta);
+      if (!mergedMeta) return null;
+
+      item.imageMeta = mergedMeta;
+      const itemId = Number.parseInt(item.id, 10);
+      if (Number.isInteger(itemId)) {
+        pendingWrites.set(itemId, mergedMeta);
+      }
+      return item;
+    });
+
+    settled.forEach((result) => {
+      if (result.status === 'rejected') {
+        const loggerTarget = logger || { warn: logWarn };
+        loggerTarget?.warn?.('imageMeta self-heal failed:', result.reason?.message || result.reason);
+      }
+    });
+
+    if (pendingWrites.size > 0) {
+      if (Model && typeof Model.bulkWrite === 'function') {
+        const operations = [...pendingWrites.entries()].map(([id, imageMeta]) => ({
+          updateOne: {
+            filter: { id },
+            update: { $set: { imageMeta } },
+          },
+        }));
+        void Model.bulkWrite(operations, { ordered: false }).catch((error) => {
+          const loggerTarget = logger || { warn: logWarn };
+          loggerTarget?.warn?.('imageMeta self-heal bulkWrite failed:', error?.message || error);
+        });
+      } else {
+        warnImagePipeline('imageMeta self-heal skipped persist: Article.bulkWrite unavailable');
+      }
+    }
+
+    return itemOrItems;
   }
 
   async function listOriginalUploadEntries() {
@@ -620,6 +769,7 @@ export function createImagePipelineService(deps) {
     mergeResolvedImageMeta,
     readOriginalUploadBuffer,
     resolveImageMetaFromUrl,
+    selfHealArticleImageMeta,
     toImageMetaFromManifest,
   };
 }

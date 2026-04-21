@@ -216,6 +216,138 @@ describe('imagePipelineAndAuthzServices', () => {
     ]);
   });
 
+  it('self-heals article image meta with cached manifest reads and one bulk write', async () => {
+    const articleBulkWrite = vi.fn(async () => ({ modifiedCount: 2 }));
+    const getStorageObjectBuffer = vi.fn(async (key) => {
+      expect(key).toBe('variants/hero.jpg/manifest.json');
+      return Buffer.from(JSON.stringify({
+        original: { width: 1400, height: 900, format: 'jpg' },
+        placeholder: '/uploads/_variants/hero/blur.webp',
+        variants: [
+          { width: 640, webp: '/uploads/_variants/hero/w640.webp', avif: '/uploads/_variants/hero/w640.avif' },
+        ],
+      }), 'utf8');
+    });
+    const warn = vi.fn();
+
+    const service = createImagePipelineService({
+      Article: { bulkWrite: articleBulkWrite },
+      Tip: { updateMany: vi.fn(async () => ({ modifiedCount: 0 })) },
+      allowedImageExtensions: new Set(['.jpg', '.png', '.webp']),
+      getManifestAbsolutePath: (fileName) => `C:/tmp/${fileName}/manifest.json`,
+      getManifestRelativePath: (fileName) => `variants/${fileName}/manifest.json`,
+      getOriginalUploadUrl: (fileName) => `/uploads/${fileName}`,
+      getStorageObjectBuffer,
+      getVariantsAbsoluteDir: (fileName) => `C:/tmp/${fileName}`,
+      getVariantsRelativeDir: (fileName) => `variants/${fileName}`,
+      imagePipelineWidths: [320, 640],
+      isOriginalUploadFileName: (value) => String(value).endsWith('.jpg'),
+      isRemoteStorage: true,
+      listRemoteObjectsByPrefix: async () => [],
+      loadSharp: async () => null,
+      logWarn: warn,
+      putStorageObject: vi.fn(async () => {}),
+      toUploadsStorageKey: (value) => `uploads/${value}`,
+      toUploadsUrlFromRelative: (value) => `/uploads/${value}`,
+      uploadsDir: 'C:/tmp/uploads',
+    });
+
+    const items = [
+      {
+        id: 101,
+        image: '/uploads/hero.jpg',
+        imageMeta: { objectPosition: '33% 66%' },
+      },
+      {
+        id: 102,
+        image: '/uploads/hero.jpg',
+        imageMeta: { objectScale: 1.2 },
+      },
+    ];
+
+    await service.selfHealArticleImageMeta(items);
+
+    expect(getStorageObjectBuffer).toHaveBeenCalledTimes(1);
+    expect(items[0].imageMeta).toEqual({
+      width: 1400,
+      height: 900,
+      placeholder: '/uploads/_variants/hero/blur.webp',
+      webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
+      avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
+      objectPosition: '33% 66%',
+    });
+    expect(items[1].imageMeta).toEqual({
+      width: 1400,
+      height: 900,
+      placeholder: '/uploads/_variants/hero/blur.webp',
+      webp: [{ width: 640, url: '/uploads/_variants/hero/w640.webp' }],
+      avif: [{ width: 640, url: '/uploads/_variants/hero/w640.avif' }],
+      objectScale: 1.2,
+    });
+    expect(articleBulkWrite).toHaveBeenCalledTimes(1);
+    expect(articleBulkWrite.mock.calls[0][0]).toEqual([
+      {
+        updateOne: {
+          filter: { id: 101 },
+          update: { $set: { imageMeta: items[0].imageMeta } },
+        },
+      },
+      {
+        updateOne: {
+          filter: { id: 102 },
+          update: { $set: { imageMeta: items[1].imageMeta } },
+        },
+      },
+    ]);
+    expect(articleBulkWrite.mock.calls[0][1]).toEqual({ ordered: false });
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('does not block public responses on slow image meta lookups', async () => {
+    const articleBulkWrite = vi.fn(async () => ({ modifiedCount: 1 }));
+    const releaseManifest = new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(Buffer.from(JSON.stringify({
+          original: { width: 1400, height: 900, format: 'jpg' },
+          variants: [],
+        }), 'utf8'));
+      }, 20);
+    });
+
+    const service = createImagePipelineService({
+      Article: { bulkWrite: articleBulkWrite },
+      Tip: { updateMany: vi.fn(async () => ({ modifiedCount: 0 })) },
+      allowedImageExtensions: new Set(['.jpg', '.png', '.webp']),
+      getManifestAbsolutePath: (fileName) => `C:/tmp/${fileName}/manifest.json`,
+      getManifestRelativePath: (fileName) => `variants/${fileName}/manifest.json`,
+      getOriginalUploadUrl: (fileName) => `/uploads/${fileName}`,
+      getStorageObjectBuffer: vi.fn(async () => releaseManifest),
+      getVariantsAbsoluteDir: (fileName) => `C:/tmp/${fileName}`,
+      getVariantsRelativeDir: (fileName) => `variants/${fileName}`,
+      imagePipelineWidths: [320, 640],
+      isOriginalUploadFileName: (value) => String(value).endsWith('.jpg'),
+      isRemoteStorage: true,
+      listRemoteObjectsByPrefix: async () => [],
+      loadSharp: async () => null,
+      logWarn: vi.fn(),
+      putStorageObject: vi.fn(async () => {}),
+      toUploadsStorageKey: (value) => `uploads/${value}`,
+      toUploadsUrlFromRelative: (value) => `/uploads/${value}`,
+      uploadsDir: 'C:/tmp/uploads',
+    });
+
+    const item = {
+      id: 103,
+      image: '/uploads/slow.jpg',
+      imageMeta: { objectPosition: '50% 50%' },
+    };
+
+    await service.selfHealArticleImageMeta(item, { resolveBudgetMs: 1 });
+
+    expect(item.imageMeta).toEqual({ objectPosition: '50% 50%' });
+    expect(articleBulkWrite).not.toHaveBeenCalled();
+  });
+
   it('does not cache stale media snapshots after invalidation during an in-flight build', async () => {
     let releaseListing;
     const firstListing = new Promise((resolve) => {
