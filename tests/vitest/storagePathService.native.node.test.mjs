@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createStoragePathService } from '../../server/services/storagePathService.js';
 
 describe('storagePathService', () => {
-  it('does not duplicate the uploads prefix when the public base URL already points at the container', () => {
+  it('keeps the blob-key uploads prefix when the public base URL points at the Azure container', () => {
     const service = createStoragePathService({
       isRemoteStorage: true,
       storagePublicBaseUrl: 'https://znewsmedia01.blob.core.windows.net/uploads/',
@@ -12,7 +12,7 @@ describe('storagePathService', () => {
     });
 
     expect(service.toUploadsUrlFromRelative('_variants/photo/w640.avif')).toBe(
-      'https://znewsmedia01.blob.core.windows.net/uploads/_variants/photo/w640.avif',
+      'https://znewsmedia01.blob.core.windows.net/uploads/uploads/_variants/photo/w640.avif',
     );
     expect(service.toUploadsStorageKey('uploads/uploads/photo.webp')).toBe('uploads/photo.webp');
   });

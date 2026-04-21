@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getIntrinsicImageDimensions, getOptimizedImageSources, normalizeMediaResourceUrl } from '../../src/utils/imageOptimization.js';
+import { getIntrinsicImageDimensions, getOptimizedImageSources } from '../../src/utils/imageOptimization.js';
 
 describe('image optimization helpers', () => {
   it('derives intrinsic dimensions safely from metadata', () => {
@@ -33,12 +33,5 @@ describe('image optimization helpers', () => {
       srcSet: '',
       webpSrcSet: '',
     });
-  });
-
-  it('collapses duplicated uploads path segments in media URLs', () => {
-    expect(
-      normalizeMediaResourceUrl('https://znewsmedia01.blob.core.windows.net/uploads/uploads/_variants/x/w640.avif'),
-    ).toBe('https://znewsmedia01.blob.core.windows.net/uploads/_variants/x/w640.avif');
-    expect(normalizeMediaResourceUrl('/uploads/uploads/uploads/photo.webp')).toBe('/uploads/photo.webp');
   });
 });

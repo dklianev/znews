@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { getIntrinsicImageDimensions, getOptimizedImageSources, normalizeMediaResourceUrl } from '../src/utils/imageOptimization.js';
+import { getIntrinsicImageDimensions, getOptimizedImageSources } from '../src/utils/imageOptimization.js';
 
 describe('imageOptimization', () => {
   it('keeps imageOptimization legacy coverage green', async () => {
@@ -29,11 +29,5 @@ describe('imageOptimization', () => {
     
       const untouched = getOptimizedImageSources('/uploads/local.jpg');
       assert.deepEqual(untouched, { src: '/uploads/local.jpg', srcSet: '', webpSrcSet: '' });
-
-      assert.equal(
-        normalizeMediaResourceUrl('https://znewsmedia01.blob.core.windows.net/uploads/uploads/_variants/x/w640.avif'),
-        'https://znewsmedia01.blob.core.windows.net/uploads/_variants/x/w640.avif'
-      );
-      assert.equal(normalizeMediaResourceUrl('/uploads/uploads/uploads/photo.webp'), '/uploads/photo.webp');
   });
 });

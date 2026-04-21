@@ -16,11 +16,6 @@ function isUnsplashUrl(src) {
   return UNSPLASH_HOSTS.has(parsed.hostname);
 }
 
-export function normalizeMediaResourceUrl(src) {
-  if (typeof src !== 'string' || !src.trim()) return src || '';
-  return src.trim().replace(/\/uploads(?:\/uploads)+(\/?)/gi, (_match, suffix) => `/uploads${suffix || ''}`);
-}
-
 function buildUnsplashVariant(src, width, { quality = 72, webp = false } = {}) {
   const parsed = parseUrl(src);
   if (!parsed) return src;
