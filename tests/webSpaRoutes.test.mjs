@@ -16,6 +16,9 @@ async function withTempSpaFixture(run) {
   await fs.mkdir(distDir, { recursive: true });
   await fs.writeFile(path.join(distDir, 'index.html'), '<!doctype html><html><body><div id="root">spa shell</div></body></html>');
   await fs.writeFile(path.join(distDir, 'app.js'), 'console.log("ok");');
+  await fs.writeFile(path.join(distDir, 'manifest.webmanifest'), '{"name":"Zemun News"}');
+  await fs.writeFile(path.join(distDir, 'sw.js'), 'self.__WB_MANIFEST = [];');
+  await fs.writeFile(path.join(distDir, 'workbox-1d305bb8.js'), 'console.log("workbox");');
 
   try {
     await run({ tempRoot, serverDir });
@@ -76,6 +79,34 @@ describe('webSpaRoutes', () => {
         const adminResponse = await fetch(`${baseUrl}/admin`);
         assert.equal(adminResponse.status, 200);
         assert.match(await adminResponse.text(), /spa shell/);
+      });
+    });
+  });
+
+  it('revalidates PWA control files in production while keeping asset caching', async () => {
+    await withTempSpaFixture(async ({ serverDir }) => {
+      const app = express();
+      registerWebSpaRoutes(app, {
+        __dirname: serverDir,
+        isProd: true,
+      });
+
+      await withServer(app, async (baseUrl) => {
+        const pwaControlFiles = [
+          '/manifest.webmanifest',
+          '/sw.js',
+          '/workbox-1d305bb8.js',
+        ];
+
+        for (const requestPath of pwaControlFiles) {
+          const response = await fetch(`${baseUrl}${requestPath}`);
+          assert.equal(response.status, 200);
+          assert.equal(response.headers.get('cache-control'), 'no-cache, max-age=0, must-revalidate');
+        }
+
+        const assetResponse = await fetch(`${baseUrl}/app.js`);
+        assert.equal(assetResponse.status, 200);
+        assert.equal(assetResponse.headers.get('cache-control'), 'public, max-age=31536000, immutable');
       });
     });
   });
