@@ -196,6 +196,9 @@ describe('PublicShell', () => {
     expect(container.textContent).toContain('Категория 10');
     expect(container.textContent).toContain('По-малко теми');
     expect(container.querySelector('[data-testid="home-sidebar-rail"]')).not.toBeNull();
+    const bottomAd = container.querySelector('[data-slot="home.bottom"]');
+    expect(bottomAd?.parentElement?.classList.contains('below-fold-section-compact')).toBe(false);
+    expect(bottomAd?.parentElement?.classList.contains('overflow-visible')).toBe(true);
   });
 
   it('records poll votes and persists them in local storage', async () => {

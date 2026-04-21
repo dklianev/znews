@@ -877,7 +877,7 @@ export default function HomePage() {
       </section>
 
       {/* ═══ Bottom Ad ═══ */}
-      <section className="below-fold-section-compact"><AdSlot ads={ads} slot="home.bottom" pageType="home" /></section>
+      <section className="overflow-visible"><AdSlot ads={ads} slot="home.bottom" pageType="home" /></section>
     </div>
   );
 }
