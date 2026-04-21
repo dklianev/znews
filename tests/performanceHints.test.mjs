@@ -2,6 +2,7 @@ import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { buildHomepagePayloadApiPath } from '../src/utils/homepagePayloadConfig.js';
 
 const rootDir = process.cwd();
 
@@ -30,10 +31,17 @@ describe('performance resource hints', () => {
         `${fontPath} should be preloaded with crossorigin so the CSS font fetch reuses it`
       );
     });
-    assert.match(
+    assert.doesNotMatch(
       html,
-      /<link\s+rel="preload"\s+href="\/api\/homepage\?[^"]*latestShowcaseLimit=5[^"]*latestWireLimit=16[^"]*compact=1"\s+as="fetch"\s+crossorigin="use-credentials"\s*\/>/,
-      'index.html should start the public homepage payload fetch before React bootstraps the shell'
+      /<link\s+rel="preload"\s+href="\/api\/homepage\?/,
+      'route-specific homepage API fetches should be warmed conditionally from JS, not preloaded for every SPA route'
+    );
+  });
+
+  it('keeps the homepage payload request contract centralized', () => {
+    assert.equal(
+      buildHomepagePayloadApiPath(),
+      '/homepage?fields=id%2Ctitle%2Cexcerpt%2Ccategory%2CauthorId%2Cdate%2CreadTime%2Cimage%2CimageMeta%2Cfeatured%2Cbreaking%2Csponsored%2Chero%2Cviews%2Cstatus%2CpublishAt%2CcardSticker&latestShowcaseLimit=5&latestWireLimit=16&compact=1'
     );
   });
 

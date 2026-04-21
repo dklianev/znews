@@ -4,6 +4,8 @@
  * - Refresh token lives in HttpOnly cookie and is rotated by /auth/refresh.
  */
 
+import { buildHomepagePayloadApiPath } from './homepagePayloadConfig';
+
 const BASE = '/api';
 const SESSION_KEY = 'zn_session';
 const CLIENT_ID_KEY = 'zn_client_id';
@@ -297,8 +299,9 @@ async function request(path, options = {}, internal = {}) {
   const method = String(options.method || 'GET').toUpperCase();
   const retryCount = Number(internal.retryCount || 0);
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const shouldSendJsonContentType = !isFormData && !isReadMethod(method);
   const headers = {
-    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(shouldSendJsonContentType ? { 'Content-Type': 'application/json' } : {}),
     ...(options.headers || {}),
   };
 
@@ -442,7 +445,7 @@ export const api = {
     get: (params) => request(`/bootstrap${toQuery(params)}`),
   },
   homepage: {
-    get: (params) => request(`/homepage${toQuery(params)}`),
+    get: (params) => request(buildHomepagePayloadApiPath(params)),
   },
   search: {
     query: (params) => request(`/search${toQuery(params)}`),

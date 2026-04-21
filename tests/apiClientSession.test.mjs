@@ -1,6 +1,6 @@
 import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
-import { clearSession, getSession, saveSession } from '../src/utils/api.js';
+import { api, clearSession, getSession, saveSession } from '../src/utils/api.js';
 
 function createStorage() {
   const data = new Map();
@@ -61,5 +61,34 @@ describe('apiClientSession', () => {
         if (typeof originalCustomEvent === 'undefined') delete globalThis.CustomEvent;
         else globalThis.CustomEvent = originalCustomEvent;
       }
+  });
+
+  it('does not send JSON content-type on bodyless GET requests', async () => {
+    const originalFetch = globalThis.fetch;
+    let capturedRequest = null;
+
+    globalThis.fetch = async (url, options = {}) => {
+      capturedRequest = { url, options };
+      return {
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        text: async () => '{}',
+      };
+    };
+
+    try {
+      await api.homepage.get({ compact: 1 });
+      assert.equal(capturedRequest.url, '/api/homepage?compact=1');
+      assert.equal(capturedRequest.options.credentials, 'include');
+      assert.equal(
+        Object.prototype.hasOwnProperty.call(capturedRequest.options.headers || {}, 'Content-Type'),
+        false,
+        'GET requests without a body should not send Content-Type'
+      );
+    } finally {
+      if (typeof originalFetch === 'undefined') delete globalThis.fetch;
+      else globalThis.fetch = originalFetch;
+    }
   });
 });

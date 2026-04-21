@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { api, getSession, saveSession, clearSession } from '../utils/api';
+import { HOMEPAGE_PAYLOAD_PARAMS } from '../utils/homepagePayloadConfig';
+import { getWarmedHomepagePayload } from '../utils/homepagePayloadWarmup';
 import {
   AdminDataContext,
   ArticlesDataContext,
@@ -12,7 +14,6 @@ import {
   TaxonomyDataContext,
 } from './dataContexts.js';
 const ARTICLE_LIST_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,tags,status,publishAt,shareTitle,shareSubtitle,shareBadge,shareAccent,shareImage,cardSticker';
-const HOMEPAGE_ARTICLE_FIELDS = 'id,title,excerpt,category,authorId,date,readTime,image,imageMeta,featured,breaking,sponsored,hero,views,status,publishAt,cardSticker';
 const EMPTY_PUBLIC_SECTION_STATUS = Object.freeze({ jobs: 'idle', court: 'idle', events: 'idle', gallery: 'idle', games: 'idle', classifieds: 'idle' });
 const MEDIA_PERMISSION_KEYS = Object.freeze(['articles', 'ads', 'gallery', 'events']);
 const EMPTY_CLASSIFIEDS_META = Object.freeze({
@@ -399,12 +400,7 @@ export function DataProvider({ children }) {
     let hitRateLimit = false;
     if (shouldUseHomepagePayload) {
       try {
-        const homepagePayload = await api.homepage.get({
-          fields: HOMEPAGE_ARTICLE_FIELDS,
-          latestShowcaseLimit: 5,
-          latestWireLimit: 16,
-          compact: 1,
-        });
+        const homepagePayload = await (getWarmedHomepagePayload() || api.homepage.get(HOMEPAGE_PAYLOAD_PARAMS));
         applyHomepagePayload(homepagePayload);
         loadedFromHomepagePayload = true;
       } catch (error) {
