@@ -55,6 +55,21 @@ describe('performance resource hints', () => {
     );
   });
 
+  it('uses React-compatible image fetch priority casing', async () => {
+    const component = await readProjectFile('src/components/ResponsiveImage.jsx');
+
+    assert.match(
+      component,
+      /fetchPriority=\{effectiveFetchPriority\}/,
+      'ResponsiveImage should use React DOM fetchPriority casing'
+    );
+    assert.doesNotMatch(
+      component,
+      /fetchpriority=\{/,
+      'lowercase fetchpriority triggers a React invalid DOM property warning'
+    );
+  });
+
   it('runtime-caches Azure blob images through Workbox', async () => {
     const config = await readProjectFile('vite.config.js');
 

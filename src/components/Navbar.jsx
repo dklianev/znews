@@ -30,6 +30,7 @@ export default memo(function Navbar() {
   const searchInputRef = useRef(null);
   const navRef = useRef(null);
   const navRowRef = useRef(null);
+  const desktopNavIndicatorFrameRef = useRef(0);
   const [mobileMenuViewport, setMobileMenuViewport] = useState({ top: 0, maxHeight: 320 });
   const [desktopNavIndicator, setDesktopNavIndicator] = useState({ x: 0, width: 0, visible: false });
   const location = useLocation();
@@ -274,32 +275,40 @@ export default memo(function Navbar() {
     };
   }, [isOpen]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-
-    let frameId = 0;
-    const row = navRowRef.current;
+  const scheduleDesktopNavIndicatorSync = useEffectEvent(() => {
     const desktopQuery = typeof window.matchMedia === 'function'
       ? window.matchMedia('(min-width: 768px)')
       : null;
     const hideIndicator = () => {
-      window.cancelAnimationFrame(frameId);
-      frameId = 0;
+      window.cancelAnimationFrame(desktopNavIndicatorFrameRef.current);
+      desktopNavIndicatorFrameRef.current = 0;
       setDesktopNavIndicator((current) => (
         current.visible ? { x: 0, width: 0, visible: false } : current
       ));
     };
-    const scheduleSync = () => {
-      window.cancelAnimationFrame(frameId);
-      if (desktopQuery && !desktopQuery.matches) {
-        hideIndicator();
-        return;
-      }
-      frameId = window.requestAnimationFrame(() => {
-        syncDesktopNavIndicator();
-      });
-    };
 
+    window.cancelAnimationFrame(desktopNavIndicatorFrameRef.current);
+    if (desktopQuery && !desktopQuery.matches) {
+      hideIndicator();
+      return () => {};
+    }
+    desktopNavIndicatorFrameRef.current = window.requestAnimationFrame(() => {
+      desktopNavIndicatorFrameRef.current = 0;
+      syncDesktopNavIndicator();
+    });
+    return () => window.cancelAnimationFrame(desktopNavIndicatorFrameRef.current);
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const row = navRowRef.current;
+    const desktopQuery = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(min-width: 768px)')
+      : null;
+    const scheduleSync = () => {
+      scheduleDesktopNavIndicatorSync();
+    };
     scheduleSync();
     window.addEventListener('resize', scheduleSync, { passive: true });
     row?.addEventListener('scroll', scheduleSync, { passive: true });
@@ -320,7 +329,8 @@ export default memo(function Navbar() {
 
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(frameId);
+      window.cancelAnimationFrame(desktopNavIndicatorFrameRef.current);
+      desktopNavIndicatorFrameRef.current = 0;
       window.removeEventListener('resize', scheduleSync);
       row?.removeEventListener('scroll', scheduleSync);
       window.visualViewport?.removeEventListener('resize', scheduleSync);
@@ -330,7 +340,12 @@ export default memo(function Navbar() {
         desktopQuery?.removeListener?.(scheduleSync);
       }
     };
-  }, [location.pathname, navLinks, syncDesktopNavIndicator]);
+  }, [navLinks]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    return scheduleDesktopNavIndicatorSync();
+  }, [location.pathname]);
 
   const today = new Date().toLocaleDateString('bg-BG', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'

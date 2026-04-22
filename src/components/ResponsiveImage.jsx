@@ -117,7 +117,7 @@ export default memo(function ResponsiveImage({
         className={normalizedImgClassName}
         loading={loading}
         decoding={decoding}
-        fetchpriority={effectiveFetchPriority}
+        fetchPriority={effectiveFetchPriority}
         style={computedStyle}
         onLoad={() => setLoaded(true)}
         onError={(event) => {
