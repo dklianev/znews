@@ -63,6 +63,15 @@ describe('Lighthouse hardening guardrails', () => {
     assert.doesNotMatch(source, /<motion\.div/);
   });
 
+  it('keeps mobile below-fold sections fully laid out for touch target audits', async () => {
+    const css = await readProjectFile('src/index.css');
+    const mobileBelowFoldBlock = extractCssBlock(css, '@media (max-width: 767px)');
+
+    assert.match(mobileBelowFoldBlock, /\.below-fold-section,\s*\.below-fold-section-compact/);
+    assert.match(mobileBelowFoldBlock, /content-visibility:\s*visible;/);
+    assert.match(mobileBelowFoldBlock, /contain-intrinsic-size:\s*none;/);
+  });
+
   it('keeps decorative ad titles out of the document heading outline', async () => {
     const source = await readProjectFile('src/components/AdBanner.jsx');
 

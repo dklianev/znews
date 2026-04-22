@@ -473,6 +473,14 @@
   contain-intrinsic-size: 780px;
 }
 
+@media (max-width: 767px) {
+  .below-fold-section,
+  .below-fold-section-compact {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
+}
+
 @utility comic-stage {
   position: relative;
 
