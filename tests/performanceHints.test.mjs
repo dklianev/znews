@@ -55,6 +55,21 @@ describe('performance resource hints', () => {
     );
   });
 
+  it('lets Nunito italic synthesize from the normal face to avoid critical font fetches', async () => {
+    const css = await readProjectFile('src/index.css');
+
+    assert.doesNotMatch(
+      css,
+      /nunito-sans-italic-/,
+      'homepage should not request dedicated Nunito italic files during first paint'
+    );
+    assert.doesNotMatch(
+      css,
+      /font-family:\s*'Nunito Sans';[\s\S]*?font-style:\s*italic;[\s\S]*?src:\s*url\('\/fonts\/nunito-sans-italic-/,
+      'italic text can use synthesized slant from the already loaded normal Nunito face'
+    );
+  });
+
   it('uses React-compatible image fetch priority casing', async () => {
     const component = await readProjectFile('src/components/ResponsiveImage.jsx');
 

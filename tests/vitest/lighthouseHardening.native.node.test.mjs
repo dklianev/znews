@@ -47,9 +47,20 @@ describe('Lighthouse hardening guardrails', () => {
   it('keeps poll option accessible names aligned with visible percentages', async () => {
     const source = await readProjectFile('src/components/PollWidget.jsx');
 
-    assert.match(source, /const\s+accessibleLabel\s*=/);
-    assert.match(source, /aria-label=\{accessibleLabel\}/);
-    assert.match(source, /\$\{option\.text\},\s*\$\{pct\}%/);
+    assert.doesNotMatch(source, /aria-label=\{accessibleLabel\}/);
+    assert.doesNotMatch(source, /const\s+accessibleLabel\s*=/);
+    assert.match(source, /<span[^>]*>\{pct\}%<\/span>/);
+    assert.match(source, /sr-only">\s*Вашият избор<\/span>/);
+    assert.doesNotMatch(source, /from ['"]motion\/react['"]/);
+    assert.doesNotMatch(source, /<motion\./);
+  });
+
+  it('keeps mobile section CTAs isolated from neighboring card links', async () => {
+    const source = await readProjectFile('src/pages/HomePage.jsx');
+
+    assert.match(source, /md:hidden clear-both relative z-30 isolate mt-8 mb-4 px-1/);
+    assert.doesNotMatch(source, /import\s+\{\s*motion\s*\}\s+from ['"]motion\/react['"]/);
+    assert.doesNotMatch(source, /<motion\.div/);
   });
 
   it('keeps decorative ad titles out of the document heading outline', async () => {

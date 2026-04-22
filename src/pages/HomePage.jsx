@@ -1,5 +1,4 @@
 import { Suspense, lazy, useMemo, useState } from 'react';
-import { motion } from 'motion/react';
 import ArticleCard from '../components/ArticleCard';
 import AdSlot from '../components/ads/AdSlot';
 import { useArticlesData, useSettingsData, useTaxonomyData } from '../context/DataContext';
@@ -197,7 +196,7 @@ function SidebarPlaceholder() {
 function SectionActionLink({ to, label, mobile = false }) {
   if (mobile) {
     return (
-      <div className="md:hidden clear-both pt-5 pb-1">
+      <div className="md:hidden clear-both relative z-30 isolate mt-8 mb-4 px-1">
         <Link
           to={to}
           prefetch="intent"
@@ -477,12 +476,7 @@ export default function HomePage() {
 
       {/* ═══ STARBURST CALLOUT ═══ */}
       <section className="text-center">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.34, ease: 'easeOut' }}
-          className="inline-block relative z-[2]"
-        >
+        <div className="inline-block relative z-[2] animate-pop-in">
           <div className="comic-headline-board inline-flex">
             {(headlineBoardWords.length > 0 ? headlineBoardWords : homeCopy.defaultHeadlineWords).map((word, index, words) => {
               const edgeWord = index === 0 || index === words.length - 1;
@@ -496,7 +490,7 @@ export default function HomePage() {
               );
             })}
           </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* ═══ HERO — Newspaper front page ═══ */}

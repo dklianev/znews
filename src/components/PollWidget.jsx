@@ -1,7 +1,6 @@
 import { useEngagementData } from '../context/DataContext';
 import { BarChart3, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
-import { motion } from 'motion/react';
 
 function getVotedPolls() {
   try { return JSON.parse(localStorage.getItem('zn_voted_polls') || '{}'); } catch { return {}; }
@@ -57,29 +56,22 @@ export default function PollWidget() {
         {activePoll.options.map((option, index) => {
           const pct = totalVotes > 0 ? Math.round((option.votes / totalVotes) * 100) : 0;
           const isMyVote = votedOption === index;
-          const accessibleLabel = isMyVote
-            ? `Вашият избор: ${option.text}, ${pct}%`
-            : `${option.text}, ${pct}%`;
           return (
-            <motion.button
+            <button
               key={`${activePoll.id}:${option.text}`}
               onClick={() => handleVote(index)}
               disabled={hasVoted}
-              aria-label={accessibleLabel}
-              className={`w-full text-left group ${hasVoted ? 'cursor-default' : 'cursor-pointer'}`}
-              whileHover={!hasVoted ? { scale: 1.02 } : {}}
-              whileTap={!hasVoted ? { scale: 0.98 } : {}}
-              transition={{ type: 'tween', duration: 0.1 }}
+              className={`w-full text-left group transition-transform duration-100 ${hasVoted ? 'cursor-default' : 'cursor-pointer hover:scale-[1.02] active:scale-[0.98]'}`}
             >
               <div className={`comic-poll-option relative transition-all duration-200 ${
                 isMyVote ? 'border-zn-hot bg-zn-hot/5' : hasVoted ? 'border-zn-border' : 'border-zn-border hover:border-zn-purple hover:shadow-comic'
               }`}>
-                <motion.div
+                <div
                   className={`comic-poll-fill absolute inset-0 ${isMyVote ? 'bg-zn-hot/15' : 'bg-zn-hot/5'}`}
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: pct / 100 }}
-                  style={{ transformOrigin: 'left center' }}
-                  transition={{ duration: 0.6, delay: hasVoted ? 0.1 * index : 0 }}
+                  style={{
+                    '--poll-fill-scale': pct / 100,
+                    '--poll-fill-delay': hasVoted ? `${0.1 * index}s` : '0s',
+                  }}
                 />
                 <div className="relative flex items-center justify-between px-3 py-2.5">
                   <span className={`text-sm font-display font-bold uppercase transition-colors ${
@@ -87,11 +79,12 @@ export default function PollWidget() {
                   } ${!hasVoted ? 'group-hover:text-zn-purple' : ''}`}>
                     {isMyVote && <CheckCircle className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />}
                     {option.text}
+                    {isMyVote && <span className="sr-only"> Вашият избор</span>}
                   </span>
                   <span className="text-xs font-display font-black text-zn-text-muted">{pct}%</span>
                 </div>
               </div>
-            </motion.button>
+            </button>
           );
         })}
       </div>
