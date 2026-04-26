@@ -72,7 +72,32 @@ function getAssetDetails(target) {
     tagName,
     assetUrl: stripQueryHash(assetUrl),
     rel: String(target.rel || ''),
+    as: String(target.as || ''),
   };
+}
+
+function getAssetTypeLabel(details) {
+  if (details.tagName === 'SCRIPT') return 'JS';
+
+  const rel = details.rel.toLowerCase();
+  const as = details.as.toLowerCase();
+
+  if (rel === 'stylesheet') return 'CSS';
+  if (rel === 'modulepreload') return 'JS';
+  if (rel === 'preload' || rel === 'prefetch') {
+    if (as === 'script') return 'JS';
+    if (as === 'style') return 'CSS';
+    if (as === 'font') return 'шрифт';
+    if (as === 'image') return 'изображение';
+  }
+
+  // Fall back to URL extension when rel/as don't disambiguate
+  if (/\.css(?:[?#]|$)/i.test(details.assetUrl)) return 'CSS';
+  if (/\.(?:js|mjs)(?:[?#]|$)/i.test(details.assetUrl)) return 'JS';
+  if (/\.(?:woff2?|ttf|otf)(?:[?#]|$)/i.test(details.assetUrl)) return 'шрифт';
+  if (/\.(?:png|jpe?g|svg|webp|avif|gif|ico)(?:[?#]|$)/i.test(details.assetUrl)) return 'изображение';
+
+  return '';
 }
 
 export function reportClientIssue({
@@ -128,9 +153,10 @@ export function installClientAssetMonitoring() {
     const details = getAssetDetails(event?.target);
     if (!details) return;
 
-    const message = details.tagName === 'LINK'
-      ? 'Неуспешно зареждане на CSS ресурс.'
-      : 'Неуспешно зареждане на JS ресурс.';
+    const typeLabel = getAssetTypeLabel(details);
+    const message = typeLabel
+      ? `Неуспешно зареждане на ${typeLabel} ресурс.`
+      : 'Неуспешно зареждане на ресурс.';
 
     reportClientIssue({
       component: 'asset-loader',
@@ -140,6 +166,7 @@ export function installClientAssetMonitoring() {
         tagName: details.tagName,
         assetUrl: details.assetUrl,
         rel: details.rel,
+        as: details.as,
       },
       dedupeKey: `asset-loader|${details.tagName}|${details.assetUrl}`,
     }).catch(() => {});

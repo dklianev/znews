@@ -67,6 +67,77 @@ describe('clientMonitoring', () => {
     cleanup();
   });
 
+  it('labels modulepreload link failures as JS, not CSS', async () => {
+    const cleanup = installClientAssetMonitoring();
+    const link = document.createElement('link');
+    link.rel = 'modulepreload';
+    link.href = `${window.location.origin}/assets/index-XuQ-fzYc.js`;
+    document.body.appendChild(link);
+
+    link.dispatchEvent(new Event('error'));
+    await Promise.resolve();
+
+    expect(reportClientError).toHaveBeenCalledTimes(1);
+    expect(reportClientError).toHaveBeenCalledWith(expect.objectContaining({
+      component: 'asset-loader',
+      message: 'Неуспешно зареждане на JS ресурс.',
+      extra: expect.objectContaining({
+        kind: 'asset-load',
+        tagName: 'LINK',
+        rel: 'modulepreload',
+        assetUrl: `${window.location.origin}/assets/index-XuQ-fzYc.js`,
+      }),
+    }));
+
+    cleanup();
+  });
+
+  it('labels stylesheet link failures as CSS', async () => {
+    const cleanup = installClientAssetMonitoring();
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `${window.location.origin}/assets/index-abc.css`;
+    document.body.appendChild(link);
+
+    link.dispatchEvent(new Event('error'));
+    await Promise.resolve();
+
+    expect(reportClientError).toHaveBeenCalledWith(expect.objectContaining({
+      component: 'asset-loader',
+      message: 'Неуспешно зареждане на CSS ресурс.',
+      extra: expect.objectContaining({
+        tagName: 'LINK',
+        rel: 'stylesheet',
+      }),
+    }));
+
+    cleanup();
+  });
+
+  it('labels font preload link failures as font using the as attribute', async () => {
+    const cleanup = installClientAssetMonitoring();
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.as = 'font';
+    link.href = `${window.location.origin}/assets/oswald.woff2`;
+    document.body.appendChild(link);
+
+    link.dispatchEvent(new Event('error'));
+    await Promise.resolve();
+
+    expect(reportClientError).toHaveBeenCalledWith(expect.objectContaining({
+      component: 'asset-loader',
+      message: 'Неуспешно зареждане на шрифт ресурс.',
+      extra: expect.objectContaining({
+        tagName: 'LINK',
+        rel: 'preload',
+        as: 'font',
+      }),
+    }));
+
+    cleanup();
+  });
+
   it('ignores cross-origin asset errors to prevent leaking third-party URLs', async () => {
     const cleanup = installClientAssetMonitoring();
     const script = document.createElement('script');
